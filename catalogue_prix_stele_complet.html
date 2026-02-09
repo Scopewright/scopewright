@@ -21,22 +21,20 @@
     ║                                                                              ║
     ║   CATALOGUE DE PRIX STELE — DONNÉES                                          ║
     ║                                                                              ║
-    ║   Les données sont chargées automatiquement depuis Google Sheets.            ║
+    ║   Les données sont chargées automatiquement depuis Supabase.                ║
     ║   En cas de perte de connexion, les dernières données connues sont utilisées.║
-    ║                                                                              ║
-    ║   Google Sheets ID: 19V5AzRhIIlDMn6RzTyyKQ-kwy_QFUe4_a5C65JSoZ9o             ║
     ║                                                                              ║
     ╚══════════════════════════════════════════════════════════════════════════════╝
     */
 
-    // ID du Google Sheet (extraire de l'URL: /spreadsheets/d/ID_ICI/edit)
-    const GOOGLE_SHEET_ID = '19V5AzRhIIlDMn6RzTyyKQ-kwy_QFUe4_a5C65JSoZ9o';
+    const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
     // Clé pour le localStorage
     const STORAGE_KEY = 'stele_catalogue_data';
     const STORAGE_DATE_KEY = 'stele_catalogue_date';
 
-    // Liste des employés (chargée depuis la feuille 2 du Google Sheet)
+    // Liste des employés (chargée depuis Supabase)
     let EMPLOYEES_DATA = []; // Tableau de { name, email }
 
     // Données par défaut (utilisées uniquement si jamais connecté et pas de cache)
@@ -1775,112 +1773,37 @@
             return date.toLocaleDateString('fr-CA', options);
         }
 
-        // Convertir la réponse Google Visualization en tableau d'objets
-        function parseGoogleVisualizationResponse(response) {
-            const data = [];
-            const table = response.table;
-            const cols = table.cols;
-            const rows = table.rows;
-
-            // Extraire les noms de colonnes
-            const headers = cols.map(col => col.label || col.id);
-
-            // Convertir chaque ligne
-            rows.forEach(row => {
-                const item = {};
-                row.c.forEach((cell, index) => {
-                    const header = headers[index];
-                    let value = cell ? (cell.v !== null ? cell.v : '') : '';
-
-                    // Convertir le prix
-                    if (header === 'price') {
-                        if (value === '' || value === null) {
-                            value = null;
-                        } else {
-                            value = parseFloat(String(value).replace(',', '.')) || null;
-                        }
-                    }
-
-                    item[header] = value;
-                });
-
-                // Vérifier que l'item a un id valide
-                if (item.id && String(item.id).trim() !== '') {
-                    data.push(item);
-                }
-            });
-
-            return data;
-        }
-
-        // Callback global pour Google Visualization API
-        let googleDataCallback = null;
-
-        // Charger les données depuis Google Sheets via JSONP
-        function loadFromGoogleSheets() {
+        // Charger les données du catalogue depuis Supabase
+        function loadCatalogueData() {
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
+                const token = localStorage.getItem('sb_access_token');
 
-                // Créer un nom de callback unique
-                const callbackName = 'googleSheetCallback_' + Date.now();
-
-                // Définir le callback global
-                window[callbackName] = function(response) {
-                    // Nettoyer
-                    delete window[callbackName];
-                    const script = document.getElementById('gsheet-loader');
-                    if (script) script.remove();
-
-                    try {
-                        if (response.status === 'error') {
-                            throw new Error(response.errors[0].message);
-                        }
-
-                        const data = parseGoogleVisualizationResponse(response);
-
-                        if (data.length > 0) {
-                            CATALOGUE_DATA = data;
-                            saveToLocalStorage(data);
-                            updateStatus('online', 'Données à jour');
-                            resolve(true);
-                        } else {
-                            throw new Error('Données vides');
-                        }
-                    } catch (error) {
-                        console.warn('Erreur parsing Google Sheets:', error);
-                        loadFallbackData();
-                        resolve(false);
+                fetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction&order=sort_order', {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token
                     }
-                };
-
-                // Créer le script pour charger les données (JSONP)
-                const script = document.createElement('script');
-                script.id = 'gsheet-loader';
-                script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}`;
-
-                // Timeout de 10 secondes
-                const timeout = setTimeout(() => {
-                    delete window[callbackName];
-                    const script = document.getElementById('gsheet-loader');
-                    if (script) script.remove();
-                    console.warn('Timeout chargement Google Sheets');
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    if (data.length > 0) {
+                        CATALOGUE_DATA = data;
+                        saveToLocalStorage(data);
+                        updateStatus('online', 'Données à jour');
+                        resolve(true);
+                    } else {
+                        throw new Error('Données vides');
+                    }
+                })
+                .catch(error => {
+                    console.warn('Erreur chargement catalogue:', error);
                     loadFallbackData();
                     resolve(false);
-                }, 10000);
-
-                script.onload = function() {
-                    clearTimeout(timeout);
-                };
-
-                script.onerror = function() {
-                    clearTimeout(timeout);
-                    delete window[callbackName];
-                    console.warn('Erreur chargement script Google Sheets');
-                    loadFallbackData();
-                    resolve(false);
-                };
-
-                document.head.appendChild(script);
+                });
             });
         }
 
@@ -1899,61 +1822,32 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // CHARGEMENT DES EMPLOYÉS DEPUIS LA FEUILLE 2
+        // CHARGEMENT DES EMPLOYÉS DEPUIS SUPABASE
         // ═══════════════════════════════════════════════════════════════════════
 
-        function loadEmployeesFromSheet() {
+        function loadEmployeesData() {
             return new Promise((resolve) => {
-                const callbackName = 'employeesCallback_' + Date.now();
+                const token = localStorage.getItem('sb_access_token');
 
-                window[callbackName] = function(response) {
-                    delete window[callbackName];
-                    const script = document.getElementById('employees-loader');
-                    if (script) script.remove();
-
-                    try {
-                        if (response.status === 'error') throw new Error(response.errors[0].message);
-
-                        const table = response.table;
-                        const rows = table.rows;
-                        EMPLOYEES_DATA = [];
-
-                        rows.forEach(row => {
-                            const name = row.c[0] ? (row.c[0].v || '') : '';
-                            const email = row.c[1] ? (row.c[1].v || '') : '';
-                            if (name.trim()) {
-                                EMPLOYEES_DATA.push({ name: name.trim(), email: email.trim() });
-                            }
-                        });
-
-                        populateEmployeeSelect();
-                        resolve(true);
-                    } catch (error) {
-                        console.warn('Erreur chargement employés:', error);
-                        resolve(false);
+                fetch(SUPABASE_URL + '/rest/v1/employees?select=name,email&order=sort_order', {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token
                     }
-                };
-
-                const script = document.createElement('script');
-                script.id = 'employees-loader';
-                script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?sheet=Employ%C3%A9s&tqx=responseHandler:${callbackName}`;
-
-                const timeout = setTimeout(() => {
-                    delete window[callbackName];
-                    const s = document.getElementById('employees-loader');
-                    if (s) s.remove();
-                    console.warn('Timeout chargement employés');
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    EMPLOYEES_DATA = data;
+                    populateEmployeeSelect();
+                    resolve(true);
+                })
+                .catch(error => {
+                    console.warn('Erreur chargement employés:', error);
                     resolve(false);
-                }, 10000);
-
-                script.onload = function() { clearTimeout(timeout); };
-                script.onerror = function() {
-                    clearTimeout(timeout);
-                    delete window[callbackName];
-                    resolve(false);
-                };
-
-                document.head.appendChild(script);
+                });
             });
         }
 
@@ -2316,11 +2210,11 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         document.addEventListener('DOMContentLoaded', async function() {
-            // Charger les données depuis Google Sheets (ou cache/défaut)
-            await loadFromGoogleSheets();
+            // Charger les données du catalogue depuis Supabase (ou cache/défaut)
+            await loadCatalogueData();
 
-            // Charger la liste des employés depuis la feuille 2
-            await loadEmployeesFromSheet();
+            // Charger la liste des employés depuis Supabase
+            await loadEmployeesData();
 
             // Générer les tableaux avec les données chargées
             generatePriceTables();

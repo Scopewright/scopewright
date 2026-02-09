@@ -128,8 +128,6 @@
             max-width: 360px;
         }
 
-        .error-msg.visible { display: block; }
-
         /* Colonne droite — Logo */
         .right {
             flex: 1;
@@ -163,7 +161,7 @@
             <div class="logo-text">Scopewright</div>
             <div class="subtitle">Connectez-vous pour accéder aux outils.</div>
 
-            <form id="loginForm" onsubmit="handleLogin(event)">
+            <form id="loginForm">
                 <div class="form-group">
                     <label class="form-label" for="email">Courriel</label>
                     <input type="email" class="form-input" id="email" required autocomplete="email" placeholder="nom@entreprise.ca">
@@ -190,62 +188,77 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
-        const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+        var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+        var sb = null;
 
         function showError(msg) {
-            const el = document.getElementById('errorMsg');
+            var el = document.getElementById('errorMsg');
             el.textContent = msg;
-            el.classList.add('visible');
+            el.style.display = 'block';
         }
 
-        // Vérifier que la librairie est chargée
-        if (!window.supabase || !window.supabase.createClient) {
-            showError('Erreur de chargement. Rechargez la page.');
+        function hideError() {
+            document.getElementById('errorMsg').style.display = 'none';
         }
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Initialiser Supabase
+        try {
+            if (window.supabase && window.supabase.createClient) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } else {
+                showError('Librairie non chargée. Essayez de rafraîchir la page (Ctrl+Shift+R).');
+            }
+        } catch(e) {
+            showError('Erreur init: ' + e.message);
+        }
 
-        // Si déjà connecté → rediriger vers app.html
-        (async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) window.location.href = 'app.html';
-            } catch (e) { /* pas connecté, on reste sur login */ }
-        })();
+        // Si déjà connecté → rediriger
+        if (sb) {
+            sb.auth.getSession().then(function(result) {
+                if (result.data && result.data.session) {
+                    window.location.href = 'app.html';
+                }
+            });
+        }
 
-        async function handleLogin(e) {
-            e.preventDefault();
+        // Attacher le formulaire après le chargement du DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleLogin();
+            });
+        });
 
-            const btn = document.getElementById('btnLogin');
-            const errorEl = document.getElementById('errorMsg');
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
+        function handleLogin() {
+            var btn = document.getElementById('btnLogin');
+            var email = document.getElementById('email').value.trim();
+            var password = document.getElementById('password').value;
+
+            if (!sb) {
+                showError('Supabase non initialisé. Rafraîchissez la page.');
+                return;
+            }
 
             btn.disabled = true;
-            btn.innerHTML = 'Connexion... <span class="arrow">→</span>';
-            errorEl.classList.remove('visible');
+            btn.textContent = 'Connexion...';
+            hideError();
 
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
-                if (error) {
-                    showError(error.message || 'Courriel ou mot de passe invalide.');
+            sb.auth.signInWithPassword({ email: email, password: password })
+                .then(function(result) {
+                    if (result.error) {
+                        showError(result.error.message);
+                        btn.disabled = false;
+                        btn.textContent = 'Connexion →';
+                    } else {
+                        window.location.href = 'app.html';
+                    }
+                })
+                .catch(function(err) {
+                    showError('Erreur: ' + err.message);
                     btn.disabled = false;
-                    btn.innerHTML = 'Connexion <span class="arrow">→</span>';
-                    return;
-                }
-
-                // Succès → rediriger vers le menu
-                window.location.href = 'app.html';
-            } catch (err) {
-                showError('Erreur de connexion: ' + err.message);
-                btn.disabled = false;
-                btn.innerHTML = 'Connexion <span class="arrow">→</span>';
-            }
+                    btn.textContent = 'Connexion →';
+                });
         }
     </script>
 

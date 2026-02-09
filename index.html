@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scopewright</title>
+    <style>
+        /* ========== RESET ========== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ========== BASE ========== */
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #F5F0E8;
+            color: #3D3231;
+        }
+
+        /* ========== LAYOUT PRINCIPAL 50/50 ========== */
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ========== COLONNE GAUCHE — Contenu ========== */
+        .left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 48px 56px;
+            gap: 12px;
+            position: relative;
+        }
+
+        /* Logo texte — juste au-dessus de la tagline */
+        .logo-text {
+            font-size: 32px;
+            font-weight: 400;
+            color: #3D3231;
+            letter-spacing: 0.5px;
+        }
+
+        /* Tagline — juste sous le nom */
+        .tagline {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3D3231;
+            line-height: 1.4;
+            margin-bottom: 28px;
+        }
+
+        /* Bouton Login — petit, ancré en bas à gauche */
+        .login-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #3D3231;
+            color: #F5F0E8;
+            border: none;
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            letter-spacing: 0.3px;
+            transition: opacity 0.2s ease;
+            width: fit-content;
+            position: absolute;
+            bottom: 32px;
+            left: 56px;
+        }
+
+        .login-btn:hover {
+            opacity: 0.85;
+        }
+
+        .login-btn .arrow {
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+
+        .login-btn:hover .arrow {
+            transform: translateX(3px);
+        }
+
+        /* ========== COLONNE DROITE — Logo image ========== */
+        .right {
+            flex: 1;
+            background: #F5F0E8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .right img {
+            width: 380px;
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* ========== RESPONSIVE — Mobile ========== */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column-reverse;
+            }
+
+            /* Logo passe en haut, hauteur réduite */
+            .right {
+                min-height: 200px;
+                flex: none;
+            }
+
+            .right img {
+                width: 140px;
+            }
+
+            /* Contenu texte en dessous */
+            .left {
+                flex: 1;
+                padding: 36px 28px;
+                min-height: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- Colonne gauche : logo texte, tagline, bouton -->
+        <div class="left">
+            <div class="logo-text">Scopewright</div>
+            <div class="tagline">Built for those who build.</div>
+            <a href="app.html" class="login-btn">
+                Login <span class="arrow">→</span>
+            </a>
+        </div>
+
+        <!-- Colonne droite : logo image -->
+        <div class="right">
+            <img
+                src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png"
+                alt="Scopewright logo"
+            >
+        </div>
+
+    </div>
+
+</body>
+</html>

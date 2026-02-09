@@ -1,0 +1,9 @@
+# Ignorer tout par défaut
+*
+
+# Inclure seulement les fichiers du site ScopeWright
+!.gitignore
+!index.html
+!app.html
+!catalogue_prix_stele_complet.html
+!google_apps_script.gs

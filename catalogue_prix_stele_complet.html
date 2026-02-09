@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalogue de prix — Stele</title>
+    
+    <script>
+    /*
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║                                                                              ║
+    ║   CATALOGUE DE PRIX STELE — DONNÉES                                          ║
+    ║                                                                              ║
+    ║   Les données sont chargées automatiquement depuis Google Sheets.            ║
+    ║   En cas de perte de connexion, les dernières données connues sont utilisées.║
+    ║                                                                              ║
+    ║   Google Sheets ID: 19V5AzRhIIlDMn6RzTyyKQ-kwy_QFUe4_a5C65JSoZ9o             ║
+    ║                                                                              ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+    */
+
+    // ID du Google Sheet (extraire de l'URL: /spreadsheets/d/ID_ICI/edit)
+    const GOOGLE_SHEET_ID = '19V5AzRhIIlDMn6RzTyyKQ-kwy_QFUe4_a5C65JSoZ9o';
+
+    // Clé pour le localStorage
+    const STORAGE_KEY = 'stele_catalogue_data';
+    const STORAGE_DATE_KEY = 'stele_catalogue_date';
+
+    // Liste des employés (chargée depuis la feuille 2 du Google Sheet)
+    let EMPLOYEES_DATA = []; // Tableau de { name, email }
+
+    // Données par défaut (utilisées uniquement si jamais connecté et pas de cache)
+    let CATALOGUE_DATA = [
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // BUDGÉTAIRE — Façades et caissons
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'BUD-001', category: 'Budgétaire', description: 'Façade (placage de bois) et caisson (mélamine)', type: 'pi²', price: 165.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Inclut le placage de bois sur les façades et la mélamine pour les caissons.' },
+        { id: 'BUD-002', category: 'Budgétaire', description: 'Façade (laque opaque) et caisson (mélamine)', type: 'pi²', price: 150.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Finition laque opaque sur les façades.' },
+        { id: 'BUD-003', category: 'Budgétaire', description: 'Façade (Shaker mince opaque) et caisson (mélamine)', type: 'pi²', price: 180.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Style Shaker avec profil mince, finition opaque.' },
+        { id: 'BUD-004', category: 'Budgétaire', description: 'Façade (Shaker mince placage) et caisson (mélamine)', type: 'pi²', price: 195.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Style Shaker avec profil mince, finition placage.' },
+        { id: 'BUD-005', category: 'Budgétaire', description: 'Façade (type AGT) et caisson (mélamine)', type: 'pi²', price: 100.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Panneau AGT (acrylique haute brillance).' },
+        { id: 'BUD-006', category: 'Budgétaire', description: 'Caisson ouvert (placage de bois)', type: 'pi²', price: 250.00, instruction: 'Calculer la surface visible du caisson ouvert. Toutes les surfaces visibles sont plaquées.' },
+        { id: 'BUD-007', category: 'Budgétaire', description: 'Caisson ouvert (laque opaque)', type: 'pi²', price: 235.00, instruction: 'Calculer la surface visible du caisson ouvert. Toutes les surfaces visibles sont laquées.' },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PANNEAUX
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'PAN-001', category: 'Panneaux', description: 'Revêtement mural (placage)', type: 'pi²', price: 65.00, instruction: 'Calculer la surface murale à couvrir en pieds carrés. Placage de bois sur panneau.' },
+        { id: 'PAN-002', category: 'Panneaux', description: 'Panneaux ajouté (placage)', type: 'pi²', price: 55.00, instruction: 'Surface des panneaux décoratifs ajoutés. Placage de bois.' },
+        { id: 'PAN-003', category: 'Panneaux', description: 'Panneaux électro (placage)', type: 'pi²', price: 40.00, instruction: 'Panneaux pour habillage d\'électroménagers. Placage de bois.' },
+        { id: 'PAN-004', category: 'Panneaux', description: 'Revêtement mural (opaque)', type: 'pi²', price: 58.00, instruction: 'Calculer la surface murale à couvrir en pieds carrés. Finition laque opaque.' },
+        { id: 'PAN-005', category: 'Panneaux', description: 'Panneaux ajouté (opaque)', type: 'pi²', price: 48.00, instruction: 'Surface des panneaux décoratifs ajoutés. Finition laque opaque.' },
+        { id: 'PAN-006', category: 'Panneaux', description: 'Panneaux électro (opaque)', type: 'pi²', price: 32.00, instruction: 'Panneaux pour habillage d\'électroménagers. Finition laque opaque.' },
+        { id: 'PAN-007', category: 'Panneaux', description: 'Intérieur de caisson en stratifié sur CP versus mélamine', type: '%', price: 20, instruction: 'Appliquer ce pourcentage sur le prix total du mobilier concerné.' },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // POIGNÉES
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'POI-001', category: 'Poignées', description: 'Ouverture à pression', type: 'unitaire', price: 40.00, instruction: 'Nombre de portes/tiroirs avec système push-to-open.' },
+        { id: 'POI-002', category: 'Poignées', description: 'Placage : finger grip 45° avec traverse caisson', type: 'unitaire', price: 220.00, instruction: 'Nombre de poignées intégrées. Inclut la traverse de caisson modifiée. Finition placage.' },
+        { id: 'POI-003', category: 'Poignées', description: 'Opaque : finger grip 45° avec traverse caisson', type: 'unitaire', price: 140.00, instruction: 'Nombre de poignées intégrées. Inclut la traverse de caisson modifiée. Finition opaque.' },
+        { id: 'POI-004', category: 'Poignées', description: 'Placage : finger grip avec bois massif et replacage', type: 'unitaire', price: 275.00, instruction: 'Nombre de poignées. Poignée en bois massif avec replacage pour continuité du grain.' },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TIROIRS
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'TIR-001', category: 'Tiroirs', description: 'Bois massif à queue d\'aronde', type: 'unitaire', price: 400.00, instruction: 'Nombre de tiroirs. Caisson de tiroir en bois massif avec assemblage traditionnel.' },
+        { id: 'TIR-002', category: 'Tiroirs', description: 'Legrabox avec façade', type: 'unitaire', price: 300.00, instruction: 'Nombre de tiroirs. Système Blum Legrabox avec façade incluse.' },
+        { id: 'TIR-003', category: 'Tiroirs', description: 'Legrabox avec verre (à l\'anglaise)', type: 'unitaire', price: 350.00, instruction: 'Nombre de tiroirs. Système Blum Legrabox avec côtés en verre.' },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉCLAIRAGE
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'ECL-001', category: 'Éclairage', description: 'Bande Flexydel 3000K avec encastrement', type: 'linéaire', price: 53.00, instruction: 'Longueur totale en pieds linéaires. Bande LED encastrée, blanc chaud 3000K.' },
+        { id: 'ECL-002', category: 'Éclairage', description: 'Œil magique', type: 'unitaire', price: 140.00, instruction: 'Nombre de spots. Luminaire encastré miniature.' },
+        { id: 'ECL-003', category: 'Éclairage', description: 'Transformateur', type: 'unitaire', price: 250.00, instruction: 'Nombre de transformateurs requis. Généralement 1 par zone d\'éclairage.' },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PORTES INTÉRIEURES
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        { id: 'POR-001', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur penture invisible avec cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
+        { id: 'POR-002', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur penture invisible sans cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
+        { id: 'POR-003', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur système coulissant (pocket door)', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
+
+    ];
+
+    /*
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║   FIN DE LA SECTION DONNÉES — Ne pas modifier en dessous de cette ligne      ║
+    ║   sauf si vous savez ce que vous faites.                                     ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+    */
+    </script>
+
+    <style>
+        /* Reset et base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --stele-black: #0A0203;
+            --stele-green: #4b6050;
+            --stele-gray: #C8C8C8;
+            --stele-light-gray: #F8F8F8;
+            --stele-white: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--stele-black);
+            background: var(--stele-white);
+        }
+
+        /* Page setup for print */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 0.75in;
+            }
+
+            .cover-page {
+                page-break-after: always;
+            }
+
+            .content-page {
+                page-break-after: always;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+        /* Cover page */
+        .cover-page {
+            background-color: var(--stele-green);
+            min-height: 100vh;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cover-logo {
+            font-size: 48px;
+            font-weight: 400;
+            color: var(--stele-white);
+            letter-spacing: -1px;
+        }
+
+        .cover-content {
+            margin-top: auto;
+            margin-bottom: 120px;
+        }
+
+        .cover-title {
+            font-size: 48px;
+            font-weight: 400;
+            color: var(--stele-white);
+            margin-bottom: 16px;
+        }
+
+        .cover-subtitle {
+            font-size: 18px;
+            font-weight: 400;
+            color: var(--stele-white);
+            opacity: 0.9;
+        }
+
+        /* Content pages */
+        .content-page {
+            min-height: 100vh;
+            padding: 60px;
+            background: var(--stele-white);
+        }
+
+        /* Header */
+        .page-header {
+            display: flex;
+            align-items: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--stele-gray);
+            margin-bottom: 40px;
+        }
+
+        .header-logo {
+            font-size: 28px;
+            font-weight: 400;
+            color: var(--stele-black);
+            letter-spacing: -0.5px;
+        }
+
+        /* Section title */
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--stele-black);
+            margin-bottom: 24px;
+        }
+
+        /* Disclaimer */
+        .disclaimer {
+            max-width: 800px;
+        }
+
+        .disclaimer p {
+            margin-bottom: 16px;
+            line-height: 1.7;
+        }
+
+        .disclaimer-note {
+            font-style: italic;
+            color: #555;
+        }
+
+        .legend {
+            margin-top: 24px;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .legend ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .legend li {
+            margin-bottom: 4px;
+            padding-left: 0;
+        }
+
+        .legend li::before {
+            content: "—";
+            margin-right: 8px;
+            color: var(--stele-gray);
+        }
+
+        /* Tables */
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .price-table thead {
+            background-color: var(--stele-black);
+        }
+
+        .price-table th {
+            color: var(--stele-white);
+            font-weight: 700;
+            font-size: 14px;
+            padding: 14px 16px;
+            text-align: left;
+        }
+
+        .price-table th:nth-child(2) {
+            text-align: center;
+        }
+
+        .price-table th:last-child {
+            text-align: right;
+        }
+
+        .price-table td {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--stele-gray);
+        }
+
+        .price-table td:nth-child(1) {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .price-table td:nth-child(2) {
+            text-align: center;
+        }
+
+        .price-table td:last-child {
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .price-table tbody tr:nth-child(odd) {
+            background-color: var(--stele-white);
+        }
+
+        .price-table tbody tr:nth-child(even) {
+            background-color: var(--stele-light-gray);
+        }
+
+        .price-table tbody tr:last-child td {
+            border-bottom: 2px solid var(--stele-black);
+        }
+
+        /* Column widths */
+        .col-code { width: 10%; }
+        .col-type { width: 12%; }
+        .col-description { width: 58%; }
+        .col-price { width: 20%; }
+
+        /* Footer */
+        .page-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 40px;
+            padding-top: 16px;
+            font-size: 12px;
+            color: var(--stele-black);
+        }
+
+        .footer-logo {
+            font-size: 14px;
+        }
+
+        /* Navigation for web view */
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--stele-white);
+            border-bottom: 1px solid var(--stele-gray);
+            padding: 12px 60px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            z-index: 100;
+        }
+
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--stele-black);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--stele-black);
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .nav-links a:hover {
+            opacity: 1;
+        }
+
+        @media print {
+            .nav-bar {
+                display: none;
+            }
+
+            .cover-page {
+                min-height: auto;
+                height: 100vh;
+            }
+
+            .content-page {
+                min-height: auto;
+            }
+        }
+
+        /* Spacing for fixed nav */
+        @media screen {
+            .cover-page {
+                margin-top: 56px;
+            }
+        }
+
+        /* Indicateur de statut des données */
+        .data-status {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: var(--stele-light-gray);
+        }
+
+        .data-status.online {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .data-status.offline {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .data-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .data-status.online .status-dot {
+            background: #4caf50;
+        }
+
+        .data-status.offline .status-dot {
+            background: #ff9800;
+        }
+
+        .data-status.error .status-dot {
+            background: #f44336;
+        }
+
+        .status-text {
+            white-space: nowrap;
+        }
+
+        @media print {
+            .data-status {
+                display: none;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           CALCULATEUR STYLES
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        .calculator-container {
+            max-width: 1200px;
+        }
+
+        .calc-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 90px 90px 110px 100px 120px 40px;
+            gap: 10px;
+            padding: 14px 16px;
+            background-color: var(--stele-black);
+            color: var(--stele-white);
+            font-weight: 700;
+            font-size: 13px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .calc-header span {
+            display: flex;
+            align-items: center;
+        }
+
+        .calc-header .col-center {
+            justify-content: center;
+        }
+
+        .calc-header .col-right {
+            justify-content: flex-end;
+        }
+
+        .calc-rows {
+            border: 1px solid var(--stele-gray);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .calc-row {
+            display: grid;
+            grid-template-columns: 40px 1fr 90px 90px 110px 100px 120px 40px;
+            gap: 10px;
+            padding: 10px 16px;
+            align-items: center;
+            border-bottom: 1px solid var(--stele-gray);
+            background: var(--stele-white);
+            transition: background-color 0.15s ease;
+        }
+
+        .calc-row:nth-child(even) {
+            background: var(--stele-light-gray);
+        }
+
+        .calc-row:last-child {
+            border-bottom: none;
+        }
+
+        .calc-row:hover {
+            background: #f0f0f0;
+        }
+
+        .btn-add {
+            width: 24px;
+            height: 24px;
+            border: 1.5px solid var(--stele-green);
+            background: var(--stele-white);
+            color: var(--stele-green);
+            border-radius: 50%;
+            font-size: 16px;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            line-height: 1;
+        }
+
+        .btn-add:hover {
+            background: var(--stele-green);
+            color: var(--stele-white);
+        }
+
+        .btn-remove {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            color: var(--stele-gray);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease;
+            border-radius: 4px;
+        }
+
+        .btn-remove:hover {
+            color: #c0392b;
+            background: #fdeaea;
+        }
+
+        .item-select {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            background: var(--stele-white);
+            color: var(--stele-black);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230A0203' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+        }
+
+        .item-select:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .cell-code,
+        .cell-type,
+        .cell-unit-price {
+            font-size: 12px;
+            color: var(--stele-black);
+        }
+
+        .cell-code {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 11px;
+            color: #666;
+            position: relative;
+            cursor: help;
+        }
+
+        .cell-type {
+            text-align: center;
+        }
+
+        .cell-unit-price {
+            text-align: right;
+        }
+
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--stele-black);
+            color: var(--stele-white);
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: normal;
+            width: 240px;
+            text-align: left;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--stele-black);
+        }
+
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .tooltip-text {
+            font-weight: 400;
+            color: rgba(255,255,255,0.85);
+        }
+
+        /* Tooltips dans les tableaux */
+        .tooltip-table {
+            cursor: help;
+            border-bottom: 1px dotted var(--stele-gray);
+        }
+
+        .tooltip-table .tooltip {
+            width: 280px;
+        }
+
+        /* Tooltip aligné à gauche pour les descriptions longues */
+        .tooltip-left .tooltip {
+            left: 0;
+            transform: translateX(0);
+        }
+
+        .tooltip-left .tooltip::after {
+            left: 24px;
+            transform: translateX(0);
+        }
+
+        .qty-input {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .qty-input:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .qty-input::-webkit-inner-spin-button,
+        .qty-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .qty-input {
+            -moz-appearance: textfield;
+        }
+
+        .cell-total {
+            font-size: 13px;
+            font-weight: 600;
+            text-align: right;
+            color: var(--stele-black);
+        }
+
+        .add-row-container {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--stele-gray);
+            background: var(--stele-white);
+        }
+
+        .add-row-text {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .grand-total-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 20px 16px;
+            background: var(--stele-black);
+            border-radius: 0 0 4px 4px;
+            margin-top: -1px;
+        }
+
+        .grand-total-label {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--stele-white);
+            margin-right: 24px;
+        }
+
+        .grand-total-amount {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--stele-white);
+            min-width: 140px;
+            text-align: right;
+        }
+
+        /* Sections meuble */
+        .furniture-group {
+            margin-bottom: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .furniture-group-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+        }
+
+        .furniture-group-header .group-label {
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .furniture-name-input {
+            flex: 1;
+            padding: 7px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.2);
+            color: var(--stele-white);
+        }
+
+        .furniture-name-input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .furniture-name-input:focus {
+            outline: none;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .btn-remove-group {
+            padding: 5px 12px;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .btn-remove-group:hover {
+            background: rgba(255,255,255,0.15);
+            color: var(--stele-white);
+            border-color: rgba(255,255,255,0.6);
+        }
+
+        .group-subtotal-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 12px 16px;
+            background: #e8ece9;
+            border: 1px solid var(--stele-gray);
+            border-top: none;
+        }
+
+        .group-subtotal-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--stele-black);
+            margin-right: 20px;
+        }
+
+        .group-subtotal-amount {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--stele-black);
+            min-width: 120px;
+            text-align: right;
+        }
+
+        .btn-add-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            background: var(--stele-white);
+            color: var(--stele-green);
+            border: 2px dashed var(--stele-green);
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-add-group:hover {
+            background: #eef2ef;
+        }
+
+        .calc-disclaimer {
+            margin-top: 24px;
+            padding: 16px;
+            background: var(--stele-light-gray);
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media print {
+            .btn-add,
+            .btn-remove,
+            .add-row-container {
+                display: none !important;
+            }
+
+            .item-select {
+                border: none;
+                background: none;
+                padding: 0;
+                appearance: none;
+                background-image: none;
+            }
+
+            .qty-input,
+            .ajout-description,
+            .ajout-price,
+            .ajout-markup {
+                border: none;
+                background: none;
+            }
+
+            .calculator-container {
+                page-break-inside: avoid;
+            }
+        }
+
+        /* Bouton Générer PDF */
+        .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+
+        .btn-pdf:hover {
+            background: #3d4f42;
+        }
+
+        .btn-pdf svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--stele-white);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--stele-gray);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--stele-black);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--stele-black);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            background: var(--stele-white);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--stele-gray);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-cancel {
+            padding: 10px 20px;
+            background: transparent;
+            color: var(--stele-black);
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-cancel:hover {
+            background: var(--stele-light-gray);
+        }
+
+        .btn-generate {
+            padding: 10px 20px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-generate:hover {
+            background: #3d4f42;
+        }
+
+        /* PDF Preview (hidden, used for generation) */
+        .pdf-content {
+            display: none;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           STYLES POUR LES AJOUTS PERSONNALISÉS (intégrés dans calc-row)
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        .ajout-description:focus,
+        .ajout-price:focus,
+        .ajout-markup:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .ajout-price::-webkit-inner-spin-button,
+        .ajout-price::-webkit-outer-spin-button,
+        .ajout-markup::-webkit-inner-spin-button,
+        .ajout-markup::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .ajout-price,
+        .ajout-markup {
+            -moz-appearance: textfield;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           ZONE DE COLLAGE D'IMAGES (screenshots)
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        .image-drop-zone {
+            border: 2px dashed #C8C8C8;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-top: 4px;
+        }
+
+        .image-drop-zone:hover,
+        .image-drop-zone.dragover {
+            border-color: var(--stele-green);
+            background: #f0f7f1;
+        }
+
+        .image-drop-zone-text {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .image-drop-zone-text strong {
+            color: #555;
+        }
+
+        .image-previews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .image-preview-item {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            padding: 0;
+        }
+
+        .image-preview-remove:hover {
+            background: rgba(200,0,0,0.8);
+        }
+
+        .image-count {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation (web only) -->
+    <nav class="nav-bar no-print">
+        <span class="nav-logo">stele</span>
+        <div class="nav-links" id="navLinks">
+            <a href="#disclaimer">Avis</a>
+            <!-- Les liens des catégories sont générés dynamiquement -->
+            <a href="#calculateur">Calculateur</a>
+        </div>
+        <div class="data-status" id="dataStatus">
+            <span class="status-dot"></span>
+            <span class="status-text" id="statusText">Chargement...</span>
+        </div>
+    </nav>
+
+    <!-- Cover Page -->
+    <section class="cover-page">
+        <div class="cover-logo">stele</div>
+        <div class="cover-content">
+            <h1 class="cover-title">Catalogue de prix</h1>
+            <p class="cover-subtitle">Guide de référence pour chargés de projet</p>
+        </div>
+    </section>
+
+    <!-- Disclaimer Page -->
+    <section class="content-page" id="disclaimer">
+        <header class="page-header">
+            <span class="header-logo">stele</span>
+        </header>
+
+        <h2 class="section-title">Avis important</h2>
+
+        <div class="disclaimer">
+            <p>Les prix indiqués dans ce document sont fournis à titre indicatif uniquement et peuvent varier selon les spécifications finales du projet, les conditions d'installation, la complexité des ouvrages et la disponibilité des matériaux.</p>
+
+            <p>Ce catalogue sert de référence pour donner une idée de prix lors des discussions préliminaires avec les clients. Une soumission détaillée sera toujours requise pour confirmer les prix finaux.</p>
+
+            <div class="legend">
+                <p class="legend-title">Légende des unités</p>
+                <ul>
+                    <li>pi² : Prix au pied carré</li>
+                    <li>linéaire : Prix au pied linéaire</li>
+                    <li>unitaire : Prix à l'unité</li>
+                    <li>% : Pourcentage applicable sur le prix du mobilier</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Conteneur pour les sections de catégories (générées dynamiquement) -->
+    <div id="dynamicSections"></div>
+
+    <!-- Calculateur -->
+    <section class="content-page" id="calculateur">
+        <header class="page-header">
+            <span class="header-logo">stele</span>
+        </header>
+
+        <h2 class="section-title">Calculateur</h2>
+
+        <div class="calculator-container">
+            <div id="furnitureGroups">
+                <!-- Le premier meuble est créé par JS au chargement -->
+            </div>
+
+            <button class="btn-add-group" onclick="addFurnitureGroup()">+ Ajouter un meuble</button>
+
+            <div class="grand-total-container">
+                <span class="grand-total-label">Total estimé</span>
+                <span class="grand-total-amount" id="grandTotal">0,00 $</span>
+            </div>
+
+            <p class="calc-disclaimer">
+                Les montants affichés sont fournis à titre indicatif uniquement. Une soumission détaillée sera requise pour confirmer les prix finaux.
+            </p>
+
+            <button class="btn-pdf" onclick="openPdfModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Envoyer l'estimation
+            </button>
+        </div>
+
+        <footer class="page-footer">
+            <span class="footer-logo">stele</span>
+            <span>stele.ca</span>
+        </footer>
+    </section>
+
+    <!-- Modal PDF -->
+    <div class="modal-overlay" id="pdfModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Envoyer l'estimation</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="projectCode">Code projet</label>
+                    <input type="text" class="form-input" id="projectCode" placeholder="ex: PRJ-2026-001">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectManager">Chargé(e) de projet</label>
+                    <select class="form-input" id="projectManager">
+                        <option value="">— Sélectionner —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectDate">Date</label>
+                    <input type="date" class="form-input" id="projectDate">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectDescription">Description / Notes</label>
+                    <textarea class="form-input" id="projectDescription" rows="3" placeholder="Notes supplémentaires, contexte du projet..." style="resize: vertical; min-height: 60px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Images / Captures d'écran <span style="font-weight:normal; color:#888;">(max 4)</span></label>
+                    <div class="image-drop-zone" id="imageDropZone">
+                        <div class="image-drop-zone-text">
+                            <strong>Ctrl+V</strong> pour coller &middot; <strong>glisser-déposer</strong> &middot; ou <strong>cliquer</strong> pour parcourir
+                        </div>
+                    </div>
+                    <input type="file" id="imageFileInput" accept="image/*" multiple style="display:none;">
+                    <div class="image-previews" id="imagePreviews"></div>
+                    <div class="image-count" id="imageCount"></div>
+                </div>
+                <div id="sendStatus" style="display: none; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePdfModal()">Annuler</button>
+                <button class="btn-generate" id="btnSend" onclick="envoyerEstimation()">Envoyer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // URL DU GOOGLE APPS SCRIPT — À CONFIGURER APRÈS DÉPLOIEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVTI_mo1ycOFt55FvPtF77zo3xAENqdTKKGW_WB2Fb6VIp1GUT5GxoIp_i5jVqIMM/exec';
+    </script>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Catégories à exclure des tableaux (affichées uniquement dans le calculateur)
+        // Comparaison insensible à la casse
+        const excludedCategories = ['temps', 'ajouts', 'ajout'];
+
+        function isExcludedCategory(category) {
+            return excludedCategories.includes(category.toLowerCase().trim());
+        }
+
+        // Convertir un nom de catégorie en ID valide pour HTML
+        function categoryToId(category) {
+            return category
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Enlever les accents
+                .replace(/[^a-z0-9]+/g, '-') // Remplacer les caractères spéciaux par des tirets
+                .replace(/^-|-$/g, ''); // Enlever les tirets au début et à la fin
+        }
+
+        // Formater le prix
+        function formatPrice(amount) {
+            if (amount === null || amount === undefined) {
+                return 'Sur demande';
+            }
+            if (typeof amount === 'number' && amount < 1 && amount > 0) {
+                return (amount * 100).toFixed(0) + '%';
+            }
+            return amount.toLocaleString('fr-CA', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }) + ' $';
+        }
+
+        // Formater le type pour affichage
+        function formatType(type) {
+            if (type === '%') return '%';
+            return type;
+        }
+
+        // Générer les tableaux de prix dynamiquement
+        function generatePriceTables() {
+            // Grouper par catégorie (en conservant l'ordre d'apparition)
+            const grouped = {};
+            const categoryOrder = [];
+
+            CATALOGUE_DATA.forEach(item => {
+                // Exclure les catégories Temps et Ajouts des tableaux
+                if (isExcludedCategory(item.category)) return;
+
+                if (!grouped[item.category]) {
+                    grouped[item.category] = [];
+                    categoryOrder.push(item.category);
+                }
+                grouped[item.category].push(item);
+            });
+
+            // Générer les liens de navigation
+            const navLinks = document.getElementById('navLinks');
+            const calcLink = navLinks.querySelector('a[href="#calculateur"]');
+
+            // Supprimer les anciens liens dynamiques (garder Avis et Calculateur)
+            const existingLinks = navLinks.querySelectorAll('a.dynamic-nav-link');
+            existingLinks.forEach(link => link.remove());
+
+            // Ajouter les nouveaux liens avant "Calculateur"
+            categoryOrder.forEach(category => {
+                const link = document.createElement('a');
+                link.href = '#' + categoryToId(category);
+                link.textContent = category;
+                link.className = 'dynamic-nav-link';
+                navLinks.insertBefore(link, calcLink);
+            });
+
+            // Générer les sections HTML
+            const sectionsContainer = document.getElementById('dynamicSections');
+            sectionsContainer.innerHTML = '';
+
+            categoryOrder.forEach(category => {
+                const sectionId = categoryToId(category);
+                const tableId = 'table-' + sectionId;
+
+                const section = document.createElement('section');
+                section.className = 'content-page';
+                section.id = sectionId;
+
+                section.innerHTML = `
+                    <header class="page-header">
+                        <span class="header-logo">stele</span>
+                    </header>
+                    <h2 class="section-title">${category}</h2>
+                    <table class="price-table" id="${tableId}"></table>
+                `;
+
+                sectionsContainer.appendChild(section);
+
+                // Remplir le tableau
+                const table = document.getElementById(tableId);
+                let html = `
+                    <thead>
+                        <tr>
+                            <th class="col-code">Code</th>
+                            <th class="col-type">Type</th>
+                            <th class="col-description">Description</th>
+                            <th class="col-price">Prix</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+
+                grouped[category].forEach(item => {
+                    html += `
+                        <tr>
+                            <td>
+                                <span class="tooltip-container tooltip-table">
+                                    ${item.id}
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">${item.description}</div>
+                                        <div class="tooltip-text">${item.instruction || ''}</div>
+                                    </div>
+                                </span>
+                            </td>
+                            <td>${formatType(item.type)}</td>
+                            <td>
+                                <span class="tooltip-container tooltip-table tooltip-left">
+                                    ${item.description}
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">${item.id}</div>
+                                        <div class="tooltip-text">${item.instruction || ''}</div>
+                                    </div>
+                                </span>
+                            </td>
+                            <td>${formatPrice(item.price)}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody>';
+                table.innerHTML = html;
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CALCULATEUR — SECTIONS PAR MEUBLE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let rowCounter = 0;
+        let groupCounter = 0;
+
+        // Construire les options du select groupées par catégorie
+        function buildSelectOptions() {
+            let options = '<option value="">— Sélectionner un article —</option>';
+            let currentCategory = '';
+
+            const itemsWithPrice = CATALOGUE_DATA.filter(item =>
+                item.price !== null &&
+                item.type !== '%'
+            );
+
+            itemsWithPrice.forEach(item => {
+                if (item.category !== currentCategory) {
+                    if (currentCategory !== '') {
+                        options += '</optgroup>';
+                    }
+                    options += `<optgroup label="${item.category}">`;
+                    currentCategory = item.category;
+                }
+                options += `<option value="${item.id}">${item.description}</option>`;
+            });
+            options += '</optgroup>';
+
+            options += '<optgroup label="Autre">';
+            options += '<option value="__AJOUT__">➕ Ajout personnalisé...</option>';
+            options += '</optgroup>';
+
+            return options;
+        }
+
+        // Ajouter un nouveau groupe de meuble
+        function addFurnitureGroup(initialName) {
+            groupCounter++;
+            const groupId = `group-${groupCounter}`;
+
+            const group = document.createElement('div');
+            group.className = 'furniture-group';
+            group.id = groupId;
+
+            group.innerHTML = `
+                <div class="furniture-group-header">
+                    <span class="group-label">Meuble :</span>
+                    <input type="text" class="furniture-name-input" id="${groupId}-name"
+                           placeholder="ex: Cuisine, Salle de bain, Sous-sol..."
+                           value="${initialName || ''}">
+                    <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
+                </div>
+                <div class="calc-header">
+                    <span></span>
+                    <span>Article</span>
+                    <span class="col-center">Code</span>
+                    <span class="col-center">Type</span>
+                    <span class="col-right">Prix unit.</span>
+                    <span class="col-center">Quantité</span>
+                    <span class="col-right">Total</span>
+                    <span></span>
+                </div>
+                <div class="calc-rows" id="${groupId}-rows">
+                    <div class="add-row-container">
+                        <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                        <span class="add-row-text">Ajouter un article</span>
+                    </div>
+                </div>
+                <div class="group-subtotal-container">
+                    <span class="group-subtotal-label">Sous-total</span>
+                    <span class="group-subtotal-amount" id="${groupId}-subtotal">0,00 $</span>
+                </div>
+            `;
+
+            document.getElementById('furnitureGroups').appendChild(group);
+            return groupId;
+        }
+
+        // Supprimer un groupe de meuble
+        function removeFurnitureGroup(groupId) {
+            const groups = document.querySelectorAll('.furniture-group');
+            if (groups.length <= 1) {
+                // Ne pas supprimer le dernier groupe
+                return;
+            }
+            const group = document.getElementById(groupId);
+            if (group) {
+                group.remove();
+                updateGrandTotal();
+            }
+        }
+
+        // Ajouter une ligne dans un groupe spécifique
+        function addRow(groupId) {
+            rowCounter++;
+            const rowId = `row-${rowCounter}`;
+
+            const row = document.createElement('div');
+            row.className = 'calc-row';
+            row.id = rowId;
+            row.dataset.mode = 'normal';
+            row.dataset.group = groupId;
+            row.innerHTML = `
+                <div class="cell-add">
+                    <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                </div>
+                <div class="cell-select">
+                    <select class="item-select" onchange="updateRow('${rowId}')">
+                        ${buildSelectOptions()}
+                    </select>
+                </div>
+                <div class="cell-code" id="${rowId}-code">—</div>
+                <div class="cell-type" id="${rowId}-type">—</div>
+                <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
+                <div class="cell-qty">
+                    <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" onchange="updateRow('${rowId}')" oninput="updateRow('${rowId}')">
+                </div>
+                <div class="cell-total" id="${rowId}-total">0,00 $</div>
+                <div class="cell-remove">
+                    <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
+                </div>
+            `;
+
+            const container = document.getElementById(`${groupId}-rows`);
+            const addContainer = container.querySelector('.add-row-container');
+            container.insertBefore(row, addContainer);
+
+            row.querySelector('.item-select').focus();
+        }
+
+        // Transformer une ligne en mode ajout personnalisé
+        function transformToAjoutMode(row, rowId) {
+            row.dataset.mode = 'ajout';
+            row.style.background = '#eef2ef';
+
+            const codeEl = document.getElementById(`${rowId}-code`);
+            const typeEl = document.getElementById(`${rowId}-type`);
+            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+
+            codeEl.innerHTML = `<input type="text" class="ajout-description" id="${rowId}-desc" placeholder="Description..." oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px;">`;
+            codeEl.style.gridColumn = 'span 1';
+
+            typeEl.innerHTML = `<input type="number" class="ajout-price" id="${rowId}-price" placeholder="Prix" value="0" min="0" step="0.01" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()">`;
+
+            unitPriceEl.innerHTML = `<div style="display: flex; align-items: center; gap: 4px;"><input type="number" class="ajout-markup" id="${rowId}-markup" value="30" min="0" step="1" oninput="updateRow('${rowId}')" style="width: 60px; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"><span style="font-size: 11px; color: #666;">%</span></div>`;
+
+            setTimeout(() => {
+                const descInput = document.getElementById(`${rowId}-desc`);
+                if (descInput) descInput.focus();
+            }, 50);
+        }
+
+        // Transformer une ligne en mode normal
+        function transformToNormalMode(row, rowId) {
+            row.dataset.mode = 'normal';
+            row.style.background = '';
+
+            const codeEl = document.getElementById(`${rowId}-code`);
+            const typeEl = document.getElementById(`${rowId}-type`);
+            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+
+            codeEl.innerHTML = '—';
+            codeEl.style.gridColumn = '';
+            typeEl.innerHTML = '—';
+            unitPriceEl.innerHTML = '—';
+        }
+
+        // Mettre à jour une ligne
+        function updateRow(rowId) {
+            const row = document.getElementById(rowId);
+            const select = row.querySelector('.item-select');
+            const qtyInput = row.querySelector('.qty-input');
+            const totalEl = document.getElementById(`${rowId}-total`);
+
+            const selectedId = select.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+            const currentMode = row.dataset.mode;
+
+            if (selectedId === '__AJOUT__') {
+                if (currentMode !== 'ajout') {
+                    transformToAjoutMode(row, rowId);
+                }
+
+                const priceInput = document.getElementById(`${rowId}-price`);
+                const markupInput = document.getElementById(`${rowId}-markup`);
+
+                if (priceInput && markupInput) {
+                    const price = parseFloat(priceInput.value) || 0;
+                    const markup = parseFloat(markupInput.value) || 0;
+                    const total = price * qty * (1 + markup / 100);
+                    totalEl.textContent = formatPrice(total);
+                }
+            } else {
+                if (currentMode === 'ajout') {
+                    transformToNormalMode(row, rowId);
+                }
+
+                const codeEl = document.getElementById(`${rowId}-code`);
+                const typeEl = document.getElementById(`${rowId}-type`);
+                const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+
+                if (selectedId) {
+                    const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                    if (item) {
+                        codeEl.innerHTML = `
+                            <span class="tooltip-container">
+                                ${item.id}
+                                <div class="tooltip">
+                                    <div class="tooltip-title">${item.description}</div>
+                                    <div class="tooltip-text">${item.instruction || ''}</div>
+                                </div>
+                            </span>
+                        `;
+
+                        typeEl.textContent = formatType(item.type);
+                        unitPriceEl.textContent = formatPrice(item.price);
+
+                        const total = (item.price || 0) * qty;
+                        totalEl.textContent = formatPrice(total);
+                    }
+                } else {
+                    codeEl.textContent = '—';
+                    typeEl.textContent = '—';
+                    unitPriceEl.textContent = '—';
+                    totalEl.textContent = '0,00 $';
+                }
+            }
+
+            // Mettre à jour le sous-total du groupe
+            const groupId = row.dataset.group;
+            if (groupId) updateGroupSubtotal(groupId);
+            updateGrandTotal();
+        }
+
+        // Supprimer une ligne
+        function removeRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                const groupId = row.dataset.group;
+                row.remove();
+                if (groupId) updateGroupSubtotal(groupId);
+                updateGrandTotal();
+            }
+        }
+
+        // Calculer le total d'une ligne (utilitaire)
+        function getRowTotal(row) {
+            const select = row.querySelector('.item-select');
+            const qtyInput = row.querySelector('.qty-input');
+            if (!select || !qtyInput) return 0;
+
+            const selectedId = select.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+
+            if (selectedId === '__AJOUT__') {
+                const priceInput = row.querySelector('.ajout-price');
+                const markupInput = row.querySelector('.ajout-markup');
+                if (priceInput && markupInput) {
+                    const price = parseFloat(priceInput.value) || 0;
+                    const markup = parseFloat(markupInput.value) || 0;
+                    return price * qty * (1 + markup / 100);
+                }
+            } else if (selectedId) {
+                const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                if (item && item.price) {
+                    return item.price * qty;
+                }
+            }
+            return 0;
+        }
+
+        // Mettre à jour le sous-total d'un groupe
+        function updateGroupSubtotal(groupId) {
+            let subtotal = 0;
+            const container = document.getElementById(`${groupId}-rows`);
+            if (!container) return;
+
+            container.querySelectorAll('.calc-row').forEach(row => {
+                subtotal += getRowTotal(row);
+            });
+
+            const subtotalEl = document.getElementById(`${groupId}-subtotal`);
+            if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal);
+        }
+
+        // Mettre à jour le total général (somme de tous les groupes)
+        function updateGrandTotal() {
+            let total = 0;
+
+            document.querySelectorAll('.calc-row').forEach(row => {
+                total += getRowTotal(row);
+            });
+
+            document.getElementById('grandTotal').textContent = formatPrice(total);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CHARGEMENT DES DONNÉES DEPUIS GOOGLE SHEETS (via API Visualization)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Mettre à jour l'indicateur de statut
+        function updateStatus(status, message) {
+            const statusEl = document.getElementById('dataStatus');
+            const textEl = document.getElementById('statusText');
+
+            statusEl.className = 'data-status ' + status;
+            textEl.textContent = message;
+        }
+
+        // Sauvegarder les données dans localStorage
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                localStorage.setItem(STORAGE_DATE_KEY, new Date().toISOString());
+            } catch (e) {
+                console.warn('Impossible de sauvegarder dans localStorage:', e);
+            }
+        }
+
+        // Charger les données depuis localStorage
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                const date = localStorage.getItem(STORAGE_DATE_KEY);
+
+                if (data) {
+                    return {
+                        data: JSON.parse(data),
+                        date: date ? new Date(date) : null
+                    };
+                }
+            } catch (e) {
+                console.warn('Impossible de lire depuis localStorage:', e);
+            }
+            return null;
+        }
+
+        // Formater une date pour l'affichage
+        function formatDate(date) {
+            if (!date) return '';
+            const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+            return date.toLocaleDateString('fr-CA', options);
+        }
+
+        // Convertir la réponse Google Visualization en tableau d'objets
+        function parseGoogleVisualizationResponse(response) {
+            const data = [];
+            const table = response.table;
+            const cols = table.cols;
+            const rows = table.rows;
+
+            // Extraire les noms de colonnes
+            const headers = cols.map(col => col.label || col.id);
+
+            // Convertir chaque ligne
+            rows.forEach(row => {
+                const item = {};
+                row.c.forEach((cell, index) => {
+                    const header = headers[index];
+                    let value = cell ? (cell.v !== null ? cell.v : '') : '';
+
+                    // Convertir le prix
+                    if (header === 'price') {
+                        if (value === '' || value === null) {
+                            value = null;
+                        } else {
+                            value = parseFloat(String(value).replace(',', '.')) || null;
+                        }
+                    }
+
+                    item[header] = value;
+                });
+
+                // Vérifier que l'item a un id valide
+                if (item.id && String(item.id).trim() !== '') {
+                    data.push(item);
+                }
+            });
+
+            return data;
+        }
+
+        // Callback global pour Google Visualization API
+        let googleDataCallback = null;
+
+        // Charger les données depuis Google Sheets via JSONP
+        function loadFromGoogleSheets() {
+            return new Promise((resolve) => {
+                updateStatus('', 'Chargement...');
+
+                // Créer un nom de callback unique
+                const callbackName = 'googleSheetCallback_' + Date.now();
+
+                // Définir le callback global
+                window[callbackName] = function(response) {
+                    // Nettoyer
+                    delete window[callbackName];
+                    const script = document.getElementById('gsheet-loader');
+                    if (script) script.remove();
+
+                    try {
+                        if (response.status === 'error') {
+                            throw new Error(response.errors[0].message);
+                        }
+
+                        const data = parseGoogleVisualizationResponse(response);
+
+                        if (data.length > 0) {
+                            CATALOGUE_DATA = data;
+                            saveToLocalStorage(data);
+                            updateStatus('online', 'Données à jour');
+                            resolve(true);
+                        } else {
+                            throw new Error('Données vides');
+                        }
+                    } catch (error) {
+                        console.warn('Erreur parsing Google Sheets:', error);
+                        loadFallbackData();
+                        resolve(false);
+                    }
+                };
+
+                // Créer le script pour charger les données (JSONP)
+                const script = document.createElement('script');
+                script.id = 'gsheet-loader';
+                script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}`;
+
+                // Timeout de 10 secondes
+                const timeout = setTimeout(() => {
+                    delete window[callbackName];
+                    const script = document.getElementById('gsheet-loader');
+                    if (script) script.remove();
+                    console.warn('Timeout chargement Google Sheets');
+                    loadFallbackData();
+                    resolve(false);
+                }, 10000);
+
+                script.onload = function() {
+                    clearTimeout(timeout);
+                };
+
+                script.onerror = function() {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    console.warn('Erreur chargement script Google Sheets');
+                    loadFallbackData();
+                    resolve(false);
+                };
+
+                document.head.appendChild(script);
+            });
+        }
+
+        // Charger les données de secours (cache ou défaut)
+        function loadFallbackData() {
+            const cached = loadFromLocalStorage();
+
+            if (cached && cached.data && cached.data.length > 0) {
+                CATALOGUE_DATA = cached.data;
+                const dateStr = cached.date ? formatDate(cached.date) : '';
+                updateStatus('offline', 'Hors-ligne' + (dateStr ? ' — ' + dateStr : ''));
+            } else {
+                // Utiliser les données par défaut
+                updateStatus('error', 'Données par défaut');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CHARGEMENT DES EMPLOYÉS DEPUIS LA FEUILLE 2
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function loadEmployeesFromSheet() {
+            return new Promise((resolve) => {
+                const callbackName = 'employeesCallback_' + Date.now();
+
+                window[callbackName] = function(response) {
+                    delete window[callbackName];
+                    const script = document.getElementById('employees-loader');
+                    if (script) script.remove();
+
+                    try {
+                        if (response.status === 'error') throw new Error(response.errors[0].message);
+
+                        const table = response.table;
+                        const rows = table.rows;
+                        EMPLOYEES_DATA = [];
+
+                        rows.forEach(row => {
+                            const name = row.c[0] ? (row.c[0].v || '') : '';
+                            const email = row.c[1] ? (row.c[1].v || '') : '';
+                            if (name.trim()) {
+                                EMPLOYEES_DATA.push({ name: name.trim(), email: email.trim() });
+                            }
+                        });
+
+                        populateEmployeeSelect();
+                        resolve(true);
+                    } catch (error) {
+                        console.warn('Erreur chargement employés:', error);
+                        resolve(false);
+                    }
+                };
+
+                const script = document.createElement('script');
+                script.id = 'employees-loader';
+                script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?sheet=Employ%C3%A9s&tqx=responseHandler:${callbackName}`;
+
+                const timeout = setTimeout(() => {
+                    delete window[callbackName];
+                    const s = document.getElementById('employees-loader');
+                    if (s) s.remove();
+                    console.warn('Timeout chargement employés');
+                    resolve(false);
+                }, 10000);
+
+                script.onload = function() { clearTimeout(timeout); };
+                script.onerror = function() {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    resolve(false);
+                };
+
+                document.head.appendChild(script);
+            });
+        }
+
+        function populateEmployeeSelect() {
+            const select = document.getElementById('projectManager');
+            select.innerHTML = '<option value="">— Sélectionner —</option>';
+            EMPLOYEES_DATA.forEach((emp, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = emp.name;
+                select.appendChild(option);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GÉNÉRATION PDF
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Ouvrir la modal PDF
+        function openPdfModal() {
+            // Vérifier qu'il y a des lignes dans le calculateur
+            const rows = document.querySelectorAll('.calc-row');
+            if (rows.length === 0) {
+                alert('Veuillez ajouter au moins un article au calculateur.');
+                return;
+            }
+
+            // Définir la date du jour par défaut
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('projectDate').value = today;
+
+            // Réinitialiser les images
+            clearImages();
+
+            // Afficher la modal
+            document.getElementById('pdfModal').classList.add('active');
+        }
+
+        // Fermer la modal PDF
+        function closePdfModal() {
+            document.getElementById('pdfModal').classList.remove('active');
+        }
+
+        // Fermer la modal en cliquant à l'extérieur
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('pdfModal');
+            if (e.target === modal) {
+                closePdfModal();
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GESTION DES IMAGES (screenshots / pièces jointes)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const MAX_IMAGES = 4;
+        let attachedImages = []; // Tableau de { name, dataUrl }
+
+        function setupImageHandlers() {
+            const dropZone = document.getElementById('imageDropZone');
+            const fileInput = document.getElementById('imageFileInput');
+
+            // Clic sur la zone → ouvrir le sélecteur de fichier
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            // Sélection de fichier
+            fileInput.addEventListener('change', (e) => {
+                handleImageFiles(e.target.files);
+                fileInput.value = '';
+            });
+
+            // Drag & drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleImageFiles(e.dataTransfer.files);
+            });
+
+            // Ctrl+V (coller) — écouter sur la modal entière
+            document.addEventListener('paste', (e) => {
+                const modal = document.getElementById('pdfModal');
+                if (!modal.classList.contains('active')) return;
+
+                const clipboardItems = e.clipboardData.items;
+                const files = [];
+                for (let i = 0; i < clipboardItems.length; i++) {
+                    if (clipboardItems[i].type.startsWith('image/')) {
+                        files.push(clipboardItems[i].getAsFile());
+                    }
+                }
+                if (files.length > 0) {
+                    e.preventDefault();
+                    handleImageFiles(files);
+                }
+            });
+        }
+
+        function compressImage(file, maxWidth, quality) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxWidth) {
+                            h = Math.round(h * maxWidth / w);
+                            w = maxWidth;
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function handleImageFiles(files) {
+            const remaining = MAX_IMAGES - attachedImages.length;
+            if (remaining <= 0) {
+                showSendStatus('Maximum de ' + MAX_IMAGES + ' images atteint.', true);
+                setTimeout(() => { document.getElementById('sendStatus').style.display = 'none'; }, 2000);
+                return;
+            }
+
+            const toProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining);
+
+            toProcess.forEach(file => {
+                compressImage(file, 1024, 0.7).then(dataUrl => {
+                    attachedImages.push({
+                        name: (file.name || ('screenshot_' + Date.now() + '.png')).replace(/\.\w+$/, '.jpg'),
+                        dataUrl: dataUrl
+                    });
+                    renderImagePreviews();
+                });
+            });
+        }
+
+        function renderImagePreviews() {
+            const container = document.getElementById('imagePreviews');
+            const countEl = document.getElementById('imageCount');
+            container.innerHTML = '';
+
+            attachedImages.forEach((img, index) => {
+                const item = document.createElement('div');
+                item.className = 'image-preview-item';
+                item.innerHTML = `
+                    <img src="${img.dataUrl}" alt="${img.name}">
+                    <button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>
+                `;
+                container.appendChild(item);
+            });
+
+            countEl.textContent = attachedImages.length > 0
+                ? attachedImages.length + ' / ' + MAX_IMAGES + ' image(s)'
+                : '';
+
+            // Masquer/afficher la zone de drop si max atteint
+            const dropZone = document.getElementById('imageDropZone');
+            dropZone.style.display = attachedImages.length >= MAX_IMAGES ? 'none' : '';
+        }
+
+        function removeImage(index) {
+            attachedImages.splice(index, 1);
+            renderImagePreviews();
+        }
+
+        function clearImages() {
+            attachedImages = [];
+            renderImagePreviews();
+        }
+
+        // Initialiser les handlers au chargement
+        document.addEventListener('DOMContentLoaded', setupImageHandlers);
+
+        // Collecter les données du calculateur — regroupées par meuble
+        function collecterDonneesCalculateur() {
+            const groups = document.querySelectorAll('.furniture-group');
+            const meubles = [];
+            let grandTotal = 0;
+
+            groups.forEach(group => {
+                const nameInput = group.querySelector('.furniture-name-input');
+                const meubleName = nameInput ? (nameInput.value.trim() || 'Sans nom') : 'Sans nom';
+                const items = [];
+                let subtotal = 0;
+
+                group.querySelectorAll('.calc-row').forEach(row => {
+                    const select = row.querySelector('.item-select');
+                    const qtyInput = row.querySelector('.qty-input');
+
+                    if (select && qtyInput && select.value) {
+                        const selectedId = select.value;
+                        const qty = parseFloat(qtyInput.value) || 0;
+
+                        if (selectedId === '__AJOUT__') {
+                            const descInput = row.querySelector('.ajout-description');
+                            const priceInput = row.querySelector('.ajout-price');
+                            const markupInput = row.querySelector('.ajout-markup');
+
+                            if (descInput && priceInput && markupInput) {
+                                const price = parseFloat(priceInput.value) || 0;
+                                const markup = parseFloat(markupInput.value) || 0;
+                                const lineTotal = price * qty * (1 + markup / 100);
+                                subtotal += lineTotal;
+
+                                items.push({
+                                    type: 'ajout',
+                                    description: descInput.value || 'Ajout sans description',
+                                    unitPrice: formatPrice(price),
+                                    qty: qty,
+                                    markup: markup,
+                                    lineTotal: formatPrice(lineTotal)
+                                });
+                            }
+                        } else {
+                            const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                            if (item) {
+                                const lineTotal = (item.price || 0) * qty;
+                                subtotal += lineTotal;
+
+                                items.push({
+                                    type: 'catalogue',
+                                    code: item.id,
+                                    description: item.description,
+                                    itemType: item.type,
+                                    unitPrice: formatPrice(item.price),
+                                    qty: qty,
+                                    lineTotal: formatPrice(lineTotal)
+                                });
+                            }
+                        }
+                    }
+                });
+
+                if (items.length > 0) {
+                    grandTotal += subtotal;
+                    meubles.push({
+                        name: meubleName,
+                        items: items,
+                        subtotal: formatPrice(subtotal)
+                    });
+                }
+            });
+
+            return { meubles, total: formatPrice(grandTotal) };
+        }
+
+        // Afficher un message de statut dans la modal
+        function showSendStatus(message, isError) {
+            const statusEl = document.getElementById('sendStatus');
+            statusEl.style.display = 'block';
+            statusEl.textContent = message;
+            statusEl.style.background = isError ? '#ffebee' : '#e8f5e9';
+            statusEl.style.color = isError ? '#c62828' : '#2e7d32';
+        }
+
+        // Envoyer l'estimation par courriel via Google Apps Script
+        function envoyerEstimation() {
+            // Vérifier que l'URL est configurée
+            if (APPS_SCRIPT_URL === 'COLLER_VOTRE_URL_ICI') {
+                showSendStatus('URL du script non configurée. Voir les instructions.', true);
+                return;
+            }
+
+            const projectCode = document.getElementById('projectCode').value || 'N/A';
+            const managerSelect = document.getElementById('projectManager');
+            const selectedIndex = managerSelect.value;
+            const projectManager = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].name : 'N/A';
+            const managerEmail = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].email : '';
+            const projectDate = document.getElementById('projectDate').value;
+            const projectDescription = document.getElementById('projectDescription').value.trim();
+
+            // Formater la date
+            let formattedDate = 'N/A';
+            if (projectDate) {
+                const date = new Date(projectDate + 'T00:00:00');
+                formattedDate = date.toLocaleDateString('fr-CA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
+            // Collecter les données (par meuble)
+            const { meubles, total } = collecterDonneesCalculateur();
+
+            if (meubles.length === 0) {
+                showSendStatus('Aucun article à envoyer.', true);
+                return;
+            }
+
+            // Désactiver le bouton pendant l'envoi
+            const btnSend = document.getElementById('btnSend');
+            btnSend.disabled = true;
+            btnSend.textContent = 'Envoi en cours...';
+            showSendStatus('Envoi en cours...', false);
+
+            // Préparer les images (extraire le Base64 pur du dataUrl)
+            const images = attachedImages.map(img => ({
+                name: img.name,
+                mimeType: img.dataUrl.match(/^data:(.*?);/)[1],
+                data: img.dataUrl.split(',')[1]
+            }));
+
+            // Envoyer les données au Google Apps Script
+            const payload = {
+                projectCode: projectCode,
+                projectManager: projectManager,
+                managerEmail: managerEmail,
+                projectDate: formattedDate,
+                description: projectDescription,
+                meubles: meubles,
+                total: total,
+                images: images
+            };
+
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                // Avec mode: 'no-cors', on ne peut pas lire la réponse
+                // mais la requête est envoyée avec succès
+                showSendStatus('Estimation envoyée avec succès!', false);
+                btnSend.textContent = 'Envoyé!';
+
+                // Fermer la modal après 2 secondes
+                setTimeout(() => {
+                    closePdfModal();
+                    btnSend.disabled = false;
+                    btnSend.textContent = 'Envoyer';
+                    document.getElementById('sendStatus').style.display = 'none';
+                }, 2000);
+            })
+            .catch(error => {
+                showSendStatus('Erreur lors de l\'envoi. Vérifiez votre connexion.', true);
+                btnSend.disabled = false;
+                btnSend.textContent = 'Envoyer';
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // INITIALISATION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Charger les données depuis Google Sheets (ou cache/défaut)
+            await loadFromGoogleSheets();
+
+            // Charger la liste des employés depuis la feuille 2
+            await loadEmployeesFromSheet();
+
+            // Générer les tableaux avec les données chargées
+            generatePriceTables();
+
+            // Créer le premier groupe de meuble
+            addFurnitureGroup();
+        });
+    </script>
+
+</body>
+</html>

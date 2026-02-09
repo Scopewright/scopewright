@@ -158,6 +158,7 @@
             padding: 60px;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         .cover-logo {
@@ -184,6 +185,27 @@
             font-weight: 400;
             color: var(--stele-white);
             opacity: 0.9;
+        }
+
+        .cover-scroll-arrow {
+            position: absolute;
+            bottom: 50px;
+            right: 60px;
+            width: 25px;
+            height: 50px;
+            cursor: pointer;
+            animation: coverBounce 2s ease infinite;
+        }
+
+        .cover-scroll-arrow svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes coverBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(10px); }
+            60% { transform: translateY(5px); }
         }
 
         /* Content pages */
@@ -375,6 +397,17 @@
 
         .nav-links a:hover {
             opacity: 1;
+        }
+
+        .nav-back {
+            opacity: 0.4;
+            border-right: 1px solid var(--stele-gray);
+            padding-right: 24px;
+            margin-right: 0;
+        }
+
+        .nav-back:hover {
+            opacity: 0.7;
         }
 
         @media print {
@@ -1326,6 +1359,7 @@
     <nav class="nav-bar no-print">
         <span class="nav-logo">stele</span>
         <div class="nav-links" id="navLinks">
+            <a href="app.html" class="nav-back">&larr; Menu</a>
             <a href="#disclaimer">Avis</a>
             <!-- Les liens des catégories sont générés dynamiquement -->
             <a href="#calculateur">Calculateur</a>
@@ -1343,6 +1377,12 @@
             <h1 class="cover-title">Catalogue de prix</h1>
             <p class="cover-subtitle">Guide de référence pour chargés de projet</p>
         </div>
+        <a href="#disclaimer" class="cover-scroll-arrow" aria-label="D&eacute;filer vers le bas">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 48" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="2" x2="12" y2="44"/>
+                <polyline points="4 36 12 44 20 36"/>
+            </svg>
+        </a>
     </section>
 
     <!-- Disclaimer Page -->

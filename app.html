@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stele — Outils internes</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #f7f7f5;
+            color: #0A0203;
+        }
+
+        /* Chargement initial — masquer tant que l'auth n'est pas vérifiée */
+        .app-wrapper {
+            display: none;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+
+        .app-wrapper.ready {
+            display: flex;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 40px;
+            background: #0A0203;
+            color: #fff;
+        }
+
+        .app-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .app-logo {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .app-separator {
+            width: 1px;
+            height: 20px;
+            background: rgba(255,255,255,0.25);
+        }
+
+        .app-subtitle {
+            font-size: 13px;
+            opacity: 0.6;
+            font-weight: 400;
+        }
+
+        .app-user {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .app-user-email {
+            opacity: 0.6;
+        }
+
+        .btn-logout {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 6px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        /* Contenu principal */
+        .app-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 40px;
+        }
+
+        .welcome-text {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .welcome-sub {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 48px;
+        }
+
+        /* Grille d'outils */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .tool-card {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 28px 24px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.15s;
+        }
+
+        .tool-card:hover {
+            border-color: #4b6050;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            transform: translateY(-2px);
+        }
+
+        .tool-icon {
+            width: 40px;
+            height: 40px;
+            background: #4b6050;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .tool-icon svg {
+            width: 22px;
+            height: 22px;
+            color: #fff;
+        }
+
+        .tool-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .tool-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .tool-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 3px 10px;
+            background: #e8ece9;
+            color: #4b6050;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 3px;
+            width: fit-content;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 20px 40px;
+            text-align: center;
+            font-size: 11px;
+            color: #aaa;
+            border-top: 1px solid #e5e5e5;
+        }
+
+        @media (max-width: 768px) {
+            .app-header { padding: 16px 20px; flex-direction: column; gap: 12px; }
+            .app-content { padding: 40px 20px; }
+            .tools-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-wrapper" id="appWrapper">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-header-left">
+                <span class="app-logo">stele</span>
+                <span class="app-separator"></span>
+                <span class="app-subtitle">Outils internes</span>
+            </div>
+            <div class="app-user">
+                <span class="app-user-email" id="userEmail"></span>
+                <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+            </div>
+        </header>
+
+        <!-- Contenu -->
+        <main class="app-content">
+            <div class="welcome-text">Bonjour!</div>
+            <div class="welcome-sub">Sélectionnez un outil pour commencer.</div>
+
+            <div class="tools-grid">
+                <!-- Catalogue de prix -->
+                <a href="catalogue_prix_stele_complet.html" class="tool-card">
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div class="tool-name">Catalogue de prix</div>
+                    <div class="tool-desc">Consultez les prix du catalogue et calculez des estimations budgétaires pour vos projets.</div>
+                    <span class="tool-badge">Disponible</span>
+                </a>
+
+                <!-- Placeholder pour futurs outils -->
+                <div class="tool-card" style="opacity: 0.45; pointer-events: none;">
+                    <div class="tool-icon" style="background: #999;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </div>
+                    <div class="tool-name">Prochain outil</div>
+                    <div class="tool-desc">D'autres outils seront ajoutés ici prochainement.</div>
+                    <span class="tool-badge" style="background: #eee; color: #999;">Bientôt</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            Scopewright — stele.ca
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Vérifier l'authentification
+        (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Afficher l'email de l'utilisateur et la page
+            document.getElementById('userEmail').textContent = session.user.email;
+            document.getElementById('appWrapper').classList.add('ready');
+        })();
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            window.location.href = 'index.html';
+        }
+    </script>
+
+</body>
+</html>

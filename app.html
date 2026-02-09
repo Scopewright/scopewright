@@ -9,9 +9,9 @@
 
         html, body {
             height: 100%;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             background: #ffffff;
-            color: #3D3231;
+            color: #0A0203;
         }
 
         .app-wrapper {
@@ -30,9 +30,8 @@
             align-items: center;
             justify-content: space-between;
             padding: 16px 40px;
-            background: #ffffff;
-            color: #3D3231;
-            border-bottom: 1px solid rgba(61, 50, 49, 0.1);
+            background: #4b6050;
+            color: #fff;
         }
 
         .app-header-left {
@@ -49,13 +48,13 @@
         .app-separator {
             width: 1px;
             height: 20px;
-            background: rgba(61, 50, 49, 0.15);
+            background: rgba(255,255,255,0.3);
         }
 
         .app-subtitle {
             font-size: 13px;
-            color: #3D3231;
-            opacity: 0.5;
+            color: #fff;
+            opacity: 0.7;
             font-weight: 400;
         }
 
@@ -67,14 +66,14 @@
         }
 
         .app-user-email {
-            color: #3D3231;
-            opacity: 0.5;
+            color: #fff;
+            opacity: 0.7;
         }
 
         .btn-logout {
             background: transparent;
-            color: #3D3231;
-            border: 1px solid rgba(61, 50, 49, 0.2);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
             padding: 6px 16px;
             font-size: 12px;
             cursor: pointer;
@@ -83,8 +82,8 @@
         }
 
         .btn-logout:hover {
-            background: rgba(61, 50, 49, 0.05);
-            border-color: rgba(61, 50, 49, 0.4);
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.5);
         }
 
         /* Contenu principal */
@@ -120,8 +119,8 @@
         .tool-card {
             display: flex;
             flex-direction: column;
-            background: #fafaf9;
-            border: 1px solid rgba(61, 50, 49, 0.1);
+            background: #F8F8F8;
+            border: 1px solid #e0e0e0;
             border-radius: 6px;
             padding: 28px 24px;
             text-decoration: none;
@@ -130,7 +129,7 @@
         }
 
         .tool-card:hover {
-            border-color: rgba(61, 50, 49, 0.3);
+            border-color: #4b6050;
             box-shadow: 0 4px 16px rgba(0,0,0,0.06);
             transform: translateY(-2px);
         }
@@ -141,7 +140,7 @@
         }
 
         .tool-card--disabled:hover {
-            border-color: rgba(61, 50, 49, 0.1);
+            border-color: #e0e0e0;
             box-shadow: none;
             transform: none;
         }
@@ -153,7 +152,7 @@
         }
 
         .tool-card--no-access:hover {
-            border-color: rgba(61, 50, 49, 0.1);
+            border-color: #e0e0e0;
             box-shadow: none;
             transform: none;
         }
@@ -211,9 +210,8 @@
             padding: 20px 40px;
             text-align: center;
             font-size: 11px;
-            color: #3D3231;
-            opacity: 0.35;
-            border-top: 1px solid rgba(61, 50, 49, 0.1);
+            color: #999;
+            border-top: 1px solid #e0e0e0;
         }
 
         @media (max-width: 768px) {

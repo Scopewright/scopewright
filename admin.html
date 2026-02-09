@@ -27,27 +27,51 @@
 
         .app-wrapper { display: flex; min-height: 100vh; flex-direction: column; }
 
-        /* Header */
-        .app-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 40px; background: #4b6050; color: #fff;
+        /* Nav bar — identique au catalogue et app */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #FFFFFF;
+            border-bottom: 1px solid #C8C8C8;
+            padding: 12px 60px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            z-index: 100;
         }
-        .app-header-left { display: flex; align-items: center; gap: 14px; }
-        .app-logo-img { height: 36px; width: auto; filter: brightness(0) invert(1); }
-        .app-separator { width: 1px; height: 20px; background: rgba(255,255,255,0.3); }
-        .app-subtitle { font-size: 13px; color: #fff; opacity: 0.7; font-weight: 400; }
-        .app-user { display: flex; align-items: center; gap: 16px; font-size: 13px; }
-        .app-user-email { color: #fff; opacity: 0.7; }
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 400;
+            color: #0A0203;
+        }
+        .nav-user {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+        }
+        .nav-user-email {
+            color: #0A0203;
+            opacity: 0.5;
+        }
         .btn-logout {
-            background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.3);
-            padding: 6px 16px; font-size: 12px; cursor: pointer; transition: all 0.15s;
+            background: transparent;
+            color: #0A0203;
+            border: 1px solid #C8C8C8;
+            padding: 5px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
             font-family: inherit;
+            border-radius: 3px;
         }
-        .btn-logout:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
+        .btn-logout:hover { background: #f5f5f5; border-color: #999; }
 
         /* Content */
         .app-content {
             flex: 1; padding: 40px;
+            padding-top: 96px; /* 56px nav + 40px spacing */
             max-width: 1000px; margin: 0 auto; width: 100%;
         }
 
@@ -178,8 +202,8 @@
         }
 
         @media (max-width: 768px) {
-            .app-header { padding: 16px 20px; flex-direction: column; gap: 12px; }
-            .app-content { padding: 24px 16px; }
+            .nav-bar { padding: 12px 20px; gap: 16px; }
+            .app-content { padding: 24px 16px; padding-top: 80px; }
             .section { padding: 20px 16px; }
             .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
         }
@@ -187,17 +211,13 @@
 </head>
 <body>
     <div class="app-wrapper">
-        <header class="app-header">
-            <div class="app-header-left">
-                <img src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Scopewright" class="app-logo-img">
-                <span class="app-separator"></span>
-                <span class="app-subtitle">Administration</span>
-            </div>
-            <div class="app-user">
-                <span class="app-user-email" id="userEmail"></span>
+        <nav class="nav-bar">
+            <span class="nav-logo">stele</span>
+            <div class="nav-user">
+                <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
-        </header>
+        </nav>
 
         <main class="app-content">
             <a href="app.html" class="back-link">&larr; Retour au menu</a>
@@ -240,7 +260,7 @@
             </div>
         </main>
 
-        <footer class="app-footer">Scopewright — stele.ca</footer>
+        <footer class="app-footer">stele — stele.ca</footer>
     </div>
 
     <script>

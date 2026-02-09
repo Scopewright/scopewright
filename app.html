@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stele — Outils internes</title>
+    <title>Stele — Tableau de bord</title>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --stele-black: #0A0203;
+            --stele-green: #4b6050;
+            --stele-gray: #C8C8C8;
+            --stele-white: #FFFFFF;
+        }
 
         html, body {
             height: 100%;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background: #4b6050;
-            color: #0A0203;
+            color: var(--stele-black);
         }
 
         .app-wrapper {
@@ -24,61 +30,48 @@
             display: flex;
         }
 
-        /* Header — blanc, comme le catalogue */
-        .app-header {
+        /* Nav bar — identique au catalogue */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: var(--stele-white);
+            border-bottom: 1px solid var(--stele-gray);
+            padding: 12px 60px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 14px 40px;
-            background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
+            gap: 32px;
+            z-index: 100;
         }
 
-        .app-header-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .app-logo-img {
-            height: 28px;
-            width: auto;
-        }
-
-        .app-separator {
-            width: 1px;
-            height: 18px;
-            background: #C8C8C8;
-        }
-
-        .app-subtitle {
-            font-size: 13px;
-            color: #0A0203;
-            opacity: 0.5;
+        .nav-logo {
+            font-size: 20px;
             font-weight: 400;
+            color: var(--stele-black);
         }
 
-        .app-user {
+        .nav-user {
+            margin-left: auto;
             display: flex;
             align-items: center;
             gap: 16px;
             font-size: 13px;
         }
 
-        .app-user-email {
-            color: #0A0203;
+        .nav-user-email {
+            color: var(--stele-black);
             opacity: 0.5;
         }
 
         .btn-logout {
             background: transparent;
-            color: #0A0203;
-            border: 1px solid #C8C8C8;
-            padding: 6px 16px;
+            color: var(--stele-black);
+            border: 1px solid var(--stele-gray);
+            padding: 5px 14px;
             font-size: 12px;
             cursor: pointer;
             transition: all 0.15s;
             font-family: inherit;
+            border-radius: 3px;
         }
 
         .btn-logout:hover {
@@ -86,116 +79,139 @@
             border-color: #999;
         }
 
-        /* Corps vert */
-        .app-content {
+        /* Cover verte — comme le catalogue */
+        .cover {
+            margin-top: 56px;
+            min-height: calc(100vh - 56px);
+            background: var(--stele-green);
+            padding: 60px;
+            display: flex;
+            position: relative;
+        }
+
+        .cover-left {
             flex: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px 40px;
-            background: #4b6050;
         }
 
-        .welcome-text {
-            font-size: 28px;
+        .cover-logo {
+            font-size: 48px;
             font-weight: 400;
-            color: #ffffff;
-            margin-bottom: 8px;
+            color: var(--stele-white);
+            letter-spacing: -1px;
         }
 
-        .welcome-sub {
-            font-size: 15px;
-            color: #ffffff;
+        .cover-content {
+            margin-top: auto;
+            margin-bottom: 60px;
+        }
+
+        .cover-title {
+            font-size: 48px;
+            font-weight: 400;
+            color: var(--stele-white);
+            margin-bottom: 12px;
+        }
+
+        .cover-subtitle {
+            font-size: 16px;
+            color: var(--stele-white);
             opacity: 0.7;
-            margin-bottom: 48px;
         }
 
-        /* Grille d'outils */
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            max-width: 720px;
-            width: 100%;
+        /* Cartes a droite */
+        .cover-right {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 16px;
+            margin-left: 60px;
         }
 
         .tool-card {
             display: flex;
             flex-direction: column;
-            background: #ffffff;
+            background: var(--stele-white);
             border: none;
             border-radius: 8px;
-            padding: 28px 24px;
+            padding: 24px 22px;
             text-decoration: none;
-            color: #0A0203;
+            color: var(--stele-black);
             transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
         }
 
         .tool-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.18);
         }
 
         .tool-card--disabled {
-            opacity: 0.55;
+            opacity: 0.5;
             pointer-events: none;
         }
 
         .tool-card--disabled:hover {
             transform: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
         }
 
         .tool-card--no-access {
-            opacity: 0.3;
+            opacity: 0.25;
             pointer-events: none;
         }
 
         .tool-card--no-access:hover {
             transform: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+        }
+
+        .tool-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 8px;
         }
 
         .tool-icon {
-            width: 40px;
-            height: 40px;
-            background: #4b6050;
+            width: 36px;
+            height: 36px;
+            background: var(--stele-green);
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 16px;
+            flex-shrink: 0;
         }
 
         .tool-icon--grey { background: #bbb; }
 
         .tool-icon svg {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             color: #fff;
         }
 
         .tool-name {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
-            margin-bottom: 6px;
         }
 
         .tool-desc {
-            font-size: 13px;
-            color: #555;
-            line-height: 1.5;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+            margin-bottom: 8px;
         }
 
         .tool-badge {
             display: inline-block;
-            margin-top: 12px;
-            padding: 3px 10px;
+            padding: 2px 8px;
             background: #e8ece9;
-            color: #4b6050;
-            font-size: 11px;
+            color: var(--stele-green);
+            font-size: 10px;
             font-weight: 600;
             border-radius: 3px;
             width: fit-content;
@@ -206,99 +222,103 @@
             color: #999;
         }
 
-        /* Footer sur le vert */
-        .app-footer {
-            padding: 20px 40px;
-            text-align: center;
-            font-size: 11px;
-            color: rgba(255,255,255,0.4);
-            background: #4b6050;
-        }
-
-        @media (max-width: 768px) {
-            .app-header { padding: 12px 20px; flex-direction: column; gap: 10px; }
-            .app-content { padding: 40px 20px; }
-            .tools-grid { grid-template-columns: 1fr; max-width: 400px; }
+        @media (max-width: 900px) {
+            .nav-bar { padding: 12px 20px; gap: 16px; }
+            .cover {
+                flex-direction: column;
+                padding: 40px 24px;
+            }
+            .cover-right {
+                width: 100%;
+                margin-left: 0;
+                margin-top: 40px;
+            }
+            .cover-title { font-size: 32px; }
+            .cover-logo { font-size: 36px; }
         }
     </style>
 </head>
 <body>
 
     <div class="app-wrapper" id="appWrapper">
-        <!-- Header blanc -->
-        <header class="app-header">
-            <div class="app-header-left">
-                <img src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele" class="app-logo-img">
-                <span class="app-separator"></span>
-                <span class="app-subtitle">Outils internes</span>
-            </div>
-            <div class="app-user">
-                <span class="app-user-email" id="userEmail"></span>
+        <!-- Nav bar blanche — identique au catalogue -->
+        <nav class="nav-bar">
+            <span class="nav-logo">stele</span>
+            <div class="nav-user">
+                <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
-        </header>
+        </nav>
 
-        <!-- Contenu vert avec cartes blanches -->
-        <main class="app-content">
-            <div class="welcome-text">Outils internes</div>
-            <div class="welcome-sub">S&eacute;lectionnez un outil pour commencer.</div>
+        <!-- Cover verte -->
+        <div class="cover">
+            <div class="cover-left">
+                <div class="cover-logo">stele</div>
+                <div class="cover-content">
+                    <h1 class="cover-title">Tableau de bord</h1>
+                    <p class="cover-subtitle">S&eacute;lectionnez un outil pour commencer.</p>
+                </div>
+            </div>
 
-            <div class="tools-grid">
+            <div class="cover-right">
                 <!-- Catalogue de prix -->
                 <a href="catalogue_prix_stele_complet.html" class="tool-card" data-page="catalogue">
-                    <div class="tool-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
+                    <div class="tool-top">
+                        <div class="tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Catalogue de prix</div>
                     </div>
-                    <div class="tool-name">Catalogue de prix</div>
                     <div class="tool-desc">Consultez les prix et calculez des estimations budg&eacute;taires.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
                 <!-- Documents -->
                 <div class="tool-card tool-card--disabled" data-page="documents">
-                    <div class="tool-icon tool-icon--grey">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                    <div class="tool-top">
+                        <div class="tool-icon tool-icon--grey">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Documents</div>
                     </div>
-                    <div class="tool-name">Documents</div>
                     <div class="tool-desc">Acc&eacute;dez aux documents et fichiers de l'entreprise.</div>
                     <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
                 </div>
 
                 <!-- Assistant vente -->
                 <div class="tool-card tool-card--disabled" data-page="assistant">
-                    <div class="tool-icon tool-icon--grey">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
+                    <div class="tool-top">
+                        <div class="tool-icon tool-icon--grey">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Assistant vente</div>
                     </div>
-                    <div class="tool-name">Assistant vente</div>
                     <div class="tool-desc">Utilisez l'assistant IA pour vos processus de vente.</div>
                     <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
                 </div>
 
                 <!-- Administration -->
                 <a href="admin.html" class="tool-card" data-page="admin">
-                    <div class="tool-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                    <div class="tool-top">
+                        <div class="tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Administration</div>
                     </div>
-                    <div class="tool-name">Administration</div>
                     <div class="tool-desc">G&eacute;rez les permissions et les r&ocirc;les utilisateurs.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
             </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="app-footer">
-            stele.ca
-        </footer>
+        </div>
     </div>
 
     <script>
@@ -316,7 +336,6 @@
 
         var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
 
-        // Auth
         var token = localStorage.getItem('sb_access_token');
         var userEmail = localStorage.getItem('sb_user_email');
 

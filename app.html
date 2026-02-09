@@ -141,7 +141,19 @@
         }
 
         .tool-card--disabled:hover {
-            border-color: #e5e5e5;
+            border-color: rgba(61, 50, 49, 0.1);
+            box-shadow: none;
+            transform: none;
+        }
+
+        .tool-card--no-access {
+            opacity: 0.35;
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+
+        .tool-card--no-access:hover {
+            border-color: rgba(61, 50, 49, 0.1);
             box-shadow: none;
             transform: none;
         }
@@ -350,7 +362,11 @@
             for (var i = 0; i < cards.length; i++) {
                 var pageKey = cards[i].getAttribute('data-page');
                 if (allowed[pageKey] === false) {
-                    cards[i].style.display = 'none';
+                    // Griser la carte et bloquer le clic, mais rester visible
+                    cards[i].classList.add('tool-card--no-access');
+                    if (cards[i].tagName === 'A') {
+                        cards[i].removeAttribute('href');
+                    }
                 }
             }
         }

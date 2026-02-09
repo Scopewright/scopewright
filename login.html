@@ -188,16 +188,30 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
         const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+
+        // Vérifier que la librairie est chargée
+        if (!window.supabase || !window.supabase.createClient) {
+            showError('Erreur de chargement. Rechargez la page.');
+        }
+
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Si déjà connecté → rediriger vers app.html
         (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) window.location.href = 'app.html';
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) window.location.href = 'app.html';
+            } catch (e) { /* pas connecté, on reste sur login */ }
         })();
 
         async function handleLogin(e) {
@@ -212,21 +226,26 @@
             btn.innerHTML = 'Connexion... <span class="arrow">→</span>';
             errorEl.classList.remove('visible');
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email,
-                password: password
-            });
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
 
-            if (error) {
-                errorEl.textContent = 'Courriel ou mot de passe invalide.';
-                errorEl.classList.add('visible');
+                if (error) {
+                    showError(error.message || 'Courriel ou mot de passe invalide.');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Connexion <span class="arrow">→</span>';
+                    return;
+                }
+
+                // Succès → rediriger vers le menu
+                window.location.href = 'app.html';
+            } catch (err) {
+                showError('Erreur de connexion: ' + err.message);
                 btn.disabled = false;
                 btn.innerHTML = 'Connexion <span class="arrow">→</span>';
-                return;
             }
-
-            // Succès → rediriger vers le menu
-            window.location.href = 'app.html';
         }
     </script>
 

@@ -1471,7 +1471,14 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Cat&eacute;gorie</label>
-                        <input type="text" class="form-input" id="editCategory">
+                        <select class="form-input" id="editCategory">
+                            <option value="Budg&eacute;taire">Budg&eacute;taire</option>
+                            <option value="Panneaux">Panneaux</option>
+                            <option value="Poign&eacute;es">Poign&eacute;es</option>
+                            <option value="Tiroirs">Tiroirs</option>
+                            <option value="&Eacute;clairage">&Eacute;clairage</option>
+                            <option value="Portes int&eacute;rieures">Portes int&eacute;rieures</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -2645,12 +2652,14 @@
                 generatePriceTables();
 
                 status.textContent = '\u2713 Sauvegardé';
+                status.style.display = '';
                 status.className = 'edit-status success';
 
                 setTimeout(() => closeEditModal(), 800);
             } catch (err) {
                 console.error('Erreur sauvegarde:', err);
                 status.textContent = 'Erreur: ' + err.message;
+                status.style.display = '';
                 status.className = 'edit-status error';
             } finally {
                 btn.disabled = false;

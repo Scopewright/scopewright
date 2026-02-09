@@ -5,18 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catalogue de prix — Stele</title>
 
-    <!-- Auth guard — vérifie la session Supabase avant d'afficher la page -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- Auth guard — vérifie le token localStorage avant d'afficher la page -->
     <script>
-        (async () => {
-            const sb = window.supabase.createClient(
-                'https://rplzbtjfnwahqodrhpny.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU'
-            );
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) { window.location.href = 'login.html'; return; }
+        if (!localStorage.getItem('sb_access_token')) {
+            window.location.href = 'login.html';
+        } else {
             document.documentElement.style.visibility = 'visible';
-        })();
+        }
     </script>
     <style>html { visibility: hidden; }</style>
 

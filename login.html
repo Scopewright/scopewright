@@ -19,7 +19,6 @@
             min-height: 100vh;
         }
 
-        /* Colonne gauche — Formulaire */
         .left {
             flex: 1;
             display: flex;
@@ -108,15 +107,6 @@
         .login-btn:hover { opacity: 0.85; }
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .login-btn .arrow {
-            font-size: 14px;
-            transition: transform 0.2s;
-        }
-
-        .login-btn:hover:not(:disabled) .arrow {
-            transform: translateX(3px);
-        }
-
         .error-msg {
             display: none;
             margin-top: 16px;
@@ -128,7 +118,6 @@
             max-width: 360px;
         }
 
-        /* Colonne droite — Logo */
         .right {
             flex: 1;
             background: #F5F0E8;
@@ -156,10 +145,10 @@
 
     <div class="container">
         <div class="left">
-            <a href="index.html" class="back-link">← Retour</a>
+            <a href="index.html" class="back-link">&larr; Retour</a>
 
             <div class="logo-text">Scopewright</div>
-            <div class="subtitle">Connectez-vous pour accéder aux outils.</div>
+            <div class="subtitle">Connectez-vous pour acc&eacute;der aux outils.</div>
 
             <form id="loginForm">
                 <div class="form-group">
@@ -170,27 +159,27 @@
                     <label class="form-label" for="password">Mot de passe</label>
                     <input type="password" class="form-input" id="password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="login-btn" id="btnLogin">
-                    Connexion <span class="arrow">→</span>
-                </button>
+                <button type="submit" class="login-btn" id="btnLogin">Connexion &rarr;</button>
             </form>
 
             <div class="error-msg" id="errorMsg"></div>
         </div>
 
         <div class="right">
-            <img
-                src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png"
-                alt="Scopewright logo"
-            >
+            <img src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png" alt="Scopewright logo">
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- AUCUN CDN — Auth via fetch() direct -->
     <script>
         var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
-        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
-        var sb = null;
+        var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+        // Si deja connecte, rediriger
+        var token = localStorage.getItem('sb_access_token');
+        if (token) {
+            window.location.href = 'app.html';
+        }
 
         function showError(msg) {
             var el = document.getElementById('errorMsg');
@@ -198,68 +187,49 @@
             el.style.display = 'block';
         }
 
-        function hideError() {
-            document.getElementById('errorMsg').style.display = 'none';
-        }
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
 
-        // Initialiser Supabase
-        try {
-            if (window.supabase && window.supabase.createClient) {
-                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            } else {
-                showError('Librairie non chargée. Essayez de rafraîchir la page (Ctrl+Shift+R).');
-            }
-        } catch(e) {
-            showError('Erreur init: ' + e.message);
-        }
-
-        // Si déjà connecté → rediriger
-        if (sb) {
-            sb.auth.getSession().then(function(result) {
-                if (result.data && result.data.session) {
-                    window.location.href = 'app.html';
-                }
-            });
-        }
-
-        // Attacher le formulaire après le chargement du DOM
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('loginForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                handleLogin();
-            });
-        });
-
-        function handleLogin() {
             var btn = document.getElementById('btnLogin');
             var email = document.getElementById('email').value.trim();
             var password = document.getElementById('password').value;
 
-            if (!sb) {
-                showError('Supabase non initialisé. Rafraîchissez la page.');
-                return;
-            }
-
             btn.disabled = true;
             btn.textContent = 'Connexion...';
-            hideError();
+            document.getElementById('errorMsg').style.display = 'none';
 
-            sb.auth.signInWithPassword({ email: email, password: password })
-                .then(function(result) {
-                    if (result.error) {
-                        showError(result.error.message);
-                        btn.disabled = false;
-                        btn.textContent = 'Connexion →';
-                    } else {
-                        window.location.href = 'app.html';
-                    }
-                })
-                .catch(function(err) {
-                    showError('Erreur: ' + err.message);
+            fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY
+                },
+                body: JSON.stringify({ email: email, password: password })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.access_token) {
+                    // Succes — sauvegarder le token et rediriger
+                    localStorage.setItem('sb_access_token', data.access_token);
+                    localStorage.setItem('sb_refresh_token', data.refresh_token);
+                    localStorage.setItem('sb_user_email', data.user.email);
+                    localStorage.setItem('sb_user_id', data.user.id);
+                    window.location.href = 'app.html';
+                } else {
+                    // Erreur retournee par Supabase
+                    showError(data.error_description || data.msg || 'Courriel ou mot de passe invalide.');
                     btn.disabled = false;
-                    btn.textContent = 'Connexion →';
-                });
-        }
+                    btn.textContent = 'Connexion \u2192';
+                }
+            })
+            .catch(function(err) {
+                showError('Erreur de connexion: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Connexion \u2192';
+            });
+        });
     </script>
 
 </body>

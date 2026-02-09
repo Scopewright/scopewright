@@ -14,7 +14,6 @@
             color: #0A0203;
         }
 
-        /* Chargement initial — masquer tant que l'auth n'est pas vérifiée */
         .app-wrapper {
             display: none;
             min-height: 100vh;
@@ -134,6 +133,17 @@
             transform: translateY(-2px);
         }
 
+        .tool-card--disabled {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .tool-card--disabled:hover {
+            border-color: #e5e5e5;
+            box-shadow: none;
+            transform: none;
+        }
+
         .tool-icon {
             width: 40px;
             height: 40px;
@@ -144,6 +154,8 @@
             justify-content: center;
             margin-bottom: 16px;
         }
+
+        .tool-icon--grey { background: #999; }
 
         .tool-icon svg {
             width: 22px;
@@ -175,6 +187,11 @@
             width: fit-content;
         }
 
+        .tool-badge--grey {
+            background: #eee;
+            color: #999;
+        }
+
         /* Footer */
         .app-footer {
             padding: 20px 40px;
@@ -203,39 +220,64 @@
             </div>
             <div class="app-user">
                 <span class="app-user-email" id="userEmail"></span>
-                <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+                <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
         </header>
 
         <!-- Contenu -->
         <main class="app-content">
             <div class="welcome-text">Bonjour!</div>
-            <div class="welcome-sub">Sélectionnez un outil pour commencer.</div>
+            <div class="welcome-sub">S&eacute;lectionnez un outil pour commencer.</div>
 
             <div class="tools-grid">
                 <!-- Catalogue de prix -->
-                <a href="catalogue_prix_stele_complet.html" class="tool-card">
+                <a href="catalogue_prix_stele_complet.html" class="tool-card" data-page="catalogue">
                     <div class="tool-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
                     <div class="tool-name">Catalogue de prix</div>
-                    <div class="tool-desc">Consultez les prix du catalogue et calculez des estimations budgétaires pour vos projets.</div>
+                    <div class="tool-desc">Consultez les prix du catalogue et calculez des estimations budg&eacute;taires pour vos projets.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
-                <!-- Placeholder pour futurs outils -->
-                <div class="tool-card" style="opacity: 0.45; pointer-events: none;">
-                    <div class="tool-icon" style="background: #999;">
+                <!-- Documents -->
+                <div class="tool-card tool-card--disabled" data-page="documents">
+                    <div class="tool-icon tool-icon--grey">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <div class="tool-name">Prochain outil</div>
-                    <div class="tool-desc">D'autres outils seront ajoutés ici prochainement.</div>
-                    <span class="tool-badge" style="background: #eee; color: #999;">Bientôt</span>
+                    <div class="tool-name">Documents</div>
+                    <div class="tool-desc">Acc&eacute;dez aux documents et fichiers de l'entreprise.</div>
+                    <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
                 </div>
+
+                <!-- Assistant vente -->
+                <div class="tool-card tool-card--disabled" data-page="assistant">
+                    <div class="tool-icon tool-icon--grey">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                    </div>
+                    <div class="tool-name">Assistant vente</div>
+                    <div class="tool-desc">Utilisez l'assistant IA pour vos processus de vente.</div>
+                    <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
+                </div>
+
+                <!-- Administration -->
+                <a href="admin.html" class="tool-card" data-page="admin">
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div class="tool-name">Administration</div>
+                    <div class="tool-desc">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les des utilisateurs.</div>
+                    <span class="tool-badge">Disponible</span>
+                </a>
             </div>
         </main>
 
@@ -246,7 +288,21 @@
     </div>
 
     <script>
-        // Vérifier l'authentification via localStorage (tokens stockés par login.html)
+        var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+        var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+        var DEFAULT_PERMISSIONS = {
+            'Admin':             { catalogue: true,  documents: true,  assistant: true,  admin: true  },
+            'Vente':             { catalogue: true,  documents: true,  assistant: true,  admin: false },
+            'Charg\u00e9 de projet': { catalogue: true,  documents: true,  assistant: false, admin: false },
+            'Achat':             { catalogue: true,  documents: true,  assistant: false, admin: false },
+            'Atelier':           { catalogue: false, documents: true,  assistant: false, admin: false },
+            'Client':            { catalogue: false, documents: false, assistant: false, admin: false }
+        };
+
+        var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+
+        // Auth
         var token = localStorage.getItem('sb_access_token');
         var userEmail = localStorage.getItem('sb_user_email');
 
@@ -255,6 +311,45 @@
         } else {
             document.getElementById('userEmail').textContent = userEmail || '';
             document.getElementById('appWrapper').classList.add('ready');
+            loadAndApplyPermissions();
+        }
+
+        function loadAndApplyPermissions() {
+            fetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(rows) {
+                var perms = DEFAULT_PERMISSIONS;
+                var roles = DEFAULT_USER_ROLES;
+                if (Array.isArray(rows)) {
+                    for (var i = 0; i < rows.length; i++) {
+                        if (rows[i].key === 'permissions') perms = rows[i].value;
+                        if (rows[i].key === 'user_roles') roles = rows[i].value;
+                    }
+                }
+                applyCardVisibility(perms, roles);
+            })
+            .catch(function() {
+                applyCardVisibility(DEFAULT_PERMISSIONS, DEFAULT_USER_ROLES);
+            });
+        }
+
+        function applyCardVisibility(perms, roles) {
+            var email = (userEmail || '').toLowerCase();
+            var role = roles[email] || 'Vente';
+            var allowed = perms[role] || {};
+
+            var cards = document.querySelectorAll('[data-page]');
+            for (var i = 0; i < cards.length; i++) {
+                var pageKey = cards[i].getAttribute('data-page');
+                if (allowed[pageKey] === false) {
+                    cards[i].style.display = 'none';
+                }
+            }
         }
 
         function handleLogout() {

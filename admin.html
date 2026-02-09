@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration — Stele</title>
+
+    <!-- Auth guard -->
+    <script>
+        if (!localStorage.getItem('sb_access_token')) {
+            window.location.href = 'login.html';
+        } else {
+            document.documentElement.style.visibility = 'visible';
+        }
+    </script>
+    <style>html { visibility: hidden; }</style>
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #f7f7f5;
+            color: #0A0203;
+        }
+
+        .app-wrapper { display: flex; min-height: 100vh; flex-direction: column; }
+
+        /* Header */
+        .app-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 40px; background: #0A0203; color: #fff;
+        }
+        .app-header-left { display: flex; align-items: center; gap: 16px; }
+        .app-logo { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+        .app-separator { width: 1px; height: 20px; background: rgba(255,255,255,0.25); }
+        .app-subtitle { font-size: 13px; opacity: 0.6; font-weight: 400; }
+        .app-user { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+        .app-user-email { opacity: 0.6; }
+        .btn-logout {
+            background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.25);
+            padding: 6px 16px; font-size: 12px; cursor: pointer; transition: all 0.15s;
+            font-family: inherit;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
+
+        /* Content */
+        .app-content {
+            flex: 1; padding: 40px;
+            max-width: 1000px; margin: 0 auto; width: 100%;
+        }
+
+        .back-link {
+            display: inline-block; margin-bottom: 24px;
+            color: #666; text-decoration: none; font-size: 13px;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #0A0203; }
+
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .page-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
+
+        /* Sections */
+        .section {
+            background: #fff; border: 1px solid #e5e5e5;
+            border-radius: 6px; padding: 28px; margin-bottom: 24px;
+        }
+        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .section-desc { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+        /* Permissions table */
+        .perm-table { width: 100%; border-collapse: collapse; }
+        .perm-table th, .perm-table td {
+            padding: 12px 16px; text-align: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .perm-table th {
+            font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #888; font-weight: 600;
+            background: #fafaf8;
+        }
+        .perm-table th:first-child, .perm-table td:first-child { text-align: left; }
+        .perm-table td:first-child { font-weight: 600; font-size: 14px; }
+        .perm-table tbody tr:last-child td { border-bottom: none; }
+        .perm-table tbody tr:hover { background: #fdfcfa; }
+
+        /* Toggle switch */
+        .toggle { position: relative; display: inline-block; width: 38px; height: 22px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ddd; border-radius: 22px;
+            transition: background 0.25s;
+        }
+        .toggle .slider::before {
+            content: ''; position: absolute;
+            height: 16px; width: 16px;
+            left: 3px; bottom: 3px;
+            background: #fff; border-radius: 50%;
+            transition: transform 0.25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .toggle input:checked + .slider { background: #4b6050; }
+        .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+        /* Roles table */
+        .roles-table { width: 100%; border-collapse: collapse; }
+        .roles-table th, .roles-table td {
+            padding: 10px 12px; text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .roles-table th {
+            font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #888; font-weight: 600;
+            background: #fafaf8;
+        }
+        .roles-table tbody tr:last-child td { border-bottom: none; }
+
+        .input-email {
+            width: 100%; padding: 8px 12px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 13px;
+            transition: border-color 0.2s;
+        }
+        .input-email:focus { outline: none; border-color: #4b6050; }
+
+        .select-role {
+            padding: 8px 12px; border: 1px solid #e0e0e0;
+            border-radius: 4px; font-family: inherit; font-size: 13px;
+            background: #fff; cursor: pointer;
+        }
+        .select-role:focus { outline: none; border-color: #4b6050; }
+
+        .btn-remove {
+            background: none; border: none; color: #ccc;
+            font-size: 20px; cursor: pointer; padding: 4px 8px;
+            transition: color 0.2s;
+        }
+        .btn-remove:hover { color: #c0392b; }
+
+        .btn-add {
+            margin-top: 12px; background: none;
+            border: 1px dashed #d0d0d0; color: #888;
+            padding: 8px 20px; font-size: 13px; cursor: pointer;
+            font-family: inherit; border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn-add:hover { border-color: #999; color: #555; }
+
+        /* Save bar */
+        .save-bar {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 20px; padding-top: 16px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .btn-save {
+            background: #4b6050; color: #fff; border: none;
+            padding: 10px 28px; font-size: 14px; font-weight: 500;
+            cursor: pointer; border-radius: 4px; font-family: inherit;
+            transition: opacity 0.2s;
+        }
+        .btn-save:hover { opacity: 0.9; }
+
+        .save-feedback {
+            font-size: 13px; color: #4b6050;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .save-feedback.visible { opacity: 1; }
+        .save-feedback.warn { color: #b8860b; }
+
+        /* Footer */
+        .app-footer {
+            padding: 20px 40px; text-align: center;
+            font-size: 11px; color: #aaa;
+            border-top: 1px solid #e5e5e5;
+        }
+
+        @media (max-width: 768px) {
+            .app-header { padding: 16px 20px; flex-direction: column; gap: 12px; }
+            .app-content { padding: 24px 16px; }
+            .section { padding: 20px 16px; }
+            .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="app-header">
+            <div class="app-header-left">
+                <span class="app-logo">stele</span>
+                <span class="app-separator"></span>
+                <span class="app-subtitle">Administration</span>
+            </div>
+            <div class="app-user">
+                <span class="app-user-email" id="userEmail"></span>
+                <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            <a href="app.html" class="back-link">&larr; Retour au menu</a>
+            <div class="page-title">Administration</div>
+            <div class="page-sub">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les utilisateurs.</div>
+
+            <!-- Permissions par role -->
+            <div class="section">
+                <div class="section-title">Permissions par r&ocirc;le</div>
+                <div class="section-desc">D&eacute;finissez quels outils sont accessibles pour chaque r&ocirc;le. Les colonnes s'ajoutent automatiquement avec les nouveaux outils.</div>
+                <table class="perm-table">
+                    <thead><tr id="permHead"></tr></thead>
+                    <tbody id="permBody"></tbody>
+                </table>
+                <div class="save-bar">
+                    <button class="btn-save" onclick="savePermissions()">Sauvegarder les permissions</button>
+                    <span class="save-feedback" id="permFeedback"></span>
+                </div>
+            </div>
+
+            <!-- Attribution des roles -->
+            <div class="section">
+                <div class="section-title">Attribution des r&ocirc;les</div>
+                <div class="section-desc">Assignez un r&ocirc;le &agrave; chaque utilisateur par courriel. Le r&ocirc;le d&eacute;termine les outils accessibles.</div>
+                <table class="roles-table">
+                    <thead>
+                        <tr>
+                            <th style="width:55%">Courriel</th>
+                            <th style="width:35%">R&ocirc;le</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="rolesBody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addUserRow()">+ Ajouter un utilisateur</button>
+                <div class="save-bar">
+                    <button class="btn-save" onclick="saveUserRoles()">Sauvegarder les r&ocirc;les</button>
+                    <span class="save-feedback" id="rolesFeedback"></span>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">Scopewright — stele.ca</footer>
+    </div>
+
+    <script>
+    /*
+     * Pour activer la sauvegarde partagee dans Supabase, executez ce SQL
+     * dans le SQL Editor de votre projet Supabase :
+     *
+     * CREATE TABLE app_config (
+     *   key TEXT PRIMARY KEY,
+     *   value JSONB NOT NULL,
+     *   updated_at TIMESTAMPTZ DEFAULT now()
+     * );
+     * ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
+     * CREATE POLICY "auth_read" ON app_config FOR SELECT TO authenticated USING (true);
+     * CREATE POLICY "auth_write" ON app_config FOR ALL TO authenticated USING (true) WITH CHECK (true);
+     *
+     * Sans cette table, les donnees sont sauvegardees localement (navigateur uniquement).
+     */
+
+    var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+    // ── Pages (ajouter ici = nouvelle colonne automatique) ──
+    var PAGES = [
+        { key: 'catalogue', label: 'Catalogue' },
+        { key: 'documents', label: 'Documents' },
+        { key: 'assistant', label: 'Assistant vente' },
+        { key: 'admin', label: 'Administration' }
+    ];
+
+    var ROLES = ['Admin', 'Vente', 'Charg\u00e9 de projet', 'Achat', 'Atelier', 'Client'];
+
+    var DEFAULT_PERMISSIONS = {
+        'Admin':             { catalogue: true,  documents: true,  assistant: true,  admin: true  },
+        'Vente':             { catalogue: true,  documents: true,  assistant: true,  admin: false },
+        'Charg\u00e9 de projet': { catalogue: true,  documents: true,  assistant: false, admin: false },
+        'Achat':             { catalogue: true,  documents: true,  assistant: false, admin: false },
+        'Atelier':           { catalogue: false, documents: true,  assistant: false, admin: false },
+        'Client':            { catalogue: false, documents: false, assistant: false, admin: false }
+    };
+
+    var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+
+    var permissions = {};
+    var userRolesMap = {};
+
+    // Init
+    document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
+    loadConfig();
+
+    function loadConfig() {
+        var token = localStorage.getItem('sb_access_token');
+
+        fetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error('not available');
+            return r.json();
+        })
+        .then(function(rows) {
+            if (Array.isArray(rows)) {
+                for (var i = 0; i < rows.length; i++) {
+                    if (rows[i].key === 'permissions') permissions = rows[i].value;
+                    if (rows[i].key === 'user_roles') userRolesMap = rows[i].value;
+                }
+            }
+            applyDefaults();
+            renderAll();
+        })
+        .catch(function() {
+            applyDefaults();
+            renderAll();
+        });
+    }
+
+    function applyDefaults() {
+        if (!Object.keys(permissions).length) {
+            permissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
+        }
+        // S'assurer que tous les roles et pages existent
+        for (var r = 0; r < ROLES.length; r++) {
+            var role = ROLES[r];
+            if (!permissions[role]) permissions[role] = {};
+            for (var p = 0; p < PAGES.length; p++) {
+                var pageKey = PAGES[p].key;
+                if (permissions[role][pageKey] === undefined) {
+                    var def = DEFAULT_PERMISSIONS[role];
+                    permissions[role][pageKey] = def ? (def[pageKey] || false) : false;
+                }
+            }
+        }
+        if (!Object.keys(userRolesMap).length) {
+            userRolesMap = JSON.parse(JSON.stringify(DEFAULT_USER_ROLES));
+        }
+    }
+
+    function renderAll() {
+        renderPermTable();
+        renderRolesTable();
+    }
+
+    // ── Permissions table ──
+
+    function renderPermTable() {
+        var head = document.getElementById('permHead');
+        var body = document.getElementById('permBody');
+
+        var headHtml = '<th>R\u00f4le</th>';
+        for (var p = 0; p < PAGES.length; p++) {
+            headHtml += '<th>' + PAGES[p].label + '</th>';
+        }
+        head.innerHTML = headHtml;
+
+        var bodyHtml = '';
+        for (var r = 0; r < ROLES.length; r++) {
+            var role = ROLES[r];
+            bodyHtml += '<tr><td>' + role + '</td>';
+            for (var p2 = 0; p2 < PAGES.length; p2++) {
+                var pk = PAGES[p2].key;
+                var checked = (permissions[role] && permissions[role][pk]) ? ' checked' : '';
+                bodyHtml += '<td><label class="toggle">' +
+                    '<input type="checkbox" data-role="' + role + '" data-page="' + pk + '"' + checked + '>' +
+                    '<span class="slider"></span></label></td>';
+            }
+            bodyHtml += '</tr>';
+        }
+        body.innerHTML = bodyHtml;
+    }
+
+    // ── User roles table ──
+
+    function renderRolesTable() {
+        var body = document.getElementById('rolesBody');
+        var html = '';
+        var emails = Object.keys(userRolesMap);
+        for (var i = 0; i < emails.length; i++) {
+            html += buildUserRowHtml(emails[i], userRolesMap[emails[i]]);
+        }
+        body.innerHTML = html;
+    }
+
+    function buildUserRowHtml(email, role) {
+        var options = '';
+        for (var i = 0; i < ROLES.length; i++) {
+            var sel = (ROLES[i] === role) ? ' selected' : '';
+            options += '<option value="' + ROLES[i] + '"' + sel + '>' + ROLES[i] + '</option>';
+        }
+        return '<tr>' +
+            '<td><input type="email" class="input-email" value="' + escapeHtml(email) + '" placeholder="nom@entreprise.ca"></td>' +
+            '<td><select class="select-role">' + options + '</select></td>' +
+            '<td><button class="btn-remove" onclick="removeUserRow(this)" title="Retirer">&times;</button></td>' +
+            '</tr>';
+    }
+
+    function addUserRow() {
+        var body = document.getElementById('rolesBody');
+        body.insertAdjacentHTML('beforeend', buildUserRowHtml('', 'Vente'));
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    function removeUserRow(btn) {
+        var row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ── Save functions ──
+
+    function savePermissions() {
+        var newPerm = {};
+        for (var r = 0; r < ROLES.length; r++) {
+            newPerm[ROLES[r]] = {};
+        }
+
+        var checkboxes = document.querySelectorAll('#permBody input[type="checkbox"]');
+        for (var i = 0; i < checkboxes.length; i++) {
+            var cb = checkboxes[i];
+            var role = cb.getAttribute('data-role');
+            var page = cb.getAttribute('data-page');
+            newPerm[role][page] = cb.checked;
+        }
+
+        permissions = newPerm;
+        saveConfig('permissions', permissions, 'permFeedback');
+    }
+
+    function saveUserRoles() {
+        var newRoles = {};
+        var rows = document.querySelectorAll('#rolesBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var email = rows[i].querySelector('.input-email').value.trim().toLowerCase();
+            var role = rows[i].querySelector('.select-role').value;
+            if (email) newRoles[email] = role;
+        }
+
+        userRolesMap = newRoles;
+        saveConfig('user_roles', userRolesMap, 'rolesFeedback');
+    }
+
+    function saveConfig(key, value, feedbackId) {
+        var token = localStorage.getItem('sb_access_token');
+        var fb = document.getElementById(feedbackId);
+
+        fetch(SUPABASE_URL + '/rest/v1/app_config', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+        })
+        .then(function(r) {
+            if (r.ok || r.status === 201) {
+                showFeedback(fb, 'Sauvegard\u00e9 avec succ\u00e8s', false);
+            } else {
+                throw new Error('save failed');
+            }
+        })
+        .catch(function() {
+            // Fallback localStorage
+            localStorage.setItem('stele_' + key, JSON.stringify(value));
+            showFeedback(fb, 'Sauvegard\u00e9 localement — cr\u00e9ez la table Supabase pour partager', true);
+        });
+    }
+
+    function showFeedback(el, msg, isWarn) {
+        el.textContent = (isWarn ? '' : '\u2713 ') + msg;
+        el.className = 'save-feedback visible' + (isWarn ? ' warn' : '');
+        setTimeout(function() { el.className = 'save-feedback'; }, 4000);
+    }
+
+    function handleLogout() {
+        localStorage.removeItem('sb_access_token');
+        localStorage.removeItem('sb_refresh_token');
+        localStorage.removeItem('sb_user_email');
+        localStorage.removeItem('sb_user_id');
+        window.location.href = 'index.html';
+    }
+    </script>
+</body>
+</html>

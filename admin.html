@@ -286,6 +286,7 @@
     // ── Pages (ajouter ici = nouvelle colonne automatique) ──
     var PAGES = [
         { key: 'catalogue', label: 'Catalogue' },
+        { key: 'catalogue_edit', label: 'Modifier catalogue' },
         { key: 'documents', label: 'Documents' },
         { key: 'assistant', label: 'Assistant vente' },
         { key: 'admin', label: 'Administration' }
@@ -294,12 +295,12 @@
     var ROLES = ['Admin', 'Vente', 'Charg\u00e9 de projet', 'Achat', 'Atelier', 'Client'];
 
     var DEFAULT_PERMISSIONS = {
-        'Admin':             { catalogue: true,  documents: true,  assistant: true,  admin: true  },
-        'Vente':             { catalogue: true,  documents: true,  assistant: true,  admin: false },
-        'Charg\u00e9 de projet': { catalogue: true,  documents: true,  assistant: false, admin: false },
-        'Achat':             { catalogue: true,  documents: true,  assistant: false, admin: false },
-        'Atelier':           { catalogue: false, documents: true,  assistant: false, admin: false },
-        'Client':            { catalogue: false, documents: false, assistant: false, admin: false }
+        'Admin':             { catalogue: true,  catalogue_edit: true,  documents: true,  assistant: true,  admin: true  },
+        'Vente':             { catalogue: true,  catalogue_edit: true,  documents: true,  assistant: true,  admin: false },
+        'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, documents: true,  assistant: false, admin: false },
+        'Achat':             { catalogue: true,  catalogue_edit: false, documents: true,  assistant: false, admin: false },
+        'Atelier':           { catalogue: false, catalogue_edit: false, documents: true,  assistant: false, admin: false },
+        'Client':            { catalogue: false, catalogue_edit: false, documents: false, assistant: false, admin: false }
     };
 
     var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };

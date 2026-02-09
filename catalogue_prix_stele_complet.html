@@ -679,6 +679,185 @@
             transform: translateX(0);
         }
 
+        /* Image dans le tooltip */
+        .tooltip-image {
+            width: 100%;
+            max-width: 200px;
+            height: auto;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .tooltip-table .tooltip.has-image {
+            width: 320px;
+        }
+
+        /* Bouton modifier dans les tableaux */
+        .col-edit {
+            width: 40px;
+            text-align: center;
+        }
+
+        .btn-edit-row {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 6px;
+            opacity: 0;
+            transition: opacity 0.15s;
+            color: var(--stele-black);
+            font-size: 14px;
+            border-radius: 3px;
+        }
+
+        .btn-edit-row:hover {
+            background: rgba(0,0,0,0.06);
+        }
+
+        .price-table tbody tr:hover .btn-edit-row {
+            opacity: 0.5;
+        }
+
+        .price-table tbody tr:hover .btn-edit-row:hover {
+            opacity: 1;
+        }
+
+        /* Modal d'édition — agrandie pour les champs */
+        .modal.modal-edit {
+            max-width: 520px;
+        }
+
+        .edit-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .edit-row .form-group {
+            flex: 1;
+        }
+
+        .edit-image-zone {
+            border: 2px dashed var(--stele-gray);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .edit-image-zone:hover,
+        .edit-image-zone.dragover {
+            border-color: var(--stele-green);
+            color: var(--stele-green);
+        }
+
+        .edit-image-preview {
+            margin-top: 8px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .edit-image-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+            border: 1px solid var(--stele-gray);
+        }
+
+        .edit-image-remove {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .edit-toggle {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 22px;
+        }
+
+        .edit-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .edit-toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ddd;
+            border-radius: 22px;
+            transition: background 0.25s;
+        }
+
+        .edit-toggle .slider::before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .edit-toggle input:checked + .slider {
+            background: var(--stele-green);
+        }
+
+        .edit-toggle input:checked + .slider::before {
+            transform: translateX(16px);
+        }
+
+        .edit-toggle-label {
+            font-size: 13px;
+            color: var(--stele-black);
+        }
+
+        .edit-status {
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .edit-status.success {
+            display: block;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .edit-status.error {
+            display: block;
+            background: #ffebee;
+            color: #c62828;
+        }
+
         .qty-input {
             width: 100%;
             padding: 8px 10px;
@@ -1277,6 +1456,76 @@
         </div>
     </div>
 
+    <!-- Modal Édition catalogue -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal modal-edit">
+            <div class="modal-header">
+                <h3 class="modal-title">Modifier l'article</h3>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editItemId">
+                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Code</label>
+                        <input type="text" class="form-input" id="editCode" readonly style="background:#f5f5f5; color:#888;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cat&eacute;gorie</label>
+                        <input type="text" class="form-input" id="editCategory">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-input" id="editDescription">
+                </div>
+                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select class="form-input" id="editType">
+                            <option value="pi&sup2;">pi&sup2;</option>
+                            <option value="unitaire">unitaire</option>
+                            <option value="lin&eacute;aire">lin&eacute;aire</option>
+                            <option value="%">%</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prix</label>
+                        <input type="number" class="form-input" id="editPrice" step="0.01" placeholder="Vide = Sur demande">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Instruction</label>
+                    <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Image du produit</label>
+                    <div class="edit-image-zone" id="editImageZone">
+                        Cliquer ou glisser-d&eacute;poser une image
+                    </div>
+                    <input type="file" id="editImageInput" accept="image/*" style="display:none;">
+                    <div class="edit-image-preview" id="editImagePreview" style="display:none;">
+                        <img id="editImageImg" src="" alt="">
+                        <button class="edit-image-remove" onclick="removeEditImage()">&times;</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <div class="edit-toggle-row">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="editInCalculator" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    </div>
+                </div>
+                <div class="edit-status" id="editStatus"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+                <button class="btn-generate" id="btnEditSave" onclick="saveEditModal()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
         // URL DU GOOGLE APPS SCRIPT — À CONFIGURER APRÈS DÉPLOIEMENT
@@ -1288,6 +1537,9 @@
         // ═══════════════════════════════════════════════════════════════════════
         // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
         // ═══════════════════════════════════════════════════════════════════════
+
+        // Permission d'édition du catalogue (chargée depuis Supabase)
+        let canEditCatalogue = false;
 
         // Catégories à exclure des tableaux (affichées uniquement dans le calculateur)
         // Comparaison insensible à la casse
@@ -1391,18 +1643,25 @@
                             <th class="col-type">Type</th>
                             <th class="col-description">Description</th>
                             <th class="col-price">Prix</th>
+                            ${canEditCatalogue ? '<th class="col-edit"></th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
                 `;
 
                 grouped[category].forEach(item => {
+                    const imgHtml = item.image_url
+                        ? `<img class="tooltip-image" src="${item.image_url}" alt="">`
+                        : '';
+                    const tooltipClass = item.image_url ? 'tooltip has-image' : 'tooltip';
+
                     html += `
-                        <tr>
+                        <tr data-item-id="${item.id}">
                             <td>
                                 <span class="tooltip-container tooltip-table">
                                     ${item.id}
-                                    <div class="tooltip">
+                                    <div class="${tooltipClass}">
+                                        ${imgHtml}
                                         <div class="tooltip-title">${item.description}</div>
                                         <div class="tooltip-text">${item.instruction || ''}</div>
                                     </div>
@@ -1412,13 +1671,15 @@
                             <td>
                                 <span class="tooltip-container tooltip-table tooltip-left">
                                     ${item.description}
-                                    <div class="tooltip">
+                                    <div class="${tooltipClass}">
+                                        ${imgHtml}
                                         <div class="tooltip-title">${item.id}</div>
                                         <div class="tooltip-text">${item.instruction || ''}</div>
                                     </div>
                                 </span>
                             </td>
                             <td>${formatPrice(item.price)}</td>
+                            ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${item.id}')" title="Modifier">&#9998;</button></td>` : ''}
                         </tr>
                     `;
                 });
@@ -1442,7 +1703,8 @@
 
             const itemsWithPrice = CATALOGUE_DATA.filter(item =>
                 item.price !== null &&
-                item.type !== '%'
+                item.type !== '%' &&
+                item.in_calculator !== false
             );
 
             itemsWithPrice.forEach(item => {
@@ -1779,7 +2041,7 @@
                 updateStatus('', 'Chargement...');
                 const token = localStorage.getItem('sb_access_token');
 
-                fetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction&order=sort_order', {
+                fetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator&order=sort_order', {
                     headers: {
                         'apikey': SUPABASE_KEY,
                         'Authorization': 'Bearer ' + token
@@ -2206,10 +2468,255 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // PERMISSIONS UTILISATEUR
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const DEFAULT_PERMISSIONS = {
+            'Admin':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: true  },
+            'Vente':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: false },
+            'Charg\u00e9 de projet': { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false },
+            'Achat':             { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false },
+            'Atelier':           { catalogue: false, catalogue_edit: false, documents: true,  assistant: false, admin: false },
+            'Client':            { catalogue: false, catalogue_edit: false, documents: false, assistant: false, admin: false }
+        };
+
+        const DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+
+        function loadUserPermissions() {
+            return new Promise((resolve) => {
+                const token = localStorage.getItem('sb_access_token');
+                const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+
+                fetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token
+                    }
+                })
+                .then(r => r.ok ? r.json() : [])
+                .then(rows => {
+                    let perms = DEFAULT_PERMISSIONS;
+                    let roles = DEFAULT_USER_ROLES;
+                    if (Array.isArray(rows)) {
+                        rows.forEach(row => {
+                            if (row.key === 'permissions') perms = row.value;
+                            if (row.key === 'user_roles') roles = row.value;
+                        });
+                    }
+                    const role = roles[email] || 'Vente';
+                    const allowed = perms[role] || {};
+                    canEditCatalogue = allowed.catalogue_edit === true;
+                    resolve();
+                })
+                .catch(() => {
+                    const email2 = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                    const role = DEFAULT_USER_ROLES[email2] || 'Vente';
+                    const allowed = DEFAULT_PERMISSIONS[role] || {};
+                    canEditCatalogue = allowed.catalogue_edit === true;
+                    resolve();
+                });
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ÉDITION DU CATALOGUE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let editImageFile = null; // Fichier image en attente d'upload
+
+        function openEditModal(itemId) {
+            const item = CATALOGUE_DATA.find(i => i.id === itemId);
+            if (!item) return;
+
+            document.getElementById('editItemId').value = item.id;
+            document.getElementById('editCode').value = item.id;
+            document.getElementById('editCategory').value = item.category;
+            document.getElementById('editDescription').value = item.description;
+            document.getElementById('editType').value = item.type;
+            document.getElementById('editPrice').value = item.price != null ? item.price : '';
+            document.getElementById('editInstruction').value = item.instruction || '';
+            document.getElementById('editInCalculator').checked = item.in_calculator !== false;
+
+            // Image
+            editImageFile = null;
+            const preview = document.getElementById('editImagePreview');
+            const img = document.getElementById('editImageImg');
+            if (item.image_url) {
+                img.src = item.image_url;
+                preview.style.display = 'inline-block';
+            } else {
+                img.src = '';
+                preview.style.display = 'none';
+            }
+
+            // Reset status
+            const status = document.getElementById('editStatus');
+            status.className = 'edit-status';
+            status.style.display = 'none';
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            editImageFile = null;
+        }
+
+        function removeEditImage() {
+            document.getElementById('editImageImg').src = '';
+            document.getElementById('editImagePreview').style.display = 'none';
+            editImageFile = 'REMOVE';
+        }
+
+        async function uploadCatalogueImage(file, itemId) {
+            const token = localStorage.getItem('sb_access_token');
+            const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+            const path = itemId + '.' + ext;
+
+            const response = await fetch(SUPABASE_URL + '/storage/v1/object/catalogue-images/' + path, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': file.type,
+                    'x-upsert': 'true'
+                },
+                body: file
+            });
+
+            if (!response.ok) throw new Error('Upload failed: ' + response.status);
+            return SUPABASE_URL + '/storage/v1/object/public/catalogue-images/' + path + '?t=' + Date.now();
+        }
+
+        async function saveEditModal() {
+            const btn = document.getElementById('btnEditSave');
+            const status = document.getElementById('editStatus');
+            btn.disabled = true;
+            btn.textContent = 'Sauvegarde...';
+            status.style.display = 'none';
+
+            try {
+                const itemId = document.getElementById('editItemId').value;
+                const token = localStorage.getItem('sb_access_token');
+
+                // Upload image si nouvelle
+                let imageUrl = document.getElementById('editImageImg').src || null;
+                if (editImageFile === 'REMOVE') {
+                    imageUrl = null;
+                } else if (editImageFile instanceof File) {
+                    imageUrl = await uploadCatalogueImage(editImageFile, itemId);
+                }
+                // Si pas de changement, garder l'URL actuelle
+                if (!imageUrl || imageUrl === window.location.href) imageUrl = null;
+
+                const priceVal = document.getElementById('editPrice').value;
+
+                const payload = {
+                    category: document.getElementById('editCategory').value,
+                    description: document.getElementById('editDescription').value,
+                    type: document.getElementById('editType').value,
+                    price: priceVal !== '' ? parseFloat(priceVal) : null,
+                    instruction: document.getElementById('editInstruction').value,
+                    in_calculator: document.getElementById('editInCalculator').checked,
+                    image_url: imageUrl
+                };
+
+                // Sauvegarder dans Supabase
+                const resp = await fetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) throw new Error('Erreur sauvegarde: ' + resp.status);
+
+                // Mettre à jour CATALOGUE_DATA en mémoire
+                const item = CATALOGUE_DATA.find(i => i.id === itemId);
+                if (item) {
+                    Object.assign(item, payload);
+                }
+
+                // Re-générer les tables et le calculateur
+                generatePriceTables();
+
+                status.textContent = '\u2713 Sauvegardé';
+                status.className = 'edit-status success';
+
+                setTimeout(() => closeEditModal(), 800);
+            } catch (err) {
+                console.error('Erreur sauvegarde:', err);
+                status.textContent = 'Erreur: ' + err.message;
+                status.className = 'edit-status error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sauvegarder';
+            }
+        }
+
+        // Setup des handlers de la modal d'édition
+        function setupEditModalHandlers() {
+            const zone = document.getElementById('editImageZone');
+            const input = document.getElementById('editImageInput');
+
+            zone.addEventListener('click', () => input.click());
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('dragover');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleEditImage(e.dataTransfer.files[0]);
+                }
+            });
+
+            input.addEventListener('change', () => {
+                if (input.files.length > 0) {
+                    handleEditImage(input.files[0]);
+                    input.value = '';
+                }
+            });
+
+            // Fermer modal au clic extérieur
+            document.getElementById('editModal').addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) {
+                    closeEditModal();
+                }
+            });
+        }
+
+        function handleEditImage(file) {
+            if (!file.type.startsWith('image/')) return;
+            editImageFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('editImageImg').src = e.target.result;
+                document.getElementById('editImagePreview').style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 
         document.addEventListener('DOMContentLoaded', async function() {
+            // Charger les permissions utilisateur
+            await loadUserPermissions();
+
             // Charger les données du catalogue depuis Supabase (ou cache/défaut)
             await loadCatalogueData();
 
@@ -2221,6 +2728,11 @@
 
             // Créer le premier groupe de meuble
             addFurnitureGroup();
+
+            // Setup des handlers de la modal d'édition
+            if (canEditCatalogue) {
+                setupEditModalHandlers();
+            }
         });
     </script>
 

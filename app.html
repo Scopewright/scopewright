@@ -272,7 +272,21 @@
                         </div>
                         <div class="tool-name">Catalogue de prix</div>
                     </div>
-                    <div class="tool-desc">Consultez les prix et calculez des estimations budg&eacute;taires.</div>
+                    <div class="tool-desc">Consultez les prix et les d&eacute;tails du catalogue.</div>
+                    <span class="tool-badge">Disponible</span>
+                </a>
+
+                <!-- Calculateur -->
+                <a href="calculateur.html" class="tool-card" data-page="calculateur">
+                    <div class="tool-top">
+                        <div class="tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Calculateur</div>
+                    </div>
+                    <div class="tool-desc">Calculez des estimations budg&eacute;taires et envoyez-les par courriel.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
@@ -327,12 +341,12 @@
         var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
         var DEFAULT_PERMISSIONS = {
-            'Admin':             { catalogue: true,  catalogue_edit: true,  documents: true,  assistant: true,  admin: true  },
-            'Vente':             { catalogue: true,  catalogue_edit: true,  documents: true,  assistant: true,  admin: false },
-            'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Achat':             { catalogue: true,  catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Atelier':           { catalogue: false, catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Client':            { catalogue: false, catalogue_edit: false, documents: false, assistant: false, admin: false }
+            'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  admin: true  },
+            'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  admin: false },
+            'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  documents: true,  assistant: false, admin: false },
+            'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, documents: true,  assistant: false, admin: false },
+            'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, documents: true,  assistant: false, admin: false },
+            'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, documents: false, assistant: false, admin: false }
         };
 
         var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };

@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stele — Calculateur</title>
+
+    <script>
+    // Vérifier la connexion
+    if (!localStorage.getItem('sb_access_token')) {
+        window.location.href = 'login.html';
+    }
+
+    const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+    const STORAGE_KEY = 'stele_catalogue_data';
+    const STORAGE_DATE_KEY = 'stele_catalogue_date';
+
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVTI_mo1ycOFt55FvPtF77zo3xAENqdTKKGW_WB2Fb6VIp1GUT5GxoIp_i5jVqIMM/exec';
+
+    let EMPLOYEES_DATA = [];
+    let CATALOGUE_DATA = [];
+    </script>
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --stele-black: #0A0203;
+            --stele-green: #4b6050;
+            --stele-gray: #C8C8C8;
+            --stele-light-gray: #F8F8F8;
+            --stele-white: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--stele-black);
+            background: var(--stele-white);
+        }
+
+        /* Nav bar */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: var(--stele-white);
+            border-bottom: 1px solid var(--stele-gray);
+            padding: 12px 60px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            z-index: 100;
+            height: 56px;
+        }
+
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--stele-black);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: var(--stele-black);
+            text-decoration: none;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+
+        .nav-links a:hover { opacity: 0.6; }
+
+        .nav-back {
+            opacity: 0.4;
+            border-right: 1px solid var(--stele-gray);
+            padding-right: 24px;
+            margin-right: 0;
+        }
+
+        .nav-back:hover { opacity: 0.7; }
+
+        .data-status {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #888;
+        }
+
+        .data-status.online .status-dot { background: #2ecc40; }
+        .data-status.online { color: #2ecc40; }
+        .data-status.offline .status-dot { background: #e67e22; }
+        .data-status.offline { color: #e67e22; }
+        .data-status.error .status-dot { background: #e74c3c; }
+        .data-status.error { color: #e74c3c; }
+
+        /* Main content */
+        .main-content {
+            margin-top: 56px;
+            padding: 40px 60px 60px;
+            max-width: 1200px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 32px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CALCULATEUR STYLES
+           ═══════════════════════════════════════════════════════════════ */
+
+        .calculator-container {
+            max-width: 1200px;
+        }
+
+        .calc-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 90px 90px 110px 100px 120px 40px;
+            gap: 10px;
+            padding: 14px 16px;
+            background-color: var(--stele-black);
+            color: var(--stele-white);
+            font-weight: 700;
+            font-size: 13px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .calc-header span {
+            display: flex;
+            align-items: center;
+        }
+
+        .calc-header .col-center { justify-content: center; }
+        .calc-header .col-right { justify-content: flex-end; }
+
+        .calc-rows {
+            border: 1px solid var(--stele-gray);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .calc-row {
+            display: grid;
+            grid-template-columns: 40px 1fr 90px 90px 110px 100px 120px 40px;
+            gap: 10px;
+            padding: 10px 16px;
+            align-items: center;
+            border-bottom: 1px solid var(--stele-gray);
+            background: var(--stele-white);
+            transition: background-color 0.15s ease;
+        }
+
+        .calc-row:nth-child(even) { background: var(--stele-light-gray); }
+        .calc-row:last-child { border-bottom: none; }
+        .calc-row:hover { background: #f0f0f0; }
+
+        .btn-add {
+            width: 24px;
+            height: 24px;
+            border: 1.5px solid var(--stele-green);
+            background: var(--stele-white);
+            color: var(--stele-green);
+            border-radius: 50%;
+            font-size: 16px;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            line-height: 1;
+        }
+
+        .btn-add:hover {
+            background: var(--stele-green);
+            color: var(--stele-white);
+        }
+
+        .btn-remove {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            color: var(--stele-gray);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease;
+            border-radius: 4px;
+        }
+
+        .btn-remove:hover {
+            color: #c0392b;
+            background: #fdeaea;
+        }
+
+        .item-select {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            background: var(--stele-white);
+            color: var(--stele-black);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230A0203' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+        }
+
+        .item-select:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .cell-code, .cell-type, .cell-unit-price {
+            font-size: 12px;
+            color: var(--stele-black);
+        }
+
+        .cell-code {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 11px;
+            color: #666;
+            position: relative;
+            cursor: help;
+        }
+
+        .cell-type { text-align: center; }
+        .cell-unit-price { text-align: right; }
+
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--stele-black);
+            color: var(--stele-white);
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: normal;
+            width: 240px;
+            text-align: left;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--stele-black);
+        }
+
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .tooltip-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+        .tooltip-text { font-weight: 400; color: rgba(255,255,255,0.85); }
+
+        .qty-input {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .qty-input:focus { outline: none; border-color: var(--stele-green); }
+
+        .qty-input::-webkit-inner-spin-button,
+        .qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .qty-input { -moz-appearance: textfield; }
+
+        .cell-total {
+            font-size: 13px;
+            font-weight: 600;
+            text-align: right;
+            color: var(--stele-black);
+        }
+
+        .add-row-container {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--stele-gray);
+            background: var(--stele-white);
+        }
+
+        .add-row-text { font-size: 13px; color: #666; }
+
+        .grand-total-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 20px 16px;
+            background: var(--stele-black);
+            border-radius: 0 0 4px 4px;
+            margin-top: -1px;
+        }
+
+        .grand-total-label {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--stele-white);
+            margin-right: 24px;
+        }
+
+        .grand-total-amount {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--stele-white);
+            min-width: 140px;
+            text-align: right;
+        }
+
+        /* Sections meuble */
+        .furniture-group {
+            margin-bottom: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .furniture-group-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+        }
+
+        .furniture-group-header .group-label {
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .furniture-name-input {
+            flex: 1;
+            padding: 7px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.2);
+            color: var(--stele-white);
+        }
+
+        .furniture-name-input::placeholder { color: rgba(255,255,255,0.6); }
+        .furniture-name-input:focus { outline: none; background: rgba(255,255,255,0.3); }
+
+        .btn-remove-group {
+            padding: 5px 12px;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .btn-remove-group:hover {
+            background: rgba(255,255,255,0.15);
+            color: var(--stele-white);
+            border-color: rgba(255,255,255,0.6);
+        }
+
+        .group-subtotal-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 12px 16px;
+            background: #e8ece9;
+            border: 1px solid var(--stele-gray);
+            border-top: none;
+        }
+
+        .group-subtotal-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--stele-black);
+            margin-right: 20px;
+        }
+
+        .group-subtotal-amount {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--stele-black);
+            min-width: 120px;
+            text-align: right;
+        }
+
+        .btn-add-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            background: var(--stele-white);
+            color: var(--stele-green);
+            border: 2px dashed var(--stele-green);
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-add-group:hover { background: #eef2ef; }
+
+        .calc-disclaimer {
+            margin-top: 24px;
+            padding: 16px;
+            background: var(--stele-light-gray);
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+
+        .btn-pdf:hover { background: #3d4f42; }
+        .btn-pdf svg { width: 18px; height: 18px; }
+
+        /* Ajout personnalis&eacute; */
+        .ajout-description:focus,
+        .ajout-price:focus,
+        .ajout-markup:focus { outline: none; border-color: var(--stele-green); }
+
+        .ajout-price::-webkit-inner-spin-button,
+        .ajout-price::-webkit-outer-spin-button,
+        .ajout-markup::-webkit-inner-spin-button,
+        .ajout-markup::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .ajout-price, .ajout-markup { -moz-appearance: textfield; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--stele-white);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--stele-gray);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--stele-black);
+        }
+
+        .modal-body { padding: 24px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--stele-black);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            background: var(--stele-white);
+        }
+
+        .form-input:focus { outline: none; border-color: var(--stele-green); }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--stele-gray);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-cancel {
+            padding: 10px 20px;
+            background: transparent;
+            color: var(--stele-black);
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-cancel:hover { background: var(--stele-light-gray); }
+
+        .btn-generate {
+            padding: 10px 20px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-generate:hover { background: #3d4f42; }
+
+        /* Image zone */
+        .image-drop-zone {
+            border: 2px dashed #C8C8C8;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-top: 4px;
+        }
+
+        .image-drop-zone:hover,
+        .image-drop-zone.dragover {
+            border-color: var(--stele-green);
+            background: #f0f7f1;
+        }
+
+        .image-drop-zone-text { font-size: 12px; color: #888; }
+        .image-drop-zone-text strong { color: #555; }
+
+        .image-previews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .image-preview-item {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            padding: 0;
+        }
+
+        .image-preview-remove:hover { background: rgba(200,0,0,0.8); }
+        .image-count { font-size: 11px; color: #888; margin-top: 4px; }
+
+        /* Print */
+        @media print {
+            .nav-bar { display: none; }
+            .btn-add, .btn-remove, .add-row-container { display: none !important; }
+            .item-select { border: none; background: none; padding: 0; appearance: none; background-image: none; }
+            .qty-input, .ajout-description, .ajout-price, .ajout-markup { border: none; background: none; }
+            .calculator-container { page-break-inside: avoid; }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .nav-bar { padding: 12px 20px; gap: 16px; }
+            .main-content { padding: 24px 16px; }
+            .calc-header, .calc-row {
+                grid-template-columns: 30px 1fr 70px 70px 90px 80px 100px 30px;
+                gap: 6px;
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+            .btn-add, .btn-remove, .btn-add-group { font-size: 12px; }
+            .ajout-description, .ajout-price, .ajout-markup { font-size: 11px !important; }
+            .calculator-container { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav bar -->
+    <nav class="nav-bar">
+        <span class="nav-logo">stele</span>
+        <div class="nav-links">
+            <a href="app.html" class="nav-back">&larr; Menu</a>
+        </div>
+        <div class="data-status" id="dataStatus">
+            <span class="status-dot"></span>
+            <span class="status-text" id="statusText">Chargement...</span>
+        </div>
+    </nav>
+
+    <!-- Contenu principal -->
+    <div class="main-content">
+        <h1 class="page-title">Calculateur</h1>
+        <p class="page-subtitle">Calculez des estimations budg&eacute;taires &agrave; partir du catalogue de prix.</p>
+
+        <div class="calculator-container">
+            <div id="furnitureGroups">
+                <!-- Le premier meuble est cr&eacute;&eacute; par JS au chargement -->
+            </div>
+
+            <button class="btn-add-group" onclick="addFurnitureGroup()">+ Ajouter un meuble</button>
+
+            <div class="grand-total-container">
+                <span class="grand-total-label">Total estim&eacute;</span>
+                <span class="grand-total-amount" id="grandTotal">0,00 $</span>
+            </div>
+
+            <p class="calc-disclaimer">
+                Les montants affich&eacute;s sont fournis &agrave; titre indicatif uniquement. Une soumission d&eacute;taill&eacute;e sera requise pour confirmer les prix finaux.
+            </p>
+
+            <button class="btn-pdf" onclick="openPdfModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Envoyer l'estimation
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Envoyer l'estimation -->
+    <div class="modal-overlay" id="pdfModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Envoyer l'estimation</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="projectCode">Code projet</label>
+                    <input type="text" class="form-input" id="projectCode" placeholder="ex: PRJ-2026-001">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectManager">Charg&eacute;(e) de projet</label>
+                    <select class="form-input" id="projectManager">
+                        <option value="">&mdash; S&eacute;lectionner &mdash;</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectDate">Date</label>
+                    <input type="date" class="form-input" id="projectDate">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="projectDescription">Description / Notes</label>
+                    <textarea class="form-input" id="projectDescription" rows="3" placeholder="Notes suppl&eacute;mentaires, contexte du projet..." style="resize: vertical; min-height: 60px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Images / Captures d'&eacute;cran <span style="font-weight:normal; color:#888;">(max 4)</span></label>
+                    <div class="image-drop-zone" id="imageDropZone">
+                        <div class="image-drop-zone-text">
+                            <strong>Ctrl+V</strong> pour coller &middot; <strong>glisser-d&eacute;poser</strong> &middot; ou <strong>cliquer</strong> pour parcourir
+                        </div>
+                    </div>
+                    <input type="file" id="imageFileInput" accept="image/*" multiple style="display:none;">
+                    <div class="image-previews" id="imagePreviews"></div>
+                    <div class="image-count" id="imageCount"></div>
+                </div>
+                <div id="sendStatus" style="display: none; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePdfModal()">Annuler</button>
+                <button class="btn-generate" id="btnSend" onclick="envoyerEstimation()">Envoyer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // UTILITAIRES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function formatPrice(amount) {
+            if (amount === null || amount === undefined) return 'Sur demande';
+            if (typeof amount === 'number' && amount < 1 && amount > 0) return (amount * 100).toFixed(0) + '%';
+            return amount.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $';
+        }
+
+        function formatType(type) {
+            if (type === '%') return '%';
+            return type;
+        }
+
+        function updateStatus(status, message) {
+            const statusEl = document.getElementById('dataStatus');
+            const textEl = document.getElementById('statusText');
+            statusEl.className = 'data-status ' + status;
+            textEl.textContent = message;
+        }
+
+        function formatDate(date) {
+            if (!date) return '';
+            const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+            return date.toLocaleDateString('fr-CA', options);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CHARGEMENT DES DONN&Eacute;ES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                localStorage.setItem(STORAGE_DATE_KEY, new Date().toISOString());
+            } catch (e) { console.warn('Impossible de sauvegarder dans localStorage:', e); }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                const date = localStorage.getItem(STORAGE_DATE_KEY);
+                if (data) return { data: JSON.parse(data), date: date ? new Date(date) : null };
+            } catch (e) { console.warn('Impossible de lire depuis localStorage:', e); }
+            return null;
+        }
+
+        function loadCatalogueData() {
+            return new Promise((resolve) => {
+                updateStatus('', 'Chargement...');
+                const token = localStorage.getItem('sb_access_token');
+
+                fetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator&order=sort_order', {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token
+                    }
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    if (data.length > 0) {
+                        CATALOGUE_DATA = data;
+                        saveToLocalStorage(data);
+                        updateStatus('online', 'Données à jour');
+                        resolve(true);
+                    } else {
+                        throw new Error('Données vides');
+                    }
+                })
+                .catch(error => {
+                    console.warn('Erreur chargement catalogue:', error);
+                    loadFallbackData();
+                    resolve(false);
+                });
+            });
+        }
+
+        function loadFallbackData() {
+            const cached = loadFromLocalStorage();
+            if (cached && cached.data && cached.data.length > 0) {
+                CATALOGUE_DATA = cached.data;
+                const dateStr = cached.date ? formatDate(cached.date) : '';
+                updateStatus('offline', 'Hors-ligne' + (dateStr ? ' — ' + dateStr : ''));
+            } else {
+                updateStatus('error', 'Aucune donnée disponible');
+            }
+        }
+
+        function loadEmployeesData() {
+            return new Promise((resolve) => {
+                const token = localStorage.getItem('sb_access_token');
+
+                fetch(SUPABASE_URL + '/rest/v1/employees?select=name,email&order=sort_order', {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + token
+                    }
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    EMPLOYEES_DATA = data;
+                    populateEmployeeSelect();
+                    resolve(true);
+                })
+                .catch(error => {
+                    console.warn('Erreur chargement employés:', error);
+                    resolve(false);
+                });
+            });
+        }
+
+        function populateEmployeeSelect() {
+            const select = document.getElementById('projectManager');
+            select.innerHTML = '<option value="">— Sélectionner —</option>';
+            EMPLOYEES_DATA.forEach((emp, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = emp.name;
+                select.appendChild(option);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CALCULATEUR — SECTIONS PAR MEUBLE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let rowCounter = 0;
+        let groupCounter = 0;
+
+        function buildSelectOptions() {
+            let options = '<option value="">— Sélectionner un article —</option>';
+            let currentCategory = '';
+
+            const itemsWithPrice = CATALOGUE_DATA.filter(item =>
+                item.price !== null &&
+                item.type !== '%' &&
+                item.in_calculator !== false
+            );
+
+            itemsWithPrice.forEach(item => {
+                if (item.category !== currentCategory) {
+                    if (currentCategory !== '') options += '</optgroup>';
+                    options += `<optgroup label="${item.category}">`;
+                    currentCategory = item.category;
+                }
+                options += `<option value="${item.id}">${item.description}</option>`;
+            });
+            options += '</optgroup>';
+            options += '<optgroup label="Autre">';
+            options += '<option value="__AJOUT__">➕ Ajout personnalisé...</option>';
+            options += '</optgroup>';
+            return options;
+        }
+
+        function addFurnitureGroup(initialName) {
+            groupCounter++;
+            const groupId = `group-${groupCounter}`;
+
+            const group = document.createElement('div');
+            group.className = 'furniture-group';
+            group.id = groupId;
+
+            group.innerHTML = `
+                <div class="furniture-group-header">
+                    <span class="group-label">Meuble :</span>
+                    <input type="text" class="furniture-name-input" id="${groupId}-name"
+                           placeholder="ex: Cuisine, Salle de bain, Sous-sol..."
+                           value="${initialName || ''}">
+                    <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
+                </div>
+                <div class="calc-header">
+                    <span></span>
+                    <span>Article</span>
+                    <span class="col-center">Code</span>
+                    <span class="col-center">Type</span>
+                    <span class="col-right">Prix unit.</span>
+                    <span class="col-center">Quantité</span>
+                    <span class="col-right">Total</span>
+                    <span></span>
+                </div>
+                <div class="calc-rows" id="${groupId}-rows">
+                    <div class="add-row-container">
+                        <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                        <span class="add-row-text">Ajouter un article</span>
+                    </div>
+                </div>
+                <div class="group-subtotal-container">
+                    <span class="group-subtotal-label">Sous-total</span>
+                    <span class="group-subtotal-amount" id="${groupId}-subtotal">0,00 $</span>
+                </div>
+            `;
+
+            document.getElementById('furnitureGroups').appendChild(group);
+            return groupId;
+        }
+
+        function removeFurnitureGroup(groupId) {
+            const groups = document.querySelectorAll('.furniture-group');
+            if (groups.length <= 1) return;
+            const group = document.getElementById(groupId);
+            if (group) { group.remove(); updateGrandTotal(); }
+        }
+
+        function addRow(groupId) {
+            rowCounter++;
+            const rowId = `row-${rowCounter}`;
+
+            const row = document.createElement('div');
+            row.className = 'calc-row';
+            row.id = rowId;
+            row.dataset.mode = 'normal';
+            row.dataset.group = groupId;
+            row.innerHTML = `
+                <div class="cell-add">
+                    <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                </div>
+                <div class="cell-select">
+                    <select class="item-select" onchange="updateRow('${rowId}')">
+                        ${buildSelectOptions()}
+                    </select>
+                </div>
+                <div class="cell-code" id="${rowId}-code">—</div>
+                <div class="cell-type" id="${rowId}-type">—</div>
+                <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
+                <div class="cell-qty">
+                    <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" onchange="updateRow('${rowId}')" oninput="updateRow('${rowId}')">
+                </div>
+                <div class="cell-total" id="${rowId}-total">0,00 $</div>
+                <div class="cell-remove">
+                    <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
+                </div>
+            `;
+
+            const container = document.getElementById(`${groupId}-rows`);
+            const addContainer = container.querySelector('.add-row-container');
+            container.insertBefore(row, addContainer);
+            row.querySelector('.item-select').focus();
+        }
+
+        function transformToAjoutMode(row, rowId) {
+            row.dataset.mode = 'ajout';
+            row.style.background = '#eef2ef';
+
+            const codeEl = document.getElementById(`${rowId}-code`);
+            const typeEl = document.getElementById(`${rowId}-type`);
+            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+
+            codeEl.innerHTML = `<input type="text" class="ajout-description" id="${rowId}-desc" placeholder="Description..." oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px;">`;
+            codeEl.style.gridColumn = 'span 1';
+            typeEl.innerHTML = `<input type="number" class="ajout-price" id="${rowId}-price" placeholder="Prix" value="0" min="0" step="0.01" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()">`;
+            unitPriceEl.innerHTML = `<div style="display: flex; align-items: center; gap: 4px;"><input type="number" class="ajout-markup" id="${rowId}-markup" value="30" min="0" step="1" oninput="updateRow('${rowId}')" style="width: 60px; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"><span style="font-size: 11px; color: #666;">%</span></div>`;
+
+            setTimeout(() => {
+                const descInput = document.getElementById(`${rowId}-desc`);
+                if (descInput) descInput.focus();
+            }, 50);
+        }
+
+        function transformToNormalMode(row, rowId) {
+            row.dataset.mode = 'normal';
+            row.style.background = '';
+            document.getElementById(`${rowId}-code`).innerHTML = '—';
+            document.getElementById(`${rowId}-code`).style.gridColumn = '';
+            document.getElementById(`${rowId}-type`).innerHTML = '—';
+            document.getElementById(`${rowId}-unit-price`).innerHTML = '—';
+        }
+
+        function updateRow(rowId) {
+            const row = document.getElementById(rowId);
+            const select = row.querySelector('.item-select');
+            const qtyInput = row.querySelector('.qty-input');
+            const totalEl = document.getElementById(`${rowId}-total`);
+
+            const selectedId = select.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+            const currentMode = row.dataset.mode;
+
+            if (selectedId === '__AJOUT__') {
+                if (currentMode !== 'ajout') transformToAjoutMode(row, rowId);
+                const priceInput = document.getElementById(`${rowId}-price`);
+                const markupInput = document.getElementById(`${rowId}-markup`);
+                if (priceInput && markupInput) {
+                    const price = parseFloat(priceInput.value) || 0;
+                    const markup = parseFloat(markupInput.value) || 0;
+                    totalEl.textContent = formatPrice(price * qty * (1 + markup / 100));
+                }
+            } else {
+                if (currentMode === 'ajout') transformToNormalMode(row, rowId);
+                const codeEl = document.getElementById(`${rowId}-code`);
+                const typeEl = document.getElementById(`${rowId}-type`);
+                const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+
+                if (selectedId) {
+                    const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                    if (item) {
+                        codeEl.innerHTML = `<span class="tooltip-container">${item.id}<div class="tooltip"><div class="tooltip-title">${item.description}</div><div class="tooltip-text">${item.instruction || ''}</div></div></span>`;
+                        typeEl.textContent = formatType(item.type);
+                        unitPriceEl.textContent = formatPrice(item.price);
+                        totalEl.textContent = formatPrice((item.price || 0) * qty);
+                    }
+                } else {
+                    codeEl.textContent = '—';
+                    typeEl.textContent = '—';
+                    unitPriceEl.textContent = '—';
+                    totalEl.textContent = '0,00 $';
+                }
+            }
+
+            const groupId = row.dataset.group;
+            if (groupId) updateGroupSubtotal(groupId);
+            updateGrandTotal();
+        }
+
+        function removeRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                const groupId = row.dataset.group;
+                row.remove();
+                if (groupId) updateGroupSubtotal(groupId);
+                updateGrandTotal();
+            }
+        }
+
+        function getRowTotal(row) {
+            const select = row.querySelector('.item-select');
+            const qtyInput = row.querySelector('.qty-input');
+            if (!select || !qtyInput) return 0;
+            const selectedId = select.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+
+            if (selectedId === '__AJOUT__') {
+                const priceInput = row.querySelector('.ajout-price');
+                const markupInput = row.querySelector('.ajout-markup');
+                if (priceInput && markupInput) {
+                    return (parseFloat(priceInput.value) || 0) * qty * (1 + (parseFloat(markupInput.value) || 0) / 100);
+                }
+            } else if (selectedId) {
+                const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                if (item && item.price) return item.price * qty;
+            }
+            return 0;
+        }
+
+        function updateGroupSubtotal(groupId) {
+            let subtotal = 0;
+            const container = document.getElementById(`${groupId}-rows`);
+            if (!container) return;
+            container.querySelectorAll('.calc-row').forEach(row => { subtotal += getRowTotal(row); });
+            const subtotalEl = document.getElementById(`${groupId}-subtotal`);
+            if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal);
+        }
+
+        function updateGrandTotal() {
+            let total = 0;
+            document.querySelectorAll('.calc-row').forEach(row => { total += getRowTotal(row); });
+            document.getElementById('grandTotal').textContent = formatPrice(total);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MODAL ENVOI
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openPdfModal() {
+            const rows = document.querySelectorAll('.calc-row');
+            if (rows.length === 0) {
+                alert('Veuillez ajouter au moins un article au calculateur.');
+                return;
+            }
+            document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
+            clearImages();
+            document.getElementById('pdfModal').classList.add('active');
+        }
+
+        function closePdfModal() {
+            document.getElementById('pdfModal').classList.remove('active');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target === document.getElementById('pdfModal')) closePdfModal();
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GESTION DES IMAGES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const MAX_IMAGES = 4;
+        let attachedImages = [];
+
+        function setupImageHandlers() {
+            const dropZone = document.getElementById('imageDropZone');
+            const fileInput = document.getElementById('imageFileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => { handleImageFiles(e.target.files); fileInput.value = ''; });
+
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+            dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleImageFiles(e.dataTransfer.files); });
+
+            document.addEventListener('paste', (e) => {
+                const modal = document.getElementById('pdfModal');
+                if (!modal.classList.contains('active')) return;
+                const files = [];
+                for (let i = 0; i < e.clipboardData.items.length; i++) {
+                    if (e.clipboardData.items[i].type.startsWith('image/')) files.push(e.clipboardData.items[i].getAsFile());
+                }
+                if (files.length > 0) { e.preventDefault(); handleImageFiles(files); }
+            });
+        }
+
+        function compressImage(file, maxWidth, quality) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width, h = img.height;
+                        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function handleImageFiles(files) {
+            const remaining = MAX_IMAGES - attachedImages.length;
+            if (remaining <= 0) {
+                showSendStatus('Maximum de ' + MAX_IMAGES + ' images atteint.', true);
+                setTimeout(() => { document.getElementById('sendStatus').style.display = 'none'; }, 2000);
+                return;
+            }
+            Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining).forEach(file => {
+                compressImage(file, 1024, 0.7).then(dataUrl => {
+                    attachedImages.push({ name: (file.name || ('screenshot_' + Date.now() + '.png')).replace(/\.\w+$/, '.jpg'), dataUrl: dataUrl });
+                    renderImagePreviews();
+                });
+            });
+        }
+
+        function renderImagePreviews() {
+            const container = document.getElementById('imagePreviews');
+            const countEl = document.getElementById('imageCount');
+            container.innerHTML = '';
+            attachedImages.forEach((img, index) => {
+                const item = document.createElement('div');
+                item.className = 'image-preview-item';
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
+                container.appendChild(item);
+            });
+            countEl.textContent = attachedImages.length > 0 ? attachedImages.length + ' / ' + MAX_IMAGES + ' image(s)' : '';
+            document.getElementById('imageDropZone').style.display = attachedImages.length >= MAX_IMAGES ? 'none' : '';
+        }
+
+        function removeImage(index) { attachedImages.splice(index, 1); renderImagePreviews(); }
+        function clearImages() { attachedImages = []; renderImagePreviews(); }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ENVOI DE L'ESTIMATION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function collecterDonneesCalculateur() {
+            const groups = document.querySelectorAll('.furniture-group');
+            const meubles = [];
+            let grandTotal = 0;
+
+            groups.forEach(group => {
+                const nameInput = group.querySelector('.furniture-name-input');
+                const meubleName = nameInput ? (nameInput.value.trim() || 'Sans nom') : 'Sans nom';
+                const items = [];
+                let subtotal = 0;
+
+                group.querySelectorAll('.calc-row').forEach(row => {
+                    const select = row.querySelector('.item-select');
+                    const qtyInput = row.querySelector('.qty-input');
+                    if (!select || !qtyInput || !select.value) return;
+
+                    const selectedId = select.value;
+                    const qty = parseFloat(qtyInput.value) || 0;
+
+                    if (selectedId === '__AJOUT__') {
+                        const descInput = row.querySelector('.ajout-description');
+                        const priceInput = row.querySelector('.ajout-price');
+                        const markupInput = row.querySelector('.ajout-markup');
+                        if (descInput && priceInput && markupInput) {
+                            const price = parseFloat(priceInput.value) || 0;
+                            const markup = parseFloat(markupInput.value) || 0;
+                            const lineTotal = price * qty * (1 + markup / 100);
+                            subtotal += lineTotal;
+                            items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: formatPrice(price), qty: qty, markup: markup, lineTotal: formatPrice(lineTotal) });
+                        }
+                    } else {
+                        const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                        if (item) {
+                            const lineTotal = (item.price || 0) * qty;
+                            subtotal += lineTotal;
+                            items.push({ type: 'catalogue', code: item.id, description: item.description, itemType: item.type, unitPrice: formatPrice(item.price), qty: qty, lineTotal: formatPrice(lineTotal) });
+                        }
+                    }
+                });
+
+                if (items.length > 0) {
+                    grandTotal += subtotal;
+                    meubles.push({ name: meubleName, items: items, subtotal: formatPrice(subtotal) });
+                }
+            });
+
+            return { meubles, total: formatPrice(grandTotal) };
+        }
+
+        function showSendStatus(message, isError) {
+            const statusEl = document.getElementById('sendStatus');
+            statusEl.style.display = 'block';
+            statusEl.textContent = message;
+            statusEl.style.background = isError ? '#ffebee' : '#e8f5e9';
+            statusEl.style.color = isError ? '#c62828' : '#2e7d32';
+        }
+
+        function envoyerEstimation() {
+            if (APPS_SCRIPT_URL === 'COLLER_VOTRE_URL_ICI') {
+                showSendStatus('URL du script non configurée.', true);
+                return;
+            }
+
+            const projectCode = document.getElementById('projectCode').value || 'N/A';
+            const managerSelect = document.getElementById('projectManager');
+            const selectedIndex = managerSelect.value;
+            const projectManager = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].name : 'N/A';
+            const managerEmail = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].email : '';
+            const projectDate = document.getElementById('projectDate').value;
+            const projectDescription = document.getElementById('projectDescription').value.trim();
+
+            let formattedDate = 'N/A';
+            if (projectDate) {
+                const date = new Date(projectDate + 'T00:00:00');
+                formattedDate = date.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+            }
+
+            const { meubles, total } = collecterDonneesCalculateur();
+            if (meubles.length === 0) { showSendStatus('Aucun article à envoyer.', true); return; }
+
+            const btnSend = document.getElementById('btnSend');
+            btnSend.disabled = true;
+            btnSend.textContent = 'Envoi en cours...';
+            showSendStatus('Envoi en cours...', false);
+
+            const images = attachedImages.map(img => ({
+                name: img.name,
+                mimeType: img.dataUrl.match(/^data:(.*?);/)[1],
+                data: img.dataUrl.split(',')[1]
+            }));
+
+            const payload = {
+                projectCode, projectManager, managerEmail,
+                projectDate: formattedDate, description: projectDescription,
+                meubles, total, images
+            };
+
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                showSendStatus('Estimation envoyée avec succès!', false);
+                btnSend.textContent = 'Envoyé!';
+                setTimeout(() => {
+                    closePdfModal();
+                    btnSend.disabled = false;
+                    btnSend.textContent = 'Envoyer';
+                    document.getElementById('sendStatus').style.display = 'none';
+                }, 2000);
+            })
+            .catch(error => {
+                showSendStatus('Erreur lors de l\'envoi. Vérifiez votre connexion.', true);
+                btnSend.disabled = false;
+                btnSend.textContent = 'Envoyer';
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // INITIALISATION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadCatalogueData();
+            await loadEmployeesData();
+            addFurnitureGroup();
+            setupImageHandlers();
+        });
+    </script>
+
+</body>
+</html>

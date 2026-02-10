@@ -360,6 +360,72 @@
                     </div>
                 </div>
             </div>
+            <!-- Types d'entreprise -->
+            <div class="section collapsed" id="sectionCompanyTypes">
+                <div class="section-toggle" onclick="toggleSection('sectionCompanyTypes')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Types d'entreprise</div>
+                        <div class="section-desc">G&eacute;rez les types disponibles pour classer les entreprises (CRM).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead><tr><th style="width:85%">Type</th><th style="width:15%"></th></tr></thead>
+                        <tbody id="companyTypesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addCompanyTypeRow()">+ Ajouter un type</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveCompanyTypes()">Sauvegarder les types</button>
+                        <span class="save-feedback" id="companyTypesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- R&ocirc;les de contact -->
+            <div class="section collapsed" id="sectionContactRoles">
+                <div class="section-toggle" onclick="toggleSection('sectionContactRoles')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">R&ocirc;les de contact</div>
+                        <div class="section-desc">R&ocirc;les possibles d'un contact dans une entreprise (CRM).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead><tr><th style="width:85%">R&ocirc;le</th><th style="width:15%"></th></tr></thead>
+                        <tbody id="contactRolesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addContactRoleRow()">+ Ajouter un r&ocirc;le</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveContactRoles()">Sauvegarder les r&ocirc;les</button>
+                        <span class="save-feedback" id="contactRolesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Types de communication -->
+            <div class="section collapsed" id="sectionCommTypes">
+                <div class="section-toggle" onclick="toggleSection('sectionCommTypes')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Types de communication</div>
+                        <div class="section-desc">Types d'&eacute;changes pour le suivi des communications (CRM).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead><tr><th style="width:85%">Type</th><th style="width:15%"></th></tr></thead>
+                        <tbody id="commTypesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addCommTypeRow()">+ Ajouter un type</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveCommTypes()">Sauvegarder les types</button>
+                        <span class="save-feedback" id="commTypesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Catégories de dépenses -->
             <div class="section collapsed" id="sectionExpenses">
                 <div class="section-toggle" onclick="toggleSection('sectionExpenses')">
@@ -446,6 +512,7 @@
         { key: 'catalogue', label: 'Catalogue' },
         { key: 'catalogue_edit', label: 'Modifier catalogue' },
         { key: 'calculateur', label: 'Calculateur' },
+        { key: 'clients', label: 'Clients' },
         { key: 'documents', label: 'Documents' },
         { key: 'assistant', label: 'Assistant vente' },
         { key: 'admin', label: 'Administration' },
@@ -457,12 +524,12 @@
     var ROLES = ['Admin', 'Vente', 'Charg\u00e9 de projet', 'Achat', 'Atelier', 'Client'];
 
     var DEFAULT_PERMISSIONS = {
-        'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true  },
-        'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-        'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-        'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true  },
-        'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-        'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false }
+        'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true  },
+        'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+        'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  clients: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+        'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true  },
+        'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+        'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false }
     };
 
     var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
@@ -549,6 +616,12 @@
         {name:'TIROIRS',markup:30},{name:'VITRIER',markup:30},{name:'PORTES SOUS TRAITANCE',markup:30}
     ];
     var expenseCategories = [];
+    var companyTypes = [];
+    var contactRoles = [];
+    var communicationTypes = [];
+    var DEFAULT_COMPANY_TYPES = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
+    var DEFAULT_CONTACT_ROLES = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
+    var DEFAULT_COMM_TYPES = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
 
     // ── Toggle sections ──
     function toggleSection(id) {
@@ -574,6 +647,9 @@
                     if (rows[i].key === 'catalogue_categories') catalogueCategories = rows[i].value;
                     if (rows[i].key === 'taux_horaires') tauxHoraires = rows[i].value;
                     if (rows[i].key === 'expense_categories') expenseCategories = rows[i].value;
+                    if (rows[i].key === 'company_types') companyTypes = rows[i].value;
+                    if (rows[i].key === 'contact_roles') contactRoles = rows[i].value;
+                    if (rows[i].key === 'communication_types') communicationTypes = rows[i].value;
                 }
             }
             applyDefaults();
@@ -625,6 +701,15 @@
         if (!Array.isArray(expenseCategories) || !expenseCategories.length) {
             expenseCategories = JSON.parse(JSON.stringify(DEFAULT_EXPENSE_CATEGORIES));
         }
+        if (!Array.isArray(companyTypes) || !companyTypes.length) {
+            companyTypes = DEFAULT_COMPANY_TYPES.slice();
+        }
+        if (!Array.isArray(contactRoles) || !contactRoles.length) {
+            contactRoles = DEFAULT_CONTACT_ROLES.slice();
+        }
+        if (!Array.isArray(communicationTypes) || !communicationTypes.length) {
+            communicationTypes = DEFAULT_COMM_TYPES.slice();
+        }
     }
 
     function renderAll() {
@@ -634,6 +719,9 @@
         renderTagsTable();
         renderTauxTable();
         renderExpensesTable();
+        renderCompanyTypesTable();
+        renderContactRolesTable();
+        renderCommTypesTable();
     }
 
     // ── Permissions table ──
@@ -934,6 +1022,88 @@
         }
         tauxHoraires = data;
         saveConfig('taux_horaires', tauxHoraires, 'tauxFeedback');
+    }
+
+    // ── Company types table ──
+
+    function renderCompanyTypesTable() {
+        var body = document.getElementById('companyTypesBody');
+        var html = '';
+        for (var i = 0; i < companyTypes.length; i++) {
+            html += '<tr><td><input type="text" class="input-email" value="' + escapeHtml(companyTypes[i]) + '" placeholder="Type d\'entreprise"></td>' +
+                '<td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>';
+        }
+        body.innerHTML = html;
+    }
+    function addCompanyTypeRow() {
+        var body = document.getElementById('companyTypesBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="Type d\'entreprise"></td><td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+    function saveCompanyTypes() {
+        companyTypes = collectSimpleList('companyTypesBody');
+        saveConfig('company_types', companyTypes, 'companyTypesFeedback');
+    }
+
+    // ── Contact roles table ──
+
+    function renderContactRolesTable() {
+        var body = document.getElementById('contactRolesBody');
+        var html = '';
+        for (var i = 0; i < contactRoles.length; i++) {
+            html += '<tr><td><input type="text" class="input-email" value="' + escapeHtml(contactRoles[i]) + '" placeholder="R\u00f4le"></td>' +
+                '<td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>';
+        }
+        body.innerHTML = html;
+    }
+    function addContactRoleRow() {
+        var body = document.getElementById('contactRolesBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="R\u00f4le"></td><td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+    function saveContactRoles() {
+        contactRoles = collectSimpleList('contactRolesBody');
+        saveConfig('contact_roles', contactRoles, 'contactRolesFeedback');
+    }
+
+    // ── Communication types table ──
+
+    function renderCommTypesTable() {
+        var body = document.getElementById('commTypesBody');
+        var html = '';
+        for (var i = 0; i < communicationTypes.length; i++) {
+            html += '<tr><td><input type="text" class="input-email" value="' + escapeHtml(communicationTypes[i]) + '" placeholder="Type"></td>' +
+                '<td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>';
+        }
+        body.innerHTML = html;
+    }
+    function addCommTypeRow() {
+        var body = document.getElementById('commTypesBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="Type"></td><td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+    function saveCommTypes() {
+        communicationTypes = collectSimpleList('commTypesBody');
+        saveConfig('communication_types', communicationTypes, 'commTypesFeedback');
+    }
+
+    // ── Shared helpers for simple list sections ──
+
+    function removeGenericRow(btn) {
+        if (!confirm('Retirer cet \u00e9l\u00e9ment ?')) return;
+        btn.closest('tr').remove();
+    }
+    function collectSimpleList(tbodyId) {
+        var items = [];
+        var rows = document.querySelectorAll('#' + tbodyId + ' tr');
+        for (var i = 0; i < rows.length; i++) {
+            var val = rows[i].querySelector('.input-email').value.trim();
+            if (val && items.indexOf(val) === -1) items.push(val);
+        }
+        return items;
     }
 
     // ── Save functions ──

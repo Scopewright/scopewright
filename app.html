@@ -281,6 +281,20 @@
                     <span class="tool-badge">Disponible</span>
                 </a>
 
+                <!-- Clients -->
+                <a href="clients.html" class="tool-card" data-page="clients">
+                    <div class="tool-top">
+                        <div class="tool-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <div class="tool-name">Clients</div>
+                    </div>
+                    <div class="tool-desc">G&eacute;rez vos contacts, entreprises et communications.</div>
+                    <span class="tool-badge">Disponible</span>
+                </a>
+
                 <!-- Documents -->
                 <div class="tool-card tool-card--disabled" data-page="documents">
                     <div class="tool-top">
@@ -346,12 +360,12 @@
         var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
         var DEFAULT_PERMISSIONS = {
-            'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true  },
-            'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-            'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-            'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true  },
-            'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
-            'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false }
+            'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true  },
+            'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+            'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  clients: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+            'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true  },
+            'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false },
+            'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false }
         };
 
         var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };

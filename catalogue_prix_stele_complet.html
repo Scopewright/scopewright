@@ -400,9 +400,18 @@
 
         /* Column widths */
         .col-code { width: 10%; }
-        .col-type { width: 12%; }
-        .col-description { width: 58%; }
+        .col-fiche { width: 8%; }
+        .col-type { width: 10%; }
+        .col-description { width: 52%; }
         .col-price { width: 20%; }
+
+        .fiche-link {
+            font-size: 11px;
+            color: var(--stele-green);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .fiche-link:hover { text-decoration: underline; }
 
         /* Footer */
         .page-footer {
@@ -1284,6 +1293,7 @@
                     <thead>
                         <tr>
                             <th class="col-code">Code</th>
+                            <th class="col-fiche"></th>
                             <th class="col-type">Type</th>
                             <th class="col-description">Description</th>
                             <th class="col-price">Prix</th>
@@ -1311,6 +1321,7 @@
                                     </div>
                                 </span>
                             </td>
+                            <td>${item.has_sales_sheet ? `<a class="fiche-link" href="fiche.html?code=${encodeURIComponent(item.id)}" target="_blank">fiche client</a>` : ''}</td>
                             <td>${formatType(item.type)}</td>
                             <td>
                                 <span class="tooltip-container tooltip-table tooltip-left">

@@ -1425,14 +1425,12 @@
                 const itemId = document.getElementById('editItemId').value;
 
                 // Upload image si nouvelle
-                let imageUrl = document.getElementById('editImageImg').src || null;
+                let newImageUrl = undefined;
                 if (editImageFile === 'REMOVE') {
-                    imageUrl = null;
+                    newImageUrl = null;
                 } else if (editImageFile instanceof File) {
-                    imageUrl = await uploadCatalogueImage(editImageFile, itemId);
+                    newImageUrl = await uploadCatalogueImage(editImageFile, itemId);
                 }
-                // Si pas de changement, garder l'URL actuelle
-                if (!imageUrl || imageUrl === window.location.href) imageUrl = null;
 
                 const priceVal = document.getElementById('editPrice').value;
 
@@ -1442,9 +1440,13 @@
                     type: document.getElementById('editType').value,
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
                     instruction: document.getElementById('editInstruction').value,
-                    in_calculator: document.getElementById('editInCalculator').checked,
-                    image_url: imageUrl
+                    in_calculator: document.getElementById('editInCalculator').checked
                 };
+
+                // Inclure image_url seulement si changement explicite
+                if (newImageUrl !== undefined) {
+                    payload.image_url = newImageUrl;
+                }
 
                 // Sauvegarder dans Supabase
                 const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {

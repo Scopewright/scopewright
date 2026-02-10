@@ -1503,7 +1503,7 @@
 
         function openSalesSheet() {
             const itemId = document.getElementById('editItemId').value;
-            alert('Fiche de vente pour ' + itemId + ' — fonctionnalité à venir');
+            window.open('fiche.html?code=' + encodeURIComponent(itemId), '_blank');
         }
 
         function closeEditModal() {

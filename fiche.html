@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche de vente — Stele</title>
+
+    <script>
+        const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+    </script>
+
+    <style>
+        :root {
+            --stele-black: #0A0203;
+            --stele-green: #4b6050;
+            --stele-gray: #C8C8C8;
+            --stele-light-gray: #F8F8F8;
+            --stele-white: #FFFFFF;
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--stele-black);
+            background: var(--stele-white);
+        }
+
+        /* ═══ Nav bar ═══ */
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: var(--stele-white);
+            border-bottom: 1px solid var(--stele-gray);
+            padding: 12px 60px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            height: 56px;
+        }
+
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--stele-black);
+            text-decoration: none;
+        }
+
+        .nav-back {
+            font-size: 14px;
+            color: var(--stele-black);
+            opacity: 0.4;
+            text-decoration: none;
+            padding-left: 24px;
+            border-left: 1px solid var(--stele-gray);
+            transition: opacity 0.2s;
+        }
+
+        .nav-back:hover {
+            opacity: 0.7;
+        }
+
+        /* ═══ Loading & Error states ═══ */
+        .state-view {
+            margin-top: 56px;
+            min-height: calc(100vh - 56px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .state-view h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 12px;
+            color: var(--stele-black);
+        }
+
+        .state-view p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 24px;
+        }
+
+        .state-view a {
+            color: var(--stele-green);
+            text-decoration: underline;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            font-size: 18px;
+            color: #999;
+        }
+
+        /* ═══ Hero section ═══ */
+        .fiche-hero {
+            background: var(--stele-green);
+            margin-top: 56px;
+            padding: 80px 60px 60px;
+            color: var(--stele-white);
+        }
+
+        .fiche-code {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+            opacity: 0.7;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .fiche-name {
+            font-size: 36px;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+
+        .fiche-category {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        /* ═══ Content sections ═══ */
+        .fiche-section {
+            padding: 48px 60px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .fiche-description {
+            font-size: 18px;
+            line-height: 1.7;
+            color: var(--stele-black);
+        }
+
+        /* ═══ Images section ═══ */
+        .fiche-images {
+            padding: 0 60px 48px;
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        .fiche-images.single-image {
+            grid-template-columns: 1fr;
+            max-width: 600px;
+        }
+
+        .fiche-image-block img {
+            width: 100%;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--stele-gray);
+            transition: opacity 0.2s;
+        }
+
+        .fiche-image-block img:hover {
+            opacity: 0.9;
+        }
+
+        .fiche-image-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ═══ Details section ═══ */
+        .fiche-details {
+            padding: 48px 60px;
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 32px;
+            border-top: 1px solid var(--stele-gray);
+        }
+
+        .fiche-detail h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .fiche-detail p {
+            font-size: 16px;
+            color: var(--stele-black);
+            line-height: 1.6;
+        }
+
+        /* ═══ Footer ═══ */
+        .fiche-footer {
+            padding: 48px 60px;
+            text-align: center;
+            border-top: 1px solid var(--stele-gray);
+        }
+
+        .fiche-footer .footer-logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--stele-black);
+            opacity: 0.2;
+        }
+
+        /* ═══ Lightbox ═══ */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 4px;
+        }
+
+        /* ═══ Responsive ═══ */
+        @media (max-width: 768px) {
+            .nav-bar { padding: 12px 24px; }
+            .fiche-hero { padding: 70px 24px 40px; }
+            .fiche-name { font-size: 28px; }
+            .fiche-section { padding: 32px 24px; }
+            .fiche-images {
+                grid-template-columns: 1fr;
+                padding: 0 24px 32px;
+            }
+            .fiche-details {
+                grid-template-columns: 1fr;
+                padding: 32px 24px;
+            }
+            .fiche-footer { padding: 32px 24px; }
+        }
+
+        /* ═══ Print ═══ */
+        @media print {
+            @page { size: portrait; margin: 0.75in; }
+            .nav-bar { display: none; }
+            .no-print { display: none; }
+            .fiche-hero { margin-top: 0; }
+            .lightbox-overlay { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav bar -->
+    <nav class="nav-bar no-print">
+        <a href="index.html" class="nav-logo">stele</a>
+        <a href="index.html" class="nav-back">&larr; scopewright.ca</a>
+    </nav>
+
+    <!-- Loading state -->
+    <div id="loadingState" class="state-view">
+        <div>
+            <p class="loading-spinner">Chargement...</p>
+        </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="errorState" class="state-view" style="display: none;">
+        <div>
+            <h2>Fiche non disponible</h2>
+            <p id="errorMessage"></p>
+            <a href="index.html">&larr; Retour au site</a>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <main id="ficheContent" style="display: none;">
+
+        <!-- Hero -->
+        <section class="fiche-hero">
+            <span class="fiche-code" id="ficheCode"></span>
+            <h1 class="fiche-name" id="ficheName"></h1>
+            <span class="fiche-category" id="ficheCategory"></span>
+        </section>
+
+        <!-- Description -->
+        <section class="fiche-section" id="ficheDescSection">
+            <p class="fiche-description" id="ficheDescription"></p>
+        </section>
+
+        <!-- Images -->
+        <div class="fiche-images" id="ficheImages"></div>
+
+        <!-- Details -->
+        <section class="fiche-details" id="ficheDetails">
+            <div class="fiche-detail" id="ficheCredit">
+                <h3>Cr&eacute;dit projet</h3>
+                <p id="ficheCreditValue"></p>
+            </div>
+            <div class="fiche-detail" id="ficheDesigner">
+                <h3>Designer</h3>
+                <p id="ficheDesignerValue"></p>
+            </div>
+            <div class="fiche-detail" id="ficheUsage">
+                <h3>Usage / Application</h3>
+                <p id="ficheUsageValue"></p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="fiche-footer">
+            <span class="footer-logo">stele</span>
+        </footer>
+
+    </main>
+
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="">
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // PUBLIC FETCH (no auth needed — uses anon key only)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function publicFetch(endpoint) {
+            const response = await fetch(SUPABASE_URL + '/rest/v1/' + endpoint, {
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                }
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // LOAD FICHE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function loadFiche() {
+            const params = new URLSearchParams(window.location.search);
+            const itemCode = params.get('code');
+
+            if (!itemCode) {
+                showError('Aucun code de produit sp\u00e9cifi\u00e9 dans l\u2019URL.');
+                return;
+            }
+
+            try {
+                // 1. Fetch catalogue item
+                const items = await publicFetch(
+                    'catalogue_items?id=eq.' + encodeURIComponent(itemCode) +
+                    '&select=id,category,description'
+                );
+
+                if (items.length === 0) {
+                    showError('Produit \u00ab\u00a0' + itemCode + '\u00a0\u00bb introuvable.');
+                    return;
+                }
+
+                const item = items[0];
+
+                // 2. Fetch published fiche
+                const fiches = await publicFetch(
+                    'fiches_vente?catalogue_item_id=eq.' + encodeURIComponent(itemCode) +
+                    '&published=eq.true' +
+                    '&select=description_courte,credit_projet,designer,usage_application'
+                );
+
+                if (fiches.length === 0) {
+                    showError('La fiche de vente pour \u00ab\u00a0' + itemCode + '\u00a0\u00bb n\u2019est pas encore disponible.');
+                    return;
+                }
+
+                const fiche = fiches[0];
+
+                // 3. Fetch media
+                const media = await publicFetch(
+                    'item_media?catalogue_item_id=eq.' + encodeURIComponent(itemCode) +
+                    '&order=sort_order' +
+                    '&select=file_url,file_type,alt_text,tags'
+                );
+
+                // 4. Render
+                renderFiche(item, fiche, media);
+
+            } catch (err) {
+                console.error('Erreur chargement fiche:', err);
+                showError('Erreur de chargement. Veuillez r\u00e9essayer plus tard.');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RENDER
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function renderFiche(item, fiche, media) {
+            // Hero
+            document.getElementById('ficheCode').textContent = item.id;
+            document.getElementById('ficheName').textContent = item.description;
+            document.getElementById('ficheCategory').textContent = item.category;
+
+            // Description
+            if (fiche.description_courte) {
+                document.getElementById('ficheDescription').textContent = fiche.description_courte;
+            } else {
+                document.getElementById('ficheDescSection').style.display = 'none';
+            }
+
+            // Images
+            renderImages(media);
+
+            // Details
+            setDetail('ficheCredit', 'ficheCreditValue', fiche.credit_projet);
+            setDetail('ficheDesigner', 'ficheDesignerValue', fiche.designer);
+            setDetail('ficheUsage', 'ficheUsageValue', fiche.usage_application);
+
+            // Hide details section entirely if all empty
+            if (!fiche.credit_projet && !fiche.designer && !fiche.usage_application) {
+                document.getElementById('ficheDetails').style.display = 'none';
+            }
+
+            // Update page title
+            document.title = item.id + ' \u2014 ' + item.description + ' \u2014 Stele';
+
+            // Show content
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('ficheContent').style.display = 'block';
+        }
+
+        function renderImages(media) {
+            const container = document.getElementById('ficheImages');
+
+            const mainPhotos = media.filter(function(m) {
+                return m.file_type === 'image' && m.tags && m.tags.indexOf('fiche_client') !== -1;
+            });
+
+            const techDrawings = media.filter(function(m) {
+                return m.file_type === 'image' && m.tags &&
+                    (m.tags.indexOf('dessin') !== -1 || m.tags.indexOf('technique') !== -1);
+            });
+
+            var count = 0;
+
+            if (mainPhotos.length > 0) {
+                container.appendChild(createImageBlock(mainPhotos[0], 'Photo'));
+                count++;
+            }
+
+            if (techDrawings.length > 0) {
+                container.appendChild(createImageBlock(techDrawings[0], 'Dessin technique'));
+                count++;
+            }
+
+            if (count === 0) {
+                container.style.display = 'none';
+            } else if (count === 1) {
+                container.classList.add('single-image');
+            }
+        }
+
+        function createImageBlock(mediaItem, label) {
+            var block = document.createElement('div');
+            block.className = 'fiche-image-block';
+
+            var img = document.createElement('img');
+            img.src = mediaItem.file_url;
+            img.alt = mediaItem.alt_text || label;
+            img.onclick = function() { openLightbox(this.src); };
+            block.appendChild(img);
+
+            var labelEl = document.createElement('div');
+            labelEl.className = 'fiche-image-label';
+            labelEl.textContent = label;
+            block.appendChild(labelEl);
+
+            return block;
+        }
+
+        function setDetail(wrapperId, valueId, value) {
+            if (!value) {
+                document.getElementById(wrapperId).style.display = 'none';
+                return;
+            }
+            document.getElementById(valueId).textContent = value;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ERROR STATE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function showError(message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorState').style.display = 'flex';
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // LIGHTBOX
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openLightbox(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            document.getElementById('lightboxImg').src = '';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('lightbox').classList.contains('active')) {
+                closeLightbox();
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', loadFiche);
+    </script>
+
+</body>
+</html>

@@ -758,6 +758,11 @@
 
         .ajout-price, .ajout-markup { -moz-appearance: textfield; }
 
+        /* Proposer un article au catalogue */
+        .proposer-price::-webkit-inner-spin-button,
+        .proposer-price::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .proposer-price { -moz-appearance: textfield; }
+
         /* Modal */
         .modal-overlay {
             display: none;
@@ -1281,6 +1286,15 @@
             return date.toLocaleDateString('fr-CA', options);
         }
 
+        function getUserEmail() {
+            try {
+                const token = localStorage.getItem('sb_access_token');
+                if (!token) return '';
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                return payload.email || '';
+            } catch (e) { return ''; }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // CHARGEMENT DES DONN&Eacute;ES
         // ═══════════════════════════════════════════════════════════════════════
@@ -1305,7 +1319,8 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator&order=sort_order', {})
+                var userEmail = getUserEmail();
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1392,10 +1407,12 @@
                     options += `<optgroup label="${item.category}">`;
                     currentCategory = item.category;
                 }
-                options += `<option value="${item.id}">${item.description}</option>`;
+                const pendingLabel = (item.status === 'pending') ? ' (en attente)' : '';
+                options += `<option value="${item.id}">${item.description}${pendingLabel}</option>`;
             });
             options += '</optgroup>';
             options += '<optgroup label="Autre">';
+            options += '<option value="__PROPOSER__">📋 Proposer un nouvel article...</option>';
             options += '<option value="__AJOUT__">➕ Ajout personnalisé...</option>';
             options += '</optgroup>';
             return options;
@@ -1580,6 +1597,117 @@
             document.getElementById(`${rowId}-code`).style.gridColumn = '';
             document.getElementById(`${rowId}-type`).innerHTML = '—';
             document.getElementById(`${rowId}-unit-price`).innerHTML = '—';
+            document.getElementById(`${rowId}-total`).textContent = '0,00 $';
+        }
+
+        function getCategories() {
+            const cats = new Set();
+            CATALOGUE_DATA.forEach(item => { if (item.category) cats.add(item.category); });
+            return Array.from(cats).sort();
+        }
+
+        function generateNextCode(category) {
+            const clean = (category || 'XXX').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const prefix = clean.substring(0, 3).toUpperCase();
+            let maxNum = 0;
+            CATALOGUE_DATA.forEach(item => {
+                if (item.id && item.id.startsWith(prefix + '-')) {
+                    const num = parseInt(item.id.split('-')[1]) || 0;
+                    if (num > maxNum) maxNum = num;
+                }
+            });
+            return prefix + '-' + String(maxNum + 1).padStart(3, '0');
+        }
+
+        function transformToProposerMode(row, rowId) {
+            row.dataset.mode = 'proposer';
+            row.style.background = '#eef0f8';
+
+            const codeEl = document.getElementById(`${rowId}-code`);
+            const typeEl = document.getElementById(`${rowId}-type`);
+            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+            const totalEl = document.getElementById(`${rowId}-total`);
+
+            const categories = getCategories();
+            let catOptions = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            codeEl.innerHTML = `<select id="${rowId}-prop-cat" style="width:100%;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;">${catOptions}</select>`;
+
+            typeEl.innerHTML = `<input type="text" id="${rowId}-prop-desc" placeholder="Description" style="width:100%;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;">`;
+
+            unitPriceEl.innerHTML = `<div style="display:flex;gap:3px;align-items:center;"><select id="${rowId}-prop-type" style="width:50px;padding:4px 2px;font-size:10px;border:1px solid #C8C8C8;border-radius:4px;"><option value="unitaire">unit.</option><option value="pi²">pi²</option><option value="linéaire">lin.</option></select><input type="number" class="proposer-price" id="${rowId}-prop-price" placeholder="Prix" value="0" min="0" step="0.01" style="width:55px;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;text-align:right;" onwheel="this.blur()"></div>`;
+
+            totalEl.innerHTML = `<button onclick="saveProposedItem('${rowId}')" style="padding:5px 10px;background:var(--stele-green);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;">Enregistrer</button>`;
+
+            setTimeout(() => {
+                const descInput = document.getElementById(`${rowId}-prop-desc`);
+                if (descInput) descInput.focus();
+            }, 50);
+        }
+
+        async function saveProposedItem(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row || row.dataset.mode !== 'proposer') return;
+
+            const catSelect = document.getElementById(`${rowId}-prop-cat`);
+            const descInput = document.getElementById(`${rowId}-prop-desc`);
+            const typeSelect = document.getElementById(`${rowId}-prop-type`);
+            const priceInput = document.getElementById(`${rowId}-prop-price`);
+
+            const category = catSelect ? catSelect.value : '';
+            const description = descInput ? descInput.value.trim() : '';
+            const type = typeSelect ? typeSelect.value : 'unitaire';
+            const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+
+            if (!description) { alert('Veuillez entrer une description.'); return; }
+            if (price <= 0) { alert('Veuillez entrer un prix valide.'); return; }
+
+            const newId = generateNextCode(category);
+            const email = getUserEmail();
+
+            const payload = {
+                id: newId,
+                category: category,
+                description: description,
+                type: type,
+                price: price,
+                status: 'pending',
+                proposed_by: email,
+                in_calculator: true,
+                sort_order: 9999
+            };
+
+            try {
+                const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                const newItem = data[0] || payload;
+
+                CATALOGUE_DATA.push(newItem);
+                transformToNormalMode(row, rowId);
+                refreshAllSelects();
+
+                const select = row.querySelector('.item-select');
+                select.value = newId;
+                updateRow(rowId);
+
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Erreur proposition article:', e);
+                alert('Erreur lors de la proposition. Vérifiez votre connexion.');
+            }
+        }
+
+        function refreshAllSelects() {
+            const newOptions = buildSelectOptions();
+            document.querySelectorAll('.item-select').forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = newOptions;
+                if (currentValue) select.value = currentValue;
+            });
         }
 
         function updateRow(rowId) {
@@ -1592,8 +1720,16 @@
             const qty = parseFloat(qtyInput.value) || 0;
             const currentMode = row.dataset.mode;
 
-            if (selectedId === '__AJOUT__') {
-                if (currentMode !== 'ajout') transformToAjoutMode(row, rowId);
+            if (selectedId === '__PROPOSER__') {
+                if (currentMode !== 'proposer') {
+                    if (currentMode === 'ajout') transformToNormalMode(row, rowId);
+                    transformToProposerMode(row, rowId);
+                }
+            } else if (selectedId === '__AJOUT__') {
+                if (currentMode !== 'ajout') {
+                    if (currentMode === 'proposer') transformToNormalMode(row, rowId);
+                    transformToAjoutMode(row, rowId);
+                }
                 const priceInput = document.getElementById(`${rowId}-price`);
                 const markupInput = document.getElementById(`${rowId}-markup`);
                 if (priceInput && markupInput) {
@@ -1602,7 +1738,7 @@
                     totalEl.textContent = formatPrice(price * qty * (1 + markup / 100));
                 }
             } else {
-                if (currentMode === 'ajout') transformToNormalMode(row, rowId);
+                if (currentMode === 'ajout' || currentMode === 'proposer') transformToNormalMode(row, rowId);
                 const codeEl = document.getElementById(`${rowId}-code`);
                 const typeEl = document.getElementById(`${rowId}-type`);
                 const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
@@ -1628,8 +1764,8 @@
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
 
-            // Sauvegarder dans Supabase (debounce)
-            if (itemMap[rowId]) {
+            // Sauvegarder dans Supabase (debounce) — pas en mode proposer
+            if (itemMap[rowId] && row.dataset.mode !== 'proposer') {
                 debouncedSaveItem(rowId, row);
             }
         }
@@ -1642,6 +1778,8 @@
             const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
 
             let fields = { quantity: qty };
+
+            if (selectedId === '__PROPOSER__') return;
 
             if (selectedId === '__AJOUT__') {
                 const descInput = row.querySelector('.ajout-description');
@@ -1698,7 +1836,9 @@
             const selectedId = select.value;
             const qty = parseFloat(qtyInput.value) || 0;
 
-            if (selectedId === '__AJOUT__') {
+            if (selectedId === '__PROPOSER__') {
+                return 0;
+            } else if (selectedId === '__AJOUT__') {
                 const priceInput = row.querySelector('.ajout-price');
                 const markupInput = row.querySelector('.ajout-markup');
                 if (priceInput && markupInput) {

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approbations — Stele</title>
+
+    <!-- Auth guard -->
+    <script>
+        if (!localStorage.getItem('sb_access_token')) {
+            window.location.href = 'login.html';
+        } else {
+            document.documentElement.style.visibility = 'visible';
+        }
+    </script>
+    <style>html { visibility: hidden; }</style>
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #ffffff;
+            color: #0A0203;
+        }
+
+        .app-wrapper { display: flex; min-height: 100vh; flex-direction: column; }
+
+        /* Nav bar */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #FFFFFF;
+            border-bottom: 1px solid #C8C8C8;
+            padding: 12px 60px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            z-index: 100;
+        }
+        .nav-logo { font-size: 20px; font-weight: 400; color: #0A0203; }
+        .nav-back {
+            color: #0A0203; text-decoration: none; font-size: 13px;
+            opacity: 0.6; transition: opacity 0.15s; white-space: nowrap;
+        }
+        .nav-back:hover { opacity: 1; }
+        .nav-user {
+            margin-left: auto; display: flex; align-items: center;
+            gap: 16px; font-size: 13px;
+        }
+        .nav-user-email { color: #0A0203; opacity: 0.5; }
+        .btn-logout {
+            background: transparent; color: #0A0203;
+            border: 1px solid #C8C8C8; padding: 5px 14px;
+            font-size: 12px; cursor: pointer; transition: all 0.15s;
+            font-family: inherit; border-radius: 3px;
+        }
+        .btn-logout:hover { background: #f5f5f5; border-color: #999; }
+
+        /* Content */
+        .app-content {
+            flex: 1; padding: 40px;
+            padding-top: 96px;
+            max-width: 1100px; margin: 0 auto; width: 100%;
+        }
+
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .page-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
+
+        /* Section */
+        .section {
+            background: #F8F8F8; border: 1px solid #e0e0e0;
+            border-radius: 6px; padding: 28px; margin-bottom: 24px;
+        }
+        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .section-desc { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+        /* Table */
+        .approval-table { width: 100%; border-collapse: collapse; }
+        .approval-table th, .approval-table td {
+            padding: 10px 8px; text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+        .approval-table th {
+            font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #888; font-weight: 600;
+            background: #fafaf8;
+        }
+        .approval-table tbody tr:last-child td { border-bottom: none; }
+        .approval-table tbody tr:hover { background: #fdfcfa; }
+
+        .col-code { width: 10%; }
+        .col-cat { width: 14%; }
+        .col-desc { width: 25%; }
+        .col-type { width: 10%; }
+        .col-price { width: 10%; }
+        .col-by { width: 15%; }
+        .col-actions { width: 16%; text-align: right; }
+
+        .approval-table td.col-actions { text-align: right; }
+
+        .edit-input {
+            width: 100%; padding: 6px 8px;
+            border: 1px solid #e0e0e0; border-radius: 3px;
+            font-family: inherit; font-size: 13px;
+        }
+        .edit-input:focus { outline: none; border-color: #4b6050; }
+
+        .edit-select {
+            padding: 6px 8px; border: 1px solid #e0e0e0;
+            border-radius: 3px; font-family: inherit; font-size: 13px;
+            background: #fff; cursor: pointer;
+        }
+        .edit-select:focus { outline: none; border-color: #4b6050; }
+
+        .td-code { font-weight: 600; font-size: 12px; color: #555; }
+        .td-by { font-size: 12px; color: #888; }
+
+        /* Action buttons */
+        .btn-approve {
+            background: #4b6050; color: #fff; border: none;
+            padding: 6px 14px; font-size: 12px; font-family: inherit;
+            cursor: pointer; border-radius: 3px; transition: opacity 0.2s;
+        }
+        .btn-approve:hover { opacity: 0.85; }
+
+        .btn-reject {
+            background: none; color: #c0392b; border: 1px solid #e0c0c0;
+            padding: 5px 12px; font-size: 12px; font-family: inherit;
+            cursor: pointer; border-radius: 3px; transition: all 0.2s;
+            margin-left: 6px;
+        }
+        .btn-reject:hover { background: #fdf0f0; border-color: #c0392b; }
+
+        /* Feedback */
+        .feedback {
+            display: none; padding: 10px 16px; margin-bottom: 16px;
+            border-radius: 4px; font-size: 13px;
+        }
+        .feedback.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .feedback.error { display: block; background: #ffebee; color: #c62828; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 48px 20px;
+            color: #999; font-size: 15px;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 20px 40px; text-align: center;
+            font-size: 11px; color: #999;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        @media (max-width: 768px) {
+            .nav-bar { padding: 12px 20px; gap: 16px; }
+            .app-content { padding: 24px 16px; padding-top: 80px; }
+            .section { padding: 20px 16px; }
+            .approval-table th, .approval-table td { padding: 8px 4px; font-size: 12px; }
+            .col-by { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <nav class="nav-bar">
+            <span class="nav-logo">stele</span>
+            <a href="app.html" class="nav-back">&larr; Menu</a>
+            <div class="nav-user">
+                <span class="nav-user-email" id="userEmail"></span>
+                <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
+            </div>
+        </nav>
+
+        <main class="app-content">
+            <div class="page-title">Approbations</div>
+            <div class="page-sub">Examinez et approuvez les articles propos&eacute;s au catalogue.</div>
+
+            <div class="feedback" id="feedback"></div>
+
+            <div class="section">
+                <div class="section-title">Articles en attente d'approbation</div>
+                <div class="section-desc">Modifiez les champs si n&eacute;cessaire avant d'approuver.</div>
+
+                <div id="tableWrap">
+                    <div class="empty-state" id="emptyState" style="display:none;">Aucun article en attente d'approbation.</div>
+                    <table class="approval-table" id="approvalTable" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th class="col-code">Code</th>
+                                <th class="col-cat">Cat&eacute;gorie</th>
+                                <th class="col-desc">Description</th>
+                                <th class="col-type">Type</th>
+                                <th class="col-price">Prix</th>
+                                <th class="col-by">Propos&eacute; par</th>
+                                <th class="col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="approvalBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">stele &mdash; stele.ca</footer>
+    </div>
+
+    <script>
+    var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+    var CATEGORIES = ['Budg\u00e9taire', 'Panneaux', 'Poign\u00e9es', 'Tiroirs', '\u00c9clairage', 'Portes int\u00e9rieures'];
+    var TYPES = ['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%'];
+
+    // ═══ Auth ═══
+
+    document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
+
+    async function refreshAccessToken() {
+        var refreshToken = localStorage.getItem('sb_refresh_token');
+        if (!refreshToken) return false;
+        try {
+            var response = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+                body: JSON.stringify({ refresh_token: refreshToken })
+            });
+            if (!response.ok) return false;
+            var data = await response.json();
+            if (data.access_token) {
+                localStorage.setItem('sb_access_token', data.access_token);
+                localStorage.setItem('sb_refresh_token', data.refresh_token);
+                return true;
+            }
+            return false;
+        } catch (e) { return false; }
+    }
+
+    async function authenticatedFetch(url, options) {
+        var tok = localStorage.getItem('sb_access_token');
+        var headers = Object.assign({}, options.headers || {}, {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + tok
+        });
+        var resp = await fetch(url, Object.assign({}, options, { headers: headers }));
+        if (resp.status === 401) {
+            var refreshed = await refreshAccessToken();
+            if (refreshed) {
+                headers['Authorization'] = 'Bearer ' + localStorage.getItem('sb_access_token');
+                return fetch(url, Object.assign({}, options, { headers: headers }));
+            }
+        }
+        return resp;
+    }
+
+    function handleLogout() {
+        localStorage.removeItem('sb_access_token');
+        localStorage.removeItem('sb_refresh_token');
+        localStorage.removeItem('sb_user_email');
+        localStorage.removeItem('sb_user_id');
+        window.location.href = 'index.html';
+    }
+
+    // ═══ Load pending items ═══
+
+    var pendingItems = [];
+
+    async function loadPending() {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator',
+                {}
+            );
+            if (!r.ok) { showMsg('error', 'Erreur chargement: ' + r.status); return; }
+            pendingItems = await r.json();
+            renderTable();
+        } catch (e) {
+            showMsg('error', 'Erreur de connexion.');
+        }
+    }
+
+    function renderTable() {
+        var body = document.getElementById('approvalBody');
+        var table = document.getElementById('approvalTable');
+        var empty = document.getElementById('emptyState');
+
+        if (pendingItems.length === 0) {
+            table.style.display = 'none';
+            empty.style.display = '';
+            return;
+        }
+
+        table.style.display = '';
+        empty.style.display = 'none';
+
+        var html = '';
+        for (var i = 0; i < pendingItems.length; i++) {
+            var item = pendingItems[i];
+            var catOptions = CATEGORIES.map(function(c) {
+                return '<option value="' + escapeAttr(c) + '"' + (c === item.category ? ' selected' : '') + '>' + escapeHtml(c) + '</option>';
+            }).join('');
+            var typeOptions = TYPES.map(function(t) {
+                return '<option value="' + escapeAttr(t) + '"' + (t === item.type ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+            }).join('');
+
+            html += '<tr id="row-' + escapeAttr(item.id) + '">'
+                + '<td class="td-code">' + escapeHtml(item.id) + '</td>'
+                + '<td><select class="edit-select edit-cat">' + catOptions + '</select></td>'
+                + '<td><input class="edit-input edit-desc" type="text" value="' + escapeAttr(item.description || '') + '"></td>'
+                + '<td><select class="edit-select edit-type">' + typeOptions + '</select></td>'
+                + '<td><input class="edit-input edit-price" type="number" min="0" step="0.01" value="' + (item.price != null ? item.price : '') + '" style="width:80px;"></td>'
+                + '<td class="td-by">' + escapeHtml(item.proposed_by || '') + '</td>'
+                + '<td class="col-actions">'
+                +   '<button class="btn-approve" onclick="approveItem(\'' + escapeAttr(item.id) + '\')">Approuver</button>'
+                +   '<button class="btn-reject" onclick="rejectItem(\'' + escapeAttr(item.id) + '\')">Rejeter</button>'
+                + '</td>'
+                + '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    // ═══ Approve / Reject ═══
+
+    async function approveItem(itemId) {
+        var row = document.getElementById('row-' + itemId);
+        if (!row) return;
+
+        var category = row.querySelector('.edit-cat').value;
+        var description = row.querySelector('.edit-desc').value.trim();
+        var type = row.querySelector('.edit-type').value;
+        var priceVal = row.querySelector('.edit-price').value;
+        var price = priceVal !== '' ? parseFloat(priceVal) : null;
+
+        if (!description) {
+            showMsg('error', 'La description ne peut pas \u00eatre vide.');
+            return;
+        }
+
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId),
+                {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({
+                        status: 'approved',
+                        category: category,
+                        description: description,
+                        type: type,
+                        price: price
+                    })
+                }
+            );
+            if (!r.ok) { showMsg('error', 'Erreur approbation: ' + r.status); return; }
+
+            row.remove();
+            pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
+            if (pendingItems.length === 0) {
+                document.getElementById('approvalTable').style.display = 'none';
+                document.getElementById('emptyState').style.display = '';
+            }
+            showMsg('success', '\u2713 Article ' + itemId + ' approuv\u00e9.');
+        } catch (e) {
+            showMsg('error', 'Erreur r\u00e9seau.');
+        }
+    }
+
+    async function rejectItem(itemId) {
+        if (!confirm('Rejeter et supprimer l\u2019article ' + itemId + ' ?')) return;
+
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId),
+                { method: 'DELETE' }
+            );
+            if (!r.ok) { showMsg('error', 'Erreur suppression: ' + r.status); return; }
+
+            var row = document.getElementById('row-' + itemId);
+            if (row) row.remove();
+            pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
+            if (pendingItems.length === 0) {
+                document.getElementById('approvalTable').style.display = 'none';
+                document.getElementById('emptyState').style.display = '';
+            }
+            showMsg('success', 'Article ' + itemId + ' rejet\u00e9.');
+        } catch (e) {
+            showMsg('error', 'Erreur r\u00e9seau.');
+        }
+    }
+
+    // ═══ Helpers ═══
+
+    function showMsg(type, text) {
+        var el = document.getElementById('feedback');
+        el.textContent = text;
+        el.className = 'feedback ' + type;
+        setTimeout(function() { el.className = 'feedback'; }, 5000);
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+    }
+
+    // ═══ Init ═══
+
+    loadPending();
+    </script>
+</body>
+</html>

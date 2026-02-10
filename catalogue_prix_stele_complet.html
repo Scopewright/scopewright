@@ -1400,7 +1400,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();

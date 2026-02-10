@@ -1731,6 +1731,7 @@
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editCode').value = item.id;
             document.getElementById('editCategory').value = item.category;
+            catSelect.disabled = !isNewItem;
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';

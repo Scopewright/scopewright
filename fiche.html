@@ -951,9 +951,12 @@
                 document.getElementById('ficheLayout').classList.add('no-drawing');
             }
 
-            // Main photos (fiche_client tag) → right column photo area
+            // Main photos (fiche_client tag, excluding tech drawings) → right column photo area
             var mainPhotos = media.filter(function(m) {
-                return m.file_type === 'image' && m.tags && m.tags.indexOf('fiche_client') !== -1;
+                if (m.file_type !== 'image' || !m.tags || m.tags.indexOf('fiche_client') === -1) return false;
+                // Exclude images already shown as technical drawings
+                var isTech = m.tags.indexOf('dessin') !== -1 || m.tags.indexOf('technique') !== -1;
+                return !isTech;
             });
 
             var photoWrap = document.getElementById('fichePhotoWrap');

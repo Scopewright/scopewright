@@ -317,6 +317,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-modal-cancel" onclick="closeSubModal()">Fermer</button>
+                <a id="subModalOpenCalc" href="#" class="btn-examine" style="text-decoration:none; padding:8px 16px;">Ouvrir le calcul</a>
                 <button class="btn-reject" onclick="returnFromSubModal()">Retourner</button>
                 <button class="btn-approve" onclick="approveFromSubModal()">Approuver</button>
             </div>
@@ -701,7 +702,10 @@
                 + '<td>' + escapeHtml(sub.title || 'Sans titre') + '</td>'
                 + '<td>v' + (sub.current_version || 1) + '</td>'
                 + '<td>' + totalStr + '</td>'
-                + '<td style="text-align:right;"><button class="btn-examine" onclick="event.stopPropagation(); openSubModal(\'' + escapeAttr(sub.id) + '\')">Examiner</button></td>'
+                + '<td style="text-align:right;">'
+                + '<a href="calculateur.html?submission=' + encodeURIComponent(sub.id) + '&from=approbation" class="btn-examine" style="text-decoration:none; margin-right:6px;" onclick="event.stopPropagation();">Ouvrir</a>'
+                + '<button class="btn-examine" onclick="event.stopPropagation(); openSubModal(\'' + escapeAttr(sub.id) + '\')">Examiner</button>'
+                + '</td>'
                 + '</tr>';
         }
         body.innerHTML = html;
@@ -717,6 +721,7 @@
         document.getElementById('subModalProject').textContent = sub.projects ? sub.projects.name : '—';
         document.getElementById('subModalVersion').textContent = 'v' + (sub.current_version || 1);
         document.getElementById('subModalComment').value = '';
+        document.getElementById('subModalOpenCalc').href = 'calculateur.html?submission=' + encodeURIComponent(subId) + '&from=approbation';
 
         // Load reviews
         try {

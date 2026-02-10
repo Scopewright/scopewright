@@ -35,6 +35,7 @@
     let currentProject = null;      // objet projet courant { id, name, client_name, ... }
     let currentSubmission = null;   // objet soumission courante { id, submission_number, title, status, ... }
     let canApproveQuotes = false;   // permission can_approve_quotes
+    let isApprovalMode = false;     // true when opened from approbation.html via ?submission=
     let roomMap = {};               // { groupDomId: supabaseRoomUUID }
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
@@ -1476,7 +1477,7 @@
         <div class="calculator-view" id="calculatorView">
 
             <div class="project-header" id="projectHeader">
-                <button class="btn-back-projects" onclick="backToProjectList()">&larr; Projets</button>
+                <button class="btn-back-projects" id="btnBackProjects" onclick="backToProjectList()">&larr; Projets</button>
                 <div class="project-header-fields">
                     <div class="project-header-field">
                         <label>Projet</label>
@@ -3127,6 +3128,10 @@
         }
 
         function backToProjectList() {
+            if (isApprovalMode) {
+                window.location.href = 'approbation.html';
+                return;
+            }
             showProjectList();
         }
 
@@ -3350,10 +3355,17 @@
             }
 
             updateWorkflowButtons();
-            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned');
+            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned' || (currentSubmission.status === 'pending_internal' && canApproveQuotes));
             setEditable(isEditable);
             showCalculator();
-            renderHeaderSubmissionList();
+            if (isApprovalMode) {
+                // Hide submission panel and project name edit in approval mode
+                document.getElementById('headerSubPanel').style.display = 'none';
+                document.getElementById('projName').readOnly = true;
+                document.getElementById('btnBackProjects').innerHTML = '&larr; Approbations';
+            } else {
+                renderHeaderSubmissionList();
+            }
         }
 
         // Panneau de soumissions dans le calculateur
@@ -3444,7 +3456,7 @@
             currentSubmission.status = status;
             updateSubmission(currentSubmission.id, { status: status });
             updateWorkflowButtons();
-            setEditable(status === 'draft' || status === 'returned');
+            setEditable(status === 'draft' || status === 'returned' || (status === 'pending_internal' && canApproveQuotes));
             showSaveIndicator();
         }
 
@@ -3804,7 +3816,10 @@
                 canEditMinutes = !!allowed.edit_minutes;
                 canEditMaterials = !!allowed.edit_materials;
                 canApproveQuotes = !!allowed.can_approve_quotes;
-                if (!allowed.calculateur) { window.location.href = 'app.html'; return false; }
+                var hasSubParam = new URLSearchParams(window.location.search).has('submission');
+                if (!allowed.calculateur && !(hasSubParam && (allowed.approbation || allowed.can_approve_quotes))) {
+                    window.location.href = 'app.html'; return false;
+                }
             } catch (e) {
                 const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
                 const role = DEFAULT_USER_ROLES[email] || 'Client';
@@ -3842,7 +3857,16 @@
             await loadEmployeesData();
             setupImageHandlers();
             setupProposerMediaHandlers();
-            renderProjectList();
+
+            // Check for direct submission opening (from approbation page)
+            var params = new URLSearchParams(window.location.search);
+            var submissionParam = params.get('submission');
+            if (submissionParam) {
+                isApprovalMode = true;
+                await openSubmission(submissionParam);
+            } else {
+                renderProjectList();
+            }
         });
     </script>
 

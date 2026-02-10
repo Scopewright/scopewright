@@ -1238,6 +1238,44 @@
         </div>
     </div>
 
+    <!-- Modal Proposer un article -->
+    <div class="modal-overlay" id="proposerModal">
+        <div class="modal" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Proposer un nouvel article</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Cat&eacute;gorie</label>
+                    <select class="form-input" id="propCategory"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-input" id="propDescription" placeholder="ex: Poign&eacute;e en bois massif...">
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Type</label>
+                        <select class="form-input" id="propType">
+                            <option value="unitaire">unitaire</option>
+                            <option value="pi&sup2;">pi&sup2;</option>
+                            <option value="lin&eacute;aire">lin&eacute;aire</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Prix</label>
+                        <input type="number" class="form-input" id="propPrice" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                <div id="propStatus" style="display: none; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeProposerModal()">Annuler</button>
+                <button class="btn-generate" id="btnProposerSave" onclick="saveProposedItem()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Lightbox pour agrandir les images -->
     <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
         <img id="lightboxImg" src="" alt="">
@@ -1619,47 +1657,62 @@
             return prefix + '-' + String(maxNum + 1).padStart(3, '0');
         }
 
+        let proposerRowId = null; // rowId en cours de proposition
+
         function transformToProposerMode(row, rowId) {
             row.dataset.mode = 'proposer';
-            row.style.background = '#eef0f8';
-
-            const codeEl = document.getElementById(`${rowId}-code`);
-            const typeEl = document.getElementById(`${rowId}-type`);
-            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
-            const totalEl = document.getElementById(`${rowId}-total`);
-
-            const categories = getCategories();
-            let catOptions = categories.map(c => `<option value="${c}">${c}</option>`).join('');
-            codeEl.innerHTML = `<select id="${rowId}-prop-cat" style="width:100%;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;">${catOptions}</select>`;
-
-            typeEl.innerHTML = `<input type="text" id="${rowId}-prop-desc" placeholder="Description" style="width:100%;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;">`;
-
-            unitPriceEl.innerHTML = `<div style="display:flex;gap:3px;align-items:center;"><select id="${rowId}-prop-type" style="width:50px;padding:4px 2px;font-size:10px;border:1px solid #C8C8C8;border-radius:4px;"><option value="unitaire">unit.</option><option value="pi²">pi²</option><option value="linéaire">lin.</option></select><input type="number" class="proposer-price" id="${rowId}-prop-price" placeholder="Prix" value="0" min="0" step="0.01" style="width:55px;padding:4px 6px;font-size:11px;border:1px solid #C8C8C8;border-radius:4px;text-align:right;" onwheel="this.blur()"></div>`;
-
-            totalEl.innerHTML = `<button onclick="saveProposedItem('${rowId}')" style="padding:5px 10px;background:var(--stele-green);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;">Enregistrer</button>`;
-
-            setTimeout(() => {
-                const descInput = document.getElementById(`${rowId}-prop-desc`);
-                if (descInput) descInput.focus();
-            }, 50);
+            proposerRowId = rowId;
+            openProposerModal();
         }
 
-        async function saveProposedItem(rowId) {
-            const row = document.getElementById(rowId);
-            if (!row || row.dataset.mode !== 'proposer') return;
+        function openProposerModal() {
+            // Remplir le dropdown catégories
+            const catSelect = document.getElementById('propCategory');
+            const categories = getCategories();
+            catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            const catSelect = document.getElementById(`${rowId}-prop-cat`);
-            const descInput = document.getElementById(`${rowId}-prop-desc`);
-            const typeSelect = document.getElementById(`${rowId}-prop-type`);
-            const priceInput = document.getElementById(`${rowId}-prop-price`);
+            // Réinitialiser les champs
+            document.getElementById('propDescription').value = '';
+            document.getElementById('propType').value = 'unitaire';
+            document.getElementById('propPrice').value = '';
+            document.getElementById('propStatus').style.display = 'none';
+            document.getElementById('btnProposerSave').disabled = false;
+            document.getElementById('btnProposerSave').textContent = 'Enregistrer';
 
-            const category = catSelect ? catSelect.value : '';
-            const description = descInput ? descInput.value.trim() : '';
-            const type = typeSelect ? typeSelect.value : 'unitaire';
-            const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+            document.getElementById('proposerModal').classList.add('active');
+            setTimeout(() => document.getElementById('propDescription').focus(), 100);
+        }
 
-            if (!description) { alert('Veuillez entrer une description.'); return; }
-            if (price <= 0) { alert('Veuillez entrer un prix valide.'); return; }
+        function closeProposerModal() {
+            document.getElementById('proposerModal').classList.remove('active');
+
+            // Si on ferme sans sauvegarder, remettre la row en mode normal
+            if (proposerRowId) {
+                const row = document.getElementById(proposerRowId);
+                if (row && row.dataset.mode === 'proposer') {
+                    const select = row.querySelector('.item-select');
+                    select.value = '';
+                    transformToNormalMode(row, proposerRowId);
+                    updateRow(proposerRowId);
+                }
+                proposerRowId = null;
+            }
+        }
+
+        async function saveProposedItem() {
+            if (!proposerRowId) return;
+
+            const category = document.getElementById('propCategory').value;
+            const description = document.getElementById('propDescription').value.trim();
+            const type = document.getElementById('propType').value;
+            const price = parseFloat(document.getElementById('propPrice').value) || 0;
+
+            if (!description) { document.getElementById('propDescription').focus(); return; }
+            if (price <= 0) { document.getElementById('propPrice').focus(); return; }
+
+            const btn = document.getElementById('btnProposerSave');
+            btn.disabled = true;
+            btn.textContent = 'Enregistrement...';
 
             const newId = generateNextCode(category);
             const email = getUserEmail();
@@ -1687,17 +1740,41 @@
                 const newItem = data[0] || payload;
 
                 CATALOGUE_DATA.push(newItem);
-                transformToNormalMode(row, rowId);
-                refreshAllSelects();
 
-                const select = row.querySelector('.item-select');
-                select.value = newId;
-                updateRow(rowId);
+                // Mettre à jour la row
+                const rowId = proposerRowId;
+                const row = document.getElementById(rowId);
+                if (row) {
+                    transformToNormalMode(row, rowId);
+                    refreshAllSelects();
+                    const select = row.querySelector('.item-select');
+                    select.value = newId;
+                    updateRow(rowId);
+                }
 
+                proposerRowId = null;
                 showSaveIndicator();
+
+                // Afficher le message de confirmation
+                const statusEl = document.getElementById('propStatus');
+                statusEl.style.display = 'block';
+                statusEl.style.background = '#e8f5e9';
+                statusEl.style.color = '#2e7d32';
+                statusEl.textContent = 'Votre article a été ajouté à votre soumission mais est en attente d\u2019approbation pour être ajouté au catalogue officiellement.';
+                btn.textContent = 'Enregistré!';
+
+                setTimeout(() => {
+                    document.getElementById('proposerModal').classList.remove('active');
+                }, 3000);
             } catch (e) {
                 console.error('Erreur proposition article:', e);
-                alert('Erreur lors de la proposition. Vérifiez votre connexion.');
+                const statusEl = document.getElementById('propStatus');
+                statusEl.style.display = 'block';
+                statusEl.style.background = '#ffebee';
+                statusEl.style.color = '#c62828';
+                statusEl.textContent = 'Erreur lors de la proposition. Vérifiez votre connexion.';
+                btn.disabled = false;
+                btn.textContent = 'Enregistrer';
             }
         }
 
@@ -1891,6 +1968,7 @@
 
         document.addEventListener('click', function(e) {
             if (e.target === document.getElementById('pdfModal')) closePdfModal();
+            if (e.target === document.getElementById('proposerModal')) closeProposerModal();
         });
 
         // ═══════════════════════════════════════════════════════════════════════

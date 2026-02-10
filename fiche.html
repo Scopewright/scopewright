@@ -46,14 +46,15 @@
             display: flex;
             align-items: center;
             gap: 24px;
-            height: 56px;
+            height: 72px;
         }
 
         .nav-logo {
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 40px;
+            font-weight: 400;
             color: var(--stele-black);
             text-decoration: none;
+            letter-spacing: -1px;
         }
 
         .nav-back {
@@ -88,8 +89,8 @@
 
         /* ═══ Loading & Error states ═══ */
         .state-view {
-            margin-top: 56px;
-            min-height: calc(100vh - 56px);
+            margin-top: 72px;
+            min-height: calc(100vh - 72px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -124,7 +125,7 @@
         /* ═══ Hero section ═══ */
         .fiche-hero {
             background: var(--stele-green);
-            margin-top: 56px;
+            margin-top: 72px;
             padding: 80px 60px 60px;
             color: var(--stele-white);
         }
@@ -590,7 +591,7 @@
     <!-- Nav bar -->
     <nav class="nav-bar no-print">
         <a href="index.html" class="nav-logo">stele</a>
-        <a href="index.html" class="nav-back">&larr; scopewright.ca</a>
+        <a href="catalogue_prix_stele_complet.html" class="nav-back">&larr; Catalogue</a>
         <button class="btn-edit-fiche" id="btnEditFiche" onclick="openEditor()">Modifier la fiche</button>
     </nav>
 
@@ -606,7 +607,7 @@
         <div>
             <h2>Fiche non disponible</h2>
             <p id="errorMessage"></p>
-            <a href="index.html">&larr; Retour au site</a>
+            <a href="catalogue_prix_stele_complet.html">&larr; Retour au catalogue</a>
         </div>
     </div>
 
@@ -814,7 +815,7 @@
 
             // Show edit button if authenticated
             if (isAuthenticated) {
-                document.getElementById('btnEditFiche').style.display = '';
+                document.getElementById('btnEditFiche').style.display = 'block';
             }
 
             try {
@@ -1297,7 +1298,7 @@
 
             // Still show edit button if authenticated (to create a fiche)
             if (isAuthenticated) {
-                document.getElementById('btnEditFiche').style.display = '';
+                document.getElementById('btnEditFiche').style.display = 'block';
             }
         }
 

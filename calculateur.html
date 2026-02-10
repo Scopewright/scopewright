@@ -23,6 +23,10 @@
     let CATALOGUE_DATA = [];
     let tauxHoraires = [];
     let expenseCategories = [];
+    let canEditMinutes = false;
+    let canEditMaterials = false;
+    let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
+    let propMedia = [];
 
     // ═══════════════════════════════════════════════════════════════════════
     // PROJETS — ÉTAT GLOBAL
@@ -901,6 +905,85 @@
 
         .btn-generate:hover { background: #3d4f42; }
 
+        /* Modal edit (large) */
+        .modal.modal-edit {
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal.modal-edit .modal-body { overflow-y: auto; }
+        .edit-row { display: flex; gap: 12px; }
+        .edit-row .form-group { flex: 1; }
+
+        /* Prix composé */
+        .composed-price-section { display: flex; gap: 16px; margin-top: 8px; }
+        .cp-table-wrap { flex: 1; min-width: 0; }
+        .cp-section-title {
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--stele-green);
+            margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0;
+        }
+        .cp-sub-title { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; }
+        .cp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .cp-table th { text-align: left; font-weight: 600; font-size: 11px; color: #888; padding: 4px 6px; border-bottom: 1px solid #e0e0e0; }
+        .cp-table th:last-child { text-align: right; }
+        .cp-table td { padding: 3px 6px; }
+        .cp-table td:first-child { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; font-size: 11px; }
+        .cp-table input[type="number"] { width: 100%; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 3px; font-size: 12px; text-align: right; font-family: inherit; }
+        .cp-table input[type="number"]:focus { outline: none; border-color: var(--stele-green); }
+        .cp-table input[type="number"]:disabled { background: #f0f0f0; color: #999; cursor: not-allowed; }
+        .cp-calculated {
+            margin-top: 12px; padding: 10px 14px; background: #f8f8f4;
+            border-radius: 6px; display: flex; justify-content: space-between;
+            align-items: center; font-size: 14px;
+        }
+        .cp-calculated .cp-total-label { font-weight: 600; color: #555; }
+        .cp-calculated .cp-total-value { font-weight: 700; font-size: 16px; color: var(--stele-green); }
+        .cp-calculated .cp-breakdown { font-size: 11px; color: #888; margin-left: 8px; }
+
+        /* Médias tagués */
+        .cat-media-title {
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--stele-green);
+            margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;
+        }
+        .cat-dropzone {
+            border: 2px dashed var(--stele-gray); border-radius: 6px; padding: 16px;
+            text-align: center; cursor: pointer; transition: border-color 0.2s;
+            font-size: 13px; color: #888; margin-bottom: 12px;
+        }
+        .cat-dropzone:hover, .cat-dropzone.dragover { border-color: var(--stele-green); color: var(--stele-green); }
+        .cat-media-list { display: flex; flex-direction: column; gap: 10px; }
+        .cat-media-item { display: flex; gap: 10px; padding: 10px; background: #f8f8f8; border-radius: 6px; align-items: flex-start; }
+        .cat-media-item img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid var(--stele-gray); flex-shrink: 0; }
+        .cat-pdf-icon { width: 80px; height: 60px; background: #e8e8e8; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #999; flex-shrink: 0; }
+        .cat-media-info { flex: 1; min-width: 0; }
+        .cat-media-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+        .cat-tag { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--stele-gray); background: #fff; color: #666; transition: all 0.15s; user-select: none; }
+        .cat-tag.active { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
+        .cat-media-remove { background: none; border: none; color: #c62828; cursor: pointer; font-size: 18px; padding: 0 4px; flex-shrink: 0; opacity: 0.5; transition: opacity 0.15s; }
+        .cat-media-remove:hover { opacity: 1; }
+
+        /* Toggle switch */
+        .edit-toggle-row { display: flex; align-items: center; gap: 10px; }
+        .edit-toggle { position: relative; display: inline-block; width: 38px; height: 22px; }
+        .edit-toggle input { opacity: 0; width: 0; height: 0; }
+        .edit-toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ddd; border-radius: 22px; transition: background 0.25s; }
+        .edit-toggle .slider::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        .edit-toggle input:checked + .slider { background: var(--stele-green); }
+        .edit-toggle input:checked + .slider::before { transform: translateX(16px); }
+        .edit-toggle-label { font-size: 13px; color: var(--stele-black); }
+
+        .edit-status { font-size: 13px; padding: 8px 12px; border-radius: 4px; margin-top: 8px; display: none; }
+        .edit-status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .edit-status.error { display: block; background: #ffebee; color: #c62828; }
+
+        @media (max-width: 768px) {
+            .composed-price-section { flex-direction: column; }
+            .modal.modal-edit { max-width: 98vw; }
+        }
+
         /* Image zone */
         .image-drop-zone {
             border: 2px dashed #C8C8C8;
@@ -1366,34 +1449,90 @@
 
     <!-- Modal Proposer un article -->
     <div class="modal-overlay" id="proposerModal">
-        <div class="modal" style="max-width: 480px;">
+        <div class="modal modal-edit">
             <div class="modal-header">
                 <h3 class="modal-title">Proposer un nouvel article</h3>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Cat&eacute;gorie</label>
-                    <select class="form-input" id="propCategory"></select>
+                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Code</label>
+                        <input type="text" class="form-input" id="propCode" readonly style="background:#f5f5f5; color:#888;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cat&eacute;gorie</label>
+                        <select class="form-input" id="propCategory" onchange="updatePropCode()"></select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <input type="text" class="form-input" id="propDescription" placeholder="ex: Poign&eacute;e en bois massif...">
                 </div>
-                <div style="display: flex; gap: 12px;">
-                    <div class="form-group" style="flex: 1;">
+                <div class="edit-row">
+                    <div class="form-group">
                         <label class="form-label">Type</label>
-                        <select class="form-input" id="propType">
-                            <option value="unitaire">unitaire</option>
-                            <option value="pi&sup2;">pi&sup2;</option>
-                            <option value="lin&eacute;aire">lin&eacute;aire</option>
-                        </select>
+                        <select class="form-input" id="propType"></select>
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group">
                         <label class="form-label">Prix</label>
-                        <input type="number" class="form-input" id="propPrice" step="0.01" min="0" placeholder="0.00">
+                        <input type="hidden" id="propPrice">
+                        <div class="form-input" id="propPriceDisplay" style="background:#f5f5f5; color:#888; min-height:38px; display:flex; align-items:center;">Calcul&eacute; automatiquement</div>
                     </div>
                 </div>
-                <div id="propStatus" style="display: none; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 8px;"></div>
+                <div class="form-group">
+                    <label class="form-label">Instruction</label>
+                    <textarea class="form-input" id="propInstruction" rows="2" style="resize:vertical;" placeholder="Instructions sp&eacute;ciales..."></textarea>
+                </div>
+
+                <!-- Prix composé — Minutes & Matériaux -->
+                <div class="form-group" id="propComposedPriceGroup">
+                    <div class="cp-section-title">Prix compos&eacute;</div>
+                    <div class="composed-price-section">
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
+                            <table class="cp-table">
+                                <thead><tr><th>D&eacute;partement</th><th style="width:70px">Min.</th></tr></thead>
+                                <tbody id="propCpMinutesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Mat&eacute;riaux</div>
+                            <table class="cp-table">
+                                <thead><tr><th>Cat&eacute;gorie</th><th style="width:80px">Co&ucirc;t ($)</th></tr></thead>
+                                <tbody id="propCpMaterialsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="cp-calculated">
+                        <div>
+                            <span class="cp-total-label">Prix calcul&eacute;</span>
+                            <span class="cp-breakdown" id="propCpBreakdown"></span>
+                        </div>
+                        <span class="cp-total-value" id="propCpTotalValue">&mdash;</span>
+                    </div>
+                </div>
+
+                <!-- Médias tagués -->
+                <div class="form-group">
+                    <div class="cat-media-title">M&eacute;dias</div>
+                    <div class="cat-dropzone" id="propDropzone">
+                        Cliquer ou glisser des images / PDFs ici
+                    </div>
+                    <input type="file" id="propMediaInput" accept="image/*,.pdf,application/pdf" multiple style="display:none;">
+                    <div class="cat-media-list" id="propMediaList"></div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <div class="edit-toggle-row">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="propInCalculator" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    </div>
+                </div>
+
+                <div class="edit-status" id="propStatus"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeProposerModal()">Annuler</button>
@@ -1906,17 +2045,45 @@
             openProposerModal();
         }
 
+        function updatePropCode() {
+            var cat = document.getElementById('propCategory').value;
+            document.getElementById('propCode').value = generateNextCode(cat);
+        }
+
         function openProposerModal() {
             // Remplir le dropdown catégories
             const catSelect = document.getElementById('propCategory');
             const categories = getCategories();
             catSelect.innerHTML = categories.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
 
+            // Remplir le dropdown types
+            const typeSelect = document.getElementById('propType');
+            const types = new Set(['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%']);
+            CATALOGUE_DATA.forEach(function(i) { if (i.type) types.add(i.type); });
+            typeSelect.innerHTML = Array.from(types).map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+
             // Réinitialiser les champs
             document.getElementById('propDescription').value = '';
             document.getElementById('propType').value = 'unitaire';
             document.getElementById('propPrice').value = '';
-            document.getElementById('propStatus').style.display = 'none';
+            document.getElementById('propPriceDisplay').textContent = 'Calcul\u00e9 automatiquement';
+            document.getElementById('propInstruction').value = '';
+            document.getElementById('propInCalculator').checked = true;
+
+            // Code auto-généré
+            updatePropCode();
+
+            // Tableaux prix composé
+            renderPropComposedTables();
+
+            // Médias
+            propMedia = [];
+            renderPropMedia();
+
+            // Reset status
+            var status = document.getElementById('propStatus');
+            status.className = 'edit-status';
+            status.style.display = 'none';
             document.getElementById('btnProposerSave').disabled = false;
             document.getElementById('btnProposerSave').textContent = 'Enregistrer';
 
@@ -1940,22 +2107,226 @@
             }
         }
 
+        // ── Prix composé pour le modal de proposition ──
+
+        function renderPropComposedTables() {
+            var mBody = document.getElementById('propCpMinutesBody');
+            var mHtml = '';
+            for (var i = 0; i < tauxHoraires.length; i++) {
+                var dept = tauxHoraires[i].department;
+                mHtml += '<tr><td>' + escapeHtml(dept) + '</td>' +
+                    '<td><input type="number" step="0.1" placeholder="0" value=""' +
+                    ' data-dept="' + escapeAttr(dept) + '"' +
+                    (canEditMinutes ? '' : ' disabled') +
+                    ' oninput="updatePropComposedPrice()"></td></tr>';
+            }
+            mBody.innerHTML = mHtml;
+
+            var cBody = document.getElementById('propCpMaterialsBody');
+            var cHtml = '';
+            for (var j = 0; j < expenseCategories.length; j++) {
+                var cat = expenseCategories[j].name;
+                cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
+                    '<td><input type="number" step="0.01" placeholder="0.00" value=""' +
+                    ' data-cat="' + escapeAttr(cat) + '"' +
+                    (canEditMaterials ? '' : ' disabled') +
+                    ' oninput="updatePropComposedPrice()"></td></tr>';
+            }
+            cBody.innerHTML = cHtml;
+
+            updatePropComposedPrice();
+        }
+
+        function updatePropComposedPrice() {
+            var laborTotal = 0;
+            var mInputs = document.querySelectorAll('#propCpMinutesBody input[type="number"]');
+            for (var i = 0; i < mInputs.length; i++) {
+                var minutes = parseFloat(mInputs[i].value) || 0;
+                var dept = mInputs[i].getAttribute('data-dept');
+                var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+                laborTotal += (minutes / 60) * (taux ? (taux.taux_horaire || 0) : 0);
+            }
+
+            var materialTotal = 0;
+            var cInputs = document.querySelectorAll('#propCpMaterialsBody input[type="number"]');
+            for (var j = 0; j < cInputs.length; j++) {
+                var cost = parseFloat(cInputs[j].value) || 0;
+                var catName = cInputs[j].getAttribute('data-cat');
+                var expCat = expenseCategories.find(function(c) { return c.name === catName; });
+                materialTotal += cost * (1 + (expCat ? (expCat.markup || 0) : 0) / 100);
+            }
+
+            var total = laborTotal + materialTotal;
+            var totalEl = document.getElementById('propCpTotalValue');
+            var breakdownEl = document.getElementById('propCpBreakdown');
+            var priceField = document.getElementById('propPrice');
+            var priceDisplay = document.getElementById('propPriceDisplay');
+
+            if (total > 0) {
+                totalEl.textContent = total.toFixed(2) + ' $';
+                breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
+                priceField.value = total.toFixed(2);
+                priceDisplay.textContent = total.toFixed(2) + ' $';
+            } else {
+                totalEl.textContent = '\u2014';
+                breakdownEl.textContent = '';
+                priceField.value = '';
+                priceDisplay.textContent = 'Calcul\u00e9 automatiquement';
+            }
+        }
+
+        function collectPropLaborMinutes() {
+            var data = {};
+            var inputs = document.querySelectorAll('#propCpMinutesBody input[type="number"]');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = parseFloat(inputs[i].value) || 0;
+                if (val > 0) data[inputs[i].getAttribute('data-dept')] = val;
+            }
+            return data;
+        }
+
+        function collectPropMaterialCosts() {
+            var data = {};
+            var inputs = document.querySelectorAll('#propCpMaterialsBody input[type="number"]');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = parseFloat(inputs[i].value) || 0;
+                if (val > 0) data[inputs[i].getAttribute('data-cat')] = val;
+            }
+            return data;
+        }
+
+        // ── Médias pour le modal de proposition ──
+
+        function setupProposerMediaHandlers() {
+            var dropzone = document.getElementById('propDropzone');
+            var fileInput = document.getElementById('propMediaInput');
+            if (!dropzone || !fileInput) return;
+
+            dropzone.addEventListener('click', function() { fileInput.click(); });
+            dropzone.addEventListener('dragover', function(e) { e.preventDefault(); dropzone.classList.add('dragover'); });
+            dropzone.addEventListener('dragleave', function() { dropzone.classList.remove('dragover'); });
+            dropzone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                handlePropMediaFiles(e.dataTransfer.files);
+            });
+            fileInput.addEventListener('change', function() {
+                handlePropMediaFiles(fileInput.files);
+                fileInput.value = '';
+            });
+        }
+
+        function handlePropMediaFiles(files) {
+            Array.from(files).forEach(function(file) {
+                var isPdf = file.type === 'application/pdf';
+                var isImage = file.type.startsWith('image/');
+                if (!isPdf && !isImage) return;
+
+                var mediaEntry = {
+                    id: null, file_url: null, previewUrl: null,
+                    file_type: isPdf ? 'pdf' : 'image',
+                    tags: [], isNew: true, file: file
+                };
+
+                if (isImage) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        mediaEntry.previewUrl = e.target.result;
+                        propMedia.push(mediaEntry);
+                        renderPropMedia();
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    propMedia.push(mediaEntry);
+                    renderPropMedia();
+                }
+            });
+        }
+
+        function renderPropMedia() {
+            var list = document.getElementById('propMediaList');
+            list.innerHTML = '';
+
+            propMedia.forEach(function(media, index) {
+                var item = document.createElement('div');
+                item.className = 'cat-media-item';
+
+                if (media.file_type === 'pdf') {
+                    var pdfIcon = document.createElement('div');
+                    pdfIcon.className = 'cat-pdf-icon';
+                    pdfIcon.textContent = 'PDF';
+                    item.appendChild(pdfIcon);
+                } else {
+                    var img = document.createElement('img');
+                    img.src = media.file_url || media.previewUrl || '';
+                    img.alt = '';
+                    item.appendChild(img);
+                }
+
+                var info = document.createElement('div');
+                info.className = 'cat-media-info';
+                var tags = document.createElement('div');
+                tags.className = 'cat-media-tags';
+
+                mediaTagsList.forEach(function(tag) {
+                    var chip = document.createElement('span');
+                    chip.className = 'cat-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
+                    chip.textContent = tag.replace(/_/g, ' ');
+                    chip.onclick = function() {
+                        var idx = media.tags.indexOf(tag);
+                        if (idx !== -1) media.tags.splice(idx, 1);
+                        else media.tags.push(tag);
+                        chip.classList.toggle('active');
+                    };
+                    tags.appendChild(chip);
+                });
+
+                info.appendChild(tags);
+                item.appendChild(info);
+
+                var removeBtn = document.createElement('button');
+                removeBtn.className = 'cat-media-remove';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.title = 'Supprimer';
+                removeBtn.onclick = function() {
+                    propMedia.splice(index, 1);
+                    renderPropMedia();
+                };
+                item.appendChild(removeBtn);
+
+                list.appendChild(item);
+            });
+        }
+
+        // ── Sauvegarde ──
+
         async function saveProposedItem() {
             if (!proposerRowId) return;
 
             const category = document.getElementById('propCategory').value;
             const description = document.getElementById('propDescription').value.trim();
             const type = document.getElementById('propType').value;
-            const price = parseFloat(document.getElementById('propPrice').value) || 0;
+            const priceVal = document.getElementById('propPrice').value;
+            const price = priceVal !== '' ? parseFloat(priceVal) : null;
+            const instruction = document.getElementById('propInstruction').value.trim();
+            const inCalculator = document.getElementById('propInCalculator').checked;
+            const laborMinutes = collectPropLaborMinutes();
+            const materialCosts = collectPropMaterialCosts();
 
             if (!description) { document.getElementById('propDescription').focus(); return; }
-            if (price <= 0) { document.getElementById('propPrice').focus(); return; }
+            if (!price || price <= 0) {
+                // Vérifier s'il y a des données composées
+                if (Object.keys(laborMinutes).length === 0 && Object.keys(materialCosts).length === 0) {
+                    alert('Veuillez remplir les minutes ou mat\u00e9riaux pour calculer le prix.');
+                    return;
+                }
+            }
 
             const btn = document.getElementById('btnProposerSave');
             btn.disabled = true;
             btn.textContent = 'Enregistrement...';
 
-            const newId = generateNextCode(category);
+            const newId = document.getElementById('propCode').value || generateNextCode(category);
             const email = getUserEmail();
 
             const payload = {
@@ -1964,9 +2335,12 @@
                 description: description,
                 type: type,
                 price: price,
+                instruction: instruction || null,
+                labor_minutes: Object.keys(laborMinutes).length > 0 ? laborMinutes : null,
+                material_costs: Object.keys(materialCosts).length > 0 ? materialCosts : null,
                 status: 'pending',
                 proposed_by: email,
-                in_calculator: true,
+                in_calculator: inCalculator,
                 sort_order: 9999
             };
 
@@ -1979,6 +2353,45 @@
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const data = await r.json();
                 const newItem = data[0] || payload;
+
+                // Upload des médias
+                for (var mi = 0; mi < propMedia.length; mi++) {
+                    var m = propMedia[mi];
+                    if (m.isNew && m.file) {
+                        var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
+                        var path = newId + '/' + Date.now() + '_' + mi + '.' + ext;
+                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                            method: 'POST',
+                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
+                            body: m.file
+                        });
+                        if (uploadResp.ok) {
+                            var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+                            await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                body: JSON.stringify({
+                                    catalogue_item_id: newId,
+                                    file_url: fileUrl,
+                                    file_type: m.file_type,
+                                    tags: m.tags,
+                                    sort_order: mi
+                                })
+                            });
+                            // Auto-sync image_url si tag "catalogue"
+                            if (mi === 0 || m.tags.indexOf('catalogue') !== -1) {
+                                if (m.file_type === 'image' && m.tags.indexOf('catalogue') !== -1) {
+                                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(newId), {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                        body: JSON.stringify({ image_url: fileUrl })
+                                    });
+                                    newItem.image_url = fileUrl;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 CATALOGUE_DATA.push(newItem);
 
@@ -1999,10 +2412,9 @@
                 // Afficher le message de confirmation
                 const statusEl = document.getElementById('propStatus');
                 statusEl.style.display = 'block';
-                statusEl.style.background = '#e8f5e9';
-                statusEl.style.color = '#2e7d32';
-                statusEl.textContent = 'Votre article a été ajouté à votre soumission mais est en attente d\u2019approbation pour être ajouté au catalogue officiellement.';
-                btn.textContent = 'Enregistré!';
+                statusEl.className = 'edit-status success';
+                statusEl.textContent = 'Votre article a \u00e9t\u00e9 ajout\u00e9 \u00e0 votre soumission mais est en attente d\u2019approbation pour \u00eatre ajout\u00e9 au catalogue officiellement.';
+                btn.textContent = 'Enregistr\u00e9!';
 
                 setTimeout(() => {
                     document.getElementById('proposerModal').classList.remove('active');
@@ -2011,9 +2423,8 @@
                 console.error('Erreur proposition article:', e);
                 const statusEl = document.getElementById('propStatus');
                 statusEl.style.display = 'block';
-                statusEl.style.background = '#ffebee';
-                statusEl.style.color = '#c62828';
-                statusEl.textContent = 'Erreur lors de la proposition. Vérifiez votre connexion.';
+                statusEl.className = 'edit-status error';
+                statusEl.textContent = 'Erreur lors de la proposition. V\u00e9rifiez votre connexion.';
                 btn.disabled = false;
                 btn.textContent = 'Enregistrer';
             }
@@ -2947,13 +3358,30 @@
                 const defaults = DEFAULT_PERMISSIONS[role] || {};
                 const saved = perms[role] || {};
                 const allowed = Object.assign({}, defaults, saved);
+                canEditMinutes = !!allowed.edit_minutes;
+                canEditMaterials = !!allowed.edit_materials;
                 if (!allowed.calculateur) { window.location.href = 'app.html'; return false; }
             } catch (e) {
                 const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
                 const role = DEFAULT_USER_ROLES[email] || 'Client';
-                if (!(DEFAULT_PERMISSIONS[role] || {}).calculateur) { window.location.href = 'app.html'; return false; }
+                var defPerms = DEFAULT_PERMISSIONS[role] || {};
+                canEditMinutes = !!defPerms.edit_minutes;
+                canEditMaterials = !!defPerms.edit_materials;
+                if (!defPerms.calculateur) { window.location.href = 'app.html'; return false; }
             }
             return true;
+        }
+
+        async function loadMediaTags() {
+            try {
+                const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.media_tags&select=value', {});
+                if (r.ok) {
+                    const rows = await r.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value)) {
+                        mediaTagsList = rows[0].value;
+                    }
+                }
+            } catch (e) { /* keep defaults */ }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -2965,8 +3393,10 @@
             await loadCatalogueData();
             await loadConfigCategories();
             await loadTauxAndExpenses();
+            await loadMediaTags();
             await loadEmployeesData();
             setupImageHandlers();
+            setupProposerMediaHandlers();
             renderProjectList();
         });
     </script>

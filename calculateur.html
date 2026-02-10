@@ -1107,6 +1107,68 @@
         }
         .save-indicator.saving { color: var(--stele-green); }
 
+        /* Modal Rentabilité */
+        .rentab-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 9000; justify-content: center; align-items: flex-start; padding: 40px 20px;
+        }
+        .rentab-overlay.active { display: flex; }
+        .rentab-modal {
+            background: #fff; border-radius: 8px; max-width: 1100px; width: 100%;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+        }
+        .rentab-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 24px; border-bottom: 2px solid var(--stele-green); background: #fafafa;
+            border-radius: 8px 8px 0 0;
+        }
+        .rentab-header h2 { font-size: 16px; font-weight: 700; color: var(--stele-black); margin: 0; }
+        .rentab-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; padding: 0 4px; }
+        .rentab-close:hover { color: var(--stele-black); }
+        .rentab-body { padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .rentab-section { margin-bottom: 16px; }
+        .rentab-section-title {
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--stele-green); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0;
+        }
+        .rentab-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .rentab-table td { padding: 3px 8px; }
+        .rentab-table td:first-child { color: #555; font-weight: 500; }
+        .rentab-table td:last-child { text-align: right; font-weight: 600; font-family: 'SF Mono', monospace; }
+        .rentab-table tr.highlight td { background: #f0f5f1; font-weight: 700; color: var(--stele-black); }
+        .rentab-table tr.total td { border-top: 2px solid var(--stele-black); font-weight: 700; font-size: 13px; padding-top: 6px; }
+        .rentab-table tr.spacer td { padding: 6px 0; }
+        .rentab-dept-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .rentab-dept-table th {
+            background: var(--stele-black); color: #fff; padding: 4px 6px;
+            font-weight: 600; font-size: 10px; text-align: center;
+        }
+        .rentab-dept-table td { padding: 3px 6px; text-align: right; border-bottom: 1px solid #eee; font-family: 'SF Mono', monospace; }
+        .rentab-dept-table td:first-child { text-align: left; font-family: inherit; color: #555; }
+        .rentab-dept-table tr:last-child td { font-weight: 700; background: #f5f5f5; }
+        .rentab-margins {
+            margin-top: 16px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden;
+        }
+        .rentab-margins-row {
+            display: grid; grid-template-columns: 1fr 80px 120px; padding: 6px 12px;
+            font-size: 12px; border-bottom: 1px solid #eee; align-items: center;
+        }
+        .rentab-margins-row:last-child { border-bottom: none; }
+        .rentab-margins-row.profit-row { background: #f0f5f1; font-weight: 700; font-size: 13px; }
+        .rentab-margins-row span:nth-child(2) { text-align: center; }
+        .rentab-margins-row span:last-child { text-align: right; font-family: 'SF Mono', monospace; font-weight: 600; }
+        .rentab-full { grid-column: 1 / -1; }
+        .btn-rentab {
+            background: none; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85);
+            padding: 2px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; white-space: nowrap;
+        }
+        .btn-rentab:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
+        .btn-rentab-project {
+            background: none; border: 1px solid var(--stele-green); color: var(--stele-green);
+            padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;
+        }
+        .btn-rentab-project:hover { background: var(--stele-green); color: #fff; }
+
         /* Print */
         @media print {
             .nav-bar { display: none; }
@@ -1201,6 +1263,7 @@
                         </label>
                     </div>
                 </div>
+                <button class="btn-rentab-project" onclick="openRentab('project')">Rentabilit&eacute;</button>
                 <span class="save-indicator" id="saveIndicator"></span>
             </div>
 
@@ -1232,6 +1295,17 @@
         </div>
 
         </div><!-- fin calculator-view -->
+    </div>
+
+    <!-- Modal Rentabilité -->
+    <div class="rentab-overlay" id="rentabModal" onclick="if(event.target===this)closeRentab()">
+        <div class="rentab-modal">
+            <div class="rentab-header">
+                <h2 id="rentabTitle">Rentabilit&eacute;</h2>
+                <button class="rentab-close" onclick="closeRentab()">&times;</button>
+            </div>
+            <div class="rentab-body" id="rentabBody"></div>
+        </div>
     </div>
 
     <!-- Modal Envoyer l'estimation -->
@@ -1562,6 +1636,7 @@
                         <input type="checkbox" id="${groupId}-install" checked onchange="toggleInstallation('${groupId}')">
                         <span class="install-label">Installation</span>
                     </label>
+                    <button class="btn-rentab" onclick="openRentab('group','${groupId}')">Rentabilit&eacute;</button>
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="calc-header">
@@ -2650,6 +2725,192 @@
             if (!confirm('Supprimer ce projet et toutes ses données ?')) return;
             await deleteProject(projectId);
             renderProjectList();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RENTABILITÉ
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openRentab(scope, groupId) {
+            // scope = 'project' ou 'group'
+            var title = scope === 'project' ? 'Rentabilit\u00e9 — Projet complet' : 'Rentabilit\u00e9 — ' + (document.getElementById(groupId + '-name').value || 'Meuble');
+            document.getElementById('rentabTitle').textContent = title;
+
+            // Collecter les lignes en scope
+            var rows;
+            if (scope === 'project') {
+                rows = document.querySelectorAll('.calc-row');
+            } else {
+                rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
+            }
+
+            // Accumulateurs
+            var deptMinutes = {};
+            var matCoutant = {};
+            var totalMatMarkup = 0;
+            var totalMatCoutant = 0;
+            var totalHeuresCharge = 0;
+            var totalSalaires = 0;
+            var totalFraisFixes = 0;
+            var totalProfitMO = 0;
+            var totalPrixVente = 0;
+
+            // Init départements
+            tauxHoraires.forEach(function(t) { deptMinutes[t.department] = 0; });
+
+            // Init matériaux
+            expenseCategories.forEach(function(c) { matCoutant[c.name] = 0; });
+
+            rows.forEach(function(row) {
+                var select = row.querySelector('.item-select');
+                var qtyInput = row.querySelector('.qty-input');
+                if (!select || !qtyInput) return;
+                var selectedId = select.value;
+                var qty = parseFloat(qtyInput.value) || 0;
+                if (!selectedId || selectedId === '__AJOUT__' || selectedId === '__PROPOSER__') {
+                    // Ajout personnalisé — ajouter au prix de vente
+                    if (selectedId === '__AJOUT__') {
+                        var priceInput = row.querySelector('.ajout-price');
+                        var markupInput = row.querySelector('.ajout-markup');
+                        var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
+                        var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
+                        totalPrixVente += p * qty * (1 + m / 100);
+                    }
+                    return;
+                }
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                if (!item) return;
+
+                var installCb = document.getElementById(row.id + '-install');
+                var includeInstall = installCb ? installCb.checked : true;
+                var laborMinutes = item.labor_minutes || {};
+                var materialCosts = item.material_costs || {};
+
+                // Départements
+                tauxHoraires.forEach(function(t) {
+                    var dept = t.department;
+                    var mins = (laborMinutes[dept] || 0) * qty;
+                    if (!includeInstall && dept === 'Installation') return;
+                    deptMinutes[dept] = (deptMinutes[dept] || 0) + mins;
+                    var hours = mins / 60;
+                    totalHeuresCharge += hours * (t.taux_horaire || 0);
+                    totalSalaires += hours * (t.salaire || 0);
+                    totalFraisFixes += hours * (t.frais_fixe || 0);
+                    totalProfitMO += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
+                });
+
+                // Matériaux
+                expenseCategories.forEach(function(c) {
+                    var cost = (materialCosts[c.name] || 0) * qty;
+                    matCoutant[c.name] = (matCoutant[c.name] || 0) + cost;
+                    totalMatCoutant += cost;
+                    totalMatMarkup += cost * ((c.markup || 0) / 100);
+                });
+            });
+
+            totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatMarkup;
+
+            // Marges
+            var profitNet = totalProfitMO + totalMatMarkup;
+            var margeBrutReelPct = totalPrixVente > 0 ? (profitNet / totalPrixVente * 100) : 0;
+            var margeVisee = 38; // %
+            var margeViseeMontant = totalPrixVente * margeVisee / 100;
+
+            // Total minutes
+            var totalMinutes = 0;
+            tauxHoraires.forEach(function(t) { totalMinutes += (deptMinutes[t.department] || 0); });
+
+            // Render
+            var f = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $'; };
+            var fPct = function(v) { return v.toFixed(2) + ' %'; };
+            var fNum = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+            var html = '';
+
+            // Colonne gauche
+            html += '<div>';
+
+            // Résumé prix
+            html += '<div class="rentab-section">';
+            html += '<div class="rentab-section-title">R\u00e9sum\u00e9</div>';
+            html += '<table class="rentab-table">';
+            html += '<tr class="highlight"><td>PRIX DE VENTE TOTAL</td><td>' + f(totalPrixVente) + '</td></tr>';
+            html += '<tr class="spacer"><td></td><td></td></tr>';
+            html += '<tr><td>Prix co\u00fbtant mat\u00e9riaux</td><td>' + f(totalMatCoutant) + '</td></tr>';
+            html += '<tr><td>Mark up mat\u00e9riaux</td><td>' + f(totalMatMarkup) + '</td></tr>';
+            html += '<tr class="spacer"><td></td><td></td></tr>';
+            html += '<tr class="highlight"><td>TOTAL HEURES CHARG\u00c9</td><td>' + f(totalHeuresCharge) + '</td></tr>';
+            html += '<tr><td>Total salaires</td><td>' + f(totalSalaires) + '</td></tr>';
+            html += '<tr><td>Total frais fixes</td><td>' + f(totalFraisFixes) + '</td></tr>';
+            html += '<tr><td>Profit sur taux horaire</td><td>' + f(totalProfitMO) + '</td></tr>';
+            html += '</table>';
+            html += '</div>';
+
+            // Matériaux détail
+            html += '<div class="rentab-section">';
+            html += '<div class="rentab-section-title">Co\u00fbtant mat\u00e9riaux</div>';
+            html += '<table class="rentab-table">';
+            var hasMatRows = false;
+            expenseCategories.forEach(function(c) {
+                if (matCoutant[c.name] > 0) {
+                    html += '<tr><td>' + c.name + '</td><td>' + f(matCoutant[c.name]) + '</td></tr>';
+                    hasMatRows = true;
+                }
+            });
+            if (!hasMatRows) html += '<tr><td colspan="2" style="color:#999;">Aucun mat\u00e9riau</td></tr>';
+            html += '<tr class="total"><td>Total</td><td>' + f(totalMatCoutant) + '</td></tr>';
+            html += '</table>';
+            html += '</div>';
+
+            html += '</div>';
+
+            // Colonne droite
+            html += '<div>';
+
+            // Départements
+            html += '<div class="rentab-section">';
+            html += '<div class="rentab-section-title">Ventilation main-d\u2019\u0153uvre</div>';
+            html += '<table class="rentab-dept-table">';
+            html += '<tr><th></th>';
+            tauxHoraires.forEach(function(t) {
+                var short = t.department.split('/')[0].substring(0, 6);
+                html += '<th>' + short + '</th>';
+            });
+            html += '<th style="background:var(--stele-green)">TOTAL</th></tr>';
+            // Minutes
+            html += '<tr><td>Minutes</td>';
+            tauxHoraires.forEach(function(t) { html += '<td>' + fNum(deptMinutes[t.department] || 0) + '</td>'; });
+            html += '<td>' + fNum(totalMinutes) + '</td></tr>';
+            // Heures
+            html += '<tr><td>Heures</td>';
+            var totalHeures = 0;
+            tauxHoraires.forEach(function(t) {
+                var h = (deptMinutes[t.department] || 0) / 60;
+                totalHeures += h;
+                html += '<td>' + fNum(h) + '</td>';
+            });
+            html += '<td>' + fNum(totalHeures) + '</td></tr>';
+            html += '</table>';
+            html += '</div>';
+
+            // Marges
+            html += '<div class="rentab-section">';
+            html += '<div class="rentab-section-title">Marges</div>';
+            html += '<div class="rentab-margins">';
+            html += '<div class="rentab-margins-row"><span>Marge brut vis\u00e9e</span><span>' + fPct(margeVisee) + '</span><span>' + f(margeViseeMontant) + '</span></div>';
+            html += '<div class="rentab-margins-row"><span>Marge brut r\u00e9elle</span><span>' + fPct(margeBrutReelPct) + '</span><span>' + f(profitNet) + '</span></div>';
+            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span></span><span>' + f(profitNet) + '</span></div>';
+            html += '</div>';
+            html += '</div>';
+
+            html += '</div>';
+
+            document.getElementById('rentabBody').innerHTML = html;
+            document.getElementById('rentabModal').classList.add('active');
+        }
+
+        function closeRentab() {
+            document.getElementById('rentabModal').classList.remove('active');
         }
 
         // ═══════════════════════════════════════════════════════════════════════

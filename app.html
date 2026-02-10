@@ -86,11 +86,11 @@
             background: var(--stele-green);
             padding: 60px;
             display: flex;
+            flex-direction: column;
             position: relative;
         }
 
         .cover-left {
-            flex: 1;
             display: flex;
             flex-direction: column;
         }
@@ -103,8 +103,8 @@
         }
 
         .cover-content {
-            margin-top: auto;
-            margin-bottom: 120px;
+            margin-top: 40px;
+            margin-bottom: 40px;
         }
 
         .cover-title {
@@ -121,14 +121,12 @@
             opacity: 0.9;
         }
 
-        /* Cartes a droite */
+        /* Grille de cartes */
         .cover-right {
-            width: 380px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 16px;
-            margin-left: 60px;
+            max-width: 800px;
         }
 
         .tool-card {
@@ -223,17 +221,10 @@
             color: #999;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 700px) {
             .nav-bar { padding: 12px 20px; gap: 16px; }
-            .cover {
-                flex-direction: column;
-                padding: 40px 24px;
-            }
-            .cover-right {
-                width: 100%;
-                margin-left: 0;
-                margin-top: 40px;
-            }
+            .cover { padding: 40px 24px; }
+            .cover-right { grid-template-columns: 1fr; }
             .cover-title { font-size: 32px; }
             .cover-logo { font-size: 36px; }
         }

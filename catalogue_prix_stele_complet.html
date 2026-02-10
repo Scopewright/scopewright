@@ -805,6 +805,21 @@
             color: var(--stele-black);
         }
 
+        .btn-sales-sheet {
+            margin-left: auto;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-family: inherit;
+            background: var(--stele-green);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-sales-sheet:hover { background: #3d4f42; }
+
         .edit-status {
             font-size: 13px;
             padding: 8px 12px;
@@ -1066,6 +1081,14 @@
                         </label>
                         <span class="edit-toggle-label">Visible dans le calculateur</span>
                     </div>
+                    <div class="edit-toggle-row" style="margin-top: 12px;">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="editHasSalesSheet" onchange="toggleSalesSheetBtn()">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Ce produit a une fiche de vente</span>
+                        <button class="btn-sales-sheet" id="btnSalesSheet" style="display:none;" onclick="openSalesSheet()">Ouvrir la fiche</button>
+                    </div>
                 </div>
                 <div class="edit-status" id="editStatus"></div>
             </div>
@@ -1287,7 +1310,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1450,6 +1473,8 @@
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
             document.getElementById('editInstruction').value = item.instruction || '';
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
+            document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
+            toggleSalesSheetBtn();
 
             // Image
             editImageFile = null;
@@ -1469,6 +1494,16 @@
             status.style.display = 'none';
 
             document.getElementById('editModal').classList.add('active');
+        }
+
+        function toggleSalesSheetBtn() {
+            const checked = document.getElementById('editHasSalesSheet').checked;
+            document.getElementById('btnSalesSheet').style.display = checked ? '' : 'none';
+        }
+
+        function openSalesSheet() {
+            const itemId = document.getElementById('editItemId').value;
+            alert('Fiche de vente pour ' + itemId + ' — fonctionnalité à venir');
         }
 
         function closeEditModal() {
@@ -1525,7 +1560,8 @@
                     type: document.getElementById('editType').value,
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
                     instruction: document.getElementById('editInstruction').value,
-                    in_calculator: document.getElementById('editInCalculator').checked
+                    in_calculator: document.getElementById('editInCalculator').checked,
+                    has_sales_sheet: document.getElementById('editHasSalesSheet').checked
                 };
 
                 // Inclure image_url seulement si changement explicite

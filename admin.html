@@ -572,6 +572,7 @@
     }
 
     function removeUserRow(btn) {
+        if (!confirm('Retirer cet utilisateur ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -608,6 +609,7 @@
     }
 
     function removeCategoryRow(btn) {
+        if (!confirm('Retirer cette cat\u00e9gorie ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -652,6 +654,7 @@
     }
 
     function removeTagRow(btn) {
+        if (!confirm('Retirer ce tag ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }

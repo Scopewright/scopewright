@@ -345,7 +345,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 1fr 90px 90px 110px 100px 120px 30px;
+            grid-template-columns: 30px 1fr 90px 90px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             background-color: var(--stele-black);
@@ -371,7 +371,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 1fr 90px 90px 110px 100px 120px 30px;
+            grid-template-columns: 30px 1fr 90px 90px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 3px 10px;
             align-items: center;
@@ -651,6 +651,32 @@
         }
         .install-label {
             font-weight: 500;
+        }
+        .install-toggle-project {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .install-toggle-project input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--stele-green);
+        }
+        .install-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .install-toggle-row input[type="checkbox"] {
+            width: 12px;
+            height: 12px;
+            cursor: pointer;
+            accent-color: var(--stele-green);
         }
 
         .btn-remove-group {
@@ -1095,7 +1121,7 @@
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .main-content { padding: 24px 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 1fr 70px 70px 90px 80px 100px 24px;
+                grid-template-columns: 24px 1fr 70px 70px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -1167,6 +1193,12 @@
                             <option value="envoyé">Envoy&eacute;</option>
                             <option value="signé">Sign&eacute;</option>
                         </select>
+                    </div>
+                    <div class="project-header-field">
+                        <label class="install-toggle-project">
+                            <input type="checkbox" id="projInstallation" checked onchange="toggleProjectInstallation()">
+                            <span>Installation (tout)</span>
+                        </label>
                     </div>
                 </div>
                 <span class="save-indicator" id="saveIndicator"></span>
@@ -1469,15 +1501,43 @@
             document.getElementById(groupId).classList.toggle('collapsed');
         }
 
+        function toggleProjectInstallation() {
+            var cb = document.getElementById('projInstallation');
+            var checked = cb.checked;
+            // Cascade vers toutes les sections
+            document.querySelectorAll('.furniture-group').forEach(function(group) {
+                var groupId = group.id;
+                var sectionCb = document.getElementById(groupId + '-install');
+                if (sectionCb && sectionCb.checked !== checked) {
+                    sectionCb.checked = checked;
+                    toggleInstallation(groupId);
+                }
+            });
+        }
+
         function toggleInstallation(groupId) {
-            // Mettre à jour les prix dans ce groupe (les items à prix composé seront recalculés)
+            var cb = document.getElementById(groupId + '-install');
+            // Cascade vers toutes les lignes de ce groupe
             var rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
-            rows.forEach(function(row) { updateRow(row.id); });
+            rows.forEach(function(row) {
+                var rowCb = document.getElementById(row.id + '-install');
+                if (rowCb) rowCb.checked = cb.checked;
+                updateRow(row.id);
+            });
 
             // Sauvegarder dans Supabase
             if (roomMap[groupId]) {
-                var cb = document.getElementById(groupId + '-install');
                 updateRoom(roomMap[groupId], { installation_included: cb.checked });
+                showSaveIndicator();
+            }
+        }
+
+        function toggleRowInstallation(rowId) {
+            updateRow(rowId);
+            // Sauvegarder dans Supabase
+            if (itemMap[rowId]) {
+                var cb = document.getElementById(rowId + '-install');
+                updateItem(itemMap[rowId], { installation_included: cb.checked });
                 showSaveIndicator();
             }
         }
@@ -1511,6 +1571,7 @@
                     <span class="col-center">Type</span>
                     <span class="col-right">Prix unit.</span>
                     <span class="col-center">Quantité</span>
+                    <span class="col-center" title="Installation incluse">Inst.</span>
                     <span class="col-right">Total</span>
                     <span></span>
                 </div>
@@ -1610,6 +1671,9 @@
                 <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
                 <div class="cell-qty">
                     <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" onchange="updateRow('${rowId}')" oninput="updateRow('${rowId}')">
+                </div>
+                <div class="install-toggle-row">
+                    <input type="checkbox" id="${rowId}-install" checked onchange="toggleRowInstallation('${rowId}')" title="Installation incluse">
                 </div>
                 <div class="cell-total" id="${rowId}-total">0,00 $</div>
                 <div class="cell-remove">
@@ -1919,7 +1983,7 @@
                         typeEl.textContent = formatType(item.type);
 
                         // Prix composé si disponible, sinon prix catalogue
-                        var installCb = groupId ? document.getElementById(groupId + '-install') : null;
+                        var installCb = document.getElementById(rowId + '-install');
                         var includeInstall = installCb ? installCb.checked : true;
                         var composedPrice = computeComposedPrice(item, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
@@ -1968,8 +2032,7 @@
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
-                    var groupId = row.dataset.group;
-                    var installCb = groupId ? document.getElementById(groupId + '-install') : null;
+                    var installCb = document.getElementById(rowId + '-install');
                     var includeInstall = installCb ? installCb.checked : true;
                     var composed = computeComposedPrice(item, includeInstall);
                     fields.item_type = 'catalogue';
@@ -2495,6 +2558,7 @@
             // Remplir le header
             document.getElementById('projName').value = currentProject.name || '';
             document.getElementById('projStatus').value = currentProject.status || 'brouillon';
+            document.getElementById('projInstallation').checked = true;
 
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
@@ -2531,6 +2595,12 @@
                             const qtyInput = row.querySelector('.qty-input');
 
                             qtyInput.value = item.quantity || 1;
+
+                            // Restaurer le toggle installation par ligne
+                            if (item.installation_included === false) {
+                                var rowInstCb = document.getElementById(rowId + '-install');
+                                if (rowInstCb) rowInstCb.checked = false;
+                            }
 
                             if (item.item_type === 'custom') {
                                 select.value = '__AJOUT__';

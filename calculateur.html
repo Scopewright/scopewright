@@ -884,6 +884,30 @@
         .image-preview-remove:hover { background: rgba(200,0,0,0.8); }
         .image-count { font-size: 11px; color: #888; margin-top: 4px; }
 
+        .image-preview-item img { cursor: pointer; }
+
+        /* Lightbox */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .lightbox-overlay.active { display: flex; }
+
+        .lightbox-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+        }
+
         /* ═══════════════════════════════════════════════════════════════
            VUE LISTE DE PROJETS
            ═══════════════════════════════════════════════════════════════ */
@@ -1189,10 +1213,29 @@
         </div>
     </div>
 
+    <!-- Lightbox pour agrandir les images -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="">
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
         // UTILITAIRES
         // ═══════════════════════════════════════════════════════════════════════
+
+        function openLightbox(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            document.getElementById('lightboxImg').src = '';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('lightbox').classList.contains('active')) closeLightbox();
+        });
 
         function formatPrice(amount) {
             if (amount === null || amount === undefined) return 'Sur demande';
@@ -1754,7 +1797,7 @@
             attachedImages.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
                 container.appendChild(item);
             });
             countEl.textContent = attachedImages.length > 0 ? attachedImages.length + ' / ' + MAX_IMAGES + ' image(s)' : '';
@@ -1816,7 +1859,7 @@
             imgs.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';

@@ -91,48 +91,101 @@
         .approval-table tbody tr:last-child td { border-bottom: none; }
         .approval-table tbody tr:hover { background: #fdfcfa; }
 
-        .col-code { width: 10%; }
-        .col-cat { width: 14%; }
-        .col-desc { width: 25%; }
-        .col-type { width: 10%; }
-        .col-price { width: 10%; }
-        .col-by { width: 15%; }
-        .col-actions { width: 16%; text-align: right; }
+        .col-code { width: 12%; }
+        .col-cat { width: 16%; }
+        .col-desc { width: 30%; }
+        .col-type { width: 12%; }
+        .col-price { width: 12%; }
+        .col-actions { width: 18%; text-align: right; }
 
         .approval-table td.col-actions { text-align: right; }
-
-        .edit-input {
-            width: 100%; padding: 6px 8px;
-            border: 1px solid #e0e0e0; border-radius: 3px;
-            font-family: inherit; font-size: 13px;
-        }
-        .edit-input:focus { outline: none; border-color: #4b6050; }
-
-        .edit-select {
-            padding: 6px 8px; border: 1px solid #e0e0e0;
-            border-radius: 3px; font-family: inherit; font-size: 13px;
-            background: #fff; cursor: pointer;
-        }
-        .edit-select:focus { outline: none; border-color: #4b6050; }
 
         .td-code { font-weight: 600; font-size: 12px; color: #555; }
         .td-by { font-size: 12px; color: #888; }
 
-        /* Action buttons */
+        .btn-examine {
+            background: #4b6050; color: #fff; border: none;
+            padding: 6px 16px; font-size: 12px; font-family: inherit;
+            cursor: pointer; border-radius: 3px; transition: opacity 0.2s;
+        }
+        .btn-examine:hover { opacity: 0.85; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.45);
+            z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: #fff; border-radius: 8px;
+            width: 90%; max-width: 460px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            max-height: 90vh; display: flex; flex-direction: column;
+        }
+        .modal-header {
+            padding: 20px 24px 0; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .modal-title { font-size: 17px; font-weight: 700; }
+        .modal-proposed-by { font-size: 12px; color: #888; margin-top: 2px; }
+        .modal-body { padding: 20px 24px; overflow-y: auto; }
+        .modal-footer {
+            padding: 16px 24px; border-top: 1px solid #e0e0e0;
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-label {
+            display: block; font-size: 12px; font-weight: 600;
+            color: #555; margin-bottom: 6px; text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .form-input {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 14px;
+        }
+        .form-input:focus { outline: none; border-color: #4b6050; }
+        .form-select {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 14px;
+            background: #fff; cursor: pointer;
+        }
+        .form-select:focus { outline: none; border-color: #4b6050; }
+
         .btn-approve {
             background: #4b6050; color: #fff; border: none;
-            padding: 6px 14px; font-size: 12px; font-family: inherit;
-            cursor: pointer; border-radius: 3px; transition: opacity 0.2s;
+            padding: 8px 20px; font-size: 13px; font-family: inherit;
+            cursor: pointer; border-radius: 4px; transition: opacity 0.2s;
+            font-weight: 600;
         }
         .btn-approve:hover { opacity: 0.85; }
 
         .btn-reject {
             background: none; color: #c0392b; border: 1px solid #e0c0c0;
-            padding: 5px 12px; font-size: 12px; font-family: inherit;
-            cursor: pointer; border-radius: 3px; transition: all 0.2s;
-            margin-left: 6px;
+            padding: 7px 18px; font-size: 13px; font-family: inherit;
+            cursor: pointer; border-radius: 4px; transition: all 0.2s;
         }
         .btn-reject:hover { background: #fdf0f0; border-color: #c0392b; }
+
+        .btn-modal-cancel {
+            background: none; color: #666; border: 1px solid #ddd;
+            padding: 7px 18px; font-size: 13px; font-family: inherit;
+            cursor: pointer; border-radius: 4px; transition: all 0.2s;
+            margin-right: auto;
+        }
+        .btn-modal-cancel:hover { background: #f5f5f5; border-color: #999; }
+
+        .modal-status {
+            padding: 10px 14px; margin-top: 16px; border-radius: 4px;
+            font-size: 13px; display: none;
+        }
+        .modal-status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .modal-status.error { display: block; background: #ffebee; color: #c62828; }
 
         /* Feedback */
         .feedback {
@@ -160,7 +213,7 @@
             .app-content { padding: 24px 16px; padding-top: 80px; }
             .section { padding: 20px 16px; }
             .approval-table th, .approval-table td { padding: 8px 4px; font-size: 12px; }
-            .col-by { display: none; }
+            .modal { width: 95%; max-width: none; }
         }
     </style>
 </head>
@@ -195,7 +248,6 @@
                                 <th class="col-desc">Description</th>
                                 <th class="col-type">Type</th>
                                 <th class="col-price">Prix</th>
-                                <th class="col-by">Propos&eacute; par</th>
                                 <th class="col-actions"></th>
                             </tr>
                         </thead>
@@ -206,6 +258,46 @@
         </main>
 
         <footer class="app-footer">stele &mdash; stele.ca</footer>
+    </div>
+
+    <!-- Modal examiner -->
+    <div class="modal-overlay" id="examineModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">Examiner l'article</div>
+                    <div class="modal-proposed-by" id="modalProposedBy"></div>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Code</label>
+                    <input class="form-input" id="modalCode" type="text" readonly style="background:#f5f5f5; color:#888;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cat&eacute;gorie</label>
+                    <select class="form-select" id="modalCategory"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input class="form-input" id="modalDescription" type="text">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" id="modalType"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prix</label>
+                    <input class="form-input" id="modalPrice" type="number" min="0" step="0.01">
+                </div>
+                <div class="modal-status" id="modalStatus"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal-cancel" onclick="closeModal()">Fermer</button>
+                <button class="btn-reject" onclick="rejectFromModal()">Rejeter</button>
+                <button class="btn-approve" onclick="approveFromModal()">Approuver</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -299,49 +391,101 @@
         var html = '';
         for (var i = 0; i < pendingItems.length; i++) {
             var item = pendingItems[i];
-            var catOptions = CATEGORIES.map(function(c) {
-                return '<option value="' + escapeAttr(c) + '"' + (c === item.category ? ' selected' : '') + '>' + escapeHtml(c) + '</option>';
-            }).join('');
-            var typeOptions = TYPES.map(function(t) {
-                return '<option value="' + escapeAttr(t) + '"' + (t === item.type ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
-            }).join('');
+            var priceDisplay = item.price != null ? parseFloat(item.price).toFixed(2) + ' $' : '—';
 
-            html += '<tr id="row-' + escapeAttr(item.id) + '">'
+            html += '<tr id="row-' + escapeAttr(item.id) + '" style="cursor:pointer;" onclick="openModal(\'' + escapeAttr(item.id) + '\')">'
                 + '<td class="td-code">' + escapeHtml(item.id) + '</td>'
-                + '<td><select class="edit-select edit-cat">' + catOptions + '</select></td>'
-                + '<td><input class="edit-input edit-desc" type="text" value="' + escapeAttr(item.description || '') + '"></td>'
-                + '<td><select class="edit-select edit-type">' + typeOptions + '</select></td>'
-                + '<td><input class="edit-input edit-price" type="number" min="0" step="0.01" value="' + (item.price != null ? item.price : '') + '" style="width:80px;"></td>'
-                + '<td class="td-by">' + escapeHtml(item.proposed_by || '') + '</td>'
+                + '<td>' + escapeHtml(item.category || '') + '</td>'
+                + '<td>' + escapeHtml(item.description || '') + '</td>'
+                + '<td>' + escapeHtml(item.type || '') + '</td>'
+                + '<td>' + priceDisplay + '</td>'
                 + '<td class="col-actions">'
-                +   '<button class="btn-approve" onclick="approveItem(\'' + escapeAttr(item.id) + '\')">Approuver</button>'
-                +   '<button class="btn-reject" onclick="rejectItem(\'' + escapeAttr(item.id) + '\')">Rejeter</button>'
+                +   '<button class="btn-examine" onclick="event.stopPropagation(); openModal(\'' + escapeAttr(item.id) + '\')">Examiner</button>'
                 + '</td>'
                 + '</tr>';
         }
         body.innerHTML = html;
     }
 
-    // ═══ Approve / Reject ═══
+    // ═══ Modal ═══
 
-    async function approveItem(itemId) {
+    var currentItemId = null;
+
+    function openModal(itemId) {
+        var item = pendingItems.find(function(it) { return it.id === itemId; });
+        if (!item) return;
+
+        currentItemId = itemId;
+
+        // Populate code (read-only)
+        document.getElementById('modalCode').value = item.id;
+
+        // Populate proposed by
+        document.getElementById('modalProposedBy').textContent = 'Propos\u00e9 par : ' + (item.proposed_by || '—');
+
+        // Populate category dropdown
+        var catSel = document.getElementById('modalCategory');
+        catSel.innerHTML = CATEGORIES.map(function(c) {
+            return '<option value="' + escapeAttr(c) + '"' + (c === item.category ? ' selected' : '') + '>' + escapeHtml(c) + '</option>';
+        }).join('');
+
+        // Populate description
+        document.getElementById('modalDescription').value = item.description || '';
+
+        // Populate type dropdown
+        var typeSel = document.getElementById('modalType');
+        typeSel.innerHTML = TYPES.map(function(t) {
+            return '<option value="' + escapeAttr(t) + '"' + (t === item.type ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+        }).join('');
+
+        // Populate price
+        document.getElementById('modalPrice').value = item.price != null ? item.price : '';
+
+        // Reset status
+        var st = document.getElementById('modalStatus');
+        st.className = 'modal-status';
+        st.textContent = '';
+
+        document.getElementById('examineModal').classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('examineModal').classList.remove('active');
+        currentItemId = null;
+    }
+
+    // Click outside to close
+    document.getElementById('examineModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+
+    function removeItemFromList(itemId) {
+        pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
         var row = document.getElementById('row-' + itemId);
-        if (!row) return;
+        if (row) row.remove();
+        if (pendingItems.length === 0) {
+            document.getElementById('approvalTable').style.display = 'none';
+            document.getElementById('emptyState').style.display = '';
+        }
+    }
 
-        var category = row.querySelector('.edit-cat').value;
-        var description = row.querySelector('.edit-desc').value.trim();
-        var type = row.querySelector('.edit-type').value;
-        var priceVal = row.querySelector('.edit-price').value;
-        var price = priceVal !== '' ? parseFloat(priceVal) : null;
+    async function approveFromModal() {
+        if (!currentItemId) return;
 
+        var description = document.getElementById('modalDescription').value.trim();
         if (!description) {
-            showMsg('error', 'La description ne peut pas \u00eatre vide.');
+            showModalStatus('error', 'La description ne peut pas \u00eatre vide.');
             return;
         }
 
+        var category = document.getElementById('modalCategory').value;
+        var type = document.getElementById('modalType').value;
+        var priceVal = document.getElementById('modalPrice').value;
+        var price = priceVal !== '' ? parseFloat(priceVal) : null;
+
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId),
+                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(currentItemId),
                 {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
@@ -354,41 +498,47 @@
                     })
                 }
             );
-            if (!r.ok) { showMsg('error', 'Erreur approbation: ' + r.status); return; }
+            if (!r.ok) { showModalStatus('error', 'Erreur approbation: ' + r.status); return; }
 
-            row.remove();
-            pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
-            if (pendingItems.length === 0) {
-                document.getElementById('approvalTable').style.display = 'none';
-                document.getElementById('emptyState').style.display = '';
-            }
-            showMsg('success', '\u2713 Article ' + itemId + ' approuv\u00e9.');
+            showModalStatus('success', '\u2713 Article ' + currentItemId + ' approuv\u00e9 avec succ\u00e8s.');
+            var approvedId = currentItemId;
+            setTimeout(function() {
+                removeItemFromList(approvedId);
+                closeModal();
+                showMsg('success', '\u2713 Article ' + approvedId + ' approuv\u00e9.');
+            }, 1500);
         } catch (e) {
-            showMsg('error', 'Erreur r\u00e9seau.');
+            showModalStatus('error', 'Erreur r\u00e9seau.');
         }
     }
 
-    async function rejectItem(itemId) {
-        if (!confirm('Rejeter et supprimer l\u2019article ' + itemId + ' ?')) return;
+    async function rejectFromModal() {
+        if (!currentItemId) return;
+        if (!confirm('Rejeter et supprimer l\u2019article ' + currentItemId + ' ?')) return;
 
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId),
+                SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(currentItemId),
                 { method: 'DELETE' }
             );
-            if (!r.ok) { showMsg('error', 'Erreur suppression: ' + r.status); return; }
+            if (!r.ok) { showModalStatus('error', 'Erreur suppression: ' + r.status); return; }
 
-            var row = document.getElementById('row-' + itemId);
-            if (row) row.remove();
-            pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
-            if (pendingItems.length === 0) {
-                document.getElementById('approvalTable').style.display = 'none';
-                document.getElementById('emptyState').style.display = '';
-            }
-            showMsg('success', 'Article ' + itemId + ' rejet\u00e9.');
+            showModalStatus('success', 'Article ' + currentItemId + ' rejet\u00e9.');
+            var rejectedId = currentItemId;
+            setTimeout(function() {
+                removeItemFromList(rejectedId);
+                closeModal();
+                showMsg('success', 'Article ' + rejectedId + ' rejet\u00e9.');
+            }, 1500);
         } catch (e) {
-            showMsg('error', 'Erreur r\u00e9seau.');
+            showModalStatus('error', 'Erreur r\u00e9seau.');
         }
+    }
+
+    function showModalStatus(type, text) {
+        var el = document.getElementById('modalStatus');
+        el.textContent = text;
+        el.className = 'modal-status ' + type;
     }
 
     // ═══ Helpers ═══

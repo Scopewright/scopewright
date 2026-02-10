@@ -87,10 +87,24 @@
         /* Sections */
         .section {
             background: #F8F8F8; border: 1px solid #e0e0e0;
-            border-radius: 6px; padding: 28px; margin-bottom: 24px;
+            border-radius: 6px; margin-bottom: 24px; overflow: hidden;
         }
-        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-        .section-desc { font-size: 13px; color: #888; margin-bottom: 20px; }
+        .section-toggle {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 28px; cursor: pointer; user-select: none;
+            transition: background 0.15s;
+        }
+        .section-toggle:hover { background: #f0f0ef; }
+        .section-toggle-left { flex: 1; }
+        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+        .section-desc { font-size: 13px; color: #888; margin: 0; }
+        .section-chevron {
+            width: 20px; height: 20px; flex-shrink: 0; margin-left: 16px;
+            transition: transform 0.25s; color: #999;
+        }
+        .section.collapsed .section-chevron { transform: rotate(-90deg); }
+        .section-content { padding: 0 28px 28px; }
+        .section.collapsed .section-content { display: none; }
 
         /* Permissions table */
         .perm-table { width: 100%; border-collapse: collapse; }
@@ -203,7 +217,8 @@
         @media (max-width: 768px) {
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .app-content { padding: 24px 16px; padding-top: 80px; }
-            .section { padding: 20px 16px; }
+            .section-toggle { padding: 16px; }
+            .section-content { padding: 0 16px 20px; }
             .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
         }
     </style>
@@ -226,57 +241,105 @@
             <div class="page-sub">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les utilisateurs.</div>
 
             <!-- Permissions par role -->
-            <div class="section">
-                <div class="section-title">Permissions par r&ocirc;le</div>
-                <div class="section-desc">D&eacute;finissez quels outils sont accessibles pour chaque r&ocirc;le. Les colonnes s'ajoutent automatiquement avec les nouveaux outils.</div>
-                <table class="perm-table">
-                    <thead><tr id="permHead"></tr></thead>
-                    <tbody id="permBody"></tbody>
-                </table>
-                <div class="save-bar">
-                    <button class="btn-save" onclick="savePermissions()">Sauvegarder les permissions</button>
-                    <span class="save-feedback" id="permFeedback"></span>
+            <div class="section" id="sectionPerm">
+                <div class="section-toggle" onclick="toggleSection('sectionPerm')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Permissions par r&ocirc;le</div>
+                        <div class="section-desc">D&eacute;finissez quels outils sont accessibles pour chaque r&ocirc;le.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="perm-table">
+                        <thead><tr id="permHead"></tr></thead>
+                        <tbody id="permBody"></tbody>
+                    </table>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="savePermissions()">Sauvegarder les permissions</button>
+                        <span class="save-feedback" id="permFeedback"></span>
+                    </div>
                 </div>
             </div>
 
             <!-- Attribution des roles -->
-            <div class="section">
-                <div class="section-title">Attribution des r&ocirc;les</div>
-                <div class="section-desc">Assignez un r&ocirc;le &agrave; chaque utilisateur par courriel. Le r&ocirc;le d&eacute;termine les outils accessibles.</div>
-                <table class="roles-table">
-                    <thead>
-                        <tr>
-                            <th style="width:55%">Courriel</th>
-                            <th style="width:35%">R&ocirc;le</th>
-                            <th style="width:10%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="rolesBody"></tbody>
-                </table>
-                <button class="btn-add" onclick="addUserRow()">+ Ajouter un utilisateur</button>
-                <div class="save-bar">
-                    <button class="btn-save" onclick="saveUserRoles()">Sauvegarder les r&ocirc;les</button>
-                    <span class="save-feedback" id="rolesFeedback"></span>
+            <div class="section" id="sectionRoles">
+                <div class="section-toggle" onclick="toggleSection('sectionRoles')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Attribution des r&ocirc;les</div>
+                        <div class="section-desc">Assignez un r&ocirc;le &agrave; chaque utilisateur par courriel.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead>
+                            <tr>
+                                <th style="width:55%">Courriel</th>
+                                <th style="width:35%">R&ocirc;le</th>
+                                <th style="width:10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="rolesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addUserRow()">+ Ajouter un utilisateur</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveUserRoles()">Sauvegarder les r&ocirc;les</button>
+                        <span class="save-feedback" id="rolesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories du catalogue -->
+            <div class="section" id="sectionCategories">
+                <div class="section-toggle" onclick="toggleSection('sectionCategories')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Cat&eacute;gories du catalogue</div>
+                        <div class="section-desc">G&eacute;rez les cat&eacute;gories disponibles pour classer les articles du catalogue.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead>
+                            <tr>
+                                <th style="width:85%">Cat&eacute;gorie</th>
+                                <th style="width:15%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addCategoryRow()">+ Ajouter une cat&eacute;gorie</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveCategories()">Sauvegarder les cat&eacute;gories</button>
+                        <span class="save-feedback" id="categoriesFeedback"></span>
+                    </div>
                 </div>
             </div>
 
             <!-- Tags medias -->
-            <div class="section">
-                <div class="section-title">Tags m&eacute;dias</div>
-                <div class="section-desc">G&eacute;rez les &eacute;tiquettes disponibles pour organiser les images et documents dans le catalogue.</div>
-                <table class="roles-table">
-                    <thead>
-                        <tr>
-                            <th style="width:85%">&Eacute;tiquette</th>
-                            <th style="width:15%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="tagsBody"></tbody>
-                </table>
-                <button class="btn-add" onclick="addTagRow()">+ Ajouter un tag</button>
-                <div class="save-bar">
-                    <button class="btn-save" onclick="saveMediaTags()">Sauvegarder les tags</button>
-                    <span class="save-feedback" id="tagsFeedback"></span>
+            <div class="section" id="sectionTags">
+                <div class="section-toggle" onclick="toggleSection('sectionTags')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Tags m&eacute;dias</div>
+                        <div class="section-desc">G&eacute;rez les &eacute;tiquettes pour organiser les images et documents.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead>
+                            <tr>
+                                <th style="width:85%">&Eacute;tiquette</th>
+                                <th style="width:15%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tagsBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addTagRow()">+ Ajouter un tag</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveMediaTags()">Sauvegarder les tags</button>
+                        <span class="save-feedback" id="tagsFeedback"></span>
+                    </div>
                 </div>
             </div>
         </main>
@@ -377,7 +440,14 @@
     var permissions = {};
     var userRolesMap = {};
     var mediaTags = [];
+    var catalogueCategories = [];
     var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
+    var DEFAULT_CATEGORIES = ['Budg\u00e9taire', 'Panneaux', 'Poign\u00e9es', 'Tiroirs', '\u00c9clairage', 'Portes int\u00e9rieures'];
+
+    // ── Toggle sections ──
+    function toggleSection(id) {
+        document.getElementById(id).classList.toggle('collapsed');
+    }
 
     // Init
     document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
@@ -395,6 +465,7 @@
                     if (rows[i].key === 'permissions') permissions = rows[i].value;
                     if (rows[i].key === 'user_roles') userRolesMap = rows[i].value;
                     if (rows[i].key === 'media_tags') mediaTags = rows[i].value;
+                    if (rows[i].key === 'catalogue_categories') catalogueCategories = rows[i].value;
                 }
             }
             applyDefaults();
@@ -428,11 +499,15 @@
         if (!Array.isArray(mediaTags) || !mediaTags.length) {
             mediaTags = DEFAULT_MEDIA_TAGS.slice();
         }
+        if (!Array.isArray(catalogueCategories) || !catalogueCategories.length) {
+            catalogueCategories = DEFAULT_CATEGORIES.slice();
+        }
     }
 
     function renderAll() {
         renderPermTable();
         renderRolesTable();
+        renderCategoriesTable();
         renderTagsTable();
     }
 
@@ -505,6 +580,49 @@
         var div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    // ── Categories du catalogue table ──
+
+    function renderCategoriesTable() {
+        var body = document.getElementById('categoriesBody');
+        var html = '';
+        for (var i = 0; i < catalogueCategories.length; i++) {
+            html += buildCategoryRowHtml(catalogueCategories[i]);
+        }
+        body.innerHTML = html;
+    }
+
+    function buildCategoryRowHtml(cat) {
+        return '<tr>' +
+            '<td><input type="text" class="input-email" value="' + escapeHtml(cat) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
+            '<td><button class="btn-remove" onclick="removeCategoryRow(this)" title="Retirer">&times;</button></td>' +
+            '</tr>';
+    }
+
+    function addCategoryRow() {
+        var body = document.getElementById('categoriesBody');
+        body.insertAdjacentHTML('beforeend', buildCategoryRowHtml(''));
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    function removeCategoryRow(btn) {
+        var row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+    }
+
+    function saveCategories() {
+        var newCats = [];
+        var rows = document.querySelectorAll('#categoriesBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var val = rows[i].querySelector('.input-email').value.trim();
+            if (!val) continue;
+            if (newCats.indexOf(val) !== -1) continue;
+            newCats.push(val);
+        }
+        catalogueCategories = newCats;
+        saveConfig('catalogue_categories', catalogueCategories, 'categoriesFeedback');
     }
 
     // ── Tags médias table ──

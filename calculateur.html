@@ -23,6 +23,148 @@
     let CATALOGUE_DATA = [];
 
     // ═══════════════════════════════════════════════════════════════════════
+    // PROJETS — ÉTAT GLOBAL
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let currentProject = null;   // objet projet courant { id, name, client_name, ... }
+    let roomMap = {};            // { groupDomId: supabaseRoomUUID }
+    let itemMap = {};            // { rowDomId: supabaseItemUUID }
+    let saveTimeout = null;      // pour le debounce
+
+    function debounce(fn, delay) {
+        let timer;
+        return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROJETS — CRUD SUPABASE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadProjects() {
+        const userId = localStorage.getItem('sb_user_id');
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*', {});
+        if (!r.ok) return [];
+        return await r.json();
+    }
+
+    async function createProject(name, clientName) {
+        const userId = localStorage.getItem('sb_user_id');
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ user_id: userId, name: name, client_name: clientName || '' })
+        });
+        if (!r.ok) throw new Error('Erreur création projet: ' + r.status);
+        const data = await r.json();
+        return data[0];
+    }
+
+    async function updateProject(projectId, fields) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(fields)
+        });
+        return r.ok;
+    }
+
+    async function deleteProject(projectId) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId, {
+            method: 'DELETE'
+        });
+        return r.ok;
+    }
+
+    async function loadProjectRooms(projectId) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?project_id=eq.' + projectId + '&order=sort_order&select=*,room_items(*)', {});
+        if (!r.ok) return [];
+        const rooms = await r.json();
+        rooms.forEach(room => {
+            if (room.room_items) room.room_items.sort((a, b) => a.sort_order - b.sort_order);
+        });
+        return rooms;
+    }
+
+    async function createRoom(projectId, name, sortOrder) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ project_id: projectId, name: name || '', sort_order: sortOrder || 0 })
+        });
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data[0];
+    }
+
+    async function updateRoom(roomId, fields) {
+        await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(fields)
+        });
+    }
+
+    async function deleteRoom(roomId) {
+        await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomId, {
+            method: 'DELETE'
+        });
+    }
+
+    async function createItem(roomId, itemData) {
+        const payload = Object.assign({ room_id: roomId }, itemData);
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(payload)
+        });
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data[0];
+    }
+
+    async function updateItem(itemId, fields) {
+        await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_items?id=eq.' + itemId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(fields)
+        });
+    }
+
+    async function deleteItem(itemId) {
+        await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_items?id=eq.' + itemId, {
+            method: 'DELETE'
+        });
+    }
+
+    async function createVersion(projectId) {
+        // Trouver le prochain numéro de version
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?project_id=eq.' + projectId + '&order=version_number.desc&limit=1&select=version_number', {});
+        let nextVersion = 1;
+        if (r.ok) {
+            const data = await r.json();
+            if (data.length > 0) nextVersion = data[0].version_number + 1;
+        }
+
+        const snapshot = collecterDonneesCalculateur();
+        const userId = localStorage.getItem('sb_user_id');
+
+        await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({
+                project_id: projectId,
+                version_number: nextVersion,
+                snapshot: snapshot,
+                status_at_save: currentProject ? currentProject.status : 'brouillon',
+                created_by: userId
+            })
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // REFRESH AUTOMATIQUE DU TOKEN
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -718,6 +860,137 @@
         .image-preview-remove:hover { background: rgba(200,0,0,0.8); }
         .image-count { font-size: 11px; color: #888; margin-top: 4px; }
 
+        /* ═══════════════════════════════════════════════════════════════
+           VUE LISTE DE PROJETS
+           ═══════════════════════════════════════════════════════════════ */
+
+        .project-list-view { display: none; }
+        .project-list-view.active { display: block; }
+        .calculator-view { display: none; }
+        .calculator-view.active { display: block; }
+
+        .project-list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+        }
+        .project-list-title { font-size: 28px; font-weight: 400; }
+
+        .btn-new-project {
+            background: var(--stele-green); color: #fff; border: none;
+            padding: 10px 20px; font-size: 14px; cursor: pointer;
+            border-radius: 6px; font-family: inherit; transition: background 0.15s;
+        }
+        .btn-new-project:hover { background: #3d4f41; }
+
+        .project-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .project-card {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 20px; cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .project-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-2px); }
+
+        .project-card-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .project-card-client { font-size: 13px; color: #666; margin-bottom: 10px; }
+        .project-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .project-card-date { font-size: 11px; color: #999; }
+
+        .project-status-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600; text-transform: capitalize;
+        }
+        .status-brouillon { background: #f0f0f0; color: #666; }
+        .status-soumis { background: #e3f2fd; color: #1565c0; }
+        .status-approuvé { background: #e8f5e9; color: #2e7d32; }
+        .status-envoyé { background: #fff3e0; color: #e65100; }
+        .status-signé { background: #e8f5e9; color: #1b5e20; }
+
+        .project-card-delete {
+            position: absolute; top: 8px; right: 8px; background: none; border: none;
+            color: #ccc; cursor: pointer; font-size: 18px; padding: 4px 8px;
+            border-radius: 4px; transition: all 0.15s; line-height: 1;
+        }
+        .project-card-delete:hover { color: #c62828; background: #ffebee; }
+
+        .project-empty {
+            text-align: center; padding: 60px 20px; color: #999; font-size: 15px;
+        }
+
+        /* Formulaire nouveau projet (inline) */
+        .new-project-form {
+            display: none; background: #f8f8f8; border: 1px solid #e0e0e0;
+            border-radius: 8px; padding: 20px; margin-bottom: 20px;
+        }
+        .new-project-form.active { display: block; }
+        .new-project-form .form-row {
+            display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .new-project-form input {
+            flex: 1; min-width: 200px; padding: 10px 14px; font-size: 14px;
+            border: 1px solid #ccc; border-radius: 6px; font-family: inherit;
+        }
+        .new-project-form input:focus { outline: none; border-color: var(--stele-green); }
+        .new-project-form-actions { display: flex; gap: 8px; }
+        .btn-create-project {
+            background: var(--stele-green); color: #fff; border: none;
+            padding: 10px 20px; font-size: 14px; cursor: pointer;
+            border-radius: 6px; font-family: inherit;
+        }
+        .btn-create-project:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-cancel-project {
+            background: #fff; color: #666; border: 1px solid #ccc;
+            padding: 10px 20px; font-size: 14px; cursor: pointer;
+            border-radius: 6px; font-family: inherit;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           HEADER PROJET (dans le calculateur)
+           ═══════════════════════════════════════════════════════════════ */
+
+        .project-header {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 16px 20px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+        }
+        .btn-back-projects {
+            background: none; border: none; color: var(--stele-green);
+            cursor: pointer; font-size: 14px; font-family: inherit;
+            padding: 6px 0; white-space: nowrap;
+        }
+        .btn-back-projects:hover { text-decoration: underline; }
+
+        .project-header-fields {
+            display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap;
+        }
+        .project-header-field {
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .project-header-field label {
+            font-size: 10px; text-transform: uppercase; color: #999; letter-spacing: 0.5px;
+        }
+        .project-header-field input,
+        .project-header-field select {
+            border: 1px solid transparent; border-radius: 4px; padding: 4px 8px;
+            font-size: 14px; font-family: inherit; background: transparent;
+            transition: border-color 0.15s;
+        }
+        .project-header-field input:hover,
+        .project-header-field select:hover { border-color: #e0e0e0; }
+        .project-header-field input:focus,
+        .project-header-field select:focus { outline: none; border-color: var(--stele-green); background: #fff; }
+
+        .project-header-field input.field-name { font-weight: 600; font-size: 16px; min-width: 200px; }
+        .project-header-field input.field-client { min-width: 150px; }
+        .project-header-field input.field-code { width: 130px; }
+
+        .save-indicator {
+            font-size: 11px; color: #999; white-space: nowrap; margin-left: auto;
+        }
+        .save-indicator.saving { color: var(--stele-green); }
+
         /* Print */
         @media print {
             .nav-bar { display: none; }
@@ -759,10 +1032,69 @@
 
     <!-- Contenu principal -->
     <div class="main-content">
-        <h1 class="page-title">Calculateur</h1>
-        <p class="page-subtitle">Calculez des estimations budg&eacute;taires &agrave; partir du catalogue de prix.</p>
 
-        <div class="calculator-container">
+        <!-- ═══════ VUE 1 : LISTE DES PROJETS ═══════ -->
+        <div class="project-list-view active" id="projectListView">
+            <div class="project-list-header">
+                <h1 class="project-list-title">Mes projets</h1>
+                <button class="btn-new-project" onclick="showNewProjectForm()">+ Nouveau projet</button>
+            </div>
+
+            <div class="new-project-form" id="newProjectForm">
+                <div class="form-row">
+                    <input type="text" id="newProjectName" placeholder="Nom du projet (ex: R&eacute;sidence Tremblay)" onkeydown="if(event.key==='Enter')handleCreateProject()">
+                    <input type="text" id="newProjectClient" placeholder="Nom du client (optionnel)" onkeydown="if(event.key==='Enter')handleCreateProject()">
+                </div>
+                <div class="new-project-form-actions">
+                    <button class="btn-create-project" id="btnCreateProject" onclick="handleCreateProject()">Cr&eacute;er</button>
+                    <button class="btn-cancel-project" onclick="hideNewProjectForm()">Annuler</button>
+                </div>
+            </div>
+
+            <div id="projectGrid" class="project-grid">
+                <!-- Rempli dynamiquement -->
+            </div>
+            <div class="project-empty" id="projectEmpty" style="display:none;">
+                Aucun projet pour le moment.<br>Cliquez sur &laquo; + Nouveau projet &raquo; pour commencer.
+            </div>
+        </div>
+
+        <!-- ═══════ VUE 2 : CALCULATEUR ═══════ -->
+        <div class="calculator-view" id="calculatorView">
+
+            <div class="project-header" id="projectHeader">
+                <button class="btn-back-projects" onclick="backToProjectList()">&larr; Projets</button>
+                <div class="project-header-fields">
+                    <div class="project-header-field">
+                        <label>Projet</label>
+                        <input type="text" class="field-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
+                    </div>
+                    <div class="project-header-field">
+                        <label>Client</label>
+                        <input type="text" class="field-client" id="projClient" placeholder="Client" onblur="saveProjectField()">
+                    </div>
+                    <div class="project-header-field">
+                        <label>Code</label>
+                        <input type="text" class="field-code" id="projCode" placeholder="PRJ-001" onblur="saveProjectField()">
+                    </div>
+                    <div class="project-header-field">
+                        <label>Statut</label>
+                        <select id="projStatus" onchange="saveProjectField()">
+                            <option value="brouillon">Brouillon</option>
+                            <option value="soumis">Soumis</option>
+                            <option value="approuvé">Approuv&eacute;</option>
+                            <option value="envoyé">Envoy&eacute;</option>
+                            <option value="signé">Sign&eacute;</option>
+                        </select>
+                    </div>
+                </div>
+                <span class="save-indicator" id="saveIndicator"></span>
+            </div>
+
+            <h1 class="page-title">Calculateur</h1>
+            <p class="page-subtitle">Calculez des estimations budg&eacute;taires &agrave; partir du catalogue de prix.</p>
+
+            <div class="calculator-container">
             <div id="furnitureGroups">
                 <!-- Le premier meuble est cr&eacute;&eacute; par JS au chargement -->
             </div>
@@ -785,6 +1117,8 @@
                 Envoyer l'estimation
             </button>
         </div>
+
+        </div><!-- fin calculator-view -->
     </div>
 
     <!-- Modal Envoyer l'estimation -->
@@ -981,7 +1315,8 @@
             return options;
         }
 
-        function addFurnitureGroup(initialName) {
+        function addFurnitureGroup(initialName, opts) {
+            opts = opts || {};
             groupCounter++;
             const groupId = `group-${groupCounter}`;
 
@@ -1020,17 +1355,52 @@
             `;
 
             document.getElementById('furnitureGroups').appendChild(group);
+
+            // Persistance Supabase
+            if (opts.existingId) {
+                roomMap[groupId] = opts.existingId;
+            } else if (currentProject && !opts.skipSave) {
+                const sortOrder = document.querySelectorAll('.furniture-group').length;
+                createRoom(currentProject.id, initialName || '', sortOrder).then(room => {
+                    if (room) roomMap[groupId] = room.id;
+                });
+            }
+
+            // Auto-save nom du meuble sur blur
+            const nameInput = document.getElementById(`${groupId}-name`);
+            nameInput.addEventListener('blur', function() {
+                if (roomMap[groupId]) {
+                    updateRoom(roomMap[groupId], { name: this.value });
+                    showSaveIndicator();
+                }
+            });
+
             return groupId;
         }
 
         function removeFurnitureGroup(groupId) {
             const groups = document.querySelectorAll('.furniture-group');
             if (groups.length <= 1) return;
+
+            // Supprimer dans Supabase
+            if (roomMap[groupId]) {
+                deleteRoom(roomMap[groupId]);
+                // Nettoyer les itemMap pour les rows de ce groupe
+                const group = document.getElementById(groupId);
+                if (group) {
+                    group.querySelectorAll('.calc-row').forEach(row => {
+                        delete itemMap[row.id];
+                    });
+                }
+                delete roomMap[groupId];
+            }
+
             const group = document.getElementById(groupId);
             if (group) { group.remove(); updateGrandTotal(); }
         }
 
-        function addRow(groupId) {
+        function addRow(groupId, opts) {
+            opts = opts || {};
             rowCounter++;
             const rowId = `row-${rowCounter}`;
 
@@ -1063,7 +1433,19 @@
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
             container.insertBefore(row, addContainer);
-            row.querySelector('.item-select').focus();
+
+            // Persistance Supabase
+            if (opts.existingId) {
+                itemMap[rowId] = opts.existingId;
+            } else if (currentProject && roomMap[groupId] && !opts.skipSave) {
+                const sortOrder = container.querySelectorAll('.calc-row').length;
+                createItem(roomMap[groupId], { sort_order: sortOrder }).then(item => {
+                    if (item) itemMap[rowId] = item.id;
+                });
+            }
+
+            if (!opts.skipFocus) row.querySelector('.item-select').focus();
+            return rowId;
         }
 
         function transformToAjoutMode(row, rowId) {
@@ -1138,12 +1520,64 @@
             const groupId = row.dataset.group;
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
+
+            // Sauvegarder dans Supabase (debounce)
+            if (itemMap[rowId]) {
+                debouncedSaveItem(rowId, row);
+            }
         }
+
+        const debouncedSaveItem = debounce(function(rowId, row) {
+            if (!itemMap[rowId]) return;
+            const select = row.querySelector('.item-select');
+            const qtyInput = row.querySelector('.qty-input');
+            const selectedId = select ? select.value : '';
+            const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+
+            let fields = { quantity: qty };
+
+            if (selectedId === '__AJOUT__') {
+                const descInput = row.querySelector('.ajout-description');
+                const priceInput = row.querySelector('.ajout-price');
+                const markupInput = row.querySelector('.ajout-markup');
+                fields.item_type = 'custom';
+                fields.catalogue_item_id = null;
+                fields.description = descInput ? descInput.value : '';
+                fields.unit_price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+                fields.markup = parseFloat(markupInput ? markupInput.value : 0) || 0;
+                fields.unit_type = '';
+            } else if (selectedId) {
+                const item = CATALOGUE_DATA.find(i => i.id === selectedId);
+                if (item) {
+                    fields.item_type = 'catalogue';
+                    fields.catalogue_item_id = item.id;
+                    fields.description = item.description;
+                    fields.unit_type = item.type || '';
+                    fields.unit_price = item.price || 0;
+                    fields.markup = 0;
+                }
+            } else {
+                // Pas de sélection, on sauvegarde quand même la quantité
+                fields.item_type = 'catalogue';
+                fields.catalogue_item_id = null;
+                fields.description = '';
+                fields.unit_price = 0;
+                fields.markup = 0;
+            }
+
+            updateItem(itemMap[rowId], fields);
+            showSaveIndicator();
+        }, 500);
 
         function removeRow(rowId) {
             const row = document.getElementById(rowId);
             if (row) {
                 const groupId = row.dataset.group;
+                // Supprimer dans Supabase
+                if (itemMap[rowId]) {
+                    deleteItem(itemMap[rowId]);
+                    delete itemMap[rowId];
+                }
                 row.remove();
                 if (groupId) updateGroupSubtotal(groupId);
                 updateGrandTotal();
@@ -1196,6 +1630,10 @@
                 return;
             }
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
+            // Pré-remplir le code projet depuis le header
+            if (currentProject) {
+                document.getElementById('projectCode').value = currentProject.project_code || '';
+            }
             clearImages();
             document.getElementById('pdfModal').classList.add('active');
         }
@@ -1396,6 +1834,14 @@
                 body: JSON.stringify(payload)
             })
             .then(() => {
+                // Créer un snapshot/version si projet en cours
+                if (currentProject) {
+                    createVersion(currentProject.id);
+                    updateProject(currentProject.id, { status: 'soumis' });
+                    currentProject.status = 'soumis';
+                    document.getElementById('projStatus').value = 'soumis';
+                }
+
                 showSendStatus('Estimation envoyée avec succès!', false);
                 btnSend.textContent = 'Envoyé!';
                 setTimeout(() => {
@@ -1413,14 +1859,222 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // NAVIGATION ENTRE VUES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function showProjectList() {
+            document.getElementById('projectListView').classList.add('active');
+            document.getElementById('calculatorView').classList.remove('active');
+            currentProject = null;
+            roomMap = {};
+            itemMap = {};
+            renderProjectList();
+        }
+
+        function showCalculator() {
+            document.getElementById('projectListView').classList.remove('active');
+            document.getElementById('calculatorView').classList.add('active');
+        }
+
+        function backToProjectList() {
+            showProjectList();
+        }
+
+        function showSaveIndicator() {
+            const el = document.getElementById('saveIndicator');
+            el.textContent = 'Sauvegardé ✓';
+            el.className = 'save-indicator saving';
+            clearTimeout(el._timeout);
+            el._timeout = setTimeout(() => { el.textContent = ''; el.className = 'save-indicator'; }, 2000);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RENDU LISTE DE PROJETS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function renderProjectList() {
+            const grid = document.getElementById('projectGrid');
+            const empty = document.getElementById('projectEmpty');
+            grid.innerHTML = '';
+
+            const projects = await loadProjects();
+
+            if (projects.length === 0) {
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            projects.forEach(proj => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.onclick = function(e) {
+                    if (e.target.closest('.project-card-delete')) return;
+                    openProject(proj.id);
+                };
+
+                const updatedDate = new Date(proj.updated_at);
+                const dateStr = updatedDate.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
+
+                card.innerHTML = `
+                    <button class="project-card-delete" onclick="handleDeleteProject('${proj.id}', event)" title="Supprimer">&times;</button>
+                    <div class="project-card-name">${proj.name || 'Sans nom'}</div>
+                    <div class="project-card-client">${proj.client_name || 'Aucun client'}</div>
+                    <div class="project-card-meta">
+                        <span class="project-status-badge status-${proj.status}">${proj.status}</span>
+                        <span class="project-card-date">${dateStr}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // FORMULAIRE NOUVEAU PROJET
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function showNewProjectForm() {
+            document.getElementById('newProjectForm').classList.add('active');
+            document.getElementById('newProjectName').focus();
+        }
+
+        function hideNewProjectForm() {
+            document.getElementById('newProjectForm').classList.remove('active');
+            document.getElementById('newProjectName').value = '';
+            document.getElementById('newProjectClient').value = '';
+        }
+
+        async function handleCreateProject() {
+            const nameInput = document.getElementById('newProjectName');
+            const clientInput = document.getElementById('newProjectClient');
+            const name = nameInput.value.trim();
+            if (!name) { nameInput.focus(); return; }
+
+            const btn = document.getElementById('btnCreateProject');
+            btn.disabled = true;
+            btn.textContent = 'Création...';
+
+            try {
+                const project = await createProject(name, clientInput.value.trim());
+                hideNewProjectForm();
+                await openProject(project.id);
+            } catch (e) {
+                console.error('Erreur création projet:', e);
+                alert('Erreur lors de la création du projet.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Créer';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // OUVRIR / CHARGER UN PROJET
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function openProject(projectId) {
+            // Charger le projet
+            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId + '&select=*', {});
+            if (!r.ok) return;
+            const data = await r.json();
+            if (data.length === 0) return;
+
+            currentProject = data[0];
+            roomMap = {};
+            itemMap = {};
+
+            // Remplir le header
+            document.getElementById('projName').value = currentProject.name || '';
+            document.getElementById('projClient').value = currentProject.client_name || '';
+            document.getElementById('projCode').value = currentProject.project_code || '';
+            document.getElementById('projStatus').value = currentProject.status || 'brouillon';
+
+            // Vider le calculateur
+            document.getElementById('furnitureGroups').innerHTML = '';
+
+            // Charger les pièces et items
+            const rooms = await loadProjectRooms(projectId);
+
+            if (rooms.length === 0) {
+                // Projet vide → créer un premier groupe
+                addFurnitureGroup('');
+            } else {
+                rooms.forEach(room => {
+                    const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
+
+                    if (room.room_items && room.room_items.length > 0) {
+                        room.room_items.forEach(item => {
+                            const rowId = addRow(groupId, { existingId: item.id, skipSave: true, skipFocus: true });
+
+                            // Pré-remplir la row
+                            const row = document.getElementById(rowId);
+                            const select = row.querySelector('.item-select');
+                            const qtyInput = row.querySelector('.qty-input');
+
+                            qtyInput.value = item.quantity || 1;
+
+                            if (item.item_type === 'custom') {
+                                select.value = '__AJOUT__';
+                                transformToAjoutMode(row, rowId);
+                                const descInput = document.getElementById(`${rowId}-desc`);
+                                const priceInput = document.getElementById(`${rowId}-price`);
+                                const markupInput = document.getElementById(`${rowId}-markup`);
+                                if (descInput) descInput.value = item.description || '';
+                                if (priceInput) priceInput.value = item.unit_price || 0;
+                                if (markupInput) markupInput.value = item.markup || 0;
+                            } else if (item.catalogue_item_id) {
+                                select.value = item.catalogue_item_id;
+                            }
+
+                            // Mettre à jour l'affichage
+                            updateRow(rowId);
+                        });
+                    }
+                });
+            }
+
+            showCalculator();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SAUVEGARDER CHAMPS HEADER PROJET
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function saveProjectField() {
+            if (!currentProject) return;
+            const fields = {
+                name: document.getElementById('projName').value.trim(),
+                client_name: document.getElementById('projClient').value.trim(),
+                project_code: document.getElementById('projCode').value.trim(),
+                status: document.getElementById('projStatus').value
+            };
+            currentProject.name = fields.name;
+            currentProject.client_name = fields.client_name;
+            currentProject.project_code = fields.project_code;
+            currentProject.status = fields.status;
+            updateProject(currentProject.id, fields);
+            showSaveIndicator();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SUPPRIMER UN PROJET
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function handleDeleteProject(projectId, event) {
+            event.stopPropagation();
+            if (!confirm('Supprimer ce projet et toutes ses données ?')) return;
+            await deleteProject(projectId);
+            renderProjectList();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 
         document.addEventListener('DOMContentLoaded', async function() {
             await loadCatalogueData();
             await loadEmployeesData();
-            addFurnitureGroup();
             setupImageHandlers();
+            renderProjectList();
         });
     </script>
 

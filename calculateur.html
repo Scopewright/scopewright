@@ -29,7 +29,9 @@
     let currentProject = null;   // objet projet courant { id, name, client_name, ... }
     let roomMap = {};            // { groupDomId: supabaseRoomUUID }
     let itemMap = {};            // { rowDomId: supabaseItemUUID }
+    let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let saveTimeout = null;      // pour le debounce
+    const MAX_GROUP_IMAGES = 4;
 
     function debounce(fn, delay) {
         let timer;
@@ -645,6 +647,28 @@
             text-align: right;
         }
 
+        .group-images-section {
+            padding: 12px 16px;
+            background: #f8f8f8;
+            border: 1px solid var(--stele-gray);
+            border-top: none;
+        }
+
+        .group-images-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .group-image-drop-zone {
+            padding: 12px;
+        }
+
+        .group-image-drop-zone .image-drop-zone-text {
+            font-size: 11px;
+        }
+
         .btn-add-group {
             display: flex;
             align-items: center;
@@ -994,7 +1018,7 @@
         /* Print */
         @media print {
             .nav-bar { display: none; }
-            .btn-add, .btn-remove, .add-row-container { display: none !important; }
+            .btn-add, .btn-remove, .add-row-container, .group-images-section { display: none !important; }
             .item-select { border: none; background: none; padding: 0; appearance: none; background-image: none; }
             .qty-input, .ajout-description, .ajout-price, .ajout-markup { border: none; background: none; }
             .calculator-container { page-break-inside: avoid; }
@@ -1351,9 +1375,22 @@
                     <span class="group-subtotal-label">Sous-total</span>
                     <span class="group-subtotal-amount" id="${groupId}-subtotal">0,00 $</span>
                 </div>
+                <div class="group-images-section">
+                    <div class="group-images-header">Images / Photos</div>
+                    <div class="image-drop-zone group-image-drop-zone" id="${groupId}-imgDrop">
+                        <div class="image-drop-zone-text">
+                            <strong>Ctrl+V</strong> pour coller &middot; <strong>glisser-d&eacute;poser</strong> &middot; ou <strong>cliquer</strong>
+                        </div>
+                    </div>
+                    <input type="file" id="${groupId}-imgInput" accept="image/*" multiple style="display:none;">
+                    <div class="image-previews" id="${groupId}-imgPreviews"></div>
+                    <div class="image-count" id="${groupId}-imgCount"></div>
+                </div>
             `;
 
             document.getElementById('furnitureGroups').appendChild(group);
+            setupGroupImageHandlers(groupId);
+            if (!groupImages[groupId]) groupImages[groupId] = [];
 
             // Persistance Supabase
             if (opts.existingId) {
@@ -1393,6 +1430,7 @@
                 }
                 delete roomMap[groupId];
             }
+            delete groupImages[groupId];
 
             const group = document.getElementById(groupId);
             if (group) { group.remove(); updateGrandTotal(); }
@@ -1726,6 +1764,84 @@
         function clearImages() { attachedImages = []; renderImagePreviews(); }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // IMAGES PAR MEUBLE (dans le calculateur)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function setupGroupImageHandlers(groupId) {
+            const dropZone = document.getElementById(`${groupId}-imgDrop`);
+            const fileInput = document.getElementById(`${groupId}-imgInput`);
+            if (!dropZone || !fileInput) return;
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => { handleGroupImageFiles(groupId, e.target.files); fileInput.value = ''; });
+
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+            dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleGroupImageFiles(groupId, e.dataTransfer.files); });
+
+            // Paste: écouter sur le groupe entier
+            const groupEl = document.getElementById(groupId);
+            groupEl.addEventListener('paste', (e) => {
+                const files = [];
+                for (let i = 0; i < e.clipboardData.items.length; i++) {
+                    if (e.clipboardData.items[i].type.startsWith('image/')) files.push(e.clipboardData.items[i].getAsFile());
+                }
+                if (files.length > 0) { e.preventDefault(); e.stopPropagation(); handleGroupImageFiles(groupId, files); }
+            });
+        }
+
+        function handleGroupImageFiles(groupId, files) {
+            if (!groupImages[groupId]) groupImages[groupId] = [];
+            const remaining = MAX_GROUP_IMAGES - groupImages[groupId].length;
+            if (remaining <= 0) return;
+
+            Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining).forEach(file => {
+                compressImage(file, 1024, 0.7).then(dataUrl => {
+                    groupImages[groupId].push({ name: (file.name || ('photo_' + Date.now() + '.png')).replace(/\.\w+$/, '.jpg'), dataUrl: dataUrl });
+                    renderGroupImagePreviews(groupId);
+                    saveGroupImages(groupId);
+                });
+            });
+        }
+
+        function renderGroupImagePreviews(groupId) {
+            const container = document.getElementById(`${groupId}-imgPreviews`);
+            const countEl = document.getElementById(`${groupId}-imgCount`);
+            const dropZone = document.getElementById(`${groupId}-imgDrop`);
+            if (!container) return;
+
+            const imgs = groupImages[groupId] || [];
+            container.innerHTML = '';
+            imgs.forEach((img, index) => {
+                const item = document.createElement('div');
+                item.className = 'image-preview-item';
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
+                container.appendChild(item);
+            });
+            if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
+            if (dropZone) dropZone.style.display = imgs.length >= MAX_GROUP_IMAGES ? 'none' : '';
+        }
+
+        function removeGroupImage(groupId, index) {
+            if (groupImages[groupId]) {
+                groupImages[groupId].splice(index, 1);
+                renderGroupImagePreviews(groupId);
+                saveGroupImages(groupId);
+            }
+        }
+
+        const debouncedSaveGroupImages = debounce(function(groupId) {
+            if (!roomMap[groupId]) return;
+            const imgs = (groupImages[groupId] || []).map(img => ({ name: img.name, dataUrl: img.dataUrl }));
+            updateRoom(roomMap[groupId], { images: imgs });
+            showSaveIndicator();
+        }, 1000);
+
+        function saveGroupImages(groupId) {
+            debouncedSaveGroupImages(groupId);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // ENVOI DE L'ESTIMATION
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -1771,7 +1887,13 @@
 
                 if (items.length > 0) {
                     grandTotal += subtotal;
-                    meubles.push({ name: meubleName, items: items, subtotal: formatPrice(subtotal) });
+                    const groupId = group.id;
+                    const imgs = (groupImages[groupId] || []).map(img => ({
+                        name: img.name,
+                        mimeType: img.dataUrl.match(/^data:(.*?);/)?.[1] || 'image/jpeg',
+                        data: img.dataUrl.split(',')[1]
+                    }));
+                    meubles.push({ name: meubleName, items: items, subtotal: formatPrice(subtotal), images: imgs });
                 }
             });
 
@@ -1867,6 +1989,7 @@
             currentProject = null;
             roomMap = {};
             itemMap = {};
+            groupImages = {};
             renderProjectList();
         }
 
@@ -1978,6 +2101,7 @@
             currentProject = data[0];
             roomMap = {};
             itemMap = {};
+            groupImages = {};
 
             // Remplir le header
             document.getElementById('projName').value = currentProject.name || '';
@@ -1997,6 +2121,12 @@
             } else {
                 rooms.forEach(room => {
                     const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
+
+                    // Restaurer les images du groupe
+                    if (room.images && Array.isArray(room.images) && room.images.length > 0) {
+                        groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl }));
+                        renderGroupImagePreviews(groupId);
+                    }
 
                     if (room.room_items && room.room_items.length > 0) {
                         room.room_items.forEach(item => {

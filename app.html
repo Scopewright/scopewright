@@ -434,13 +434,13 @@
 
         function applyCardVisibility(perms, roles) {
             var email = (userEmail || '').toLowerCase();
-            var role = roles[email] || 'Vente';
+            var role = roles[email] || 'Client';
             var allowed = perms[role] || {};
 
             var cards = document.querySelectorAll('[data-page]');
             for (var i = 0; i < cards.length; i++) {
                 var pageKey = cards[i].getAttribute('data-page');
-                if (allowed[pageKey] === false) {
+                if (!allowed[pageKey]) {
                     cards[i].classList.add('tool-card--no-access');
                     if (cards[i].tagName === 'A') {
                         cards[i].removeAttribute('href');

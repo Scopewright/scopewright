@@ -1043,7 +1043,6 @@
             <div class="new-project-form" id="newProjectForm">
                 <div class="form-row">
                     <input type="text" id="newProjectName" placeholder="Nom du projet (ex: R&eacute;sidence Tremblay)" onkeydown="if(event.key==='Enter')handleCreateProject()">
-                    <input type="text" id="newProjectClient" placeholder="Nom du client (optionnel)" onkeydown="if(event.key==='Enter')handleCreateProject()">
                 </div>
                 <div class="new-project-form-actions">
                     <button class="btn-create-project" id="btnCreateProject" onclick="handleCreateProject()">Cr&eacute;er</button>
@@ -1941,12 +1940,10 @@
         function hideNewProjectForm() {
             document.getElementById('newProjectForm').classList.remove('active');
             document.getElementById('newProjectName').value = '';
-            document.getElementById('newProjectClient').value = '';
         }
 
         async function handleCreateProject() {
             const nameInput = document.getElementById('newProjectName');
-            const clientInput = document.getElementById('newProjectClient');
             const name = nameInput.value.trim();
             if (!name) { nameInput.focus(); return; }
 
@@ -1955,7 +1952,7 @@
             btn.textContent = 'Création...';
 
             try {
-                const project = await createProject(name, clientInput.value.trim());
+                const project = await createProject(name, '');
                 hideNewProjectForm();
                 await openProject(project.id);
             } catch (e) {

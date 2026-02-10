@@ -820,6 +820,23 @@
 
         .btn-sales-sheet:hover { background: #3d4f42; }
 
+        .btn-delete-item {
+            padding: 8px 14px;
+            font-size: 13px;
+            font-family: inherit;
+            background: none;
+            color: #c62828;
+            border: 1px solid #c62828;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .btn-delete-item:hover {
+            background: #c62828;
+            color: #fff;
+        }
+
         .edit-status {
             font-size: 13px;
             padding: 8px 12px;
@@ -1092,9 +1109,12 @@
                 </div>
                 <div class="edit-status" id="editStatus"></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
-                <button class="btn-generate" id="btnEditSave" onclick="saveEditModal()">Sauvegarder</button>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="btn-delete-item" onclick="deleteItem()">Supprimer</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+                    <button class="btn-generate" id="btnEditSave" onclick="saveEditModal()">Sauvegarder</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1499,6 +1519,38 @@
             editImageFile = null;
             isNewItem = false;
             newItemData = null;
+        }
+
+        async function deleteItem() {
+            const itemId = document.getElementById('editItemId').value;
+
+            // Si c'est un nouvel item pas encore sauvegardé, juste fermer
+            if (isNewItem && newItemData) {
+                closeEditModal();
+                return;
+            }
+
+            if (!confirm('Supprimer l\u2019article ' + itemId + ' ?\nCette action est irr\u00e9versible.')) return;
+
+            try {
+                const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId), {
+                    method: 'DELETE',
+                    headers: { 'Prefer': 'return=minimal' }
+                });
+
+                if (!resp.ok) throw new Error('Erreur suppression: ' + resp.status);
+
+                // Retirer de CATALOGUE_DATA
+                CATALOGUE_DATA = CATALOGUE_DATA.filter(i => i.id !== itemId);
+                generatePriceTables();
+                closeEditModal();
+            } catch (err) {
+                console.error('Erreur suppression:', err);
+                const status = document.getElementById('editStatus');
+                status.textContent = 'Erreur: ' + err.message;
+                status.style.display = '';
+                status.className = 'edit-status error';
+            }
         }
 
         function removeEditImage() {

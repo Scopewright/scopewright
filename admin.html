@@ -360,6 +360,34 @@
                     </div>
                 </div>
             </div>
+            <!-- Catégories de dépenses -->
+            <div class="section collapsed" id="sectionExpenses">
+                <div class="section-toggle" onclick="toggleSection('sectionExpenses')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Cat&eacute;gories de d&eacute;penses</div>
+                        <div class="section-desc">G&eacute;rez les cat&eacute;gories de d&eacute;penses mat&eacute;riaux et leur markup par d&eacute;faut.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table" id="expensesTable">
+                        <thead>
+                            <tr>
+                                <th style="width:70%">Cat&eacute;gorie</th>
+                                <th style="width:20%">Markup (%)</th>
+                                <th style="width:10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addExpenseRow()">+ Ajouter une cat&eacute;gorie de d&eacute;pense</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveExpenseCategories()">Sauvegarder les d&eacute;penses</button>
+                        <span class="save-feedback" id="expensesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Données de base — Taux horaires -->
             <div class="section collapsed" id="sectionTaux">
                 <div class="section-toggle" onclick="toggleSection('sectionTaux')">
@@ -494,6 +522,17 @@
         'Machinage', 'Sablage', 'Peinture', 'Installation'
     ];
     var tauxHoraires = [];
+    var DEFAULT_EXPENSE_CATEGORIES = [
+        {name:'BANDE DE CHANT',markup:30},{name:'BOIS BRUT',markup:30},{name:'COLLAGE DE BOIS',markup:30},
+        {name:'D\u00c9COUPE NUM\u00c9RIQUE',markup:30},{name:'D\u00c9M\u00c9NAGEMENT',markup:30},{name:'DIVERS',markup:30},
+        {name:'\u00c9CLAIRAGE',markup:30},{name:'FINITION BOIS',markup:30},{name:'FINITION OPAQUE',markup:30},
+        {name:'FINITION TEINTURE',markup:30},{name:'FOURNITURE BUREAU',markup:30},{name:"FOURNITURE D'ATELIER",markup:30},
+        {name:'M\u00c9TAL',markup:30},{name:'PANNEAU BOIS',markup:30},{name:'PANNEAU MDF',markup:30},
+        {name:'PANNEAU M\u00c9LAMINE',markup:30},{name:'PLACAGE',markup:30},{name:'POIGN\u00c9ES',markup:30},
+        {name:'QUINCAILLERIE',markup:30},{name:'SOUS TRAITANCE',markup:30},{name:'STRATIFI\u00c9',markup:30},
+        {name:'TIROIRS',markup:30},{name:'VITRIER',markup:30},{name:'PORTES SOUS TRAITANCE',markup:30}
+    ];
+    var expenseCategories = [];
 
     // ── Toggle sections ──
     function toggleSection(id) {
@@ -518,6 +557,7 @@
                     if (rows[i].key === 'media_tags') mediaTags = rows[i].value;
                     if (rows[i].key === 'catalogue_categories') catalogueCategories = rows[i].value;
                     if (rows[i].key === 'taux_horaires') tauxHoraires = rows[i].value;
+                    if (rows[i].key === 'expense_categories') expenseCategories = rows[i].value;
                 }
             }
             applyDefaults();
@@ -564,6 +604,9 @@
                 tauxHoraires.push({ department: d, taux_horaire: 0, frais_fixe: 0, salaire: 0 });
             }
         });
+        if (!Array.isArray(expenseCategories) || !expenseCategories.length) {
+            expenseCategories = JSON.parse(JSON.stringify(DEFAULT_EXPENSE_CATEGORIES));
+        }
     }
 
     function renderAll() {
@@ -572,6 +615,7 @@
         renderCategoriesTable();
         renderTagsTable();
         renderTauxTable();
+        renderExpensesTable();
     }
 
     // ── Permissions table ──
@@ -778,6 +822,51 @@
 
         mediaTags = newTags;
         saveConfig('media_tags', mediaTags, 'tagsFeedback');
+    }
+
+    // ── Expense categories table ──
+
+    function renderExpensesTable() {
+        var body = document.getElementById('expensesBody');
+        var html = '';
+        for (var i = 0; i < expenseCategories.length; i++) {
+            html += buildExpenseRowHtml(expenseCategories[i].name, expenseCategories[i].markup);
+        }
+        body.innerHTML = html;
+    }
+
+    function buildExpenseRowHtml(name, markup) {
+        return '<tr>' +
+            '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
+            '<td><input type="number" class="input-number" value="' + (markup || 0) + '" placeholder="0" step="1" min="0"></td>' +
+            '<td><button class="btn-remove" onclick="removeExpenseRow(this)" title="Retirer">&times;</button></td>' +
+            '</tr>';
+    }
+
+    function addExpenseRow() {
+        var body = document.getElementById('expensesBody');
+        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30));
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    function removeExpenseRow(btn) {
+        if (!confirm('Retirer cette cat\u00e9gorie de d\u00e9pense ?')) return;
+        var row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+    }
+
+    function saveExpenseCategories() {
+        var newCats = [];
+        var rows = document.querySelectorAll('#expensesBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var nameVal = rows[i].querySelector('.input-email').value.trim();
+            if (!nameVal) continue;
+            var markupVal = parseFloat(rows[i].querySelector('.input-number').value) || 0;
+            newCats.push({ name: nameVal, markup: markupVal });
+        }
+        expenseCategories = newCats;
+        saveConfig('expense_categories', expenseCategories, 'expensesFeedback');
     }
 
     // ── Taux horaires table ──

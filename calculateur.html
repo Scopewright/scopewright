@@ -21,6 +21,8 @@
 
     let EMPLOYEES_DATA = [];
     let CATALOGUE_DATA = [];
+    let tauxHoraires = [];
+    let expenseCategories = [];
 
     // ═══════════════════════════════════════════════════════════════════════
     // PROJETS — ÉTAT GLOBAL
@@ -631,6 +633,25 @@
 
         .furniture-name-input::placeholder { color: rgba(255,255,255,0.6); }
         .furniture-name-input:focus { outline: none; background: rgba(255,255,255,0.3); }
+
+        .install-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 12px;
+            color: rgba(255,255,255,0.85);
+        }
+        .install-toggle input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--stele-white);
+        }
+        .install-label {
+            font-weight: 500;
+        }
 
         .btn-remove-group {
             padding: 5px 12px;
@@ -1358,7 +1379,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1460,6 +1481,19 @@
             document.getElementById(groupId).classList.toggle('collapsed');
         }
 
+        function toggleInstallation(groupId) {
+            // Mettre à jour les prix dans ce groupe (les items à prix composé seront recalculés)
+            var rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
+            rows.forEach(function(row) { updateRow(row.id); });
+
+            // Sauvegarder dans Supabase
+            if (roomMap[groupId]) {
+                var cb = document.getElementById(groupId + '-install');
+                updateRoom(roomMap[groupId], { installation_included: cb.checked });
+                showSaveIndicator();
+            }
+        }
+
         function addFurnitureGroup(initialName, opts) {
             opts = opts || {};
             groupCounter++;
@@ -1476,6 +1510,10 @@
                     <input type="text" class="furniture-name-input" id="${groupId}-name"
                            placeholder="ex: Cuisine, Salle de bain, Sous-sol..."
                            value="${initialName || ''}">
+                    <label class="install-toggle" title="Inclure l'installation">
+                        <input type="checkbox" id="${groupId}-install" checked onchange="toggleInstallation('${groupId}')">
+                        <span class="install-label">Installation</span>
+                    </label>
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="calc-header">
@@ -1652,6 +1690,54 @@
                     }
                 }
             } catch (e) { /* keep empty */ }
+        }
+
+        async function loadTauxAndExpenses() {
+            try {
+                const r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories)&select=key,value', {}
+                );
+                if (r.ok) {
+                    const rows = await r.json();
+                    rows.forEach(function(row) {
+                        if (row.key === 'taux_horaires') tauxHoraires = row.value || [];
+                        if (row.key === 'expense_categories') expenseCategories = row.value || [];
+                    });
+                }
+            } catch (e) { /* keep defaults */ }
+        }
+
+        // Calculer le prix composé d'un article catalogue
+        function computeComposedPrice(item, includeInstallation) {
+            var laborMinutes = item.labor_minutes || {};
+            var materialCosts = item.material_costs || {};
+            var hasComposed = false;
+
+            // Main-d'œuvre
+            var laborTotal = 0;
+            for (var i = 0; i < tauxHoraires.length; i++) {
+                var dept = tauxHoraires[i].department;
+                var minutes = laborMinutes[dept] || 0;
+                if (minutes > 0) {
+                    if (!includeInstallation && dept === 'Installation') continue;
+                    laborTotal += (minutes / 60) * (tauxHoraires[i].taux_horaire || 0);
+                    hasComposed = true;
+                }
+            }
+
+            // Matériaux
+            var materialTotal = 0;
+            for (var j = 0; j < expenseCategories.length; j++) {
+                var cat = expenseCategories[j].name;
+                var cost = materialCosts[cat] || 0;
+                if (cost > 0) {
+                    materialTotal += cost * (1 + (expenseCategories[j].markup || 0) / 100);
+                    hasComposed = true;
+                }
+            }
+
+            if (!hasComposed) return null; // pas de prix composé → utiliser item.price
+            return laborTotal + materialTotal;
         }
 
         function getCategories() {
@@ -1843,8 +1929,14 @@
                         const tooltipImg = item.image_url ? `<img class="tooltip-img" src="${item.image_url}" alt="">` : '';
                         codeEl.innerHTML = `<span class="tooltip-container">${item.id}<div class="tooltip">${tooltipImg}<div class="tooltip-title">${item.description}</div><div class="tooltip-text">${item.instruction || ''}</div></div></span>`;
                         typeEl.textContent = formatType(item.type);
-                        unitPriceEl.textContent = formatPrice(item.price);
-                        totalEl.textContent = formatPrice((item.price || 0) * qty);
+
+                        // Prix composé si disponible, sinon prix catalogue
+                        var installCb = groupId ? document.getElementById(groupId + '-install') : null;
+                        var includeInstall = installCb ? installCb.checked : true;
+                        var composedPrice = computeComposedPrice(item, includeInstall);
+                        var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
+                        unitPriceEl.textContent = formatPrice(effectivePrice);
+                        totalEl.textContent = formatPrice(effectivePrice * qty);
                     }
                 } else {
                     codeEl.textContent = '—';
@@ -1888,11 +1980,15 @@
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
+                    var groupId = row.dataset.group;
+                    var installCb = groupId ? document.getElementById(groupId + '-install') : null;
+                    var includeInstall = installCb ? installCb.checked : true;
+                    var composed = computeComposedPrice(item, includeInstall);
                     fields.item_type = 'catalogue';
                     fields.catalogue_item_id = item.id;
                     fields.description = item.description;
                     fields.unit_type = item.type || '';
-                    fields.unit_price = item.price || 0;
+                    fields.unit_price = composed !== null ? composed : (item.price || 0);
                     fields.markup = 0;
                 }
             } else {
@@ -2425,6 +2521,12 @@
                 rooms.forEach(room => {
                     const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
 
+                    // Restaurer le toggle installation
+                    if (room.installation_included === false) {
+                        var installCb = document.getElementById(groupId + '-install');
+                        if (installCb) installCb.checked = false;
+                    }
+
                     // Restaurer les images du groupe
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {
                         groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl }));
@@ -2499,6 +2601,7 @@
         document.addEventListener('DOMContentLoaded', async function() {
             await loadCatalogueData();
             await loadConfigCategories();
+            await loadTauxAndExpenses();
             await loadEmployeesData();
             setupImageHandlers();
             renderProjectList();

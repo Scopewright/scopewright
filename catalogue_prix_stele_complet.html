@@ -701,7 +701,7 @@
 
         /* Modal d'édition — agrandie pour les champs */
         .modal.modal-edit {
-            max-width: 520px;
+            max-width: 800px;
             max-height: 90vh;
             display: flex;
             flex-direction: column;
@@ -714,6 +714,113 @@
 
         .edit-row .form-group {
             flex: 1;
+        }
+
+        /* ═══ Prix composé — tableaux minutes & matériaux ═══ */
+        .composed-price-section {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        .cp-table-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+        .cp-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--stele-green);
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .cp-sub-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .cp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .cp-table th {
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            color: #888;
+            padding: 4px 6px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .cp-table th:last-child {
+            text-align: right;
+        }
+        .cp-table td {
+            padding: 3px 6px;
+        }
+        .cp-table td:first-child {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
+            font-size: 11px;
+        }
+        .cp-table input[type="number"] {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: right;
+            font-family: inherit;
+        }
+        .cp-table input[type="number"]:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+        .cp-table input[type="number"]:disabled {
+            background: #f0f0f0;
+            color: #999;
+            cursor: not-allowed;
+        }
+        .cp-table input::-webkit-inner-spin-button,
+        .cp-table input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .cp-table input[type="number"] { -moz-appearance: textbox; }
+        .cp-calculated {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f8f8f4;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .cp-calculated .cp-total-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .cp-calculated .cp-total-value {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--stele-green);
+        }
+        .cp-calculated .cp-breakdown {
+            font-size: 11px;
+            color: #888;
+            margin-left: 8px;
+        }
+        @media (max-width: 768px) {
+            .composed-price-section {
+                flex-direction: column;
+            }
+            .modal.modal-edit {
+                max-width: 98vw;
+            }
         }
 
         /* ═══ Médias tagués ═══ */
@@ -1154,6 +1261,34 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+                <!-- Prix composé — Minutes & Matériaux -->
+                <div class="form-group" id="composedPriceGroup">
+                    <div class="cp-section-title">Prix compos&eacute;</div>
+                    <div class="composed-price-section">
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
+                            <table class="cp-table">
+                                <thead><tr><th>D&eacute;partement</th><th style="width:70px">Min.</th></tr></thead>
+                                <tbody id="cpMinutesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Mat&eacute;riaux</div>
+                            <table class="cp-table">
+                                <thead><tr><th>Cat&eacute;gorie</th><th style="width:80px">Co&ucirc;t ($)</th></tr></thead>
+                                <tbody id="cpMaterialsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="cp-calculated">
+                        <div>
+                            <span class="cp-total-label">Prix calcul&eacute;</span>
+                            <span class="cp-breakdown" id="cpBreakdown"></span>
+                        </div>
+                        <span class="cp-total-value" id="cpTotalValue">—</span>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <div class="cat-media-title">M&eacute;dias</div>
                     <div class="cat-dropzone" id="catDropzone">
@@ -1196,8 +1331,24 @@
         // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
         // ═══════════════════════════════════════════════════════════════════════
 
-        // Permission d'édition du catalogue (chargée depuis Supabase)
+        // Permissions (chargées depuis Supabase)
         let canEditCatalogue = false;
+        let canEditMinutes = false;
+        let canEditMaterials = false;
+
+        // Données de base (chargées depuis app_config)
+        let tauxHoraires = [];
+        let expenseCategories = [];
+
+        // Utilitaires d'échappement HTML
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+        function escapeAttr(str) {
+            return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+        }
 
         // Catégories à exclure des tableaux (affichées uniquement dans le calculateur)
         // Comparaison insensible à la casse
@@ -1404,7 +1555,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1447,12 +1598,12 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         const DEFAULT_PERMISSIONS = {
-            'Admin':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: true  },
-            'Vente':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: false },
-            'Charg\u00e9 de projet': { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Achat':             { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Atelier':           { catalogue: false, catalogue_edit: false, documents: true,  assistant: false, admin: false },
-            'Client':            { catalogue: false, catalogue_edit: false, documents: false, assistant: false, admin: false }
+            'Admin':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: true,  edit_minutes: true,  edit_materials: true  },
+            'Vente':             { catalogue: true, catalogue_edit: true,  documents: true,  assistant: true,  admin: false, edit_minutes: false, edit_materials: false },
+            'Charg\u00e9 de projet': { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false, edit_minutes: false, edit_materials: false },
+            'Achat':             { catalogue: true, catalogue_edit: false, documents: true,  assistant: false, admin: false, edit_minutes: false, edit_materials: true  },
+            'Atelier':           { catalogue: false, catalogue_edit: false, documents: true,  assistant: false, admin: false, edit_minutes: false, edit_materials: false },
+            'Client':            { catalogue: false, catalogue_edit: false, documents: false, assistant: false, admin: false, edit_minutes: false, edit_materials: false }
         };
 
         const DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
@@ -1470,18 +1621,26 @@
                         rows.forEach(row => {
                             if (row.key === 'permissions') perms = row.value;
                             if (row.key === 'user_roles') roles = row.value;
+                            if (row.key === 'taux_horaires') tauxHoraires = row.value;
+                            if (row.key === 'expense_categories') expenseCategories = row.value;
                         });
                     }
-                    const role = roles[email] || 'Vente';
-                    const allowed = perms[role] || {};
-                    canEditCatalogue = allowed.catalogue_edit === true;
+                    const role = roles[email] || 'Client';
+                    const defaults = DEFAULT_PERMISSIONS[role] || {};
+                    const saved = perms[role] || {};
+                    const allowed = Object.assign({}, defaults, saved);
+                    canEditCatalogue = !!allowed.catalogue_edit;
+                    canEditMinutes = !!allowed.edit_minutes;
+                    canEditMaterials = !!allowed.edit_materials;
                     resolve();
                 })
                 .catch(() => {
                     const email2 = (localStorage.getItem('sb_user_email') || '').toLowerCase();
-                    const role = DEFAULT_USER_ROLES[email2] || 'Vente';
+                    const role = DEFAULT_USER_ROLES[email2] || 'Client';
                     const allowed = DEFAULT_PERMISSIONS[role] || {};
-                    canEditCatalogue = allowed.catalogue_edit === true;
+                    canEditCatalogue = !!allowed.catalogue_edit;
+                    canEditMinutes = !!allowed.edit_minutes;
+                    canEditMaterials = !!allowed.edit_materials;
                     resolve();
                 });
             });
@@ -1574,6 +1733,9 @@
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
+
+            // Prix composé — tableaux minutes & matériaux
+            renderComposedTables(item);
 
             // Médias
             editMedia = [];
@@ -1746,6 +1908,105 @@
             });
         }
 
+        // ═══ Prix composé — Rendu des tableaux minutes & matériaux ═══
+
+        function renderComposedTables(item) {
+            var laborMinutes = item.labor_minutes || {};
+            var materialCosts = item.material_costs || {};
+
+            // Tableau des minutes
+            var mBody = document.getElementById('cpMinutesBody');
+            var mHtml = '';
+            for (var i = 0; i < tauxHoraires.length; i++) {
+                var dept = tauxHoraires[i].department;
+                var val = laborMinutes[dept] || '';
+                mHtml += '<tr><td>' + escapeHtml(dept) + '</td>' +
+                    '<td><input type="number" step="0.1" placeholder="0" value="' + val + '"' +
+                    ' data-dept="' + escapeAttr(dept) + '"' +
+                    (canEditMinutes ? '' : ' disabled') +
+                    ' oninput="updateComposedPrice()"></td></tr>';
+            }
+            mBody.innerHTML = mHtml;
+
+            // Tableau des matériaux
+            var cBody = document.getElementById('cpMaterialsBody');
+            var cHtml = '';
+            for (var j = 0; j < expenseCategories.length; j++) {
+                var cat = expenseCategories[j].name;
+                var cVal = materialCosts[cat] || '';
+                cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
+                    '<td><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '"' +
+                    ' data-cat="' + escapeAttr(cat) + '"' +
+                    (canEditMaterials ? '' : ' disabled') +
+                    ' oninput="updateComposedPrice()"></td></tr>';
+            }
+            cBody.innerHTML = cHtml;
+
+            updateComposedPrice();
+        }
+
+        function updateComposedPrice() {
+            // Calcul main-d'œuvre
+            var laborTotal = 0;
+            var mInputs = document.querySelectorAll('#cpMinutesBody input[type="number"]');
+            for (var i = 0; i < mInputs.length; i++) {
+                var minutes = parseFloat(mInputs[i].value) || 0;
+                var dept = mInputs[i].getAttribute('data-dept');
+                var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+                var tauxHoraire = taux ? (taux.taux_horaire || 0) : 0;
+                laborTotal += (minutes / 60) * tauxHoraire;
+            }
+
+            // Calcul matériaux
+            var materialTotal = 0;
+            var cInputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+            for (var j = 0; j < cInputs.length; j++) {
+                var cost = parseFloat(cInputs[j].value) || 0;
+                var catName = cInputs[j].getAttribute('data-cat');
+                var expCat = expenseCategories.find(function(c) { return c.name === catName; });
+                var markup = expCat ? (expCat.markup || 0) : 0;
+                materialTotal += cost * (1 + markup / 100);
+            }
+
+            var total = laborTotal + materialTotal;
+            var totalEl = document.getElementById('cpTotalValue');
+            var breakdownEl = document.getElementById('cpBreakdown');
+
+            if (total > 0) {
+                totalEl.textContent = total.toFixed(2) + ' $';
+                breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
+                // Mettre à jour le champ prix
+                document.getElementById('editPrice').value = total.toFixed(2);
+            } else {
+                totalEl.textContent = '\u2014';
+                breakdownEl.textContent = '';
+            }
+        }
+
+        function collectLaborMinutes() {
+            var data = {};
+            var inputs = document.querySelectorAll('#cpMinutesBody input[type="number"]');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = parseFloat(inputs[i].value) || 0;
+                if (val > 0) {
+                    data[inputs[i].getAttribute('data-dept')] = val;
+                }
+            }
+            return data;
+        }
+
+        function collectMaterialCosts() {
+            var data = {};
+            var inputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+            for (var i = 0; i < inputs.length; i++) {
+                var val = parseFloat(inputs[i].value) || 0;
+                if (val > 0) {
+                    data[inputs[i].getAttribute('data-cat')] = val;
+                }
+            }
+            return data;
+        }
+
         async function saveEditModal() {
             const btn = document.getElementById('btnEditSave');
             const status = document.getElementById('editStatus');
@@ -1764,7 +2025,9 @@
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
                     instruction: document.getElementById('editInstruction').value,
                     in_calculator: document.getElementById('editInCalculator').checked,
-                    has_sales_sheet: document.getElementById('editHasSalesSheet').checked
+                    has_sales_sheet: document.getElementById('editHasSalesSheet').checked,
+                    labor_minutes: collectLaborMinutes(),
+                    material_costs: collectMaterialCosts()
                 };
 
                 let resp;

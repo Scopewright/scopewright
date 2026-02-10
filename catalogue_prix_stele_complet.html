@@ -667,6 +667,29 @@
             opacity: 1;
         }
 
+        .btn-add-item {
+            width: 24px;
+            height: 24px;
+            border: 1.5px solid rgba(255,255,255,0.5);
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            padding: 0;
+        }
+
+        .btn-add-item:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            border-color: rgba(255,255,255,0.8);
+        }
+
         /* Modal d'édition — agrandie pour les champs */
         .modal.modal-edit {
             max-width: 520px;
@@ -1162,7 +1185,7 @@
                             <th class="col-type">Type</th>
                             <th class="col-description">Description</th>
                             <th class="col-price">Prix</th>
-                            ${canEditCatalogue ? '<th class="col-edit"></th>' : ''}
+                            ${canEditCatalogue ? `<th class="col-edit"><button class="btn-add-item" onclick="createNewItem('${category.replace(/'/g, "\\'")}')" title="Ajouter un article">+</button></th>` : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -1353,9 +1376,71 @@
 
         let editImageFile = null; // Fichier image en attente d'upload
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // AJOUT D'UN NOUVEL ARTICLE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let isNewItem = false;
+
+        function generateNextCode(category) {
+            const items = CATALOGUE_DATA.filter(i => i.category === category);
+            if (items.length === 0) {
+                // Catégorie nouvelle : 3 premières lettres
+                const prefix = category.substring(0, 3).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return prefix + '-001';
+            }
+            // Extraire le préfixe et le numéro max
+            const prefix = items[0].id.split('-')[0];
+            let maxNum = 0;
+            items.forEach(item => {
+                const parts = item.id.split('-');
+                if (parts.length === 2) {
+                    const num = parseInt(parts[1], 10);
+                    if (num > maxNum) maxNum = num;
+                }
+            });
+            return prefix + '-' + String(maxNum + 1).padStart(3, '0');
+        }
+
+        async function createNewItem(category) {
+            const newCode = generateNextCode(category);
+
+            // Déterminer le sort_order max + 1
+            const maxSort = CATALOGUE_DATA.reduce((max, i) => Math.max(max, i.sort_order || 0), 0);
+
+            // Créer dans Supabase
+            const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify({
+                    id: newCode,
+                    category: category,
+                    description: '',
+                    type: 'unité',
+                    price: null,
+                    instruction: '',
+                    in_calculator: true,
+                    sort_order: maxSort + 1
+                })
+            });
+
+            if (!resp.ok) {
+                alert('Erreur lors de la création: ' + resp.status);
+                return;
+            }
+
+            const data = await resp.json();
+            const newItem = data[0];
+            CATALOGUE_DATA.push(newItem);
+            generatePriceTables();
+            openEditModal(newCode);
+        }
+
         function openEditModal(itemId) {
             const item = CATALOGUE_DATA.find(i => i.id === itemId);
             if (!item) return;
+
+            isNewItem = !item.description && item.price === null;
 
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editCode').value = item.id;

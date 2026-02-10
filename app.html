@@ -435,7 +435,12 @@
         function applyCardVisibility(perms, roles) {
             var email = (userEmail || '').toLowerCase();
             var role = roles[email] || 'Client';
-            var allowed = perms[role] || {};
+            // Fusionner les défauts avec les permissions sauvées (pour les nouvelles clés)
+            var defaults = DEFAULT_PERMISSIONS[role] || {};
+            var saved = perms[role] || {};
+            var allowed = {};
+            for (var k in defaults) { allowed[k] = defaults[k]; }
+            for (var k2 in saved) { allowed[k2] = saved[k2]; }
 
             var cards = document.querySelectorAll('[data-page]');
             for (var i = 0; i < cards.length; i++) {

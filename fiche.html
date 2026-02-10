@@ -70,6 +70,22 @@
             opacity: 0.7;
         }
 
+        .btn-edit-fiche {
+            margin-left: auto;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-family: inherit;
+            background: var(--stele-green);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: none;
+        }
+
+        .btn-edit-fiche:hover { background: #3d4f42; }
+
         /* ═══ Loading & Error states ═══ */
         .state-view {
             margin-top: 56px;
@@ -242,6 +258,303 @@
             border-radius: 4px;
         }
 
+        /* ═══ Editor Modal ═══ */
+        .editor-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 500;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+            padding: 40px 20px;
+        }
+
+        .editor-overlay.active {
+            display: flex;
+        }
+
+        .editor-modal {
+            background: var(--stele-white);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+            margin: auto;
+        }
+
+        .editor-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--stele-gray);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .editor-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .editor-header .editor-code {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .editor-body {
+            padding: 24px;
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+        }
+
+        .editor-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--stele-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Form fields */
+        .ed-group {
+            margin-bottom: 20px;
+        }
+
+        .ed-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .ed-input, .ed-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            background: var(--stele-white);
+            color: var(--stele-black);
+            transition: border-color 0.2s;
+        }
+
+        .ed-input:focus, .ed-textarea:focus {
+            outline: none;
+            border-color: var(--stele-green);
+        }
+
+        .ed-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Toggle */
+        .ed-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .ed-toggle {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .ed-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .ed-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ccc;
+            border-radius: 22px;
+            transition: 0.25s;
+        }
+
+        .ed-slider:before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .ed-toggle input:checked + .ed-slider {
+            background: var(--stele-green);
+        }
+
+        .ed-toggle input:checked + .ed-slider:before {
+            transform: translateX(16px);
+        }
+
+        .ed-toggle-label {
+            font-size: 13px;
+            color: var(--stele-black);
+        }
+
+        /* Section divider */
+        .ed-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--stele-green);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--stele-light-gray);
+        }
+
+        /* Image upload zone */
+        .ed-dropzone {
+            border: 2px dashed var(--stele-gray);
+            border-radius: 6px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .ed-dropzone:hover, .ed-dropzone.dragover {
+            border-color: var(--stele-green);
+            background: #f0f5f1;
+        }
+
+        .ed-dropzone p {
+            font-size: 13px;
+            color: #999;
+        }
+
+        /* Media list */
+        .ed-media-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ed-media-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: var(--stele-light-gray);
+            border-radius: 6px;
+            align-items: flex-start;
+        }
+
+        .ed-media-item img {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid var(--stele-gray);
+            flex-shrink: 0;
+        }
+
+        .ed-media-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ed-media-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .ed-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid var(--stele-gray);
+            background: var(--stele-white);
+            color: #666;
+            transition: all 0.15s;
+        }
+
+        .ed-tag.active {
+            background: var(--stele-green);
+            color: #fff;
+            border-color: var(--stele-green);
+        }
+
+        .ed-media-remove {
+            background: none;
+            border: none;
+            color: #c62828;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+            flex-shrink: 0;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+        }
+
+        .ed-media-remove:hover { opacity: 1; }
+
+        /* Buttons */
+        .btn-save {
+            padding: 8px 20px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--stele-green);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-save:hover { background: #3d4f42; }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-close-editor {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-family: inherit;
+            background: none;
+            color: #666;
+            border: 1px solid var(--stele-gray);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-close-editor:hover { background: var(--stele-light-gray); }
+
+        .ed-status {
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: none;
+            margin-top: 12px;
+        }
+
+        .ed-status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .ed-status.error { display: block; background: #ffebee; color: #c62828; }
+
         /* ═══ Responsive ═══ */
         @media (max-width: 768px) {
             .nav-bar { padding: 12px 24px; }
@@ -257,6 +570,8 @@
                 padding: 32px 24px;
             }
             .fiche-footer { padding: 32px 24px; }
+            .editor-overlay { padding: 20px 10px; }
+            .editor-body { max-height: calc(90vh - 120px); }
         }
 
         /* ═══ Print ═══ */
@@ -266,6 +581,7 @@
             .no-print { display: none; }
             .fiche-hero { margin-top: 0; }
             .lightbox-overlay { display: none !important; }
+            .editor-overlay { display: none !important; }
         }
     </style>
 </head>
@@ -275,6 +591,7 @@
     <nav class="nav-bar no-print">
         <a href="index.html" class="nav-logo">stele</a>
         <a href="index.html" class="nav-back">&larr; scopewright.ca</a>
+        <button class="btn-edit-fiche" id="btnEditFiche" onclick="openEditor()">Modifier la fiche</button>
     </nav>
 
     <!-- Loading state -->
@@ -339,9 +656,117 @@
         <img id="lightboxImg" src="" alt="">
     </div>
 
+    <!-- Editor Modal -->
+    <div class="editor-overlay" id="editorOverlay">
+        <div class="editor-modal">
+            <div class="editor-header">
+                <h2>Modifier la fiche</h2>
+                <span class="editor-code" id="editorCode"></span>
+            </div>
+            <div class="editor-body">
+                <!-- Published toggle -->
+                <div class="ed-toggle-row">
+                    <label class="ed-toggle">
+                        <input type="checkbox" id="edPublished">
+                        <span class="ed-slider"></span>
+                    </label>
+                    <span class="ed-toggle-label">Fiche publi&eacute;e (visible publiquement)</span>
+                </div>
+
+                <!-- Text fields -->
+                <div class="ed-section-title">Informations</div>
+
+                <div class="ed-group">
+                    <label class="ed-label">Description courte</label>
+                    <textarea class="ed-textarea" id="edDescription" placeholder="Description marketing du produit..."></textarea>
+                </div>
+
+                <div class="ed-group">
+                    <label class="ed-label">Cr&eacute;dit projet</label>
+                    <input class="ed-input" type="text" id="edCredit" placeholder="Ex: Projet R&eacute;sidence Mont-Royal">
+                </div>
+
+                <div class="ed-group">
+                    <label class="ed-label">Designer</label>
+                    <input class="ed-input" type="text" id="edDesigner" placeholder="Ex: Marie Dupont, designer">
+                </div>
+
+                <div class="ed-group">
+                    <label class="ed-label">Usage / Application</label>
+                    <textarea class="ed-textarea" id="edUsage" placeholder="Ex: R&eacute;sidentiel, commercial, hospitalier" style="min-height:60px;"></textarea>
+                </div>
+
+                <!-- Images -->
+                <div class="ed-section-title">Images / M&eacute;dias</div>
+
+                <div class="ed-dropzone" id="edDropzone">
+                    <p>Cliquer ou glisser une image ici</p>
+                    <input type="file" id="edFileInput" accept="image/*" multiple style="display:none;">
+                </div>
+
+                <div class="ed-media-list" id="edMediaList"></div>
+
+                <div class="ed-status" id="edStatus"></div>
+            </div>
+            <div class="editor-footer">
+                <button class="btn-close-editor" onclick="closeEditor()">Fermer</button>
+                <button class="btn-save" id="btnSave" onclick="saveFiche()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
-        // PUBLIC FETCH (no auth needed — uses anon key only)
+        // AUTH
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const isAuthenticated = !!localStorage.getItem('sb_access_token');
+
+        async function refreshAccessToken() {
+            const refreshToken = localStorage.getItem('sb_refresh_token');
+            if (!refreshToken) return false;
+            try {
+                const response = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_KEY
+                    },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                if (data.access_token) {
+                    localStorage.setItem('sb_access_token', data.access_token);
+                    localStorage.setItem('sb_refresh_token', data.refresh_token);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function authenticatedFetch(url, options) {
+            const token = localStorage.getItem('sb_access_token');
+            const headers = Object.assign({}, options.headers || {}, {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + token
+            });
+            let response = await fetch(url, Object.assign({}, options, { headers: headers }));
+            if (response.status === 401) {
+                const refreshed = await refreshAccessToken();
+                if (refreshed) {
+                    const newToken = localStorage.getItem('sb_access_token');
+                    headers['Authorization'] = 'Bearer ' + newToken;
+                    response = await fetch(url, Object.assign({}, options, { headers: headers }));
+                }
+            }
+            return response;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PUBLIC FETCH
         // ═══════════════════════════════════════════════════════════════════════
 
         async function publicFetch(endpoint) {
@@ -356,55 +781,103 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // LOAD FICHE
+        // STATE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let currentItemCode = null;
+        let currentItem = null;
+        let ficheId = null;          // UUID of fiches_vente row (null if new)
+        let editorMedia = [];        // Array of { id, file_url, tags, isNew, file }
+        let mediaToDelete = [];      // IDs of media to delete on save
+
+        const AVAILABLE_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
+        const TAG_LABELS = {
+            fiche_client: 'Fiche client',
+            catalogue: 'Catalogue',
+            technique: 'Technique',
+            dessin: 'Dessin'
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // LOAD FICHE (public view)
         // ═══════════════════════════════════════════════════════════════════════
 
         async function loadFiche() {
             const params = new URLSearchParams(window.location.search);
-            const itemCode = params.get('code');
+            currentItemCode = params.get('code');
+            const editMode = params.get('edit') === 'true';
 
-            if (!itemCode) {
+            if (!currentItemCode) {
                 showError('Aucun code de produit sp\u00e9cifi\u00e9 dans l\u2019URL.');
                 return;
+            }
+
+            // Show edit button if authenticated
+            if (isAuthenticated) {
+                document.getElementById('btnEditFiche').style.display = '';
             }
 
             try {
                 // 1. Fetch catalogue item
                 const items = await publicFetch(
-                    'catalogue_items?id=eq.' + encodeURIComponent(itemCode) +
+                    'catalogue_items?id=eq.' + encodeURIComponent(currentItemCode) +
                     '&select=id,category,description'
                 );
 
                 if (items.length === 0) {
-                    showError('Produit \u00ab\u00a0' + itemCode + '\u00a0\u00bb introuvable.');
+                    showError('Produit \u00ab\u00a0' + currentItemCode + '\u00a0\u00bb introuvable.');
                     return;
                 }
 
-                const item = items[0];
+                currentItem = items[0];
 
-                // 2. Fetch published fiche
-                const fiches = await publicFetch(
-                    'fiches_vente?catalogue_item_id=eq.' + encodeURIComponent(itemCode) +
-                    '&published=eq.true' +
-                    '&select=description_courte,credit_projet,designer,usage_application'
-                );
-
-                if (fiches.length === 0) {
-                    showError('La fiche de vente pour \u00ab\u00a0' + itemCode + '\u00a0\u00bb n\u2019est pas encore disponible.');
-                    return;
+                // 2. Fetch fiche — if authenticated, fetch all (including drafts); otherwise only published
+                var ficheEndpoint = 'fiches_vente?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) +
+                    '&select=id,description_courte,credit_projet,designer,usage_application,published';
+                if (!isAuthenticated) {
+                    ficheEndpoint += '&published=eq.true';
                 }
 
-                const fiche = fiches[0];
+                const fetchFn = isAuthenticated ? authenticatedFetch : function(url) { return publicFetch(url.replace(SUPABASE_URL + '/rest/v1/', '')); };
+                let fiches;
+                if (isAuthenticated) {
+                    const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/' + ficheEndpoint, {});
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    fiches = await resp.json();
+                } else {
+                    fiches = await publicFetch(ficheEndpoint);
+                }
 
                 // 3. Fetch media
                 const media = await publicFetch(
-                    'item_media?catalogue_item_id=eq.' + encodeURIComponent(itemCode) +
+                    'item_media?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) +
                     '&order=sort_order' +
-                    '&select=file_url,file_type,alt_text,tags'
+                    '&select=id,file_url,file_type,alt_text,tags'
                 );
 
-                // 4. Render
-                renderFiche(item, fiche, media);
+                // 4. Render or show appropriate state
+                if (fiches.length > 0) {
+                    const fiche = fiches[0];
+                    ficheId = fiche.id;
+
+                    if (fiche.published || isAuthenticated) {
+                        renderFiche(currentItem, fiche, media);
+                    } else {
+                        showError('La fiche de vente pour \u00ab\u00a0' + currentItemCode + '\u00a0\u00bb n\u2019est pas encore disponible.');
+                    }
+                } else if (isAuthenticated) {
+                    // No fiche yet — show empty page with edit prompt
+                    ficheId = null;
+                    renderFiche(currentItem, {}, media);
+                } else {
+                    showError('La fiche de vente pour \u00ab\u00a0' + currentItemCode + '\u00a0\u00bb n\u2019est pas encore disponible.');
+                    return;
+                }
+
+                // Auto-open editor if ?edit=true and authenticated
+                if (editMode && isAuthenticated) {
+                    openEditor();
+                }
 
             } catch (err) {
                 console.error('Erreur chargement fiche:', err);
@@ -413,14 +886,14 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // RENDER
+        // RENDER PUBLIC VIEW
         // ═══════════════════════════════════════════════════════════════════════
 
         function renderFiche(item, fiche, media) {
             // Hero
             document.getElementById('ficheCode').textContent = item.id;
-            document.getElementById('ficheName').textContent = item.description;
-            document.getElementById('ficheCategory').textContent = item.category;
+            document.getElementById('ficheName').textContent = item.description || '(sans nom)';
+            document.getElementById('ficheCategory').textContent = item.category || '';
 
             // Description
             if (fiche.description_courte) {
@@ -437,13 +910,12 @@
             setDetail('ficheDesigner', 'ficheDesignerValue', fiche.designer);
             setDetail('ficheUsage', 'ficheUsageValue', fiche.usage_application);
 
-            // Hide details section entirely if all empty
             if (!fiche.credit_projet && !fiche.designer && !fiche.usage_application) {
                 document.getElementById('ficheDetails').style.display = 'none';
             }
 
             // Update page title
-            document.title = item.id + ' \u2014 ' + item.description + ' \u2014 Stele';
+            document.title = item.id + ' \u2014 ' + (item.description || 'Fiche') + ' \u2014 Stele';
 
             // Show content
             document.getElementById('loadingState').style.display = 'none';
@@ -452,6 +924,7 @@
 
         function renderImages(media) {
             const container = document.getElementById('ficheImages');
+            container.innerHTML = '';
 
             const mainPhotos = media.filter(function(m) {
                 return m.file_type === 'image' && m.tags && m.tags.indexOf('fiche_client') !== -1;
@@ -476,8 +949,10 @@
 
             if (count === 0) {
                 container.style.display = 'none';
-            } else if (count === 1) {
-                container.classList.add('single-image');
+            } else {
+                container.style.display = '';
+                container.classList.remove('single-image');
+                if (count === 1) container.classList.add('single-image');
             }
         }
 
@@ -504,7 +979,311 @@
                 document.getElementById(wrapperId).style.display = 'none';
                 return;
             }
+            document.getElementById(wrapperId).style.display = '';
             document.getElementById(valueId).textContent = value;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // EDITOR
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function openEditor() {
+            if (!isAuthenticated) return;
+
+            document.getElementById('editorCode').textContent = currentItemCode;
+
+            // Load existing fiche data
+            try {
+                const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/fiches_vente?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) + '&select=id,description_courte,credit_projet,designer,usage_application,published', {});
+                if (resp.ok) {
+                    const fiches = await resp.json();
+                    if (fiches.length > 0) {
+                        const f = fiches[0];
+                        ficheId = f.id;
+                        document.getElementById('edDescription').value = f.description_courte || '';
+                        document.getElementById('edCredit').value = f.credit_projet || '';
+                        document.getElementById('edDesigner').value = f.designer || '';
+                        document.getElementById('edUsage').value = f.usage_application || '';
+                        document.getElementById('edPublished').checked = f.published === true;
+                    } else {
+                        ficheId = null;
+                        document.getElementById('edDescription').value = '';
+                        document.getElementById('edCredit').value = '';
+                        document.getElementById('edDesigner').value = '';
+                        document.getElementById('edUsage').value = '';
+                        document.getElementById('edPublished').checked = false;
+                    }
+                }
+
+                // Load existing media
+                const mResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) + '&order=sort_order&select=id,file_url,file_type,alt_text,tags', {});
+                if (mResp.ok) {
+                    const existingMedia = await mResp.json();
+                    editorMedia = existingMedia.map(function(m) {
+                        return { id: m.id, file_url: m.file_url, tags: m.tags || [], isNew: false };
+                    });
+                } else {
+                    editorMedia = [];
+                }
+                mediaToDelete = [];
+
+            } catch (e) {
+                console.error('Erreur chargement éditeur:', e);
+            }
+
+            renderEditorMedia();
+            hideEditorStatus();
+            document.getElementById('editorOverlay').classList.add('active');
+        }
+
+        function closeEditor() {
+            document.getElementById('editorOverlay').classList.remove('active');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // EDITOR — MEDIA MANAGEMENT
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function renderEditorMedia() {
+            const list = document.getElementById('edMediaList');
+            list.innerHTML = '';
+
+            editorMedia.forEach(function(media, index) {
+                var item = document.createElement('div');
+                item.className = 'ed-media-item';
+
+                var img = document.createElement('img');
+                img.src = media.file_url || media.previewUrl || '';
+                img.alt = '';
+                item.appendChild(img);
+
+                var info = document.createElement('div');
+                info.className = 'ed-media-info';
+
+                var tags = document.createElement('div');
+                tags.className = 'ed-media-tags';
+
+                AVAILABLE_TAGS.forEach(function(tag) {
+                    var chip = document.createElement('span');
+                    chip.className = 'ed-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
+                    chip.textContent = TAG_LABELS[tag];
+                    chip.onclick = function() {
+                        var idx = media.tags.indexOf(tag);
+                        if (idx !== -1) {
+                            media.tags.splice(idx, 1);
+                        } else {
+                            media.tags.push(tag);
+                        }
+                        chip.classList.toggle('active');
+                    };
+                    tags.appendChild(chip);
+                });
+
+                info.appendChild(tags);
+                item.appendChild(info);
+
+                var removeBtn = document.createElement('button');
+                removeBtn.className = 'ed-media-remove';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.title = 'Supprimer';
+                removeBtn.onclick = function() {
+                    if (media.id && !media.isNew) {
+                        mediaToDelete.push(media.id);
+                    }
+                    editorMedia.splice(index, 1);
+                    renderEditorMedia();
+                };
+                item.appendChild(removeBtn);
+
+                list.appendChild(item);
+            });
+        }
+
+        // Dropzone handlers
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                var dropzone = document.getElementById('edDropzone');
+                var fileInput = document.getElementById('edFileInput');
+
+                dropzone.addEventListener('click', function() { fileInput.click(); });
+
+                dropzone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    dropzone.classList.add('dragover');
+                });
+
+                dropzone.addEventListener('dragleave', function() {
+                    dropzone.classList.remove('dragover');
+                });
+
+                dropzone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    dropzone.classList.remove('dragover');
+                    handleEditorFiles(e.dataTransfer.files);
+                });
+
+                fileInput.addEventListener('change', function() {
+                    handleEditorFiles(fileInput.files);
+                    fileInput.value = '';
+                });
+            });
+        })();
+
+        function handleEditorFiles(files) {
+            Array.from(files).filter(function(f) {
+                return f.type.startsWith('image/');
+            }).forEach(function(file) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    editorMedia.push({
+                        id: null,
+                        file_url: null,
+                        previewUrl: e.target.result,
+                        tags: [],
+                        isNew: true,
+                        file: file
+                    });
+                    renderEditorMedia();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // EDITOR — SAVE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function saveFiche() {
+            var btn = document.getElementById('btnSave');
+            btn.disabled = true;
+            btn.textContent = 'Sauvegarde...';
+            hideEditorStatus();
+
+            try {
+                // 1. Save fiche text data
+                var fichePayload = {
+                    description_courte: document.getElementById('edDescription').value || null,
+                    credit_projet: document.getElementById('edCredit').value || null,
+                    designer: document.getElementById('edDesigner').value || null,
+                    usage_application: document.getElementById('edUsage').value || null,
+                    published: document.getElementById('edPublished').checked
+                };
+
+                if (ficheId) {
+                    // Update existing fiche
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/fiches_vente?id=eq.' + ficheId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(fichePayload)
+                    });
+                    if (!resp.ok) throw new Error('Erreur sauvegarde fiche: ' + resp.status);
+                } else {
+                    // Create new fiche
+                    fichePayload.catalogue_item_id = currentItemCode;
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/fiches_vente', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(fichePayload)
+                    });
+                    if (!resp.ok) throw new Error('Erreur cr\u00e9ation fiche: ' + resp.status);
+                    var data = await resp.json();
+                    ficheId = data[0].id;
+                }
+
+                // 2. Delete removed media
+                for (var i = 0; i < mediaToDelete.length; i++) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + mediaToDelete[i], {
+                        method: 'DELETE',
+                        headers: { 'Prefer': 'return=minimal' }
+                    });
+                }
+                mediaToDelete = [];
+
+                // 3. Upload new images & insert into item_media
+                for (var i = 0; i < editorMedia.length; i++) {
+                    var m = editorMedia[i];
+
+                    if (m.isNew && m.file) {
+                        // Upload to Supabase Storage
+                        var ext = m.file.name.split('.').pop().toLowerCase() || 'jpg';
+                        var path = currentItemCode + '/' + Date.now() + '_' + i + '.' + ext;
+
+                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                            method: 'POST',
+                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
+                            body: m.file
+                        });
+
+                        if (!uploadResp.ok) throw new Error('Erreur upload image: ' + uploadResp.status);
+
+                        var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+
+                        // Insert media record
+                        var insertResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify({
+                                catalogue_item_id: currentItemCode,
+                                file_url: fileUrl,
+                                file_type: 'image',
+                                tags: m.tags,
+                                sort_order: i
+                            })
+                        });
+
+                        if (!insertResp.ok) throw new Error('Erreur insertion m\u00e9dia: ' + insertResp.status);
+
+                        var insertedData = await insertResp.json();
+                        m.id = insertedData[0].id;
+                        m.file_url = fileUrl;
+                        m.isNew = false;
+                        m.file = null;
+                        m.previewUrl = null;
+                    } else if (m.id && !m.isNew) {
+                        // Update tags of existing media
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + m.id, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ tags: m.tags, sort_order: i })
+                        });
+                    }
+                }
+
+                showEditorStatus('success', '\u2713 Sauvegard\u00e9');
+
+                // Refresh public view
+                var allMedia = await publicFetch(
+                    'item_media?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) +
+                    '&order=sort_order&select=id,file_url,file_type,alt_text,tags'
+                );
+
+                var ficheResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/fiches_vente?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) + '&select=id,description_courte,credit_projet,designer,usage_application,published', {});
+                if (ficheResp.ok) {
+                    var fiches = await ficheResp.json();
+                    if (fiches.length > 0) {
+                        renderFiche(currentItem, fiches[0], allMedia);
+                    }
+                }
+
+            } catch (err) {
+                console.error('Erreur sauvegarde:', err);
+                showEditorStatus('error', err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sauvegarder';
+            }
+        }
+
+        function showEditorStatus(type, msg) {
+            var el = document.getElementById('edStatus');
+            el.textContent = msg;
+            el.className = 'ed-status ' + type;
+        }
+
+        function hideEditorStatus() {
+            var el = document.getElementById('edStatus');
+            el.className = 'ed-status';
+            el.style.display = '';
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -515,6 +1294,11 @@
             document.getElementById('loadingState').style.display = 'none';
             document.getElementById('errorMessage').textContent = message;
             document.getElementById('errorState').style.display = 'flex';
+
+            // Still show edit button if authenticated (to create a fiche)
+            if (isAuthenticated) {
+                document.getElementById('btnEditFiche').style.display = '';
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -532,8 +1316,12 @@
         }
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && document.getElementById('lightbox').classList.contains('active')) {
-                closeLightbox();
+            if (e.key === 'Escape') {
+                if (document.getElementById('lightbox').classList.contains('active')) {
+                    closeLightbox();
+                } else if (document.getElementById('editorOverlay').classList.contains('active')) {
+                    closeEditor();
+                }
             }
         });
 

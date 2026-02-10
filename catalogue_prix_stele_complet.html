@@ -1511,7 +1511,7 @@
 
         function openSalesSheet() {
             const itemId = document.getElementById('editItemId').value;
-            window.open('fiche.html?code=' + encodeURIComponent(itemId), '_blank');
+            window.open('fiche.html?code=' + encodeURIComponent(itemId) + '&edit=true', '_blank');
         }
 
         function closeEditModal() {

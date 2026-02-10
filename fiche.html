@@ -788,7 +788,13 @@
                         });
                         var role = roles[email] || 'Vente';
                         var allowed = perms[role] || {};
-                        canEditFiche = allowed.catalogue_edit === true;
+                        // Si catalogue_edit n'existe pas encore dans les permissions sauvegardées,
+                        // fallback: Admin et Vente ont accès par défaut
+                        if (allowed.catalogue_edit !== undefined) {
+                            canEditFiche = allowed.catalogue_edit === true;
+                        } else {
+                            canEditFiche = (role === 'Admin' || role === 'Vente');
+                        }
                     }
                 } catch (e) { canEditFiche = false; }
                 if (canEditFiche) {

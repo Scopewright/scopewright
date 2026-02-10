@@ -1356,7 +1356,7 @@
                 item.price !== null &&
                 item.type !== '%' &&
                 item.in_calculator !== false
-            );
+            ).sort((a, b) => (a.category || '').localeCompare(b.category || ''));
 
             itemsWithPrice.forEach(item => {
                 if (item.category !== currentCategory) {

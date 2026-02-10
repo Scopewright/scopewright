@@ -1677,7 +1677,7 @@
                 mediaTagsList.forEach(function(tag) {
                     var chip = document.createElement('span');
                     chip.className = 'cat-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
-                    chip.textContent = tag;
+                    chip.textContent = tag.replace(/_/g, ' ');
                     chip.onclick = function() {
                         var idx = media.tags.indexOf(tag);
                         if (idx !== -1) {

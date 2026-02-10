@@ -518,8 +518,9 @@
     }
 
     function buildTagRowHtml(tag) {
+        var display = tag.replace(/_/g, ' ');
         return '<tr>' +
-            '<td><input type="text" class="input-email" value="' + escapeHtml(tag) + '" data-original="' + escapeHtml(tag) + '" placeholder="nom_du_tag"></td>' +
+            '<td><input type="text" class="input-email" value="' + escapeHtml(display) + '" data-original="' + escapeHtml(tag) + '" placeholder="nom du tag"></td>' +
             '<td><button class="btn-remove" onclick="removeTagRow(this)" title="Retirer">&times;</button></td>' +
             '</tr>';
     }

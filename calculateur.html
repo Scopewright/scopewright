@@ -1236,6 +1236,18 @@
         }
         .btn-add-sub:hover { border-color: var(--stele-green); color: var(--stele-green); background: #f9faf9; }
 
+        /* Panneau soumissions dans le calculateur */
+        .header-sub-panel {
+            display: none; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 10px 14px; margin: -8px 0 16px;
+        }
+        .header-sub-panel .sub-line.active { background: #eef3ef; }
+        .header-sub-panel .sub-line.active .sub-number { color: var(--stele-black); }
+        .header-sub-panel .header-sub-label {
+            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+
         /* Workflow action buttons */
         .workflow-actions { display: flex; gap: 6px; align-items: flex-end; }
         .btn-wf {
@@ -1500,6 +1512,12 @@
                 </div>
                 <button class="btn-rentab-project" onclick="openRentab('project')">Rentabilit&eacute;</button>
                 <span class="save-indicator" id="saveIndicator"></span>
+            </div>
+
+            <div class="header-sub-panel" id="headerSubPanel">
+                <div class="header-sub-label">Soumissions du projet</div>
+                <div id="headerSubList"></div>
+                <button class="btn-add-sub" id="btnAddSubHeader" onclick="handleAddSubmissionFromCalc()">+ Nouvelle soumission</button>
             </div>
 
             <h1 class="page-title">Calculateur</h1>
@@ -3335,6 +3353,49 @@
             var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned');
             setEditable(isEditable);
             showCalculator();
+            renderHeaderSubmissionList();
+        }
+
+        // Panneau de soumissions dans le calculateur
+        async function renderHeaderSubmissionList() {
+            var panel = document.getElementById('headerSubPanel');
+            var list = document.getElementById('headerSubList');
+            if (!currentProject) { panel.style.display = 'none'; return; }
+
+            var subs = await loadSubmissions(currentProject.id);
+            var html = '';
+            subs.forEach(function(sub) {
+                var label = STATUS_LABELS[sub.status] || sub.status || 'Brouillon';
+                var isActive = currentSubmission && currentSubmission.id === sub.id;
+                html += '<div class="sub-line' + (isActive ? ' active' : '') + '" data-subid="' + escapeAttr(sub.id) + '">' +
+                    '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
+                    '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
+                    '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + '</span>' +
+                    '</div>';
+            });
+            list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';
+            panel.style.display = 'block';
+
+            list.querySelectorAll('.sub-line').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    var subId = el.getAttribute('data-subid');
+                    if (currentSubmission && currentSubmission.id === subId) return;
+                    openSubmission(subId);
+                });
+            });
+        }
+
+        async function handleAddSubmissionFromCalc() {
+            if (!currentProject) return;
+            var title = prompt('Titre de la nouvelle soumission :');
+            if (title === null) return;
+            try {
+                var sub = await createSubmission(currentProject.id, title || '');
+                await openSubmission(sub.id);
+            } catch (e) {
+                console.error('Erreur création soumission:', e);
+                alert('Erreur lors de la création de la soumission.');
+            }
         }
 
         // Legacy wrapper pour compatibilité — ouvre la première soumission du projet

@@ -1417,6 +1417,7 @@
         function removeFurnitureGroup(groupId) {
             const groups = document.querySelectorAll('.furniture-group');
             if (groups.length <= 1) return;
+            if (!confirm('Supprimer ce meuble et tous ses articles ?')) return;
 
             // Supprimer dans Supabase
             if (roomMap[groupId]) {

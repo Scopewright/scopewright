@@ -1688,6 +1688,7 @@
                 removeBtn.title = 'Supprimer';
                 removeBtn.onclick = function() {
                     if (media.id && !media.isNew) {
+                        if (!confirm('Supprimer ce média ? Cette action sera définitive après sauvegarde.')) return;
                         editMediaToDelete.push({ id: media.id, file_url: media.file_url });
                     }
                     editMedia.splice(index, 1);

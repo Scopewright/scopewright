@@ -207,6 +207,21 @@
         .save-feedback.visible { opacity: 1; }
         .save-feedback.warn { color: #b8860b; }
 
+        /* Numeric inputs (taux horaires) */
+        .input-number {
+            width: 100%; padding: 8px 12px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 13px;
+            text-align: right;
+            transition: border-color 0.2s;
+        }
+        .input-number:focus { outline: none; border-color: #4b6050; }
+        .profit-cell {
+            font-weight: 600; font-size: 14px; text-align: right;
+            padding-right: 14px;
+        }
+        .profit-cell.negative { color: #c0392b; }
+
         /* Footer */
         .app-footer {
             padding: 20px 40px; text-align: center;
@@ -342,6 +357,34 @@
                     </div>
                 </div>
             </div>
+            <!-- Données de base — Taux horaires -->
+            <div class="section" id="sectionTaux">
+                <div class="section-toggle" onclick="toggleSection('sectionTaux')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Donn&eacute;es de base</div>
+                        <div class="section-desc">Taux horaires par d&eacute;partement &mdash; frais fixe, salaire et profit.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table" id="tauxTable">
+                        <thead>
+                            <tr>
+                                <th>D&eacute;partement</th>
+                                <th style="width:18%">Taux horaire</th>
+                                <th style="width:18%">Frais fixe</th>
+                                <th style="width:18%">Salaire</th>
+                                <th style="width:14%">Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tauxBody"></tbody>
+                    </table>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveTaux()">Sauvegarder les taux</button>
+                        <span class="save-feedback" id="tauxFeedback"></span>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">stele — stele.ca</footer>
@@ -443,6 +486,11 @@
     var catalogueCategories = [];
     var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
     var DEFAULT_CATEGORIES = ['Budg\u00e9taire', 'Panneaux', 'Poign\u00e9es', 'Tiroirs', '\u00c9clairage', 'Portes int\u00e9rieures'];
+    var DEPARTMENTS = [
+        'Gestion/dessin', 'Coupe/edge', 'Assemblage',
+        'Machinage', 'Sablage', 'Peinture', 'Installation'
+    ];
+    var tauxHoraires = [];
 
     // ── Toggle sections ──
     function toggleSection(id) {
@@ -466,6 +514,7 @@
                     if (rows[i].key === 'user_roles') userRolesMap = rows[i].value;
                     if (rows[i].key === 'media_tags') mediaTags = rows[i].value;
                     if (rows[i].key === 'catalogue_categories') catalogueCategories = rows[i].value;
+                    if (rows[i].key === 'taux_horaires') tauxHoraires = rows[i].value;
                 }
             }
             applyDefaults();
@@ -502,6 +551,16 @@
         if (!Array.isArray(catalogueCategories) || !catalogueCategories.length) {
             catalogueCategories = DEFAULT_CATEGORIES.slice();
         }
+        if (!Array.isArray(tauxHoraires) || !tauxHoraires.length) {
+            tauxHoraires = DEPARTMENTS.map(function(d) {
+                return { department: d, taux_horaire: 0, frais_fixe: 0, salaire: 0 };
+            });
+        }
+        DEPARTMENTS.forEach(function(d) {
+            if (!tauxHoraires.find(function(t) { return t.department === d; })) {
+                tauxHoraires.push({ department: d, taux_horaire: 0, frais_fixe: 0, salaire: 0 });
+            }
+        });
     }
 
     function renderAll() {
@@ -509,6 +568,7 @@
         renderRolesTable();
         renderCategoriesTable();
         renderTagsTable();
+        renderTauxTable();
     }
 
     // ── Permissions table ──
@@ -715,6 +775,55 @@
 
         mediaTags = newTags;
         saveConfig('media_tags', mediaTags, 'tagsFeedback');
+    }
+
+    // ── Taux horaires table ──
+
+    function renderTauxTable() {
+        var body = document.getElementById('tauxBody');
+        var html = '';
+        for (var i = 0; i < tauxHoraires.length; i++) {
+            var t = tauxHoraires[i];
+            var profit = (t.taux_horaire || 0) - (t.frais_fixe || 0) - (t.salaire || 0);
+            var profitClass = profit < 0 ? ' negative' : '';
+            html += '<tr>' +
+                '<td style="font-weight:600">' + escapeHtml(t.department) + '</td>' +
+                '<td><input type="number" class="input-number" data-dept="' + i + '" data-field="taux_horaire" value="' + (t.taux_horaire || '') + '" placeholder="0.00" step="0.01" oninput="updateProfit(this)"></td>' +
+                '<td><input type="number" class="input-number" data-dept="' + i + '" data-field="frais_fixe" value="' + (t.frais_fixe || '') + '" placeholder="0.00" step="0.01" oninput="updateProfit(this)"></td>' +
+                '<td><input type="number" class="input-number" data-dept="' + i + '" data-field="salaire" value="' + (t.salaire || '') + '" placeholder="0.00" step="0.01" oninput="updateProfit(this)"></td>' +
+                '<td class="profit-cell' + profitClass + '" id="profit_' + i + '">' + profit.toFixed(2) + ' $</td>' +
+                '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    function updateProfit(input) {
+        var row = input.closest('tr');
+        var inputs = row.querySelectorAll('.input-number');
+        var taux = parseFloat(inputs[0].value) || 0;
+        var fixe = parseFloat(inputs[1].value) || 0;
+        var sal  = parseFloat(inputs[2].value) || 0;
+        var profit = taux - fixe - sal;
+        var idx = input.getAttribute('data-dept');
+        var cell = document.getElementById('profit_' + idx);
+        cell.textContent = profit.toFixed(2) + ' $';
+        cell.className = 'profit-cell' + (profit < 0 ? ' negative' : '');
+    }
+
+    function saveTaux() {
+        var rows = document.querySelectorAll('#tauxBody tr');
+        var data = [];
+        for (var i = 0; i < rows.length; i++) {
+            var inputs = rows[i].querySelectorAll('.input-number');
+            data.push({
+                department: tauxHoraires[i].department,
+                taux_horaire: parseFloat(inputs[0].value) || 0,
+                frais_fixe:   parseFloat(inputs[1].value) || 0,
+                salaire:      parseFloat(inputs[2].value) || 0
+            });
+        }
+        tauxHoraires = data;
+        saveConfig('taux_horaires', tauxHoraires, 'tauxFeedback');
     }
 
     // ── Save functions ──

@@ -44,6 +44,12 @@
             font-weight: 400;
             color: #0A0203;
         }
+        .nav-links { display: flex; align-items: center; gap: 16px; }
+        .nav-back {
+            color: #0A0203; text-decoration: none; font-size: 13px;
+            opacity: 0.6; transition: opacity 0.15s; white-space: nowrap;
+        }
+        .nav-back:hover { opacity: 1; }
         .nav-user {
             margin-left: auto;
             display: flex;
@@ -74,13 +80,6 @@
             padding-top: 96px; /* 56px nav + 40px spacing */
             max-width: 1000px; margin: 0 auto; width: 100%;
         }
-
-        .back-link {
-            display: inline-block; margin-bottom: 24px;
-            color: #0A0203; opacity: 0.5; text-decoration: none; font-size: 13px;
-            transition: opacity 0.2s;
-        }
-        .back-link:hover { opacity: 1; }
 
         .page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
         .page-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
@@ -213,6 +212,9 @@
     <div class="app-wrapper">
         <nav class="nav-bar">
             <span class="nav-logo">stele</span>
+            <div class="nav-links">
+                <a href="app.html" class="nav-back">&larr; Menu</a>
+            </div>
             <div class="nav-user">
                 <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
@@ -220,7 +222,6 @@
         </nav>
 
         <main class="app-content">
-            <a href="app.html" class="back-link">&larr; Retour au menu</a>
             <div class="page-title">Administration</div>
             <div class="page-sub">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les utilisateurs.</div>
 

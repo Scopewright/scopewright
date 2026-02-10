@@ -505,6 +505,12 @@
             opacity: 1;
         }
 
+        .tooltip-img {
+            width: 100%;
+            border-radius: 3px;
+            margin-bottom: 8px;
+        }
+
         .tooltip-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; }
         .tooltip-text { font-weight: 400; color: rgba(255,255,255,0.85); }
 
@@ -1577,7 +1583,8 @@
                 if (selectedId) {
                     const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                     if (item) {
-                        codeEl.innerHTML = `<span class="tooltip-container">${item.id}<div class="tooltip"><div class="tooltip-title">${item.description}</div><div class="tooltip-text">${item.instruction || ''}</div></div></span>`;
+                        const tooltipImg = item.image_url ? `<img class="tooltip-img" src="${item.image_url}" alt="">` : '';
+                        codeEl.innerHTML = `<span class="tooltip-container">${item.id}<div class="tooltip">${tooltipImg}<div class="tooltip-title">${item.description}</div><div class="tooltip-text">${item.instruction || ''}</div></div></span>`;
                         typeEl.textContent = formatType(item.type);
                         unitPriceEl.textContent = formatPrice(item.price);
                         totalEl.textContent = formatPrice((item.price || 0) * qty);

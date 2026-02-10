@@ -522,15 +522,46 @@
             .editor-body { max-height: calc(90vh - 120px); }
         }
 
-        /* ═══ Print ═══ */
+        /* ═══ Print — fit to 8.5 × 11 Letter ═══ */
         @media print {
-            @page { size: portrait; margin: 0.75in; }
+            @page { size: letter portrait; margin: 0.5in; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-size: 12px; }
+
             .nav-bar { display: none; }
             .no-print { display: none; }
-            .fiche-subtitle { margin-top: 0; }
-            .fiche-layout { padding-top: 16px; }
             .lightbox-overlay { display: none !important; }
             .editor-overlay { display: none !important; }
+
+            .fiche-subtitle { margin-top: 0; padding: 0 0 8px; font-size: 11px; }
+
+            .fiche-layout {
+                padding: 8px 0 0;
+                gap: 24px;
+                max-width: 100%;
+            }
+
+            .section-header { font-size: 9px; margin-bottom: 8px; padding-bottom: 6px; }
+            .fiche-title { font-size: 18px; margin-bottom: 8px; }
+            .fiche-desc { font-size: 12px; line-height: 1.5; margin-bottom: 12px; }
+
+            .fiche-dessin-wrap img { max-height: 280px; width: auto; max-width: 100%; }
+            .fiche-photo-wrap { margin-bottom: 12px; }
+            .fiche-photo-wrap img { max-height: 220px; width: auto; max-width: 100%; }
+
+            .fiche-credits { margin-bottom: 12px; }
+            .credit-line { font-size: 11px; margin-bottom: 2px; }
+
+            .fiche-qr { margin-bottom: 12px; }
+            .fiche-qr img { width: 80px; height: 80px; }
+
+            .info-row { font-size: 11px; margin-bottom: 4px; }
+            .info-usage { font-size: 11px; line-height: 1.5; margin-top: 8px; }
+
+            .fiche-footer { padding: 16px 0; margin-top: 16px; }
+            .fiche-footer .footer-logo { font-size: 16px; }
+
+            .pdf-link { display: none !important; }
         }
     </style>
 </head>

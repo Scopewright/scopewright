@@ -35,6 +35,17 @@
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 4;
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+    }
+
     function debounce(fn, delay) {
         let timer;
         return function(...args) {
@@ -1557,11 +1568,11 @@
             itemsWithPrice.forEach(item => {
                 if (item.category !== currentCategory) {
                     if (currentCategory !== '') options += '</optgroup>';
-                    options += `<optgroup label="${item.category}">`;
+                    options += `<optgroup label="${escapeAttr(item.category)}">`;
                     currentCategory = item.category;
                 }
                 const pendingLabel = (item.status === 'pending') ? ' (en attente)' : '';
-                options += `<option value="${item.id}">${item.description}${pendingLabel}</option>`;
+                options += `<option value="${escapeAttr(item.id)}">${escapeHtml(item.description)}${pendingLabel}</option>`;
             });
             options += '</optgroup>';
             options += '<optgroup label="Autre">';
@@ -1631,7 +1642,7 @@
                     <span class="group-label">Meuble :</span>
                     <input type="text" class="furniture-name-input" id="${groupId}-name"
                            placeholder="ex: Cuisine, Salle de bain, Sous-sol..."
-                           value="${initialName || ''}">
+                           value="${escapeAttr(initialName || '')}">
                     <label class="install-toggle" title="Inclure l'installation">
                         <input type="checkbox" id="${groupId}-install" checked onchange="toggleInstallation('${groupId}')">
                         <span class="install-label">Installation</span>
@@ -1899,7 +1910,7 @@
             // Remplir le dropdown catégories
             const catSelect = document.getElementById('propCategory');
             const categories = getCategories();
-            catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            catSelect.innerHTML = categories.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
 
             // Réinitialiser les champs
             document.getElementById('propDescription').value = '';
@@ -2053,8 +2064,8 @@
                 if (selectedId) {
                     const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                     if (item) {
-                        const tooltipImg = item.image_url ? `<img class="tooltip-img" src="${item.image_url}" alt="">` : '';
-                        codeEl.innerHTML = `<span class="tooltip-container">${item.id}<div class="tooltip">${tooltipImg}<div class="tooltip-title">${item.description}</div><div class="tooltip-text">${item.instruction || ''}</div></div></span>`;
+                        const tooltipImg = item.image_url ? `<img class="tooltip-img" src="${escapeAttr(item.image_url)}" alt="">` : '';
+                        codeEl.innerHTML = `<span class="tooltip-container">${escapeHtml(item.id)}<div class="tooltip">${tooltipImg}<div class="tooltip-title">${escapeHtml(item.description)}</div><div class="tooltip-text">${escapeHtml(item.instruction || '')}</div></div></span>`;
                         typeEl.textContent = formatType(item.type);
 
                         // Prix composé si disponible, sinon prix catalogue
@@ -2280,7 +2291,7 @@
             attachedImages.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
                 container.appendChild(item);
             });
             countEl.textContent = attachedImages.length > 0 ? attachedImages.length + ' / ' + MAX_IMAGES + ' image(s)' : '';
@@ -2342,7 +2353,7 @@
             imgs.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
@@ -2566,12 +2577,12 @@
                 const dateStr = updatedDate.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
 
                 card.innerHTML = `
-                    <button class="project-card-delete" onclick="handleDeleteProject('${proj.id}', event)" title="Supprimer">&times;</button>
-                    <div class="project-card-name">${proj.name || 'Sans nom'}</div>
-                    <div class="project-card-client">${proj.client_name || 'Aucun client'}</div>
+                    <button class="project-card-delete" onclick="handleDeleteProject('${escapeAttr(proj.id)}', event)" title="Supprimer">&times;</button>
+                    <div class="project-card-name">${escapeHtml(proj.name || 'Sans nom')}</div>
+                    <div class="project-card-client">${escapeHtml(proj.client_name || 'Aucun client')}</div>
                     <div class="project-card-meta">
-                        <span class="project-status-badge status-${proj.status}">${proj.status}</span>
-                        <span class="project-card-date">${dateStr}</span>
+                        <span class="project-status-badge status-${escapeAttr(proj.status)}">${escapeHtml(proj.status)}</span>
+                        <span class="project-card-date">${escapeHtml(dateStr)}</span>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -2853,7 +2864,7 @@
             var hasMatRows = false;
             expenseCategories.forEach(function(c) {
                 if (matCoutant[c.name] > 0) {
-                    html += '<tr><td>' + c.name + '</td><td>' + f(matCoutant[c.name]) + '</td></tr>';
+                    html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' + f(matCoutant[c.name]) + '</td></tr>';
                     hasMatRows = true;
                 }
             });
@@ -2874,7 +2885,7 @@
             html += '<tr><th></th>';
             tauxHoraires.forEach(function(t) {
                 var short = t.department.split('/')[0].substring(0, 6);
-                html += '<th>' + short + '</th>';
+                html += '<th>' + escapeHtml(short) + '</th>';
             });
             html += '<th style="background:var(--stele-green)">TOTAL</th></tr>';
             // Heures

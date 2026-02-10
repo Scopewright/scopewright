@@ -758,6 +758,7 @@
         let currentItemCode = null;
         let currentItem = null;
         let ficheId = null;          // UUID of fiches_vente row (null if new)
+        let canEditFiche = false;
 
         // ═══════════════════════════════════════════════════════════════════════
         // LOAD FICHE (public view)
@@ -773,9 +774,26 @@
                 return;
             }
 
-            // Show edit button if authenticated
+            // Check edit permission
             if (isAuthenticated) {
-                document.getElementById('btnEditFiche').style.display = 'block';
+                try {
+                    var email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                    var cfgResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {});
+                    if (cfgResp.ok) {
+                        var cfgRows = await cfgResp.json();
+                        var perms = {}, roles = {};
+                        cfgRows.forEach(function(r) {
+                            if (r.key === 'permissions') perms = r.value;
+                            if (r.key === 'user_roles') roles = r.value;
+                        });
+                        var role = roles[email] || 'Vente';
+                        var allowed = perms[role] || {};
+                        canEditFiche = allowed.catalogue_edit === true;
+                    }
+                } catch (e) { canEditFiche = false; }
+                if (canEditFiche) {
+                    document.getElementById('btnEditFiche').style.display = 'block';
+                }
             }
 
             try {
@@ -836,7 +854,7 @@
                 }
 
                 // Auto-open editor if ?edit=true and authenticated
-                if (editMode && isAuthenticated) {
+                if (editMode && canEditFiche) {
                     openEditor();
                 }
 
@@ -968,7 +986,7 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         async function openEditor() {
-            if (!isAuthenticated) return;
+            if (!isAuthenticated || !canEditFiche) return;
 
             document.getElementById('editorCode').textContent = currentItemCode;
 
@@ -1094,8 +1112,8 @@
             document.getElementById('errorMessage').textContent = message;
             document.getElementById('errorState').style.display = 'flex';
 
-            // Still show edit button if authenticated (to create a fiche)
-            if (isAuthenticated) {
+            // Still show edit button if has permission (to create a fiche)
+            if (canEditFiche) {
                 document.getElementById('btnEditFiche').style.display = 'block';
             }
         }

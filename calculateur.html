@@ -2877,10 +2877,6 @@
                 html += '<th>' + short + '</th>';
             });
             html += '<th style="background:var(--stele-green)">TOTAL</th></tr>';
-            // Minutes
-            html += '<tr><td>Minutes</td>';
-            tauxHoraires.forEach(function(t) { html += '<td>' + fNum(deptMinutes[t.department] || 0) + '</td>'; });
-            html += '<td>' + fNum(totalMinutes) + '</td></tr>';
             // Heures
             html += '<tr><td>Heures</td>';
             var totalHeures = 0;

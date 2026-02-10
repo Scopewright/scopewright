@@ -259,6 +259,26 @@
                     <span class="save-feedback" id="rolesFeedback"></span>
                 </div>
             </div>
+
+            <!-- Tags medias -->
+            <div class="section">
+                <div class="section-title">Tags m&eacute;dias</div>
+                <div class="section-desc">G&eacute;rez les &eacute;tiquettes disponibles pour organiser les images et documents dans le catalogue.</div>
+                <table class="roles-table">
+                    <thead>
+                        <tr>
+                            <th style="width:85%">&Eacute;tiquette</th>
+                            <th style="width:15%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tagsBody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addTagRow()">+ Ajouter un tag</button>
+                <div class="save-bar">
+                    <button class="btn-save" onclick="saveMediaTags()">Sauvegarder les tags</button>
+                    <span class="save-feedback" id="tagsFeedback"></span>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">stele — stele.ca</footer>
@@ -355,6 +375,8 @@
 
     var permissions = {};
     var userRolesMap = {};
+    var mediaTags = [];
+    var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
 
     // Init
     document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
@@ -371,6 +393,7 @@
                 for (var i = 0; i < rows.length; i++) {
                     if (rows[i].key === 'permissions') permissions = rows[i].value;
                     if (rows[i].key === 'user_roles') userRolesMap = rows[i].value;
+                    if (rows[i].key === 'media_tags') mediaTags = rows[i].value;
                 }
             }
             applyDefaults();
@@ -401,11 +424,15 @@
         if (!Object.keys(userRolesMap).length) {
             userRolesMap = JSON.parse(JSON.stringify(DEFAULT_USER_ROLES));
         }
+        if (!Array.isArray(mediaTags) || !mediaTags.length) {
+            mediaTags = DEFAULT_MEDIA_TAGS.slice();
+        }
     }
 
     function renderAll() {
         renderPermTable();
         renderRolesTable();
+        renderTagsTable();
     }
 
     // ── Permissions table ──
@@ -477,6 +504,47 @@
         var div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    // ── Tags médias table ──
+
+    function renderTagsTable() {
+        var body = document.getElementById('tagsBody');
+        var html = '';
+        for (var i = 0; i < mediaTags.length; i++) {
+            html += buildTagRowHtml(mediaTags[i]);
+        }
+        body.innerHTML = html;
+    }
+
+    function buildTagRowHtml(tag) {
+        return '<tr>' +
+            '<td><input type="text" class="input-email" value="' + escapeHtml(tag) + '" placeholder="nom_du_tag"></td>' +
+            '<td><button class="btn-remove" onclick="removeTagRow(this)" title="Retirer">&times;</button></td>' +
+            '</tr>';
+    }
+
+    function addTagRow() {
+        var body = document.getElementById('tagsBody');
+        body.insertAdjacentHTML('beforeend', buildTagRowHtml(''));
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    function removeTagRow(btn) {
+        var row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+    }
+
+    function saveMediaTags() {
+        var newTags = [];
+        var rows = document.querySelectorAll('#tagsBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var tag = rows[i].querySelector('.input-email').value.trim().toLowerCase().replace(/\s+/g, '_');
+            if (tag && newTags.indexOf(tag) === -1) newTags.push(tag);
+        }
+        mediaTags = newTags;
+        saveConfig('media_tags', mediaTags, 'tagsFeedback');
     }
 
     // ── Save functions ──

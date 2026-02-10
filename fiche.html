@@ -122,119 +122,173 @@
             color: #999;
         }
 
-        /* ═══ Hero section ═══ */
-        .fiche-hero {
-            background: var(--stele-green);
+        /* ═══ Print button ═══ */
+        .btn-print {
+            margin-left: auto;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            opacity: 0.35;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .btn-print:hover { opacity: 0.7; }
+
+        .btn-print svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--stele-black);
+        }
+
+        /* ═══ Page subtitle ═══ */
+        .fiche-subtitle {
             margin-top: 72px;
-            padding: 80px 60px 60px;
-            color: var(--stele-white);
-        }
-
-        .fiche-code {
-            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            padding: 28px 60px 0;
             font-size: 14px;
-            opacity: 0.7;
-            letter-spacing: 1px;
-            display: block;
-            margin-bottom: 12px;
+            color: #888;
+            letter-spacing: 0.3px;
         }
 
-        .fiche-name {
-            font-size: 36px;
-            font-weight: 400;
-            margin-bottom: 8px;
-        }
-
-        .fiche-category {
-            font-size: 16px;
-            opacity: 0.8;
-        }
-
-        /* ═══ Content sections ═══ */
-        .fiche-section {
-            padding: 48px 60px;
-            max-width: 1000px;
+        /* ═══ Two-column layout ═══ */
+        .fiche-layout {
+            max-width: 1100px;
             margin: 0 auto;
-        }
-
-        .fiche-description {
-            font-size: 18px;
-            line-height: 1.7;
-            color: var(--stele-black);
-        }
-
-        /* ═══ Images section ═══ */
-        .fiche-images {
-            padding: 0 60px 48px;
-            max-width: 1000px;
-            margin: 0 auto;
+            padding: 32px 60px 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 32px;
+            gap: 48px;
+            align-items: start;
         }
 
-        .fiche-images.single-image {
+        .fiche-layout.no-drawing {
             grid-template-columns: 1fr;
-            max-width: 600px;
+            max-width: 700px;
         }
 
-        .fiche-image-block img {
+        /* ═══ Section headers ═══ */
+        .section-header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #999;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        /* ═══ Dessin technique ═══ */
+        .fiche-dessin-wrap img {
             width: 100%;
-            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            border-radius: 2px;
             cursor: pointer;
-            border: 1px solid var(--stele-gray);
-            transition: opacity 0.2s;
         }
 
-        .fiche-image-block img:hover {
-            opacity: 0.9;
+        .pdf-link {
+            display: inline-block;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--stele-green);
+            text-decoration: underline;
+            cursor: pointer;
         }
 
-        .fiche-image-label {
-            font-size: 12px;
-            color: #666;
-            margin-top: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* ═══ Details section ═══ */
-        .fiche-details {
-            padding: 48px 60px;
-            max-width: 1000px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 32px;
-            border-top: 1px solid var(--stele-gray);
-        }
-
-        .fiche-detail h3 {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-
-        .fiche-detail p {
-            font-size: 16px;
+        /* ═══ Product title ═══ */
+        .fiche-title {
+            font-size: 24px;
+            font-weight: 400;
             color: var(--stele-black);
-            line-height: 1.6;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        /* ═══ Short description ═══ */
+        .fiche-desc {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #444;
+            margin-bottom: 24px;
+        }
+
+        /* ═══ Product photo ═══ */
+        .fiche-photo-wrap {
+            margin-bottom: 24px;
+        }
+
+        .fiche-photo-wrap img {
+            width: 100%;
+            border-radius: 2px;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+        }
+
+        /* ═══ Credits ═══ */
+        .fiche-credits {
+            margin-bottom: 32px;
+        }
+
+        .credit-line {
+            font-size: 14px;
+            color: var(--stele-black);
+            margin-bottom: 4px;
+        }
+
+        .credit-label {
+            color: #999;
+        }
+
+        /* ═══ QR Code ═══ */
+        .fiche-qr {
+            margin-bottom: 24px;
+        }
+
+        .fiche-qr img {
+            width: 120px;
+            height: 120px;
+        }
+
+        /* ═══ Info section ═══ */
+        .info-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-label {
+            color: #999;
+            min-width: 100px;
+            flex-shrink: 0;
+        }
+
+        .info-value {
+            color: var(--stele-black);
+        }
+
+        .info-usage {
+            font-size: 14px;
+            line-height: 1.7;
+            color: #444;
+            margin-top: 16px;
         }
 
         /* ═══ Footer ═══ */
         .fiche-footer {
             padding: 48px 60px;
             text-align: center;
-            border-top: 1px solid var(--stele-gray);
+            border-top: 1px solid #e0e0e0;
+            margin-top: 48px;
         }
 
         .fiche-footer .footer-logo {
             font-size: 20px;
-            font-weight: 700;
+            font-weight: 400;
             color: var(--stele-black);
-            opacity: 0.2;
+            opacity: 0.15;
         }
 
         /* ═══ Lightbox ═══ */
@@ -411,110 +465,6 @@
             color: var(--stele-black);
         }
 
-        /* Section divider */
-        .ed-section-title {
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--stele-green);
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--stele-light-gray);
-        }
-
-        /* Image upload zone */
-        .ed-dropzone {
-            border: 2px dashed var(--stele-gray);
-            border-radius: 6px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            margin-bottom: 16px;
-        }
-
-        .ed-dropzone:hover, .ed-dropzone.dragover {
-            border-color: var(--stele-green);
-            background: #f0f5f1;
-        }
-
-        .ed-dropzone p {
-            font-size: 13px;
-            color: #999;
-        }
-
-        /* Media list */
-        .ed-media-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .ed-media-item {
-            display: flex;
-            gap: 12px;
-            padding: 12px;
-            background: var(--stele-light-gray);
-            border-radius: 6px;
-            align-items: flex-start;
-        }
-
-        .ed-media-item img {
-            width: 80px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            border: 1px solid var(--stele-gray);
-            flex-shrink: 0;
-        }
-
-        .ed-media-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .ed-media-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 6px;
-        }
-
-        .ed-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11px;
-            padding: 3px 8px;
-            border-radius: 12px;
-            cursor: pointer;
-            border: 1px solid var(--stele-gray);
-            background: var(--stele-white);
-            color: #666;
-            transition: all 0.15s;
-        }
-
-        .ed-tag.active {
-            background: var(--stele-green);
-            color: #fff;
-            border-color: var(--stele-green);
-        }
-
-        .ed-media-remove {
-            background: none;
-            border: none;
-            color: #c62828;
-            cursor: pointer;
-            font-size: 18px;
-            padding: 0 4px;
-            flex-shrink: 0;
-            opacity: 0.6;
-            transition: opacity 0.15s;
-        }
-
-        .ed-media-remove:hover { opacity: 1; }
-
         /* Buttons */
         .btn-save {
             padding: 8px 20px;
@@ -559,17 +509,14 @@
         /* ═══ Responsive ═══ */
         @media (max-width: 768px) {
             .nav-bar { padding: 12px 24px; }
-            .fiche-hero { padding: 70px 24px 40px; }
-            .fiche-name { font-size: 28px; }
-            .fiche-section { padding: 32px 24px; }
-            .fiche-images {
+            .nav-back { display: none; }
+            .fiche-subtitle { padding: 20px 24px 0; }
+            .fiche-layout {
                 grid-template-columns: 1fr;
-                padding: 0 24px 32px;
+                padding: 24px 24px 0;
+                gap: 32px;
             }
-            .fiche-details {
-                grid-template-columns: 1fr;
-                padding: 32px 24px;
-            }
+            .fiche-title { font-size: 20px; }
             .fiche-footer { padding: 32px 24px; }
             .editor-overlay { padding: 20px 10px; }
             .editor-body { max-height: calc(90vh - 120px); }
@@ -580,7 +527,8 @@
             @page { size: portrait; margin: 0.75in; }
             .nav-bar { display: none; }
             .no-print { display: none; }
-            .fiche-hero { margin-top: 0; }
+            .fiche-subtitle { margin-top: 0; }
+            .fiche-layout { padding-top: 16px; }
             .lightbox-overlay { display: none !important; }
             .editor-overlay { display: none !important; }
         }
@@ -592,6 +540,9 @@
     <nav class="nav-bar no-print">
         <a href="index.html" class="nav-logo">stele</a>
         <a href="catalogue_prix_stele_complet.html" class="nav-back">&larr; Catalogue</a>
+        <button class="btn-print" onclick="window.print()" title="Imprimer">
+            <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        </button>
         <button class="btn-edit-fiche" id="btnEditFiche" onclick="openEditor()">Modifier la fiche</button>
     </nav>
 
@@ -614,36 +565,65 @@
     <!-- Main content -->
     <main id="ficheContent" style="display: none;">
 
-        <!-- Hero -->
-        <section class="fiche-hero">
-            <span class="fiche-code" id="ficheCode"></span>
-            <h1 class="fiche-name" id="ficheName"></h1>
-            <span class="fiche-category" id="ficheCategory"></span>
-        </section>
+        <!-- Subtitle -->
+        <div class="fiche-subtitle">Fiche technique &ndash; <span id="ficheCategory"></span></div>
 
-        <!-- Description -->
-        <section class="fiche-section" id="ficheDescSection">
-            <p class="fiche-description" id="ficheDescription"></p>
-        </section>
+        <div class="fiche-layout" id="ficheLayout">
 
-        <!-- Images -->
-        <div class="fiche-images" id="ficheImages"></div>
+            <!-- Left column (desktop) / top section (mobile) -->
+            <div class="fiche-col-left">
+                <section id="ficheDessinSection" style="display:none;">
+                    <h2 class="section-header">DESSIN TECHNIQUE</h2>
+                    <div class="fiche-dessin-wrap" id="ficheDessinWrap"></div>
+                    <a class="pdf-link" id="fichePdfLink" style="display:none;">T&eacute;l&eacute;charger le PDF technique</a>
+                </section>
+            </div>
 
-        <!-- Details -->
-        <section class="fiche-details" id="ficheDetails">
-            <div class="fiche-detail" id="ficheCredit">
-                <h3>Cr&eacute;dit projet</h3>
-                <p id="ficheCreditValue"></p>
+            <!-- Right column (desktop) / bottom sections (mobile) -->
+            <div class="fiche-col-right">
+
+                <!-- Product title -->
+                <h1 class="fiche-title" id="ficheTitle"></h1>
+
+                <!-- Short description -->
+                <p class="fiche-desc" id="ficheDescription"></p>
+
+                <!-- Product photo -->
+                <div class="fiche-photo-wrap" id="fichePhotoWrap" style="display:none;"></div>
+
+                <!-- Credits -->
+                <div class="fiche-credits" id="ficheCredits" style="display:none;">
+                    <div class="credit-line" id="ficheCreditLine" style="display:none;">
+                        <span class="credit-label">Projet : </span>
+                        <span id="ficheCreditValue"></span>
+                    </div>
+                    <div class="credit-line" id="ficheDesignerLine" style="display:none;">
+                        <span class="credit-label">Design : </span>
+                        <span id="ficheDesignerValue"></span>
+                    </div>
+                </div>
+
+                <!-- QR Code -->
+                <div class="fiche-qr" id="ficheQr" style="display:none;">
+                    <img id="ficheQrImg" src="" alt="QR Code">
+                </div>
+
+                <!-- Informations principales -->
+                <section id="ficheInfoSection">
+                    <h2 class="section-header">INFORMATIONS PRINCIPALES</h2>
+                    <div class="info-row">
+                        <span class="info-label">Code</span>
+                        <span class="info-value" id="ficheInfoCode"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Nom produit</span>
+                        <span class="info-value" id="ficheInfoName"></span>
+                    </div>
+                    <div class="info-usage" id="ficheInfoUsage" style="display:none;"></div>
+                </section>
+
             </div>
-            <div class="fiche-detail" id="ficheDesigner">
-                <h3>Designer</h3>
-                <p id="ficheDesignerValue"></p>
-            </div>
-            <div class="fiche-detail" id="ficheUsage">
-                <h3>Usage / Application</h3>
-                <p id="ficheUsageValue"></p>
-            </div>
-        </section>
+        </div>
 
         <!-- Footer -->
         <footer class="fiche-footer">
@@ -696,16 +676,6 @@
                     <label class="ed-label">Usage / Application</label>
                     <textarea class="ed-textarea" id="edUsage" placeholder="Ex: R&eacute;sidentiel, commercial, hospitalier" style="min-height:60px;"></textarea>
                 </div>
-
-                <!-- Images -->
-                <div class="ed-section-title">Images / M&eacute;dias</div>
-
-                <div class="ed-dropzone" id="edDropzone">
-                    <p>Cliquer ou glisser une image ici</p>
-                    <input type="file" id="edFileInput" accept="image/*" multiple style="display:none;">
-                </div>
-
-                <div class="ed-media-list" id="edMediaList"></div>
 
                 <div class="ed-status" id="edStatus"></div>
             </div>
@@ -788,16 +758,6 @@
         let currentItemCode = null;
         let currentItem = null;
         let ficheId = null;          // UUID of fiches_vente row (null if new)
-        let editorMedia = [];        // Array of { id, file_url, tags, isNew, file }
-        let mediaToDelete = [];      // IDs of media to delete on save
-
-        const AVAILABLE_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
-        const TAG_LABELS = {
-            fiche_client: 'Fiche client',
-            catalogue: 'Catalogue',
-            technique: 'Technique',
-            dessin: 'Dessin'
-        };
 
         // ═══════════════════════════════════════════════════════════════════════
         // LOAD FICHE (public view)
@@ -891,32 +851,59 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         function renderFiche(item, fiche, media) {
-            // Hero
-            document.getElementById('ficheCode').textContent = item.id;
-            document.getElementById('ficheName').textContent = item.description || '(sans nom)';
-            document.getElementById('ficheCategory').textContent = item.category || '';
+            // Subtitle — category
+            document.getElementById('ficheCategory').textContent = item.category || '\u00c9chantillon';
 
-            // Description
+            // Title: "CODE – Description"
+            var title = item.id;
+            if (item.description) title += ' \u2013 ' + item.description;
+            document.getElementById('ficheTitle').textContent = title;
+
+            // Short description
             if (fiche.description_courte) {
                 document.getElementById('ficheDescription').textContent = fiche.description_courte;
+                document.getElementById('ficheDescription').style.display = '';
             } else {
-                document.getElementById('ficheDescSection').style.display = 'none';
+                document.getElementById('ficheDescription').style.display = 'none';
             }
 
-            // Images
+            // Images — technical drawings in left column, photos in right
             renderImages(media);
 
-            // Details
-            setDetail('ficheCredit', 'ficheCreditValue', fiche.credit_projet);
-            setDetail('ficheDesigner', 'ficheDesignerValue', fiche.designer);
-            setDetail('ficheUsage', 'ficheUsageValue', fiche.usage_application);
-
-            if (!fiche.credit_projet && !fiche.designer && !fiche.usage_application) {
-                document.getElementById('ficheDetails').style.display = 'none';
+            // Credits
+            var hasCredits = false;
+            if (fiche.credit_projet) {
+                document.getElementById('ficheCreditValue').textContent = fiche.credit_projet;
+                document.getElementById('ficheCreditLine').style.display = '';
+                hasCredits = true;
+            }
+            if (fiche.designer) {
+                document.getElementById('ficheDesignerValue').textContent = fiche.designer;
+                document.getElementById('ficheDesignerLine').style.display = '';
+                hasCredits = true;
+            }
+            if (hasCredits) {
+                document.getElementById('ficheCredits').style.display = '';
             }
 
-            // Update page title
-            document.title = item.id + ' \u2014 ' + (item.description || 'Fiche') + ' \u2014 Stele';
+            // QR Code — visible only when published
+            if (fiche.published === true) {
+                var ficheUrl = window.location.origin + '/fiche.html?code=' + encodeURIComponent(item.id);
+                var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(ficheUrl);
+                document.getElementById('ficheQrImg').src = qrUrl;
+                document.getElementById('ficheQr').style.display = '';
+            }
+
+            // Info section
+            document.getElementById('ficheInfoCode').textContent = item.id;
+            document.getElementById('ficheInfoName').textContent = item.description || '';
+            if (fiche.usage_application) {
+                document.getElementById('ficheInfoUsage').textContent = fiche.usage_application;
+                document.getElementById('ficheInfoUsage').style.display = '';
+            }
+
+            // Page title
+            document.title = item.id + ' \u2013 ' + (item.description || 'Fiche') + ' \u2013 Stele';
 
             // Show content
             document.getElementById('loadingState').style.display = 'none';
@@ -924,64 +911,56 @@
         }
 
         function renderImages(media) {
-            const container = document.getElementById('ficheImages');
-            container.innerHTML = '';
-
-            const mainPhotos = media.filter(function(m) {
-                return m.file_type === 'image' && m.tags && m.tags.indexOf('fiche_client') !== -1;
-            });
-
-            const techDrawings = media.filter(function(m) {
+            // Technical drawings (dessin / technique tags) → left column
+            var techDrawings = media.filter(function(m) {
                 return m.file_type === 'image' && m.tags &&
                     (m.tags.indexOf('dessin') !== -1 || m.tags.indexOf('technique') !== -1);
             });
 
-            var count = 0;
-
-            if (mainPhotos.length > 0) {
-                container.appendChild(createImageBlock(mainPhotos[0], 'Photo'));
-                count++;
-            }
+            var dessinSection = document.getElementById('ficheDessinSection');
+            var dessinWrap = document.getElementById('ficheDessinWrap');
+            dessinWrap.innerHTML = '';
 
             if (techDrawings.length > 0) {
-                container.appendChild(createImageBlock(techDrawings[0], 'Dessin technique'));
-                count++;
-            }
-
-            if (count === 0) {
-                container.style.display = 'none';
+                var img = document.createElement('img');
+                img.src = techDrawings[0].file_url;
+                img.alt = techDrawings[0].alt_text || 'Dessin technique';
+                img.onclick = function() { openLightbox(this.src); };
+                dessinWrap.appendChild(img);
+                dessinSection.style.display = '';
             } else {
-                container.style.display = '';
-                container.classList.remove('single-image');
-                if (count === 1) container.classList.add('single-image');
+                // No drawing — collapse to single column
+                document.getElementById('ficheLayout').classList.add('no-drawing');
             }
-        }
 
-        function createImageBlock(mediaItem, label) {
-            var block = document.createElement('div');
-            block.className = 'fiche-image-block';
+            // Main photos (fiche_client tag) → right column photo area
+            var mainPhotos = media.filter(function(m) {
+                return m.file_type === 'image' && m.tags && m.tags.indexOf('fiche_client') !== -1;
+            });
 
-            var img = document.createElement('img');
-            img.src = mediaItem.file_url;
-            img.alt = mediaItem.alt_text || label;
-            img.onclick = function() { openLightbox(this.src); };
-            block.appendChild(img);
+            var photoWrap = document.getElementById('fichePhotoWrap');
+            photoWrap.innerHTML = '';
 
-            var labelEl = document.createElement('div');
-            labelEl.className = 'fiche-image-label';
-            labelEl.textContent = label;
-            block.appendChild(labelEl);
-
-            return block;
-        }
-
-        function setDetail(wrapperId, valueId, value) {
-            if (!value) {
-                document.getElementById(wrapperId).style.display = 'none';
-                return;
+            if (mainPhotos.length > 0) {
+                var img2 = document.createElement('img');
+                img2.src = mainPhotos[0].file_url;
+                img2.alt = mainPhotos[0].alt_text || 'Photo produit';
+                img2.onclick = function() { openLightbox(this.src); };
+                photoWrap.appendChild(img2);
+                photoWrap.style.display = '';
             }
-            document.getElementById(wrapperId).style.display = '';
-            document.getElementById(valueId).textContent = value;
+
+            // Technical PDFs → download link
+            var techPdfs = media.filter(function(m) {
+                return m.file_type === 'pdf' && m.tags &&
+                    (m.tags.indexOf('technique') !== -1 || m.tags.indexOf('dessin') !== -1);
+            });
+            if (techPdfs.length > 0) {
+                var pdfLink = document.getElementById('fichePdfLink');
+                pdfLink.href = techPdfs[0].file_url;
+                pdfLink.target = '_blank';
+                pdfLink.style.display = '';
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1016,138 +995,16 @@
                     }
                 }
 
-                // Load existing media
-                const mResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?catalogue_item_id=eq.' + encodeURIComponent(currentItemCode) + '&order=sort_order&select=id,file_url,file_type,alt_text,tags', {});
-                if (mResp.ok) {
-                    const existingMedia = await mResp.json();
-                    editorMedia = existingMedia.map(function(m) {
-                        return { id: m.id, file_url: m.file_url, tags: m.tags || [], isNew: false };
-                    });
-                } else {
-                    editorMedia = [];
-                }
-                mediaToDelete = [];
-
             } catch (e) {
-                console.error('Erreur chargement éditeur:', e);
+                console.error('Erreur chargement \u00e9diteur:', e);
             }
 
-            renderEditorMedia();
             hideEditorStatus();
             document.getElementById('editorOverlay').classList.add('active');
         }
 
         function closeEditor() {
             document.getElementById('editorOverlay').classList.remove('active');
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // EDITOR — MEDIA MANAGEMENT
-        // ═══════════════════════════════════════════════════════════════════════
-
-        function renderEditorMedia() {
-            const list = document.getElementById('edMediaList');
-            list.innerHTML = '';
-
-            editorMedia.forEach(function(media, index) {
-                var item = document.createElement('div');
-                item.className = 'ed-media-item';
-
-                var img = document.createElement('img');
-                img.src = media.file_url || media.previewUrl || '';
-                img.alt = '';
-                item.appendChild(img);
-
-                var info = document.createElement('div');
-                info.className = 'ed-media-info';
-
-                var tags = document.createElement('div');
-                tags.className = 'ed-media-tags';
-
-                AVAILABLE_TAGS.forEach(function(tag) {
-                    var chip = document.createElement('span');
-                    chip.className = 'ed-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
-                    chip.textContent = TAG_LABELS[tag];
-                    chip.onclick = function() {
-                        var idx = media.tags.indexOf(tag);
-                        if (idx !== -1) {
-                            media.tags.splice(idx, 1);
-                        } else {
-                            media.tags.push(tag);
-                        }
-                        chip.classList.toggle('active');
-                    };
-                    tags.appendChild(chip);
-                });
-
-                info.appendChild(tags);
-                item.appendChild(info);
-
-                var removeBtn = document.createElement('button');
-                removeBtn.className = 'ed-media-remove';
-                removeBtn.innerHTML = '&times;';
-                removeBtn.title = 'Supprimer';
-                removeBtn.onclick = function() {
-                    if (media.id && !media.isNew) {
-                        mediaToDelete.push(media.id);
-                    }
-                    editorMedia.splice(index, 1);
-                    renderEditorMedia();
-                };
-                item.appendChild(removeBtn);
-
-                list.appendChild(item);
-            });
-        }
-
-        // Dropzone handlers
-        (function() {
-            document.addEventListener('DOMContentLoaded', function() {
-                var dropzone = document.getElementById('edDropzone');
-                var fileInput = document.getElementById('edFileInput');
-
-                dropzone.addEventListener('click', function() { fileInput.click(); });
-
-                dropzone.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    dropzone.classList.add('dragover');
-                });
-
-                dropzone.addEventListener('dragleave', function() {
-                    dropzone.classList.remove('dragover');
-                });
-
-                dropzone.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    dropzone.classList.remove('dragover');
-                    handleEditorFiles(e.dataTransfer.files);
-                });
-
-                fileInput.addEventListener('change', function() {
-                    handleEditorFiles(fileInput.files);
-                    fileInput.value = '';
-                });
-            });
-        })();
-
-        function handleEditorFiles(files) {
-            Array.from(files).filter(function(f) {
-                return f.type.startsWith('image/');
-            }).forEach(function(file) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    editorMedia.push({
-                        id: null,
-                        file_url: null,
-                        previewUrl: e.target.result,
-                        tags: [],
-                        isNew: true,
-                        file: file
-                    });
-                    renderEditorMedia();
-                };
-                reader.readAsDataURL(file);
-            });
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1189,65 +1046,6 @@
                     if (!resp.ok) throw new Error('Erreur cr\u00e9ation fiche: ' + resp.status);
                     var data = await resp.json();
                     ficheId = data[0].id;
-                }
-
-                // 2. Delete removed media
-                for (var i = 0; i < mediaToDelete.length; i++) {
-                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + mediaToDelete[i], {
-                        method: 'DELETE',
-                        headers: { 'Prefer': 'return=minimal' }
-                    });
-                }
-                mediaToDelete = [];
-
-                // 3. Upload new images & insert into item_media
-                for (var i = 0; i < editorMedia.length; i++) {
-                    var m = editorMedia[i];
-
-                    if (m.isNew && m.file) {
-                        // Upload to Supabase Storage
-                        var ext = m.file.name.split('.').pop().toLowerCase() || 'jpg';
-                        var path = currentItemCode + '/' + Date.now() + '_' + i + '.' + ext;
-
-                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
-                            method: 'POST',
-                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
-                            body: m.file
-                        });
-
-                        if (!uploadResp.ok) throw new Error('Erreur upload image: ' + uploadResp.status);
-
-                        var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
-
-                        // Insert media record
-                        var insertResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                            body: JSON.stringify({
-                                catalogue_item_id: currentItemCode,
-                                file_url: fileUrl,
-                                file_type: 'image',
-                                tags: m.tags,
-                                sort_order: i
-                            })
-                        });
-
-                        if (!insertResp.ok) throw new Error('Erreur insertion m\u00e9dia: ' + insertResp.status);
-
-                        var insertedData = await insertResp.json();
-                        m.id = insertedData[0].id;
-                        m.file_url = fileUrl;
-                        m.isNew = false;
-                        m.file = null;
-                        m.previewUrl = null;
-                    } else if (m.id && !m.isNew) {
-                        // Update tags of existing media
-                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + m.id, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                            body: JSON.stringify({ tags: m.tags, sort_order: i })
-                        });
-                    }
                 }
 
                 showEditorStatus('success', '\u2713 Sauvegard\u00e9');

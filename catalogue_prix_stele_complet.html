@@ -704,7 +704,19 @@
             flex: 1;
         }
 
-        .edit-image-zone {
+        /* ═══ Médias tagués ═══ */
+        .cat-media-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--stele-green);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .cat-dropzone {
             border: 2px dashed var(--stele-gray);
             border-radius: 6px;
             padding: 16px;
@@ -713,43 +725,93 @@
             transition: border-color 0.2s;
             font-size: 13px;
             color: #888;
+            margin-bottom: 12px;
         }
 
-        .edit-image-zone:hover,
-        .edit-image-zone.dragover {
+        .cat-dropzone:hover,
+        .cat-dropzone.dragover {
             border-color: var(--stele-green);
             color: var(--stele-green);
         }
 
-        .edit-image-preview {
-            margin-top: 8px;
-            position: relative;
-            display: inline-block;
+        .cat-media-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        .edit-image-preview img {
-            max-width: 100%;
-            max-height: 150px;
+        .cat-media-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 6px;
+            align-items: flex-start;
+        }
+
+        .cat-media-item img {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
             border-radius: 4px;
             border: 1px solid var(--stele-gray);
+            flex-shrink: 0;
         }
 
-        .edit-image-remove {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            width: 22px;
-            height: 22px;
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            font-size: 14px;
-            cursor: pointer;
+        .cat-pdf-icon {
+            width: 80px;
+            height: 60px;
+            background: #e8e8e8;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #999;
+            flex-shrink: 0;
         }
+
+        .cat-media-info { flex: 1; min-width: 0; }
+
+        .cat-media-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .cat-tag {
+            display: inline-block;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid var(--stele-gray);
+            background: #fff;
+            color: #666;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .cat-tag.active {
+            background: var(--stele-green);
+            color: #fff;
+            border-color: var(--stele-green);
+        }
+
+        .cat-media-remove {
+            background: none;
+            border: none;
+            color: #c62828;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+            flex-shrink: 0;
+            opacity: 0.5;
+            transition: opacity 0.15s;
+        }
+
+        .cat-media-remove:hover { opacity: 1; }
 
         .edit-toggle-row {
             display: flex;
@@ -1080,15 +1142,12 @@
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Image du produit</label>
-                    <div class="edit-image-zone" id="editImageZone">
-                        Cliquer ou glisser-d&eacute;poser une image
+                    <div class="cat-media-title">M&eacute;dias</div>
+                    <div class="cat-dropzone" id="catDropzone">
+                        Cliquer ou glisser des images / PDFs ici
                     </div>
-                    <input type="file" id="editImageInput" accept="image/*" style="display:none;">
-                    <div class="edit-image-preview" id="editImagePreview" style="display:none;">
-                        <img id="editImageImg" src="" alt="">
-                        <button class="edit-image-remove" onclick="removeEditImage()">&times;</button>
-                    </div>
+                    <input type="file" id="catMediaInput" accept="image/*,.pdf,application/pdf" multiple style="display:none;">
+                    <div class="cat-media-list" id="catMediaList"></div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <div class="edit-toggle-row">
@@ -1417,7 +1476,24 @@
         // ÉDITION DU CATALOGUE
         // ═══════════════════════════════════════════════════════════════════════
 
-        let editImageFile = null; // Fichier image en attente d'upload
+        // ═══ Médias tagués ═══
+        let editMedia = [];           // { id, file_url, file_type, tags, isNew, file, previewUrl }
+        let editMediaToDelete = [];   // IDs à supprimer au save
+        let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin']; // défauts
+
+        async function loadMediaTags() {
+            try {
+                const resp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.media_tags&select=value', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (resp.ok) {
+                    const rows = await resp.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value)) {
+                        mediaTagsList = rows[0].value;
+                    }
+                }
+            } catch (e) { /* keep defaults */ }
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // AJOUT D'UN NOUVEL ARTICLE
@@ -1468,7 +1544,7 @@
             openEditModal(newCode);
         }
 
-        function openEditModal(itemId) {
+        async function openEditModal(itemId) {
             // Pour un nouvel item, utiliser newItemData au lieu de chercher dans CATALOGUE_DATA
             const item = (isNewItem && newItemData) ? newItemData : CATALOGUE_DATA.find(i => i.id === itemId);
             if (!item) return;
@@ -1484,17 +1560,21 @@
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
 
-            // Image
-            editImageFile = null;
-            const preview = document.getElementById('editImagePreview');
-            const img = document.getElementById('editImageImg');
-            if (item.image_url) {
-                img.src = item.image_url;
-                preview.style.display = 'inline-block';
-            } else {
-                img.src = '';
-                preview.style.display = 'none';
+            // Médias
+            editMedia = [];
+            editMediaToDelete = [];
+            if (!(isNewItem && newItemData)) {
+                try {
+                    const mResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?catalogue_item_id=eq.' + encodeURIComponent(item.id) + '&order=sort_order&select=id,file_url,file_type,tags', {});
+                    if (mResp.ok) {
+                        const existing = await mResp.json();
+                        editMedia = existing.map(function(m) {
+                            return { id: m.id, file_url: m.file_url, file_type: m.file_type || 'image', tags: m.tags || [], isNew: false };
+                        });
+                    }
+                } catch (e) { /* ignore */ }
             }
+            renderEditMedia();
 
             // Reset status
             const status = document.getElementById('editStatus');
@@ -1516,7 +1596,8 @@
 
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
-            editImageFile = null;
+            editMedia = [];
+            editMediaToDelete = [];
             isNewItem = false;
             newItemData = null;
         }
@@ -1553,27 +1634,100 @@
             }
         }
 
-        function removeEditImage() {
-            document.getElementById('editImageImg').src = '';
-            document.getElementById('editImagePreview').style.display = 'none';
-            editImageFile = 'REMOVE';
+        // ═══ Render & manage tagged media ═══
+
+        function renderEditMedia() {
+            const list = document.getElementById('catMediaList');
+            list.innerHTML = '';
+
+            editMedia.forEach(function(media, index) {
+                var item = document.createElement('div');
+                item.className = 'cat-media-item';
+
+                // Preview: image or PDF icon
+                if (media.file_type === 'pdf') {
+                    var pdfIcon = document.createElement('div');
+                    pdfIcon.className = 'cat-pdf-icon';
+                    pdfIcon.textContent = 'PDF';
+                    item.appendChild(pdfIcon);
+                } else {
+                    var img = document.createElement('img');
+                    img.src = media.file_url || media.previewUrl || '';
+                    img.alt = '';
+                    item.appendChild(img);
+                }
+
+                var info = document.createElement('div');
+                info.className = 'cat-media-info';
+
+                var tags = document.createElement('div');
+                tags.className = 'cat-media-tags';
+
+                mediaTagsList.forEach(function(tag) {
+                    var chip = document.createElement('span');
+                    chip.className = 'cat-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
+                    chip.textContent = tag;
+                    chip.onclick = function() {
+                        var idx = media.tags.indexOf(tag);
+                        if (idx !== -1) {
+                            media.tags.splice(idx, 1);
+                        } else {
+                            media.tags.push(tag);
+                        }
+                        chip.classList.toggle('active');
+                    };
+                    tags.appendChild(chip);
+                });
+
+                info.appendChild(tags);
+                item.appendChild(info);
+
+                var removeBtn = document.createElement('button');
+                removeBtn.className = 'cat-media-remove';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.title = 'Supprimer';
+                removeBtn.onclick = function() {
+                    if (media.id && !media.isNew) {
+                        editMediaToDelete.push({ id: media.id, file_url: media.file_url });
+                    }
+                    editMedia.splice(index, 1);
+                    renderEditMedia();
+                };
+                item.appendChild(removeBtn);
+
+                list.appendChild(item);
+            });
         }
 
-        async function uploadCatalogueImage(file, itemId) {
-            const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
-            const path = itemId + '.' + ext;
+        function handleEditMediaFiles(files) {
+            Array.from(files).forEach(function(file) {
+                var isPdf = file.type === 'application/pdf';
+                var isImage = file.type.startsWith('image/');
+                if (!isPdf && !isImage) return;
 
-            const response = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/catalogue-images/' + path, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': file.type,
-                    'x-upsert': 'true'
-                },
-                body: file
+                var mediaEntry = {
+                    id: null,
+                    file_url: null,
+                    previewUrl: null,
+                    file_type: isPdf ? 'pdf' : 'image',
+                    tags: [],
+                    isNew: true,
+                    file: file
+                };
+
+                if (isImage) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        mediaEntry.previewUrl = e.target.result;
+                        editMedia.push(mediaEntry);
+                        renderEditMedia();
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    editMedia.push(mediaEntry);
+                    renderEditMedia();
+                }
             });
-
-            if (!response.ok) throw new Error('Upload failed: ' + response.status);
-            return SUPABASE_URL + '/storage/v1/object/public/catalogue-images/' + path + '?t=' + Date.now();
         }
 
         async function saveEditModal() {
@@ -1585,15 +1739,6 @@
 
             try {
                 const itemId = document.getElementById('editItemId').value;
-
-                // Upload image si nouvelle
-                let newImageUrl = undefined;
-                if (editImageFile === 'REMOVE') {
-                    newImageUrl = null;
-                } else if (editImageFile instanceof File) {
-                    newImageUrl = await uploadCatalogueImage(editImageFile, itemId);
-                }
-
                 const priceVal = document.getElementById('editPrice').value;
 
                 const payload = {
@@ -1606,16 +1751,10 @@
                     has_sales_sheet: document.getElementById('editHasSalesSheet').checked
                 };
 
-                // Inclure image_url seulement si changement explicite
-                if (newImageUrl !== undefined) {
-                    payload.image_url = newImageUrl;
-                }
-
                 let resp;
                 if (isNewItem && newItemData) {
                     // Nouvel item : POST avec id et sort_order
                     const createPayload = Object.assign({ id: itemId, sort_order: newItemData.sort_order }, payload);
-                    if (newImageUrl !== undefined) createPayload.image_url = newImageUrl;
                     resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
                         method: 'POST',
                         headers: {
@@ -1625,7 +1764,7 @@
                         body: JSON.stringify(createPayload)
                     });
 
-                    if (!resp.ok) throw new Error('Erreur création: ' + resp.status);
+                    if (!resp.ok) throw new Error('Erreur cr\u00e9ation: ' + resp.status);
 
                     const data = await resp.json();
                     CATALOGUE_DATA.push(data[0]);
@@ -1646,6 +1785,86 @@
                     if (item) {
                         Object.assign(item, payload);
                     }
+                }
+
+                // ── Sauvegarder les médias ──
+
+                // 1. Supprimer les médias retirés
+                for (var mi = 0; mi < editMediaToDelete.length; mi++) {
+                    var del = editMediaToDelete[mi];
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + del.id, {
+                        method: 'DELETE',
+                        headers: { 'Prefer': 'return=minimal' }
+                    });
+                    // Tenter de supprimer du Storage aussi
+                    if (del.file_url && del.file_url.indexOf('/fiche-images/') !== -1) {
+                        var storagePath = del.file_url.split('/fiche-images/')[1];
+                        if (storagePath) {
+                            await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + storagePath, {
+                                method: 'DELETE'
+                            }).catch(function() {});
+                        }
+                    }
+                }
+                editMediaToDelete = [];
+
+                // 2. Upload nouveaux médias + insert item_media
+                for (var mi2 = 0; mi2 < editMedia.length; mi2++) {
+                    var m = editMedia[mi2];
+
+                    if (m.isNew && m.file) {
+                        var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
+                        var path = itemId + '/' + Date.now() + '_' + mi2 + '.' + ext;
+
+                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                            method: 'POST',
+                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
+                            body: m.file
+                        });
+                        if (!uploadResp.ok) throw new Error('Erreur upload: ' + uploadResp.status);
+
+                        var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+
+                        var insertResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify({
+                                catalogue_item_id: itemId,
+                                file_url: fileUrl,
+                                file_type: m.file_type,
+                                tags: m.tags,
+                                sort_order: mi2
+                            })
+                        });
+                        if (!insertResp.ok) throw new Error('Erreur insertion m\u00e9dia: ' + insertResp.status);
+
+                        var insertedData = await insertResp.json();
+                        m.id = insertedData[0].id;
+                        m.file_url = fileUrl;
+                        m.isNew = false;
+                        m.file = null;
+                        m.previewUrl = null;
+                    } else if (m.id && !m.isNew) {
+                        // Mettre à jour tags
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + m.id, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ tags: m.tags, sort_order: mi2 })
+                        });
+                    }
+                }
+
+                // 3. Auto-sync image_url depuis le premier média tagué "catalogue"
+                var catalogueMedia = editMedia.find(function(m) { return m.tags.indexOf('catalogue') !== -1 && m.file_type === 'image'; });
+                var syncImageUrl = catalogueMedia ? catalogueMedia.file_url : null;
+                var currentItem = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+                if (currentItem && currentItem.image_url !== syncImageUrl) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ image_url: syncImageUrl })
+                    });
+                    if (currentItem) currentItem.image_url = syncImageUrl;
                 }
 
                 // Re-générer les tables
@@ -1669,8 +1888,8 @@
 
         // Setup des handlers de la modal d'édition
         function setupEditModalHandlers() {
-            const zone = document.getElementById('editImageZone');
-            const input = document.getElementById('editImageInput');
+            const zone = document.getElementById('catDropzone');
+            const input = document.getElementById('catMediaInput');
 
             zone.addEventListener('click', () => input.click());
 
@@ -1686,16 +1905,12 @@
             zone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 zone.classList.remove('dragover');
-                if (e.dataTransfer.files.length > 0) {
-                    handleEditImage(e.dataTransfer.files[0]);
-                }
+                handleEditMediaFiles(e.dataTransfer.files);
             });
 
             input.addEventListener('change', () => {
-                if (input.files.length > 0) {
-                    handleEditImage(input.files[0]);
-                    input.value = '';
-                }
+                handleEditMediaFiles(input.files);
+                input.value = '';
             });
 
             // Fermer modal au clic extérieur
@@ -1706,25 +1921,14 @@
             });
         }
 
-        function handleEditImage(file) {
-            if (!file.type.startsWith('image/')) return;
-            editImageFile = file;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('editImageImg').src = e.target.result;
-                document.getElementById('editImagePreview').style.display = 'inline-block';
-            };
-            reader.readAsDataURL(file);
-        }
-
         // ═══════════════════════════════════════════════════════════════════════
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 
         document.addEventListener('DOMContentLoaded', async function() {
-            // Charger les permissions utilisateur
+            // Charger les permissions utilisateur + les tags médias
             await loadUserPermissions();
+            await loadMediaTags();
 
             // Charger les données du catalogue depuis Supabase (ou cache/défaut)
             await loadCatalogueData();

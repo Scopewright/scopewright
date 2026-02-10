@@ -2141,8 +2141,6 @@
 
             // Remplir le header
             document.getElementById('projName').value = currentProject.name || '';
-            document.getElementById('projClient').value = currentProject.client_name || '';
-            document.getElementById('projCode').value = currentProject.project_code || '';
             document.getElementById('projStatus').value = currentProject.status || 'brouillon';
 
             // Vider le calculateur
@@ -2206,13 +2204,9 @@
             if (!currentProject) return;
             const fields = {
                 name: document.getElementById('projName').value.trim(),
-                client_name: document.getElementById('projClient').value.trim(),
-                project_code: document.getElementById('projCode').value.trim(),
                 status: document.getElementById('projStatus').value
             };
             currentProject.name = fields.name;
-            currentProject.client_name = fields.client_name;
-            currentProject.project_code = fields.project_code;
             currentProject.status = fields.status;
             updateProject(currentProject.id, fields);
             showSaveIndicator();

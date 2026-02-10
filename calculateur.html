@@ -528,9 +528,9 @@
 
         .qty-input:focus { outline: none; border-color: var(--stele-green); }
 
-        .qty-input::-webkit-inner-spin-button,
-        .qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        .qty-input { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
 
         .cell-total {
             font-size: 13px;
@@ -771,18 +771,6 @@
         .ajout-description:focus,
         .ajout-price:focus,
         .ajout-markup:focus { outline: none; border-color: var(--stele-green); }
-
-        .ajout-price::-webkit-inner-spin-button,
-        .ajout-price::-webkit-outer-spin-button,
-        .ajout-markup::-webkit-inner-spin-button,
-        .ajout-markup::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-
-        .ajout-price, .ajout-markup { -moz-appearance: textfield; }
-
-        /* Proposer un article au catalogue */
-        .proposer-price::-webkit-inner-spin-button,
-        .proposer-price::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        .proposer-price { -moz-appearance: textfield; }
 
         /* Modal */
         .modal-overlay {

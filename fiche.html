@@ -524,42 +524,53 @@
 
         /* ═══ Print — fit to 8.5 × 11 Letter ═══ */
         @media print {
-            @page { size: letter portrait; margin: 0.5in; }
+            @page { size: letter portrait; margin: 0.4in 0.5in; }
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body { font-size: 12px; }
+            body { font-size: 11px; }
 
-            .nav-bar { display: none; }
-            .no-print { display: none; }
+            .nav-bar { display: none !important; }
+            .no-print { display: none !important; }
             .lightbox-overlay { display: none !important; }
             .editor-overlay { display: none !important; }
 
-            .fiche-subtitle { margin-top: 0; padding: 0 0 8px; font-size: 11px; }
+            .fiche-subtitle { margin-top: 0; padding: 0 0 6px; font-size: 10px; }
 
+            /* Force 2-column layout even if responsive collapsed it */
             .fiche-layout {
-                padding: 8px 0 0;
-                gap: 24px;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                padding: 6px 0 0;
+                gap: 20px;
+                max-width: 100%;
+            }
+            .fiche-layout.no-drawing {
+                grid-template-columns: 1fr !important;
                 max-width: 100%;
             }
 
-            .section-header { font-size: 9px; margin-bottom: 8px; padding-bottom: 6px; }
-            .fiche-title { font-size: 18px; margin-bottom: 8px; }
-            .fiche-desc { font-size: 12px; line-height: 1.5; margin-bottom: 12px; }
+            .section-header { font-size: 8px; letter-spacing: 1.5px; margin-bottom: 6px; padding-bottom: 4px; }
+            .fiche-title { font-size: 15px; margin-bottom: 6px; line-height: 1.2; }
+            .fiche-desc { font-size: 10px; line-height: 1.4; margin-bottom: 8px; }
 
-            .fiche-dessin-wrap img { max-height: 280px; width: auto; max-width: 100%; }
-            .fiche-photo-wrap { margin-bottom: 12px; }
-            .fiche-photo-wrap img { max-height: 220px; width: auto; max-width: 100%; }
+            .fiche-dessin-wrap img {
+                max-height: 240px; width: auto; max-width: 100%;
+                border: 1px solid #ccc;
+            }
+            .fiche-photo-wrap { margin-bottom: 8px; }
+            .fiche-photo-wrap img { max-height: 160px; width: auto; max-width: 100%; }
 
-            .fiche-credits { margin-bottom: 12px; }
-            .credit-line { font-size: 11px; margin-bottom: 2px; }
+            .fiche-credits { margin-bottom: 6px; }
+            .credit-line { font-size: 9px; margin-bottom: 1px; }
 
-            .fiche-qr { margin-bottom: 12px; }
-            .fiche-qr img { width: 80px; height: 80px; }
+            .fiche-qr { margin-bottom: 6px; }
+            .fiche-qr img { width: 64px; height: 64px; }
 
-            .info-row { font-size: 11px; margin-bottom: 4px; }
-            .info-usage { font-size: 11px; line-height: 1.5; margin-top: 8px; }
+            .info-row { font-size: 9px; margin-bottom: 3px; gap: 8px; }
+            .info-label { min-width: 70px; }
+            .info-usage { font-size: 9px; line-height: 1.4; margin-top: 6px; }
 
-            .fiche-footer { padding: 16px 0; margin-top: 16px; }
-            .fiche-footer .footer-logo { font-size: 16px; }
+            .fiche-footer { padding: 10px 0; margin-top: 10px; }
+            .fiche-footer .footer-logo { font-size: 14px; }
 
             .pdf-link { display: none !important; }
         }

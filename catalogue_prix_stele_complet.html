@@ -1404,6 +1404,7 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         let isNewItem = false;
+        let newItemData = null;
 
         function generateNextCode(category) {
             const items = CATALOGUE_DATA.filter(i => i.category === category);
@@ -1425,45 +1426,32 @@
             return prefix + '-' + String(maxNum + 1).padStart(3, '0');
         }
 
-        async function createNewItem(category) {
+        function createNewItem(category) {
             const newCode = generateNextCode(category);
-
-            // Déterminer le sort_order max + 1
             const maxSort = CATALOGUE_DATA.reduce((max, i) => Math.max(max, i.sort_order || 0), 0);
 
-            // Créer dans Supabase
-            const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                body: JSON.stringify({
-                    id: newCode,
-                    category: category,
-                    description: '',
-                    type: 'unité',
-                    price: null,
-                    instruction: '',
-                    in_calculator: true,
-                    sort_order: maxSort + 1
-                })
-            });
+            // Préparer l'item en mémoire seulement (pas de POST)
+            newItemData = {
+                id: newCode,
+                category: category,
+                description: '',
+                type: 'unité',
+                price: null,
+                instruction: '',
+                image_url: null,
+                in_calculator: true,
+                has_sales_sheet: false,
+                sort_order: maxSort + 1
+            };
 
-            if (!resp.ok) {
-                alert('Erreur lors de la création: ' + resp.status);
-                return;
-            }
-
-            const data = await resp.json();
-            const newItem = data[0];
-            CATALOGUE_DATA.push(newItem);
-            generatePriceTables();
+            isNewItem = true;
             openEditModal(newCode);
         }
 
         function openEditModal(itemId) {
-            const item = CATALOGUE_DATA.find(i => i.id === itemId);
+            // Pour un nouvel item, utiliser newItemData au lieu de chercher dans CATALOGUE_DATA
+            const item = (isNewItem && newItemData) ? newItemData : CATALOGUE_DATA.find(i => i.id === itemId);
             if (!item) return;
-
-            isNewItem = !item.description && item.price === null;
 
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editCode').value = item.id;
@@ -1509,6 +1497,8 @@
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
             editImageFile = null;
+            isNewItem = false;
+            newItemData = null;
         }
 
         function removeEditImage() {
@@ -1569,22 +1559,41 @@
                     payload.image_url = newImageUrl;
                 }
 
-                // Sauvegarder dans Supabase
-                const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify(payload)
-                });
+                let resp;
+                if (isNewItem && newItemData) {
+                    // Nouvel item : POST avec id et sort_order
+                    const createPayload = Object.assign({ id: itemId, sort_order: newItemData.sort_order }, payload);
+                    if (newImageUrl !== undefined) createPayload.image_url = newImageUrl;
+                    resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(createPayload)
+                    });
 
-                if (!resp.ok) throw new Error('Erreur sauvegarde: ' + resp.status);
+                    if (!resp.ok) throw new Error('Erreur création: ' + resp.status);
 
-                // Mettre à jour CATALOGUE_DATA en mémoire
-                const item = CATALOGUE_DATA.find(i => i.id === itemId);
-                if (item) {
-                    Object.assign(item, payload);
+                    const data = await resp.json();
+                    CATALOGUE_DATA.push(data[0]);
+                } else {
+                    // Item existant : PATCH
+                    resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!resp.ok) throw new Error('Erreur sauvegarde: ' + resp.status);
+
+                    const item = CATALOGUE_DATA.find(i => i.id === itemId);
+                    if (item) {
+                        Object.assign(item, payload);
+                    }
                 }
 
                 // Re-générer les tables

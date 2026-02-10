@@ -357,6 +357,40 @@
         window.location.href = 'login.html';
     }
 
+    var DEFAULT_PERMISSIONS = {
+        'Admin': { approbation: true }, 'Vente': { approbation: false },
+        'Charg\u00e9 de projet': { approbation: false }, 'Achat': { approbation: false },
+        'Atelier': { approbation: false }, 'Client': { approbation: false }
+    };
+    var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+
+    async function checkPageAccess() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {});
+            var perms = DEFAULT_PERMISSIONS, roles = DEFAULT_USER_ROLES;
+            if (r.ok) {
+                var rows = await r.json();
+                for (var i = 0; i < rows.length; i++) {
+                    if (rows[i].key === 'permissions') perms = rows[i].value;
+                    if (rows[i].key === 'user_roles') roles = rows[i].value;
+                }
+            }
+            var email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+            var role = roles[email] || 'Client';
+            var defaults = DEFAULT_PERMISSIONS[role] || {};
+            var saved = (perms[role] || {});
+            var allowed = {};
+            for (var k in defaults) allowed[k] = defaults[k];
+            for (var k2 in saved) allowed[k2] = saved[k2];
+            if (!allowed.approbation) { window.location.href = 'app.html'; return false; }
+        } catch (e) {
+            var email2 = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+            var role2 = DEFAULT_USER_ROLES[email2] || 'Client';
+            if (!(DEFAULT_PERMISSIONS[role2] || {}).approbation) { window.location.href = 'app.html'; return false; }
+        }
+        return true;
+    }
+
     // ═══ Load pending items ═══
 
     var pendingItems = [];
@@ -580,6 +614,7 @@
     // ═══ Init ═══
 
     (async function() {
+        if (!(await checkPageAccess())) return;
         await loadCategories();
         loadPending();
     })();

@@ -2595,10 +2595,47 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // VÉRIFICATION DES PERMISSIONS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const DEFAULT_PERMISSIONS = {
+            'Admin': { calculateur: true }, 'Vente': { calculateur: true },
+            'Charg\u00e9 de projet': { calculateur: true }, 'Achat': { calculateur: false },
+            'Atelier': { calculateur: false }, 'Client': { calculateur: false }
+        };
+        const DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+
+        async function checkPageAccess() {
+            try {
+                const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(permissions,user_roles)&select=key,value', {});
+                let perms = DEFAULT_PERMISSIONS, roles = DEFAULT_USER_ROLES;
+                if (r.ok) {
+                    const rows = await r.json();
+                    rows.forEach(row => {
+                        if (row.key === 'permissions') perms = row.value;
+                        if (row.key === 'user_roles') roles = row.value;
+                    });
+                }
+                const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                const role = roles[email] || 'Client';
+                const defaults = DEFAULT_PERMISSIONS[role] || {};
+                const saved = perms[role] || {};
+                const allowed = Object.assign({}, defaults, saved);
+                if (!allowed.calculateur) { window.location.href = 'app.html'; return false; }
+            } catch (e) {
+                const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                const role = DEFAULT_USER_ROLES[email] || 'Client';
+                if (!(DEFAULT_PERMISSIONS[role] || {}).calculateur) { window.location.href = 'app.html'; return false; }
+            }
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 
         document.addEventListener('DOMContentLoaded', async function() {
+            if (!(await checkPageAccess())) return;
             await loadCatalogueData();
             await loadConfigCategories();
             await loadTauxAndExpenses();

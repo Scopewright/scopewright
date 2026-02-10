@@ -513,6 +513,20 @@
         return resp;
     }
 
+    function checkPageAccess() {
+        var email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+        var roles = Object.keys(userRolesMap).length ? userRolesMap : DEFAULT_USER_ROLES;
+        var role = roles[email] || 'Client';
+        var perms = Object.keys(permissions).length ? permissions : DEFAULT_PERMISSIONS;
+        var defaults = DEFAULT_PERMISSIONS[role] || {};
+        var saved = perms[role] || {};
+        var allowed = {};
+        for (var k in defaults) allowed[k] = defaults[k];
+        for (var k2 in saved) allowed[k2] = saved[k2];
+        if (!allowed.admin) { window.location.href = 'app.html'; return false; }
+        return true;
+    }
+
     var permissions = {};
     var userRolesMap = {};
     var mediaTags = [];
@@ -563,10 +577,12 @@
                 }
             }
             applyDefaults();
+            if (!checkPageAccess()) return;
             renderAll();
         })
         .catch(function() {
             applyDefaults();
+            if (!checkPageAccess()) return;
             renderAll();
         });
     }

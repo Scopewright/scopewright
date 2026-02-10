@@ -1228,14 +1228,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Cat&eacute;gorie</label>
-                        <select class="form-input" id="editCategory">
-                            <option value="Budg&eacute;taire">Budg&eacute;taire</option>
-                            <option value="Panneaux">Panneaux</option>
-                            <option value="Poign&eacute;es">Poign&eacute;es</option>
-                            <option value="Tiroirs">Tiroirs</option>
-                            <option value="&Eacute;clairage">&Eacute;clairage</option>
-                            <option value="Portes int&eacute;rieures">Portes int&eacute;rieures</option>
-                        </select>
+                        <select class="form-input" id="editCategory"></select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1245,16 +1238,12 @@
                 <div class="edit-row">
                     <div class="form-group">
                         <label class="form-label">Type</label>
-                        <select class="form-input" id="editType">
-                            <option value="pi&sup2;">pi&sup2;</option>
-                            <option value="unitaire">unitaire</option>
-                            <option value="lin&eacute;aire">lin&eacute;aire</option>
-                            <option value="%">%</option>
-                        </select>
+                        <select class="form-input" id="editType"></select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Prix</label>
-                        <input type="number" class="form-input" id="editPrice" step="0.01" placeholder="Vide = Sur demande">
+                        <input type="hidden" id="editPrice">
+                        <div class="form-input" id="editPriceDisplay" style="background:#f5f5f5; color:#888; min-height:38px; display:flex; align-items:center;">Calculé automatiquement</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1607,6 +1596,7 @@
         };
 
         const DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };
+        let configCategories = [];
 
         function loadUserPermissions() {
             return new Promise((resolve) => {
@@ -1623,6 +1613,7 @@
                             if (row.key === 'user_roles') roles = row.value;
                             if (row.key === 'taux_horaires') tauxHoraires = row.value;
                             if (row.key === 'expense_categories') expenseCategories = row.value;
+                            if (row.key === 'catalogue_categories' && Array.isArray(row.value)) configCategories = row.value;
                         });
                     }
                     const role = roles[email] || 'Client';
@@ -1723,12 +1714,27 @@
             const item = (isNewItem && newItemData) ? newItemData : CATALOGUE_DATA.find(i => i.id === itemId);
             if (!item) return;
 
+            // Populer catégories dynamiquement
+            const catSelect = document.getElementById('editCategory');
+            const cats = new Set(configCategories);
+            CATALOGUE_DATA.forEach(i => { if (i.category) cats.add(i.category); });
+            if (item.category && !cats.has(item.category)) cats.add(item.category);
+            catSelect.innerHTML = Array.from(cats).map(c => '<option value="' + c.replace(/"/g, '&quot;') + '">' + c + '</option>').join('');
+
+            // Populer types dynamiquement
+            const typeSelect = document.getElementById('editType');
+            const types = new Set(['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%']);
+            CATALOGUE_DATA.forEach(i => { if (i.type) types.add(i.type); });
+            if (item.type && !types.has(item.type)) types.add(item.type);
+            typeSelect.innerHTML = Array.from(types).map(t => '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>').join('');
+
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editCode').value = item.id;
             document.getElementById('editCategory').value = item.category;
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
+            document.getElementById('editPriceDisplay').textContent = item.price != null ? item.price.toFixed(2) + ' $' : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
@@ -1972,14 +1978,18 @@
             var totalEl = document.getElementById('cpTotalValue');
             var breakdownEl = document.getElementById('cpBreakdown');
 
+            var priceField = document.getElementById('editPrice');
+            var priceDisplay = document.getElementById('editPriceDisplay');
             if (total > 0) {
                 totalEl.textContent = total.toFixed(2) + ' $';
                 breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
-                // Mettre à jour le champ prix
-                document.getElementById('editPrice').value = total.toFixed(2);
+                priceField.value = total.toFixed(2);
+                priceDisplay.textContent = total.toFixed(2) + ' $';
             } else {
                 totalEl.textContent = '\u2014';
                 breakdownEl.textContent = '';
+                priceField.value = '';
+                priceDisplay.textContent = 'Calculé automatiquement';
             }
         }
 

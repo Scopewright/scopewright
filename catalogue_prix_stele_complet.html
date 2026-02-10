@@ -702,6 +702,9 @@
         /* Modal d'édition — agrandie pour les champs */
         .modal.modal-edit {
             max-width: 520px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .edit-row {
@@ -968,6 +971,7 @@
 
         .modal-body {
             padding: 24px;
+            overflow-y: auto;
         }
 
         .form-group {

@@ -32,9 +32,11 @@
     // PROJETS — ÉTAT GLOBAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    let currentProject = null;   // objet projet courant { id, name, client_name, ... }
-    let roomMap = {};            // { groupDomId: supabaseRoomUUID }
-    let itemMap = {};            // { rowDomId: supabaseItemUUID }
+    let currentProject = null;      // objet projet courant { id, name, client_name, ... }
+    let currentSubmission = null;   // objet soumission courante { id, submission_number, title, status, ... }
+    let canApproveQuotes = false;   // permission can_approve_quotes
+    let roomMap = {};               // { groupDomId: supabaseRoomUUID }
+    let itemMap = {};               // { rowDomId: supabaseItemUUID }
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 4;
@@ -64,9 +66,13 @@
 
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*', {});
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at)', {});
         if (!r.ok) return [];
-        return await r.json();
+        var projects = await r.json();
+        projects.forEach(function(p) {
+            if (p.submissions) p.submissions.sort(function(a, b) { return b.submission_number - a.submission_number; });
+        });
+        return projects;
     }
 
     async function createProject(name, clientName) {
@@ -97,6 +103,81 @@
         return r.ok;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SOUMISSIONS — CRUD SUPABASE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadSubmissions(projectId) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?project_id=eq.' + projectId + '&order=submission_number.desc&select=*', {});
+        if (!r.ok) return [];
+        return await r.json();
+    }
+
+    async function createSubmission(projectId, title) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ project_id: projectId, title: title || '' })
+        });
+        if (!r.ok) throw new Error('Erreur cr\u00e9ation soumission: ' + r.status);
+        const data = await r.json();
+        return data[0];
+    }
+
+    async function updateSubmission(submissionId, fields) {
+        fields.updated_at = new Date().toISOString();
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + submissionId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(fields)
+        });
+        return r.ok;
+    }
+
+    async function deleteSubmission(submissionId) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + submissionId, {
+            method: 'DELETE'
+        });
+        return r.ok;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // REVIEWS — CRUD SUPABASE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function createSubmissionReview(submissionId, action, comment) {
+        const userId = localStorage.getItem('sb_user_id');
+        var versionAt = currentSubmission ? currentSubmission.current_version : null;
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submission_reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({
+                submission_id: submissionId,
+                reviewer_id: userId,
+                action: action,
+                comment: comment || '',
+                version_at_review: versionAt
+            })
+        });
+        if (!r.ok) throw new Error('Erreur review: ' + r.status);
+        return (await r.json())[0];
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PIÈCES & ARTICLES — CRUD SUPABASE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadSubmissionRooms(submissionId) {
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?submission_id=eq.' + submissionId + '&order=sort_order&select=*,room_items(*)', {});
+        if (!r.ok) return [];
+        const rooms = await r.json();
+        rooms.forEach(room => {
+            if (room.room_items) room.room_items.sort((a, b) => a.sort_order - b.sort_order);
+        });
+        return rooms;
+    }
+
+    // Legacy — keep for transition
     async function loadProjectRooms(projectId) {
         const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?project_id=eq.' + projectId + '&order=sort_order&select=*,room_items(*)', {});
         if (!r.ok) return [];
@@ -107,11 +188,14 @@
         return rooms;
     }
 
-    async function createRoom(projectId, name, sortOrder) {
+    async function createRoom(submissionId, name, sortOrder) {
+        var payload = { submission_id: submissionId, name: name || '', sort_order: sortOrder || 0 };
+        // Also set project_id for transition period
+        if (currentProject) payload.project_id = currentProject.id;
         const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-            body: JSON.stringify({ project_id: projectId, name: name || '', sort_order: sortOrder || 0 })
+            body: JSON.stringify(payload)
         });
         if (!r.ok) return null;
         const data = await r.json();
@@ -158,9 +242,9 @@
         });
     }
 
-    async function createVersion(projectId) {
+    async function createVersion(submissionId) {
         // Trouver le prochain numéro de version
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?project_id=eq.' + projectId + '&order=version_number.desc&limit=1&select=version_number', {});
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + submissionId + '&order=version_number.desc&limit=1&select=version_number', {});
         let nextVersion = 1;
         if (r.ok) {
             const data = await r.json();
@@ -170,17 +254,25 @@
         const snapshot = collecterDonneesCalculateur();
         const userId = localStorage.getItem('sb_user_id');
 
+        var payload = {
+            submission_id: submissionId,
+            version_number: nextVersion,
+            snapshot: snapshot,
+            status_at_save: currentSubmission ? currentSubmission.status : 'draft',
+            created_by: userId
+        };
+        // Also set project_id for transition period
+        if (currentProject) payload.project_id = currentProject.id;
+
         await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({
-                project_id: projectId,
-                version_number: nextVersion,
-                snapshot: snapshot,
-                status_at_save: currentProject ? currentProject.status : 'brouillon',
-                created_by: userId
-            })
+            body: JSON.stringify(payload)
         });
+
+        // Update current_version on submission
+        await updateSubmission(submissionId, { current_version: nextVersion });
+        if (currentSubmission) currentSubmission.current_version = nextVersion;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1112,11 +1204,49 @@
             display: inline-block; padding: 2px 10px; border-radius: 12px;
             font-size: 11px; font-weight: 600; text-transform: capitalize;
         }
+        /* Nouveau workflow */
+        .status-draft { background: #f0f0f0; color: #666; }
+        .status-pending_internal { background: #e3f2fd; color: #1565c0; }
+        .status-returned { background: #fff3e0; color: #e65100; }
+        .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
+        .status-sent_client { background: #ede7f6; color: #4527a0; }
+        .status-accepted { background: #e8f5e9; color: #1b5e20; }
+        .status-invoiced { background: #fce4ec; color: #880e4f; }
+        /* Legacy */
         .status-brouillon { background: #f0f0f0; color: #666; }
         .status-soumis { background: #e3f2fd; color: #1565c0; }
         .status-approuvé { background: #e8f5e9; color: #2e7d32; }
         .status-envoyé { background: #fff3e0; color: #e65100; }
         .status-signé { background: #e8f5e9; color: #1b5e20; }
+
+        /* Soumissions dans la carte projet */
+        .project-subs { margin: 10px 0 8px; }
+        .sub-line {
+            display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+            border-radius: 6px; cursor: pointer; transition: background 0.15s;
+        }
+        .sub-line:hover { background: #f5f5f5; }
+        .sub-number { font-size: 12px; font-weight: 700; color: var(--stele-green); min-width: 40px; }
+        .sub-title { font-size: 13px; color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sub-empty { font-size: 12px; color: #aaa; padding: 8px 10px; font-style: italic; }
+        .btn-add-sub {
+            display: block; width: 100%; padding: 6px 0; margin-top: 4px;
+            background: none; border: 1px dashed #ccc; border-radius: 6px;
+            color: #888; font-size: 12px; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-add-sub:hover { border-color: var(--stele-green); color: var(--stele-green); background: #f9faf9; }
+
+        /* Workflow action buttons */
+        .workflow-actions { display: flex; gap: 6px; align-items: flex-end; }
+        .btn-wf {
+            display: none; padding: 6px 14px; font-size: 12px; font-weight: 600;
+            border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;
+            transition: opacity 0.15s;
+        }
+        .btn-wf:hover { opacity: 0.85; }
+        .btn-wf-submit { background: #1565c0; color: #fff; }
+        .btn-wf-approve { background: #2e7d32; color: #fff; }
+        .btn-wf-return { background: #e65100; color: #fff; }
 
         .project-card-delete {
             position: absolute; top: 8px; right: 8px; background: none; border: none;
@@ -1341,14 +1471,25 @@
                         <input type="text" class="field-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
                     </div>
                     <div class="project-header-field">
+                        <label>Soumission <span id="subNumber" style="font-weight:700; color:var(--stele-green);"></span></label>
+                        <input type="text" class="field-name" id="subTitle" placeholder="Titre de la soumission" onblur="saveSubmissionField()">
+                    </div>
+                    <div class="project-header-field">
                         <label>Statut</label>
-                        <select id="projStatus" onchange="saveProjectField()">
-                            <option value="brouillon">Brouillon</option>
-                            <option value="soumis">Soumis</option>
-                            <option value="approuvé">Approuv&eacute;</option>
-                            <option value="envoyé">Envoy&eacute;</option>
-                            <option value="signé">Sign&eacute;</option>
+                        <select id="subStatus" onchange="saveSubmissionStatus()">
+                            <option value="draft">Brouillon</option>
+                            <option value="pending_internal">En approbation</option>
+                            <option value="returned">Retourn&eacute;e</option>
+                            <option value="approved_internal">Approuv&eacute;e</option>
+                            <option value="sent_client">Envoy&eacute;e client</option>
+                            <option value="accepted">Accept&eacute;e</option>
+                            <option value="invoiced">Factur&eacute;e</option>
                         </select>
+                    </div>
+                    <div class="project-header-field workflow-actions" id="workflowActions">
+                        <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="submitForApproval()">Soumettre</button>
+                        <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
+                        <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
                     </div>
                     <div class="project-header-field">
                         <label class="install-toggle-project">
@@ -1830,9 +1971,9 @@
             // Persistance Supabase
             if (opts.existingId) {
                 roomMap[groupId] = opts.existingId;
-            } else if (currentProject && !opts.skipSave) {
+            } else if (currentSubmission && !opts.skipSave) {
                 const sortOrder = document.querySelectorAll('.furniture-group').length;
-                createRoom(currentProject.id, initialName || '', sortOrder).then(room => {
+                createRoom(currentSubmission.id, initialName || '', sortOrder).then(room => {
                     if (room) roomMap[groupId] = room.id;
                 });
             }
@@ -1913,7 +2054,7 @@
             // Persistance Supabase
             if (opts.existingId) {
                 itemMap[rowId] = opts.existingId;
-            } else if (currentProject && roomMap[groupId] && !opts.skipSave) {
+            } else if (currentSubmission && roomMap[groupId] && !opts.skipSave) {
                 const sortOrder = container.querySelectorAll('.calc-row').length;
                 createItem(roomMap[groupId], { sort_order: sortOrder }).then(item => {
                     if (item) itemMap[rowId] = item.id;
@@ -2604,6 +2745,12 @@
             document.getElementById('grandTotal').textContent = formatPrice(total);
         }
 
+        function calculerGrandTotal() {
+            let total = 0;
+            document.querySelectorAll('.calc-row').forEach(row => { total += getRowTotal(row); });
+            return Math.round(total * 100) / 100;
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // MODAL ENVOI
         // ═══════════════════════════════════════════════════════════════════════
@@ -2615,9 +2762,9 @@
                 return;
             }
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
-            // Pré-remplir le code projet depuis le header
-            if (currentProject) {
-                document.getElementById('projectCode').value = currentProject.project_code || '';
+            // Pré-remplir le numéro de soumission
+            if (currentSubmission) {
+                document.getElementById('projectCode').value = '#' + currentSubmission.submission_number + (currentSubmission.title ? ' \u2014 ' + currentSubmission.title : '');
             }
             clearImages();
             document.getElementById('pdfModal').classList.add('active');
@@ -2846,7 +2993,12 @@
                 }
             });
 
-            return { meubles, total: formatPrice(grandTotal) };
+            var result = { meubles: meubles, total: formatPrice(grandTotal) };
+            if (currentSubmission) {
+                result.submissionNumber = currentSubmission.submission_number;
+                result.submissionTitle = currentSubmission.title;
+            }
+            return result;
         }
 
         function showSendStatus(message, isError) {
@@ -2894,7 +3046,9 @@
             const payload = {
                 projectCode, projectManager, managerEmail,
                 projectDate: formattedDate, description: projectDescription,
-                meubles, total, images
+                meubles, total, images,
+                submissionNumber: currentSubmission ? currentSubmission.submission_number : null,
+                submissionTitle: currentSubmission ? currentSubmission.title : ''
             };
 
             fetch(APPS_SCRIPT_URL, {
@@ -2903,13 +3057,13 @@
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(payload)
             })
-            .then(() => {
-                // Créer un snapshot/version si projet en cours
-                if (currentProject) {
-                    createVersion(currentProject.id);
-                    updateProject(currentProject.id, { status: 'soumis' });
-                    currentProject.status = 'soumis';
-                    document.getElementById('projStatus').value = 'soumis';
+            .then(async () => {
+                // Créer un snapshot/version de la soumission
+                if (currentSubmission) {
+                    await createVersion(currentSubmission.id);
+                    await updateSubmission(currentSubmission.id, { status: 'sent_client', sent_at: new Date().toISOString() });
+                    currentSubmission.status = 'sent_client';
+                    document.getElementById('subStatus').value = 'sent_client';
                 }
 
                 showSendStatus('Estimation envoyée avec succès!', false);
@@ -2936,6 +3090,7 @@
             document.getElementById('projectListView').classList.add('active');
             document.getElementById('calculatorView').classList.remove('active');
             currentProject = null;
+            currentSubmission = null;
             roomMap = {};
             itemMap = {};
             groupImages = {};
@@ -2963,6 +3118,15 @@
         // RENDU LISTE DE PROJETS
         // ═══════════════════════════════════════════════════════════════════════
 
+        var STATUS_LABELS = {
+            'draft': 'Brouillon', 'pending_internal': 'En approbation', 'returned': 'Retourn\u00e9e',
+            'approved_internal': 'Approuv\u00e9e', 'sent_client': 'Envoy\u00e9e', 'accepted': 'Accept\u00e9e',
+            'invoiced': 'Factur\u00e9e',
+            // Legacy
+            'brouillon': 'Brouillon', 'soumis': 'Soumis', 'approuv\u00e9': 'Approuv\u00e9',
+            'envoy\u00e9': 'Envoy\u00e9', 'sign\u00e9': 'Sign\u00e9'
+        };
+
         async function renderProjectList() {
             const grid = document.getElementById('projectGrid');
             const empty = document.getElementById('projectEmpty');
@@ -2979,25 +3143,59 @@
             projects.forEach(proj => {
                 const card = document.createElement('div');
                 card.className = 'project-card';
-                card.onclick = function(e) {
-                    if (e.target.closest('.project-card-delete')) return;
-                    openProject(proj.id);
-                };
 
-                const updatedDate = new Date(proj.updated_at);
-                const dateStr = updatedDate.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' });
+                const subs = proj.submissions || [];
+                const subCount = subs.length;
 
-                card.innerHTML = `
-                    <button class="project-card-delete" onclick="handleDeleteProject('${escapeAttr(proj.id)}', event)" title="Supprimer">&times;</button>
-                    <div class="project-card-name">${escapeHtml(proj.name || 'Sans nom')}</div>
-                    <div class="project-card-client">${escapeHtml(proj.client_name || 'Aucun client')}</div>
-                    <div class="project-card-meta">
-                        <span class="project-status-badge status-${escapeAttr(proj.status)}">${escapeHtml(proj.status)}</span>
-                        <span class="project-card-date">${escapeHtml(dateStr)}</span>
-                    </div>
-                `;
+                var subsHtml = '';
+                subs.forEach(function(sub) {
+                    var label = STATUS_LABELS[sub.status] || sub.status || 'Brouillon';
+                    subsHtml += '<div class="sub-line" data-subid="' + escapeAttr(sub.id) + '" data-projid="' + escapeAttr(proj.id) + '">' +
+                        '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
+                        '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
+                        '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + '</span>' +
+                        '</div>';
+                });
+
+                card.innerHTML =
+                    '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
+                    '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
+                    '<div class="project-card-client">' + escapeHtml(proj.client_name || 'Aucun client') + '</div>' +
+                    '<div class="project-subs">' + (subsHtml || '<div class="sub-empty">Aucune soumission</div>') + '</div>' +
+                    '<button class="btn-add-sub" onclick="handleAddSubmission(\'' + escapeAttr(proj.id) + '\', event)">+ Nouvelle soumission</button>';
+
+                // Click on a submission line → open it
+                card.addEventListener('click', function(e) {
+                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub')) return;
+                    var subLine = e.target.closest('.sub-line');
+                    if (subLine) {
+                        var subId = subLine.getAttribute('data-subid');
+                        openSubmission(subId);
+                        return;
+                    }
+                    // Click on card header (project name) → open first submission
+                    if (subs.length > 0) {
+                        openSubmission(subs[0].id);
+                    } else {
+                        openProject(proj.id); // creates default submission
+                    }
+                });
+
                 grid.appendChild(card);
             });
+        }
+
+        async function handleAddSubmission(projectId, event) {
+            if (event) event.stopPropagation();
+            var title = prompt('Titre de la nouvelle soumission :');
+            if (title === null) return; // cancelled
+            try {
+                var sub = await createSubmission(projectId, title || '');
+                await openSubmission(sub.id);
+            } catch (e) {
+                console.error('Erreur cr\u00e9ation soumission:', e);
+                alert('Erreur lors de la cr\u00e9ation de la soumission.');
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3040,43 +3238,54 @@
         // OUVRIR / CHARGER UN PROJET
         // ═══════════════════════════════════════════════════════════════════════
 
-        async function openProject(projectId) {
-            // Charger le projet
-            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId + '&select=*', {});
+        async function openSubmission(submissionId, project) {
+            // Charger la soumission
+            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + submissionId + '&select=*', {});
             if (!r.ok) return;
-            const data = await r.json();
-            if (data.length === 0) return;
+            const subData = await r.json();
+            if (subData.length === 0) return;
 
-            currentProject = data[0];
+            currentSubmission = subData[0];
+
+            // Charger le projet parent si pas déjà fourni
+            if (project) {
+                currentProject = project;
+            } else {
+                const pr = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentSubmission.project_id + '&select=*', {});
+                if (pr.ok) {
+                    const pData = await pr.json();
+                    if (pData.length > 0) currentProject = pData[0];
+                }
+            }
+
             roomMap = {};
             itemMap = {};
             groupImages = {};
 
             // Remplir le header
-            document.getElementById('projName').value = currentProject.name || '';
-            document.getElementById('projStatus').value = currentProject.status || 'brouillon';
+            document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
+            document.getElementById('subTitle').value = currentSubmission.title || '';
+            document.getElementById('subStatus').value = currentSubmission.status || 'draft';
+            document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
 
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
 
-            // Charger les pièces et items
-            const rooms = await loadProjectRooms(projectId);
+            // Charger les pièces et items via submission_id
+            const rooms = await loadSubmissionRooms(submissionId);
 
             if (rooms.length === 0) {
-                // Projet vide → créer un premier groupe
                 addFurnitureGroup('');
             } else {
                 rooms.forEach(room => {
                     const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
 
-                    // Restaurer le toggle installation
                     if (room.installation_included === false) {
                         var installCb = document.getElementById(groupId + '-install');
                         if (installCb) installCb.checked = false;
                     }
 
-                    // Restaurer les images du groupe
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {
                         groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl }));
                         renderGroupImagePreviews(groupId);
@@ -3086,14 +3295,12 @@
                         room.room_items.forEach(item => {
                             const rowId = addRow(groupId, { existingId: item.id, skipSave: true, skipFocus: true });
 
-                            // Pré-remplir la row
                             const row = document.getElementById(rowId);
                             const select = row.querySelector('.item-select');
                             const qtyInput = row.querySelector('.qty-input');
 
                             qtyInput.value = item.quantity || 1;
 
-                            // Restaurer le toggle installation par ligne
                             if (item.installation_included === false) {
                                 var rowInstCb = document.getElementById(rowId + '-install');
                                 if (rowInstCb) rowInstCb.checked = false;
@@ -3112,14 +3319,34 @@
                                 select.value = item.catalogue_item_id;
                             }
 
-                            // Mettre à jour l'affichage
                             updateRow(rowId);
                         });
                     }
                 });
             }
 
+            updateWorkflowButtons();
             showCalculator();
+        }
+
+        // Legacy wrapper pour compatibilité — ouvre la première soumission du projet
+        async function openProject(projectId) {
+            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId + '&select=*,submissions(id,submission_number,title,status,updated_at)', {});
+            if (!r.ok) return;
+            const data = await r.json();
+            if (data.length === 0) return;
+
+            var project = data[0];
+            var subs = project.submissions || [];
+            if (subs.length === 0) {
+                // Pas de soumission → en créer une
+                var newSub = await createSubmission(projectId, project.name || 'Soumission initiale');
+                await openSubmission(newSub.id, project);
+            } else {
+                // Ouvrir la plus récente
+                subs.sort(function(a, b) { return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+                await openSubmission(subs[0].id, project);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3128,14 +3355,126 @@
 
         function saveProjectField() {
             if (!currentProject) return;
-            const fields = {
-                name: document.getElementById('projName').value.trim(),
-                status: document.getElementById('projStatus').value
-            };
-            currentProject.name = fields.name;
-            currentProject.status = fields.status;
-            updateProject(currentProject.id, fields);
+            var name = document.getElementById('projName').value.trim();
+            currentProject.name = name;
+            updateProject(currentProject.id, { name: name });
             showSaveIndicator();
+        }
+
+        function saveSubmissionField() {
+            if (!currentSubmission) return;
+            var title = document.getElementById('subTitle').value.trim();
+            currentSubmission.title = title;
+            updateSubmission(currentSubmission.id, { title: title });
+            showSaveIndicator();
+        }
+
+        function saveSubmissionStatus() {
+            if (!currentSubmission) return;
+            var status = document.getElementById('subStatus').value;
+            currentSubmission.status = status;
+            updateSubmission(currentSubmission.id, { status: status });
+            updateWorkflowButtons();
+            showSaveIndicator();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // WORKFLOW : SOUMETTRE / APPROUVER / RETOURNER
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateWorkflowButtons() {
+            var btnSubmit = document.getElementById('btnWfSubmit');
+            var btnApprove = document.getElementById('btnWfApprove');
+            var btnReturn = document.getElementById('btnWfReturn');
+            btnSubmit.style.display = 'none';
+            btnApprove.style.display = 'none';
+            btnReturn.style.display = 'none';
+            if (!currentSubmission) return;
+
+            var s = currentSubmission.status;
+            if (s === 'draft' || s === 'returned') {
+                btnSubmit.style.display = 'inline-block';
+                btnSubmit.textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
+            }
+            if (s === 'pending_internal' && canApproveQuotes) {
+                btnApprove.style.display = 'inline-block';
+                btnReturn.style.display = 'inline-block';
+            }
+            if (s === 'approved_internal') {
+                // "Envoyer" exists in the PDF modal — no extra button needed here
+            }
+        }
+
+        async function submitForApproval() {
+            if (!currentSubmission) return;
+            try {
+                // Create a version snapshot before submitting
+                await createVersion(currentSubmission.id);
+
+                if (canApproveQuotes) {
+                    // Auto-approve: draft/returned → approved_internal
+                    await createSubmissionReview(currentSubmission.id, 'approved', 'Auto-approbation');
+                    var total = calculerGrandTotal();
+                    await updateSubmission(currentSubmission.id, {
+                        status: 'approved_internal',
+                        approved_by: localStorage.getItem('sb_user_id'),
+                        approved_at: new Date().toISOString(),
+                        approved_total: total
+                    });
+                    currentSubmission.status = 'approved_internal';
+                    document.getElementById('subStatus').value = 'approved_internal';
+                } else {
+                    // Normal submit: draft/returned → pending_internal
+                    await updateSubmission(currentSubmission.id, { status: 'pending_internal' });
+                    currentSubmission.status = 'pending_internal';
+                    document.getElementById('subStatus').value = 'pending_internal';
+                }
+                updateWorkflowButtons();
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Erreur soumission:', e);
+                alert('Erreur lors de la soumission.');
+            }
+        }
+
+        async function approveSubmission() {
+            if (!currentSubmission || !canApproveQuotes) return;
+            var comment = prompt('Commentaire d\'approbation (optionnel) :') || '';
+            try {
+                await createSubmissionReview(currentSubmission.id, 'approved', comment);
+                var total = calculerGrandTotal();
+                await updateSubmission(currentSubmission.id, {
+                    status: 'approved_internal',
+                    approved_by: localStorage.getItem('sb_user_id'),
+                    approved_at: new Date().toISOString(),
+                    approved_total: total
+                });
+                currentSubmission.status = 'approved_internal';
+                document.getElementById('subStatus').value = 'approved_internal';
+                updateWorkflowButtons();
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Erreur approbation:', e);
+                alert('Erreur lors de l\'approbation.');
+            }
+        }
+
+        async function returnSubmission() {
+            if (!currentSubmission || !canApproveQuotes) return;
+            var comment = prompt('Raison du retour :');
+            if (comment === null) return; // cancelled
+            if (!comment.trim()) { alert('Veuillez indiquer une raison.'); return; }
+            try {
+                await createSubmissionReview(currentSubmission.id, 'returned', comment);
+                await updateSubmission(currentSubmission.id, { status: 'returned' });
+                currentSubmission.status = 'returned';
+                document.getElementById('subStatus').value = 'returned';
+                updateWorkflowButtons();
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Erreur retour:', e);
+                alert('Erreur lors du retour.');
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3360,6 +3699,7 @@
                 const allowed = Object.assign({}, defaults, saved);
                 canEditMinutes = !!allowed.edit_minutes;
                 canEditMaterials = !!allowed.edit_materials;
+                canApproveQuotes = !!allowed.can_approve_quotes;
                 if (!allowed.calculateur) { window.location.href = 'app.html'; return false; }
             } catch (e) {
                 const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
@@ -3367,6 +3707,7 @@
                 var defPerms = DEFAULT_PERMISSIONS[role] || {};
                 canEditMinutes = !!defPerms.edit_minutes;
                 canEditMaterials = !!defPerms.edit_materials;
+                canApproveQuotes = !!defPerms.can_approve_quotes;
                 if (!defPerms.calculateur) { window.location.href = 'app.html'; return false; }
             }
             return true;

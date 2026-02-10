@@ -55,7 +55,7 @@ function doGet(e) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function envoyerEstimation(data) {
-  const { projectCode, projectManager, managerEmail, projectDate, description, meubles, total, images } = data;
+  const { projectCode, projectManager, managerEmail, projectDate, description, meubles, total, images, submissionNumber, submissionTitle } = data;
 
   // Construire le contenu HTML du courriel
   const htmlBody = genererHtmlCourriel(projectCode, projectManager, projectDate, description, meubles, total);
@@ -75,7 +75,8 @@ function envoyerEstimation(data) {
   }
 
   // Envoyer le courriel
-  const sujet = `Estimation Stele — ${projectCode} — ${projectManager}`;
+  const subRef = submissionNumber ? ('#' + submissionNumber) : projectCode;
+  const sujet = `Estimation Stele — ${subRef} — ${projectManager}`;
   const nbImages = (images && images.length > 0) ? ' (' + images.length + ' image(s) jointe(s))' : '';
 
   const emailOptions = {
@@ -229,6 +230,7 @@ function genererPdf(htmlContent, projectCode) {
   `;
 
   const blob = HtmlService.createHtmlOutput(htmlComplet).getBlob();
-  blob.setName('Estimation_Stele_' + projectCode + '.pdf');
+  const fileRef = projectCode.replace(/[^a-zA-Z0-9_#-]/g, '_');
+  blob.setName('Estimation_Stele_' + fileRef + '.pdf');
   return blob.getAs('application/pdf');
 }

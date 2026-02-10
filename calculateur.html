@@ -579,6 +579,29 @@
             border-radius: 4px;
         }
 
+        .btn-collapse {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px;
+            transition: transform 0.2s;
+            line-height: 1;
+        }
+
+        .btn-collapse:hover { color: #fff; }
+
+        .furniture-group.collapsed .btn-collapse {
+            transform: rotate(-90deg);
+        }
+
+        .furniture-group.collapsed .calc-header,
+        .furniture-group.collapsed .calc-rows,
+        .furniture-group.collapsed .group-images-section {
+            display: none;
+        }
+
         .furniture-group-header {
             display: flex;
             align-items: center;
@@ -1378,6 +1401,10 @@
             return options;
         }
 
+        function toggleGroup(groupId) {
+            document.getElementById(groupId).classList.toggle('collapsed');
+        }
+
         function addFurnitureGroup(initialName, opts) {
             opts = opts || {};
             groupCounter++;
@@ -1389,6 +1416,7 @@
 
             group.innerHTML = `
                 <div class="furniture-group-header">
+                    <button class="btn-collapse" onclick="toggleGroup('${groupId}')" title="Réduire / Agrandir">&#9660;</button>
                     <span class="group-label">Meuble :</span>
                     <input type="text" class="furniture-name-input" id="${groupId}-name"
                            placeholder="ex: Cuisine, Salle de bain, Sous-sol..."

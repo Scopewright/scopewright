@@ -17,7 +17,7 @@
     const STORAGE_KEY = 'stele_catalogue_data';
     const STORAGE_DATE_KEY = 'stele_catalogue_date';
 
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVTI_mo1ycOFt55FvPtF77zo3xAENqdTKKGW_WB2Fb6VIp1GUT5GxoIp_i5jVqIMM/exec';
+    // GAS retiré — workflow interne via soumissions
 
     let EMPLOYEES_DATA = [];
     let CATALOGUE_DATA = [];
@@ -1487,7 +1487,7 @@
                         </select>
                     </div>
                     <div class="project-header-field workflow-actions" id="workflowActions">
-                        <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="submitForApproval()">Soumettre</button>
+                        <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
                         <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
                         <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
                     </div>
@@ -1521,11 +1521,11 @@
                 Les montants affich&eacute;s sont fournis &agrave; titre indicatif uniquement. Une soumission d&eacute;taill&eacute;e sera requise pour confirmer les prix finaux.
             </p>
 
-            <button class="btn-pdf" onclick="openPdfModal()">
+            <button class="btn-pdf" id="btnOpenSubmit" onclick="openSubmitModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Envoyer l'estimation
+                Soumettre pour approbation
             </button>
         </div>
 
@@ -1543,17 +1543,13 @@
         </div>
     </div>
 
-    <!-- Modal Envoyer l'estimation -->
+    <!-- Modal Soumettre la soumission -->
     <div class="modal-overlay" id="pdfModal">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">Envoyer l'estimation</h3>
+                <h3 class="modal-title" id="submitModalTitle">Soumettre la soumission</h3>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label" for="projectCode">Code projet</label>
-                    <input type="text" class="form-input" id="projectCode" placeholder="ex: PRJ-2026-001">
-                </div>
                 <div class="form-group">
                     <label class="form-label" for="projectManager">Charg&eacute;(e) de projet</label>
                     <select class="form-input" id="projectManager">
@@ -1561,12 +1557,12 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="projectDate">Date</label>
+                    <label class="form-label" for="projectDate">Date requise</label>
                     <input type="date" class="form-input" id="projectDate">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="projectDescription">Description / Notes</label>
-                    <textarea class="form-input" id="projectDescription" rows="3" placeholder="Notes suppl&eacute;mentaires, contexte du projet..." style="resize: vertical; min-height: 60px;"></textarea>
+                    <label class="form-label" for="projectDescription">Message / Notes</label>
+                    <textarea class="form-input" id="projectDescription" rows="3" placeholder="Ex: J'en ai besoin pour demain, pr&eacute;voir 2 semaines de d&eacute;lai..." style="resize: vertical; min-height: 60px;"></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Images / Captures d'&eacute;cran <span style="font-weight:normal; color:#888;">(max 4)</span></label>
@@ -1583,7 +1579,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closePdfModal()">Annuler</button>
-                <button class="btn-generate" id="btnSend" onclick="envoyerEstimation()">Envoyer</button>
+                <button class="btn-generate" id="btnSend" onclick="soumettreSoumission()">Soumettre</button>
             </div>
         </div>
     </div>
@@ -2755,20 +2751,32 @@
         // MODAL ENVOI
         // ═══════════════════════════════════════════════════════════════════════
 
-        function openPdfModal() {
+        function openSubmitModal() {
+            if (!currentSubmission) return;
+            var s = currentSubmission.status;
+            if (s !== 'draft' && s !== 'returned') {
+                alert('Cette soumission ne peut pas \u00eatre soumise (statut: ' + (STATUS_LABELS[s] || s) + ').');
+                return;
+            }
             const rows = document.querySelectorAll('.calc-row');
             if (rows.length === 0) {
                 alert('Veuillez ajouter au moins un article au calculateur.');
                 return;
             }
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
-            // Pré-remplir le numéro de soumission
-            if (currentSubmission) {
-                document.getElementById('projectCode').value = '#' + currentSubmission.submission_number + (currentSubmission.title ? ' \u2014 ' + currentSubmission.title : '');
-            }
+            document.getElementById('projectDescription').value = '';
+            // Titre du modal adapté
+            document.getElementById('submitModalTitle').textContent = canApproveQuotes
+                ? 'Approuver & soumettre la soumission #' + currentSubmission.submission_number
+                : 'Soumettre la soumission #' + currentSubmission.submission_number;
+            document.getElementById('btnSend').textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
             clearImages();
+            document.getElementById('sendStatus').style.display = 'none';
             document.getElementById('pdfModal').classList.add('active');
         }
+
+        // Legacy alias
+        function openPdfModal() { openSubmitModal(); }
 
         function closePdfModal() {
             document.getElementById('pdfModal').classList.remove('active');
@@ -3009,77 +3017,75 @@
             statusEl.style.color = isError ? '#c62828' : '#2e7d32';
         }
 
-        function envoyerEstimation() {
-            if (APPS_SCRIPT_URL === 'COLLER_VOTRE_URL_ICI') {
-                showSendStatus('URL du script non configurée.', true);
-                return;
-            }
+        async function soumettreSoumission() {
+            if (!currentSubmission) return;
 
-            const projectCode = document.getElementById('projectCode').value || 'N/A';
             const managerSelect = document.getElementById('projectManager');
             const selectedIndex = managerSelect.value;
-            const projectManager = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].name : 'N/A';
-            const managerEmail = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].email : '';
+            const projectManager = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].name : '';
             const projectDate = document.getElementById('projectDate').value;
             const projectDescription = document.getElementById('projectDescription').value.trim();
 
-            let formattedDate = 'N/A';
-            if (projectDate) {
-                const date = new Date(projectDate + 'T00:00:00');
-                formattedDate = date.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
-            }
-
             const { meubles, total } = collecterDonneesCalculateur();
-            if (meubles.length === 0) { showSendStatus('Aucun article à envoyer.', true); return; }
+            if (meubles.length === 0) { showSendStatus('Aucun article \u00e0 soumettre.', true); return; }
 
             const btnSend = document.getElementById('btnSend');
             btnSend.disabled = true;
-            btnSend.textContent = 'Envoi en cours...';
-            showSendStatus('Envoi en cours...', false);
+            btnSend.textContent = 'Soumission en cours...';
+            showSendStatus('Soumission en cours...', false);
 
-            const images = attachedImages.map(img => ({
-                name: img.name,
-                mimeType: img.dataUrl.match(/^data:(.*?);/)[1],
-                data: img.dataUrl.split(',')[1]
-            }));
+            try {
+                // Cr\u00e9er un snapshot avec les notes du modal
+                await createVersion(currentSubmission.id);
 
-            const payload = {
-                projectCode, projectManager, managerEmail,
-                projectDate: formattedDate, description: projectDescription,
-                meubles, total, images,
-                submissionNumber: currentSubmission ? currentSubmission.submission_number : null,
-                submissionTitle: currentSubmission ? currentSubmission.title : ''
-            };
-
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(payload)
-            })
-            .then(async () => {
-                // Créer un snapshot/version de la soumission
-                if (currentSubmission) {
-                    await createVersion(currentSubmission.id);
-                    await updateSubmission(currentSubmission.id, { status: 'sent_client', sent_at: new Date().toISOString() });
-                    currentSubmission.status = 'sent_client';
-                    document.getElementById('subStatus').value = 'sent_client';
+                // Sauvegarder les m\u00e9tadonn\u00e9es de soumission sur le projet
+                var projectUpdates = {};
+                if (projectManager) projectUpdates.designer = projectManager;
+                if (projectDescription) projectUpdates.notes = projectDescription;
+                if (Object.keys(projectUpdates).length > 0 && currentProject) {
+                    await updateProject(currentProject.id, projectUpdates);
                 }
 
-                showSendStatus('Estimation envoyée avec succès!', false);
-                btnSend.textContent = 'Envoyé!';
+                var grandTotal = calculerGrandTotal();
+
+                if (canApproveQuotes) {
+                    // Auto-approbation
+                    await createSubmissionReview(currentSubmission.id, 'approved', projectDescription || 'Auto-approbation');
+                    await updateSubmission(currentSubmission.id, {
+                        status: 'approved_internal',
+                        approved_by: localStorage.getItem('sb_user_id'),
+                        approved_at: new Date().toISOString(),
+                        approved_total: grandTotal
+                    });
+                    currentSubmission.status = 'approved_internal';
+                    document.getElementById('subStatus').value = 'approved_internal';
+                    showSendStatus('Soumission approuv\u00e9e!', false);
+                } else {
+                    // Soumettre pour approbation interne
+                    await updateSubmission(currentSubmission.id, {
+                        status: 'pending_internal',
+                        approved_total: grandTotal
+                    });
+                    currentSubmission.status = 'pending_internal';
+                    document.getElementById('subStatus').value = 'pending_internal';
+                    showSendStatus('Soumission envoy\u00e9e pour approbation!', false);
+                }
+
+                updateWorkflowButtons();
+                setEditable(false);
+                btnSend.textContent = 'Soumis!';
                 setTimeout(() => {
                     closePdfModal();
                     btnSend.disabled = false;
-                    btnSend.textContent = 'Envoyer';
+                    btnSend.textContent = 'Soumettre';
                     document.getElementById('sendStatus').style.display = 'none';
-                }, 2000);
-            })
-            .catch(error => {
-                showSendStatus('Erreur lors de l\'envoi. Vérifiez votre connexion.', true);
+                }, 1500);
+            } catch (error) {
+                console.error('Erreur soumission:', error);
+                showSendStatus('Erreur lors de la soumission.', true);
                 btnSend.disabled = false;
-                btnSend.textContent = 'Envoyer';
-            });
+                btnSend.textContent = 'Soumettre';
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3326,6 +3332,8 @@
             }
 
             updateWorkflowButtons();
+            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned');
+            setEditable(isEditable);
             showCalculator();
         }
 
@@ -3375,7 +3383,69 @@
             currentSubmission.status = status;
             updateSubmission(currentSubmission.id, { status: status });
             updateWorkflowButtons();
+            setEditable(status === 'draft' || status === 'returned');
             showSaveIndicator();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // VERROUILLAGE ÉDITION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function setEditable(editable) {
+            // Inputs et selects du calculateur
+            var container = document.getElementById('calculatorView');
+            if (!container) return;
+
+            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup').forEach(function(el) {
+                el.disabled = !editable;
+                el.style.opacity = editable ? '' : '0.6';
+            });
+
+            // Boutons ajouter meuble/ligne, supprimer
+            container.querySelectorAll('.btn-add-group, .btn-add, .btn-remove, .btn-remove-group, .furniture-name-input').forEach(function(el) {
+                if (el.tagName === 'BUTTON') {
+                    el.disabled = !editable;
+                    el.style.opacity = editable ? '' : '0.4';
+                } else {
+                    el.readOnly = !editable;
+                    el.style.opacity = editable ? '' : '0.6';
+                }
+            });
+
+            // Installation toggles
+            container.querySelectorAll('input[type="checkbox"]').forEach(function(el) {
+                el.disabled = !editable;
+            });
+
+            // Bouton "Soumettre pour approbation" en bas
+            var btnOpenSubmit = document.getElementById('btnOpenSubmit');
+            if (btnOpenSubmit) {
+                btnOpenSubmit.disabled = !editable;
+                btnOpenSubmit.style.opacity = editable ? '' : '0.4';
+            }
+
+            // Header fields
+            var subTitle = document.getElementById('subTitle');
+            var subStatus = document.getElementById('subStatus');
+            if (subTitle) subTitle.readOnly = !editable;
+            if (subStatus) subStatus.disabled = !editable && !canApproveQuotes;
+
+            // Bannière de statut
+            var banner = document.getElementById('lockBanner');
+            if (!editable && currentSubmission) {
+                var label = STATUS_LABELS[currentSubmission.status] || currentSubmission.status;
+                if (!banner) {
+                    banner = document.createElement('div');
+                    banner.id = 'lockBanner';
+                    banner.style.cssText = 'background:#fff3e0; color:#e65100; padding:10px 16px; border-radius:6px; font-size:13px; font-weight:600; margin-bottom:12px; text-align:center;';
+                    var calcContainer = document.querySelector('.calculator-container');
+                    if (calcContainer) calcContainer.parentNode.insertBefore(banner, calcContainer);
+                }
+                banner.textContent = 'Soumission verrouill\u00e9e \u2014 Statut : ' + label;
+                banner.style.display = '';
+            } else if (banner) {
+                banner.style.display = 'none';
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3405,37 +3475,8 @@
             }
         }
 
-        async function submitForApproval() {
-            if (!currentSubmission) return;
-            try {
-                // Create a version snapshot before submitting
-                await createVersion(currentSubmission.id);
-
-                if (canApproveQuotes) {
-                    // Auto-approve: draft/returned → approved_internal
-                    await createSubmissionReview(currentSubmission.id, 'approved', 'Auto-approbation');
-                    var total = calculerGrandTotal();
-                    await updateSubmission(currentSubmission.id, {
-                        status: 'approved_internal',
-                        approved_by: localStorage.getItem('sb_user_id'),
-                        approved_at: new Date().toISOString(),
-                        approved_total: total
-                    });
-                    currentSubmission.status = 'approved_internal';
-                    document.getElementById('subStatus').value = 'approved_internal';
-                } else {
-                    // Normal submit: draft/returned → pending_internal
-                    await updateSubmission(currentSubmission.id, { status: 'pending_internal' });
-                    currentSubmission.status = 'pending_internal';
-                    document.getElementById('subStatus').value = 'pending_internal';
-                }
-                updateWorkflowButtons();
-                showSaveIndicator();
-            } catch (e) {
-                console.error('Erreur soumission:', e);
-                alert('Erreur lors de la soumission.');
-            }
-        }
+        // submitForApproval() redirigé vers le modal
+        function submitForApproval() { openSubmitModal(); }
 
         async function approveSubmission() {
             if (!currentSubmission || !canApproveQuotes) return;
@@ -3452,6 +3493,7 @@
                 currentSubmission.status = 'approved_internal';
                 document.getElementById('subStatus').value = 'approved_internal';
                 updateWorkflowButtons();
+                setEditable(false);
                 showSaveIndicator();
             } catch (e) {
                 console.error('Erreur approbation:', e);
@@ -3470,6 +3512,7 @@
                 currentSubmission.status = 'returned';
                 document.getElementById('subStatus').value = 'returned';
                 updateWorkflowButtons();
+                setEditable(true);
                 showSaveIndicator();
             } catch (e) {
                 console.error('Erreur retour:', e);

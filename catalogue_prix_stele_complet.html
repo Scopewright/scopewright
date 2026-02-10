@@ -1425,7 +1425,7 @@
                     <header class="page-header">
                         <span class="header-logo">stele</span>
                     </header>
-                    <h2 class="section-title">${category}</h2>
+                    <h2 class="section-title">${escapeHtml(category)}</h2>
                     <table class="price-table" id="${tableId}"></table>
                 `;
 
@@ -1441,7 +1441,7 @@
                             <th class="col-type">Type</th>
                             <th class="col-description">Description</th>
                             <th class="col-price">Prix</th>
-                            ${canEditCatalogue ? `<th class="col-edit"><button class="btn-add-item" onclick="createNewItem('${category.replace(/'/g, "\\'")}')" title="Ajouter un article">+</button></th>` : ''}
+                            ${canEditCatalogue ? `<th class="col-edit"><button class="btn-add-item" onclick="createNewItem('${escapeAttr(category).replace(/'/g, "&#39;")}')" title="Ajouter un article">+</button></th>` : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -1449,19 +1449,19 @@
 
                 grouped[category].forEach(item => {
                     const imgHtml = item.image_url
-                        ? `<img class="tooltip-image" src="${item.image_url}" alt="">`
+                        ? `<img class="tooltip-image" src="${escapeAttr(item.image_url)}" alt="">`
                         : '';
                     const tooltipClass = item.image_url ? 'tooltip has-image' : 'tooltip';
 
                     html += `
-                        <tr data-item-id="${item.id}">
+                        <tr data-item-id="${escapeAttr(item.id)}">
                             <td>
                                 <span class="tooltip-container tooltip-table">
-                                    ${item.id}
+                                    ${escapeHtml(item.id)}
                                     <div class="${tooltipClass}">
                                         ${imgHtml}
-                                        <div class="tooltip-title">${item.description}</div>
-                                        <div class="tooltip-text">${item.instruction || ''}</div>
+                                        <div class="tooltip-title">${escapeHtml(item.description)}</div>
+                                        <div class="tooltip-text">${escapeHtml(item.instruction || '')}</div>
                                     </div>
                                 </span>
                             </td>
@@ -1469,16 +1469,16 @@
                             <td>${formatType(item.type)}</td>
                             <td>
                                 <span class="tooltip-container tooltip-table tooltip-left">
-                                    ${item.description}
+                                    ${escapeHtml(item.description)}
                                     <div class="${tooltipClass}">
                                         ${imgHtml}
-                                        <div class="tooltip-title">${item.id}</div>
-                                        <div class="tooltip-text">${item.instruction || ''}</div>
+                                        <div class="tooltip-title">${escapeHtml(item.id)}</div>
+                                        <div class="tooltip-text">${escapeHtml(item.instruction || '')}</div>
                                     </div>
                                 </span>
                             </td>
                             <td>${formatPrice(item.price)}</td>
-                            ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${item.id}')" title="Modifier">&#9998;</button></td>` : ''}
+                            ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${escapeAttr(item.id)}')" title="Modifier">&#9998;</button></td>` : ''}
                         </tr>
                     `;
                 });

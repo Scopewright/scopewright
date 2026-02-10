@@ -216,6 +216,9 @@
             transition: border-color 0.2s;
         }
         .input-number:focus { outline: none; border-color: #4b6050; }
+        .input-number::-webkit-inner-spin-button,
+        .input-number::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-number { -moz-appearance: textbox; }
         .profit-cell {
             font-weight: 600; font-size: 14px; text-align: right;
             padding-right: 14px;
@@ -256,7 +259,7 @@
             <div class="page-sub">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les utilisateurs.</div>
 
             <!-- Permissions par role -->
-            <div class="section" id="sectionPerm">
+            <div class="section collapsed" id="sectionPerm">
                 <div class="section-toggle" onclick="toggleSection('sectionPerm')">
                     <div class="section-toggle-left">
                         <div class="section-title">Permissions par r&ocirc;le</div>
@@ -277,7 +280,7 @@
             </div>
 
             <!-- Attribution des roles -->
-            <div class="section" id="sectionRoles">
+            <div class="section collapsed" id="sectionRoles">
                 <div class="section-toggle" onclick="toggleSection('sectionRoles')">
                     <div class="section-toggle-left">
                         <div class="section-title">Attribution des r&ocirc;les</div>
@@ -305,7 +308,7 @@
             </div>
 
             <!-- Categories du catalogue -->
-            <div class="section" id="sectionCategories">
+            <div class="section collapsed" id="sectionCategories">
                 <div class="section-toggle" onclick="toggleSection('sectionCategories')">
                     <div class="section-toggle-left">
                         <div class="section-title">Cat&eacute;gories du catalogue</div>
@@ -332,7 +335,7 @@
             </div>
 
             <!-- Tags medias -->
-            <div class="section" id="sectionTags">
+            <div class="section collapsed" id="sectionTags">
                 <div class="section-toggle" onclick="toggleSection('sectionTags')">
                     <div class="section-toggle-left">
                         <div class="section-title">Tags m&eacute;dias</div>
@@ -358,7 +361,7 @@
                 </div>
             </div>
             <!-- Données de base — Taux horaires -->
-            <div class="section" id="sectionTaux">
+            <div class="section collapsed" id="sectionTaux">
                 <div class="section-toggle" onclick="toggleSection('sectionTaux')">
                     <div class="section-toggle-left">
                         <div class="section-title">Donn&eacute;es de base</div>

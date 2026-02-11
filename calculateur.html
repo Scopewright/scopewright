@@ -3760,7 +3760,7 @@
                 catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status + ': ' + errText.substring(0, 200)); }
             }
             var data = await resp.json();
-            console.log('[AI] Edge function response:', data);
+            console.log('[AI] Edge function response:', JSON.stringify(data).substring(0, 500));
             if (!data.translations || Object.keys(data.translations).length === 0) {
                 throw new Error('Aucun résultat retourné par l\'AI');
             }
@@ -3861,6 +3861,7 @@
                     'optimize'
                 );
                 var optimized = results['room_' + gid];
+                console.log('[AI] Optimize result for', gid, ':', optimized ? optimized.substring(0, 100) + '...' : 'EMPTY');
                 if (optimized) {
                     textarea.value = optimized;
                     // Save optimized FR

@@ -246,7 +246,8 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Type</label>
-                        <select class="form-select" id="coType"></select>
+                        <input type="text" class="form-input" id="coType" list="coTypeOptions" placeholder="S&eacute;lectionner ou taper..." oninput="updateTypeFields()">
+                        <datalist id="coTypeOptions"></datalist>
                     </div>
                 </div>
                 <div class="form-group">
@@ -271,6 +272,8 @@
                     <label class="form-label">Notes</label>
                     <textarea class="form-textarea" id="coNotes" rows="2"></textarea>
                 </div>
+
+                <div id="coExtraFields"></div>
 
                 <!-- Contact links -->
                 <div class="modal-section" id="companyLinksSection" style="display:none;">
@@ -459,9 +462,50 @@
     var allCompanies = [];
     var currentContactId = null;
     var currentCompanyId = null;
+    var currentCompanyExtraData = {};
     var configCompanyTypes = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var configContactRoles = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var configCommTypes = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
+
+    var TYPE_EXTRA_FIELDS = {
+        'Designer': [
+            { key: 'specialite', label: 'Sp\u00e9cialit\u00e9', type: 'text' },
+            { key: 'portfolio', label: 'Portfolio / Site cr\u00e9atif', type: 'url' }
+        ],
+        'Architecte': [
+            { key: 'numero_oaq', label: 'N\u00b0 OAQ', type: 'text' },
+            { key: 'specialite', label: 'Sp\u00e9cialit\u00e9', type: 'text' }
+        ],
+        'Entrepreneur': [
+            { key: 'licence_rbq', label: 'Licence RBQ', type: 'text' },
+            { key: 'specialite', label: 'Sp\u00e9cialit\u00e9', type: 'text' }
+        ],
+        'Promoteur': [
+            { key: 'type_projets', label: 'Type de projets', type: 'text' }
+        ],
+        'Particulier': [],
+        'Autre': []
+    };
+
+    function updateTypeFields() {
+        var container = document.getElementById('coExtraFields');
+        var type = document.getElementById('coType').value.trim();
+        var fields = TYPE_EXTRA_FIELDS[type];
+        if (!fields || fields.length === 0) { container.innerHTML = ''; return; }
+        var html = '<div class="modal-section" style="margin-top:10px; padding-top:10px;">';
+        html += '<div class="modal-section-title"><span>D\u00e9tails \u2014 ' + escapeHtml(type) + '</span></div>';
+        html += '<div class="form-row">';
+        for (var i = 0; i < fields.length; i++) {
+            var f = fields[i];
+            var val = (currentCompanyExtraData && currentCompanyExtraData[f.key]) || '';
+            html += '<div class="form-group">';
+            html += '<label class="form-label">' + escapeHtml(f.label) + '</label>';
+            html += '<input type="' + f.type + '" class="form-input extra-field" data-key="' + escapeHtml(f.key) + '" value="' + escapeHtml(val) + '">';
+            html += '</div>';
+        }
+        html += '</div></div>';
+        container.innerHTML = html;
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // TABS
@@ -749,6 +793,7 @@
 
     async function openCompanyModal(id) {
         currentCompanyId = id || null;
+        currentCompanyExtraData = {};
         document.getElementById('companyModalTitle').textContent = id ? 'Modifier l\'entreprise' : 'Nouvelle entreprise';
         document.getElementById('btnDeleteCompany').style.display = id ? '' : 'none';
         document.getElementById('companyLinksSection').style.display = id ? '' : 'none';
@@ -766,16 +811,18 @@
             document.getElementById('coEmail').value = co.email || '';
             document.getElementById('coWebsite').value = co.website || '';
             document.getElementById('coNotes').value = co.notes || '';
+            currentCompanyExtraData = co.extra_data || {};
             renderCompanyLinks(co);
         } else {
             document.getElementById('coName').value = '';
-            document.getElementById('coType').value = configCompanyTypes[0] || '';
+            document.getElementById('coType').value = '';
             document.getElementById('coAddress').value = '';
             document.getElementById('coPhone').value = '';
             document.getElementById('coEmail').value = '';
             document.getElementById('coWebsite').value = '';
             document.getElementById('coNotes').value = '';
         }
+        updateTypeFields();
         document.getElementById('companyModal').classList.add('active');
     }
 
@@ -789,15 +836,37 @@
         var name = document.getElementById('coName').value.trim();
         if (!name) { showStatus('companyModalStatus', 'error', 'Nom requis.'); return; }
 
+        var type = document.getElementById('coType').value.trim() || null;
+
+        // Collect extra fields
+        var extraData = {};
+        document.querySelectorAll('#coExtraFields .extra-field').forEach(function(el) {
+            var key = el.dataset.key;
+            var val = el.value.trim();
+            if (val) extraData[key] = val;
+        });
+
         var data = {
-            name: name, company_type: document.getElementById('coType').value || null,
+            name: name, company_type: type,
             address: document.getElementById('coAddress').value.trim() || null,
             phone: document.getElementById('coPhone').value.trim() || null,
             email: document.getElementById('coEmail').value.trim() || null,
             website: document.getElementById('coWebsite').value.trim() || null,
             notes: document.getElementById('coNotes').value.trim() || null,
+            extra_data: extraData,
             updated_at: new Date().toISOString()
         };
+
+        // Auto-save new custom type to app_config
+        if (type && configCompanyTypes.indexOf(type) === -1) {
+            configCompanyTypes.push(type);
+            populateTypeSelect('coType');
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.company_types', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ value: configCompanyTypes })
+            });
+        }
 
         try {
             if (currentCompanyId) {
@@ -968,9 +1037,10 @@
     // ═══════════════════════════════════════════════════════════════
 
     function populateTypeSelect(id) {
-        var sel = document.getElementById(id);
-        sel.innerHTML = configCompanyTypes.map(function(t) {
-            return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+        var dl = document.getElementById(id + 'Options');
+        if (!dl) return;
+        dl.innerHTML = configCompanyTypes.map(function(t) {
+            return '<option value="' + escapeHtml(t) + '">';
         }).join('');
     }
 

@@ -3355,7 +3355,7 @@
             }
 
             updateWorkflowButtons();
-            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned' || (currentSubmission.status === 'pending_internal' && canApproveQuotes));
+            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned' || (currentSubmission.status === 'pending_internal' && (canApproveQuotes || isApprovalMode)));
             setEditable(isEditable);
             showCalculator();
             if (isApprovalMode) {
@@ -3456,7 +3456,7 @@
             currentSubmission.status = status;
             updateSubmission(currentSubmission.id, { status: status });
             updateWorkflowButtons();
-            setEditable(status === 'draft' || status === 'returned' || (status === 'pending_internal' && canApproveQuotes));
+            setEditable(status === 'draft' || status === 'returned' || (status === 'pending_internal' && (canApproveQuotes || isApprovalMode)));
             showSaveIndicator();
         }
 
@@ -3539,7 +3539,7 @@
                 btnSubmit.style.display = 'inline-block';
                 btnSubmit.textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
             }
-            if (s === 'pending_internal' && canApproveQuotes) {
+            if (s === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {
                 btnApprove.style.display = 'inline-block';
                 btnReturn.style.display = 'inline-block';
             }
@@ -3552,7 +3552,7 @@
         function submitForApproval() { openSubmitModal(); }
 
         async function approveSubmission() {
-            if (!currentSubmission || !canApproveQuotes) return;
+            if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
             var comment = prompt('Commentaire d\'approbation (optionnel) :') || '';
             try {
                 await createSubmissionReview(currentSubmission.id, 'approved', comment);
@@ -3575,7 +3575,7 @@
         }
 
         async function returnSubmission() {
-            if (!currentSubmission || !canApproveQuotes) return;
+            if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
             var comment = prompt('Raison du retour :');
             if (comment === null) return; // cancelled
             if (!comment.trim()) { alert('Veuillez indiquer une raison.'); return; }

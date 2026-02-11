@@ -372,6 +372,22 @@
         </div>
     </div>
 
+    <!-- Modal générique (confirm / alert) -->
+    <div class="modal-overlay" id="steleDialogOverlay">
+        <div class="modal" style="max-width:440px;">
+            <div class="modal-header">
+                <div class="modal-title" id="steleDialogTitle"></div>
+            </div>
+            <div class="modal-body">
+                <p id="steleDialogMessage" style="font-size:14px; color:#444; margin-bottom:12px;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal-cancel" id="steleDialogCancel" onclick="steleDialogResolve(null)" style="display:none;">Annuler</button>
+                <button class="btn-modal-save" id="steleDialogOk" onclick="steleDialogResolve(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Communication modal -->
     <div class="modal-overlay" id="commModal">
         <div class="modal" style="max-width:480px;">
@@ -468,6 +484,24 @@
     var configCompanyTypes = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var configContactRoles = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var configCommTypes = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
+
+    var _steleDialogResolve = null;
+    function steleDialogResolve(val) {
+        document.getElementById('steleDialogOverlay').classList.remove('active');
+        if (_steleDialogResolve) { var fn = _steleDialogResolve; _steleDialogResolve = null; fn(val); }
+    }
+    function steleConfirm(msg, title, okLabel, danger) {
+        return new Promise(function(resolve) {
+            _steleDialogResolve = resolve;
+            document.getElementById('steleDialogTitle').textContent = title || 'Confirmation';
+            document.getElementById('steleDialogMessage').textContent = msg;
+            document.getElementById('steleDialogCancel').style.display = '';
+            document.getElementById('steleDialogOk').textContent = okLabel || 'Confirmer';
+            if (danger) document.getElementById('steleDialogOk').style.cssText = 'background:#c0392b; color:#fff; border:none; padding:9px 22px; font-size:13px; font-weight:600; cursor:pointer; border-radius:5px;';
+            else document.getElementById('steleDialogOk').style.cssText = '';
+            document.getElementById('steleDialogOverlay').classList.add('active');
+        });
+    }
 
     var TYPE_EXTRA_FIELDS = {
         'Designer': [
@@ -715,7 +749,7 @@
     }
 
     async function deleteContact() {
-        if (!currentContactId || !confirm('Supprimer ce contact ?')) return;
+        if (!currentContactId || !(await steleConfirm('Supprimer ce contact ?', 'Supprimer', 'Supprimer', true))) return;
         await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?id=eq.' + currentContactId, { method: 'DELETE' });
         closeContactModal();
         await loadContacts(); renderContacts();
@@ -745,7 +779,7 @@
     }
 
     async function removeLink(linkId) {
-        if (!confirm('Retirer ce lien ?')) return;
+        if (!(await steleConfirm('Retirer ce lien ?', 'Retirer'))) return;
         await authenticatedFetch(SUPABASE_URL + '/rest/v1/contact_companies?id=eq.' + linkId, { method: 'DELETE' });
         await loadContacts(); renderContacts();
         var c = allContacts.find(function(x) { return x.id === currentContactId; });
@@ -898,7 +932,7 @@
     }
 
     async function deleteCompany() {
-        if (!currentCompanyId || !confirm('Supprimer cette entreprise ?')) return;
+        if (!currentCompanyId || !(await steleConfirm('Supprimer cette entreprise ?', 'Supprimer', 'Supprimer', true))) return;
         await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?id=eq.' + currentCompanyId, { method: 'DELETE' });
         closeCompanyModal();
         await loadCompanies(); renderCompanies();
@@ -928,7 +962,7 @@
     }
 
     async function removeLinkFromCompany(linkId) {
-        if (!confirm('Retirer ce lien ?')) return;
+        if (!(await steleConfirm('Retirer ce lien ?', 'Retirer'))) return;
         await authenticatedFetch(SUPABASE_URL + '/rest/v1/contact_companies?id=eq.' + linkId, { method: 'DELETE' });
         await loadCompanies(); renderCompanies();
         var co = allCompanies.find(function(x) { return x.id === currentCompanyId; });

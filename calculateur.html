@@ -42,6 +42,69 @@
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 4;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // DIALOGUES CUSTOM (remplace alert/confirm/prompt natifs)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var _steleDialogResolve = null;
+    function steleDialogResolve(val) {
+        document.getElementById('steleDialogOverlay').classList.remove('active');
+        if (_steleDialogResolve) { var fn = _steleDialogResolve; _steleDialogResolve = null; fn(val); }
+    }
+    function steleDialogOk() {
+        var input = document.getElementById('steleDialogInput');
+        var wrap = document.getElementById('steleDialogInputWrap');
+        steleDialogResolve(wrap.style.display === 'none' ? true : input.value);
+    }
+
+    function steleAlert(msg, title) {
+        return new Promise(function(resolve) {
+            _steleDialogResolve = resolve;
+            document.getElementById('steleDialogTitle').textContent = title || '';
+            document.getElementById('steleDialogMessage').textContent = msg;
+            document.getElementById('steleDialogInputWrap').style.display = 'none';
+            document.getElementById('steleDialogCancel').style.display = 'none';
+            document.getElementById('steleDialogOk').textContent = 'OK';
+            document.getElementById('steleDialogOk').className = 'btn-generate';
+            document.getElementById('steleDialogOverlay').classList.add('active');
+        });
+    }
+
+    function steleConfirm(msg, title, okLabel, danger) {
+        return new Promise(function(resolve) {
+            _steleDialogResolve = resolve;
+            document.getElementById('steleDialogTitle').textContent = title || 'Confirmation';
+            document.getElementById('steleDialogMessage').textContent = msg;
+            document.getElementById('steleDialogInputWrap').style.display = 'none';
+            document.getElementById('steleDialogCancel').style.display = '';
+            document.getElementById('steleDialogOk').textContent = okLabel || 'Confirmer';
+            document.getElementById('steleDialogOk').className = danger ? 'btn-generate' : 'btn-generate';
+            if (danger) document.getElementById('steleDialogOk').style.background = '#c0392b';
+            else document.getElementById('steleDialogOk').style.background = '';
+            document.getElementById('steleDialogOverlay').classList.add('active');
+        });
+    }
+
+    function stelePrompt(msg, title, placeholder, required) {
+        return new Promise(function(resolve) {
+            _steleDialogResolve = resolve;
+            document.getElementById('steleDialogTitle').textContent = title || '';
+            document.getElementById('steleDialogMessage').textContent = msg;
+            document.getElementById('steleDialogInputWrap').style.display = '';
+            var input = document.getElementById('steleDialogInput');
+            input.value = '';
+            input.placeholder = placeholder || '';
+            document.getElementById('steleDialogCancel').style.display = '';
+            document.getElementById('steleDialogOk').textContent = 'OK';
+            document.getElementById('steleDialogOk').className = 'btn-generate';
+            document.getElementById('steleDialogOk').style.background = '';
+            document.getElementById('steleDialogOverlay').classList.add('active');
+            setTimeout(function() { input.focus(); }, 100);
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+
     function escapeHtml(str) {
         if (!str) return '';
         var div = document.createElement('div');
@@ -1562,6 +1625,25 @@
         </div>
     </div>
 
+    <!-- Modal g\u00e9n\u00e9rique (confirm / prompt / alert) -->
+    <div class="modal-overlay" id="steleDialogOverlay">
+        <div class="modal" style="max-width:440px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="steleDialogTitle"></h3>
+            </div>
+            <div class="modal-body">
+                <p id="steleDialogMessage" style="font-size:14px; color:#444; margin-bottom:12px;"></p>
+                <div id="steleDialogInputWrap" style="display:none;">
+                    <input type="text" class="form-input" id="steleDialogInput" style="font-size:14px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="steleDialogCancel" onclick="steleDialogResolve(null)" style="display:none;">Annuler</button>
+                <button class="btn-generate" id="steleDialogOk" onclick="steleDialogOk()">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Soumettre la soumission -->
     <div class="modal-overlay" id="pdfModal">
         <div class="modal">
@@ -1976,10 +2058,10 @@
             return groupId;
         }
 
-        function removeFurnitureGroup(groupId) {
+        async function removeFurnitureGroup(groupId) {
             const groups = document.querySelectorAll('.furniture-group');
             if (groups.length <= 1) return;
-            if (!confirm('Supprimer ce meuble et tous ses articles ?')) return;
+            if (!(await steleConfirm('Supprimer ce meuble et tous ses articles ?', 'Supprimer', 'Supprimer', true))) return;
 
             // Supprimer dans Supabase
             if (roomMap[groupId]) {
@@ -2444,7 +2526,7 @@
             if (!price || price <= 0) {
                 // Vérifier s'il y a des données composées
                 if (Object.keys(laborMinutes).length === 0 && Object.keys(materialCosts).length === 0) {
-                    alert('Veuillez remplir les minutes ou mat\u00e9riaux pour calculer le prix.');
+                    steleAlert('Veuillez remplir les minutes ou mat\u00e9riaux pour calculer le prix.');
                     return;
                 }
             }
@@ -2745,12 +2827,12 @@
             if (!currentSubmission) return;
             var s = currentSubmission.status;
             if (s !== 'draft' && s !== 'returned') {
-                alert('Cette soumission ne peut pas \u00eatre soumise (statut: ' + (STATUS_LABELS[s] || s) + ').');
+                steleAlert('Cette soumission ne peut pas \u00eatre soumise (statut: ' + (STATUS_LABELS[s] || s) + ').');
                 return;
             }
             const rows = document.querySelectorAll('.calc-row');
             if (rows.length === 0) {
-                alert('Veuillez ajouter au moins un article au calculateur.');
+                steleAlert('Veuillez ajouter au moins un article au calculateur.');
                 return;
             }
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
@@ -3135,14 +3217,14 @@
 
         async function handleAddSubmission(projectId, event) {
             if (event) event.stopPropagation();
-            var title = prompt('Titre de la nouvelle soumission :');
-            if (title === null) return; // cancelled
+            var title = await stelePrompt('Titre de la nouvelle soumission :', 'Nouvelle soumission');
+            if (title === null) return;
             try {
                 var sub = await createSubmission(projectId, title || '');
                 await openSubmission(sub.id);
             } catch (e) {
                 console.error('Erreur cr\u00e9ation soumission:', e);
-                alert('Erreur lors de la cr\u00e9ation de la soumission.');
+                steleAlert('Erreur lors de la cr\u00e9ation de la soumission.');
             }
         }
 
@@ -3175,7 +3257,7 @@
                 await openProject(project.id);
             } catch (e) {
                 console.error('Erreur création projet:', e);
-                alert('Erreur lors de la création du projet.');
+                steleAlert('Erreur lors de la cr\u00e9ation du projet.');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Créer';
@@ -3318,14 +3400,14 @@
 
         async function handleAddSubmissionFromCalc() {
             if (!currentProject) return;
-            var title = prompt('Titre de la nouvelle soumission :');
+            var title = await stelePrompt('Titre de la nouvelle soumission :', 'Nouvelle soumission');
             if (title === null) return;
             try {
                 var sub = await createSubmission(currentProject.id, title || '');
                 await openSubmission(sub.id);
             } catch (e) {
-                console.error('Erreur création soumission:', e);
-                alert('Erreur lors de la création de la soumission.');
+                console.error('Erreur cr\u00e9ation soumission:', e);
+                steleAlert('Erreur lors de la cr\u00e9ation de la soumission.');
             }
         }
 
@@ -3460,7 +3542,8 @@
 
         async function approveSubmission() {
             if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
-            var comment = prompt('Commentaire d\'approbation (optionnel) :') || '';
+            var comment = await stelePrompt('Commentaire d\'approbation (optionnel) :', 'Approuver la soumission');
+            if (comment === null) return;
             try {
                 await createSubmissionReview(currentSubmission.id, 'approved', comment);
                 var total = calculerGrandTotal();
@@ -3477,15 +3560,15 @@
                 showSaveIndicator();
             } catch (e) {
                 console.error('Erreur approbation:', e);
-                alert('Erreur lors de l\'approbation.');
+                steleAlert('Erreur lors de l\'approbation.');
             }
         }
 
         async function returnSubmission() {
             if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
-            var comment = prompt('Raison du retour :');
-            if (comment === null) return; // cancelled
-            if (!comment.trim()) { alert('Veuillez indiquer une raison.'); return; }
+            var comment = await stelePrompt('Raison du retour :', 'Retourner la soumission', 'Ex: Revoir les prix du meuble X...');
+            if (comment === null) return;
+            if (!comment.trim()) { steleAlert('Veuillez indiquer une raison.'); return; }
             try {
                 await createSubmissionReview(currentSubmission.id, 'returned', comment);
                 await updateSubmission(currentSubmission.id, { status: 'returned' });
@@ -3496,7 +3579,7 @@
                 showSaveIndicator();
             } catch (e) {
                 console.error('Erreur retour:', e);
-                alert('Erreur lors du retour.');
+                steleAlert('Erreur lors du retour.');
             }
         }
 
@@ -3506,7 +3589,7 @@
 
         async function handleDeleteProject(projectId, event) {
             event.stopPropagation();
-            if (!confirm('Supprimer ce projet et toutes ses données ?')) return;
+            if (!(await steleConfirm('Supprimer ce projet et toutes ses donn\u00e9es ?', 'Supprimer le projet', 'Supprimer', true))) return;
             await deleteProject(projectId);
             renderProjectList();
         }

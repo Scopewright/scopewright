@@ -3671,10 +3671,8 @@
             zone.innerHTML = '<div class="pv-clause-edit">' +
                 '<label>Titre</label>' +
                 '<input type="text" id="ceTitle" value="' + escapeAttr(clause ? clause.title : '') + '" placeholder="Ex: Dessins d\'atelier">' +
-                '<label>Contenu (fran\u00e7ais)</label>' +
-                '<textarea id="ceFr" rows="4" placeholder="Texte de la clause...">' + escapeHtml(clause ? clause.content_fr : '') + '</textarea>' +
-                '<label>Contenu (anglais) <span style="font-weight:400;color:#aaa;">optionnel</span></label>' +
-                '<textarea id="ceEn" rows="3" placeholder="English text...">' + escapeHtml(clause ? clause.content_en : '') + '</textarea>' +
+                '<label>Contenu</label>' +
+                '<textarea id="ceFr" rows="5" placeholder="Texte de la clause...">' + escapeHtml(clause ? clause.content_fr : '') + '</textarea>' +
                 '<div class="pv-clause-edit-btns">' +
                 '<button class="cancel" onclick="closeClauseEditor()">Annuler</button>' +
                 '<button class="save" onclick="saveLibraryClause(' + (isNew ? 'null' : "'" + clauseId + "'") + ')">' + (isNew ? 'Cr\u00e9er' : 'Sauvegarder') + '</button>' +
@@ -3691,10 +3689,9 @@
         async function saveLibraryClause(clauseId) {
             var title = document.getElementById('ceTitle').value.trim();
             var fr = document.getElementById('ceFr').value.trim();
-            var en = document.getElementById('ceEn').value.trim();
             if (!title) { document.getElementById('ceTitle').focus(); return; }
 
-            var payload = { title: title, content_fr: fr, content_en: en };
+            var payload = { title: title, content_fr: fr };
 
             try {
                 var r;
@@ -3904,24 +3901,7 @@
                 html += '</div></div>';
             });
 
-            // Grand total bar
-            html += '<div class="pv-total-bar">';
-            html += '<span class="pv-total-label">Total</span>';
-            html += '<div><div class="pv-total-amount">' + formatPrice(grandTotal) + '</div>';
-            html += '<div class="pv-total-taxes">+ taxes applicables</div></div>';
-            html += '</div>';
-
-            // Exclusions
-            var exclEl = document.getElementById('exclusionsText');
-            var exclText = exclEl ? exclEl.value : '';
-            html += '<div class="pv-exclusions">';
-            html += '<h4>Exclusions / Conditions</h4>';
-            html += '<textarea class="pv-exclusions-text" id="pvExclusionsText"';
-            html += ' placeholder="Ex: Les travaux de plomberie et d\u2019\u00e9lectricit\u00e9 ne sont pas inclus..."';
-            html += ' rows="3"' + (editable ? '' : ' disabled') + '>' + escapeHtml(exclText) + '</textarea>';
-            html += '</div>';
-
-            // ── Clauses de contrat ──
+            // ── Clauses de contrat (avant le total) ──
             var subClauses = getSubmissionClauses();
             if (subClauses.length > 0 || editable) {
                 html += '<div class="pv-clauses-section">';
@@ -3954,6 +3934,13 @@
                 html += '</div>';
             }
 
+            // Grand total bar (après les clauses)
+            html += '<div class="pv-total-bar">';
+            html += '<span class="pv-total-label">Total</span>';
+            html += '<div><div class="pv-total-amount">' + formatPrice(grandTotal) + '</div>';
+            html += '<div class="pv-total-taxes">+ taxes applicables</div></div>';
+            html += '</div>';
+
             container.innerHTML = html;
             wirePreviewSaveHandlers();
         }
@@ -3970,18 +3957,6 @@
                     if (calcDesc) calcDesc.value = this.value;
                 });
             });
-
-            // Exclusions
-            var pvExcl = document.getElementById('pvExclusionsText');
-            if (pvExcl) {
-                pvExcl.addEventListener('blur', function() {
-                    if (!currentSubmission) return;
-                    updateSubmission(currentSubmission.id, { exclusions: this.value });
-                    showSaveIndicator();
-                    var calcExcl = document.getElementById('exclusionsText');
-                    if (calcExcl) calcExcl.value = this.value;
-                });
-            }
 
             // Clause texts
             document.querySelectorAll('#pvContent .pv-doc-clause-text').forEach(function(textarea) {

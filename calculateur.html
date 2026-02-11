@@ -2092,6 +2092,7 @@
                 <span class="pv-toolbar-sub" id="pvSubNumber"></span>
                 <button class="btn-client-view" id="btnClientView" onclick="toggleClientView()">Vue client</button>
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
+                <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
             </div>
             <div class="pv-split">
                 <div class="pv-left">
@@ -3647,6 +3648,37 @@
 
         var clauseLibrary = []; // loaded from quote_clauses table
         var clientViewMode = false;
+        var currentLang = 'fr';
+        var roomDescEN = {}; // { groupDomId: 'english description' }
+        var i18n = {
+            fr: {
+                soumission: 'Soumission',
+                client: 'Client',
+                projet: 'Projet',
+                designer: 'Designer',
+                clausesTitle: 'Clauses du contrat',
+                total: 'Total',
+                taxes: '+ taxes applicables',
+                footer: 'Stele \u2014 \u00c9b\u00e9nisterie sur mesure',
+                descPlaceholder: 'Description visible par le client...',
+                dropClause: 'Glissez une clause ici',
+                biblio: '\u2191 Bib.'
+            },
+            en: {
+                soumission: 'Quote',
+                client: 'Client',
+                projet: 'Project',
+                designer: 'Designer',
+                clausesTitle: 'Contract Terms',
+                total: 'Total',
+                taxes: '+ applicable taxes',
+                footer: 'Stele \u2014 Custom Cabinetry',
+                descPlaceholder: 'Client-facing description...',
+                dropClause: 'Drag a clause here',
+                biblio: '\u2191 Lib.'
+            }
+        };
+        function t(key) { return (i18n[currentLang] || i18n.fr)[key] || key; }
 
         async function openPreview() {
             clientViewMode = false;
@@ -3677,6 +3709,16 @@
             } else {
                 pv.classList.remove('pv-client-mode');
                 if (btn) { btn.classList.remove('active'); btn.textContent = 'Vue client'; }
+            }
+            renderPreview();
+        }
+
+        function toggleLang() {
+            currentLang = currentLang === 'fr' ? 'en' : 'fr';
+            var btn = document.getElementById('btnLang');
+            if (btn) {
+                btn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
+                btn.classList.toggle('active', currentLang === 'en');
             }
             renderPreview();
         }
@@ -3813,6 +3855,7 @@
                 clause_id: lib.id,
                 title: lib.title,
                 content: lib.content_fr,
+                content_en: lib.content_en || '',
                 sort_order: clauses.length
             });
             await saveSubmissionClauses(clauses);
@@ -3836,6 +3879,14 @@
             }
         }
 
+        async function updateClauseTextEN(idx, newText) {
+            var clauses = getSubmissionClauses().slice();
+            if (clauses[idx]) {
+                clauses[idx].content_en = newText;
+                await saveSubmissionClauses(clauses);
+            }
+        }
+
         async function saveClauseBackToLibrary(idx) {
             var clauses = getSubmissionClauses();
             var c = clauses[idx];
@@ -3847,7 +3898,7 @@
                 if (existing) {
                     await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses?id=eq.' + c.clause_id, {
                         method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ title: c.title, content_fr: c.content })
+                        body: JSON.stringify({ title: c.title, content_fr: c.content, content_en: c.content_en || '' })
                     });
                     await loadClauseLibrary();
                     renderClauseLibrary();
@@ -3859,7 +3910,7 @@
             // Create new in library
             await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses', {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ title: c.title, content_fr: c.content })
+                body: JSON.stringify({ title: c.title, content_fr: c.content, content_en: c.content_en || '' })
             });
             await loadClauseLibrary();
             renderClauseLibrary();
@@ -3904,7 +3955,7 @@
             if (!container) return;
 
             if (subLabel && currentSubmission) {
-                subLabel.textContent = 'Soumission #' + (currentSubmission.submission_number || '');
+                subLabel.textContent = t('soumission') + ' #' + (currentSubmission.submission_number || '');
             }
 
             var html = '';
@@ -3915,17 +3966,21 @@
             var subDate = '';
             if (currentSubmission) {
                 var d = currentSubmission.sent_at || currentSubmission.approved_at || currentSubmission.created_at;
-                if (d) { var dt = new Date(d); subDate = dt.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' }); }
+                if (d) {
+                    var dt = new Date(d);
+                    var loc = currentLang === 'en' ? 'en-CA' : 'fr-CA';
+                    subDate = dt.toLocaleDateString(loc, { year: 'numeric', month: 'long', day: 'numeric' });
+                }
             }
             html += '<div class="pv-page pv-page-title">';
             html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
-            html += '<div class="pv-sub-number">Soumission #' + escapeHtml(subNum + '') + '</div>';
+            html += '<div class="pv-sub-number">' + t('soumission') + ' #' + escapeHtml(subNum + '') + '</div>';
             if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
             if (currentProject) {
                 html += '<div class="pv-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
                 if (currentProject.client_address) html += '<div class="pv-client-address">' + escapeHtml(currentProject.client_address) + '</div>';
                 html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
-                if (currentProject.designer) html += '<div class="pv-designer">Designer : ' + escapeHtml(currentProject.designer) + '</div>';
+                if (currentProject.designer) html += '<div class="pv-designer">' + t('designer') + ' : ' + escapeHtml(currentProject.designer) + '</div>';
             }
             html += '</div>';
 
@@ -3946,9 +4001,10 @@
                 var allImgs = groupImages[groupId] || [];
                 var imgs = clientViewMode ? allImgs.filter(function(img) { return img.showInQuote; }) : allImgs;
                 var descEl = document.getElementById(groupId + '-clientDesc');
-                var desc = descEl ? descEl.value : '';
+                var descFr = descEl ? descEl.value : '';
+                var descEn = roomDescEN[groupId] || '';
+                var desc = currentLang === 'en' ? descEn : descFr;
                 var hasImages = imgs.length > 0;
-                var hasDesc = desc && desc.trim();
 
                 html += '<div class="pv-page" data-group-id="' + escapeAttr(groupId) + '">';
                 html += '<div class="pv-page-room-header"><span class="pv-page-room-name">' + escapeHtml(roomName) + '</span><span class="pv-page-room-subtotal">' + formatPrice(subtotal) + '</span></div>';
@@ -3958,7 +4014,7 @@
                 if (hasImages) {
                     html += '<div class="pv-page-room-text">';
                     html += '<textarea class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
-                    html += ' placeholder="Description visible par le client..."';
+                    html += ' placeholder="' + t('descPlaceholder') + '"';
                     html += (editable ? '' : ' disabled') + '>' + escapeHtml(desc) + '</textarea>';
                     html += '</div>';
 
@@ -3982,7 +4038,7 @@
                     // No images — description takes full width
                     html += '<div class="pv-page-room-text" style="flex:1;">';
                     html += '<textarea class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
-                    html += ' placeholder="Description visible par le client..."';
+                    html += ' placeholder="' + t('descPlaceholder') + '"';
                     html += (editable ? '' : ' disabled') + '>' + escapeHtml(desc) + '</textarea>';
                     html += '</div>';
                 }
@@ -3994,17 +4050,18 @@
             var subClauses = getSubmissionClauses();
             if (subClauses.length > 0 || editable) {
                 html += '<div class="pv-page">';
-                html += '<div class="pv-page-clauses-header">Clauses du contrat</div>';
+                html += '<div class="pv-page-clauses-header">' + t('clausesTitle') + '</div>';
                 html += '<div class="pv-page-clauses-body">';
 
                 subClauses.forEach(function(clause, idx) {
                     html += '<div class="pv-page-clause" data-clause-idx="' + idx + '">';
                     html += '<div class="pv-page-clause-title">' + escapeHtml(clause.title) + '</div>';
+                    var clauseText = currentLang === 'en' ? (clause.content_en || '') : (clause.content || '');
                     html += '<textarea class="pv-page-clause-text" data-clause-idx="' + idx + '"';
-                    html += ' rows="2"' + (editable ? '' : ' disabled') + '>' + escapeHtml(clause.content || '') + '</textarea>';
+                    html += ' rows="2"' + (editable ? '' : ' disabled') + '>' + escapeHtml(clauseText) + '</textarea>';
                     if (editable) {
                         html += '<div class="pv-page-clause-actions">';
-                        html += '<button class="pv-doc-clause-btn save-lib" onclick="saveClauseBackToLibrary(' + idx + ')" title="Sauvegarder dans la biblioth\u00e8que">\u2191 Bib.</button>';
+                        html += '<button class="pv-doc-clause-btn save-lib" onclick="saveClauseBackToLibrary(' + idx + ')" title="Sauvegarder dans la biblioth\u00e8que">' + t('biblio') + '</button>';
                         html += '<button class="pv-doc-clause-btn remove" onclick="removeClauseFromSubmission(' + idx + ')" title="Retirer">\u2715</button>';
                         html += '</div>';
                     }
@@ -4016,7 +4073,7 @@
                     html += ' ondragover="onClauseDropZoneDragOver(event)"';
                     html += ' ondragleave="onClauseDropZoneDragLeave(event)"';
                     html += ' ondrop="onClauseDropZoneDrop(event)">';
-                    html += 'Glissez une clause ici';
+                    html += t('dropClause');
                     html += '</div>';
                 }
 
@@ -4026,11 +4083,11 @@
             // ── Total page (last) ──
             html += '<div class="pv-page pv-page-total">';
             html += '<div class="pv-total-box">';
-            html += '<div class="total-label">Total</div>';
+            html += '<div class="total-label">' + t('total') + '</div>';
             html += '<div class="total-amount">' + formatPrice(grandTotal) + '</div>';
-            html += '<div class="total-taxes">+ taxes applicables</div>';
+            html += '<div class="total-taxes">' + t('taxes') + '</div>';
             html += '</div>';
-            html += '<div class="pv-page-footer-text">Stele \u2014 \u00c9b\u00e9nisterie sur mesure</div>';
+            html += '<div class="pv-page-footer-text">' + t('footer') + '</div>';
             html += '</div>';
 
             container.innerHTML = html;
@@ -4038,23 +4095,33 @@
         }
 
         function wirePreviewSaveHandlers() {
-            // Room descriptions
+            // Room descriptions — save to correct lang field
             document.querySelectorAll('#pvContent .pv-page-room-desc').forEach(function(textarea) {
                 textarea.addEventListener('blur', function() {
                     var gid = this.getAttribute('data-group-id');
                     if (!gid || !roomMap[gid]) return;
-                    updateRoom(roomMap[gid], { client_description: this.value });
+                    if (currentLang === 'en') {
+                        roomDescEN[gid] = this.value;
+                        updateRoom(roomMap[gid], { client_description_en: this.value });
+                    } else {
+                        updateRoom(roomMap[gid], { client_description: this.value });
+                        var calcDesc = document.getElementById(gid + '-clientDesc');
+                        if (calcDesc) calcDesc.value = this.value;
+                    }
                     showSaveIndicator();
-                    var calcDesc = document.getElementById(gid + '-clientDesc');
-                    if (calcDesc) calcDesc.value = this.value;
                 });
             });
 
-            // Clause texts
+            // Clause texts — save to correct lang field
             document.querySelectorAll('#pvContent .pv-page-clause-text').forEach(function(textarea) {
                 textarea.addEventListener('blur', function() {
                     var idx = parseInt(this.getAttribute('data-clause-idx'), 10);
-                    if (!isNaN(idx)) updateClauseText(idx, this.value);
+                    if (isNaN(idx)) return;
+                    if (currentLang === 'en') {
+                        updateClauseTextEN(idx, this.value);
+                    } else {
+                        updateClauseText(idx, this.value);
+                    }
                 });
             });
         }
@@ -4159,6 +4226,7 @@
             roomMap = {};
             itemMap = {};
             groupImages = {};
+            roomDescEN = {};
             renderProjectList();
         }
 
@@ -4339,6 +4407,7 @@
             roomMap = {};
             itemMap = {};
             groupImages = {};
+            roomDescEN = {};
 
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
@@ -4368,6 +4437,9 @@
                     if (room.client_description) {
                         var descEl = document.getElementById(groupId + '-clientDesc');
                         if (descEl) descEl.value = room.client_description;
+                    }
+                    if (room.client_description_en) {
+                        roomDescEN[groupId] = room.client_description_en;
                     }
 
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {

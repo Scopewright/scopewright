@@ -375,8 +375,11 @@
     }
 
     async function createVersion(submissionId) {
-        // Trouver le prochain numéro de version
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + submissionId + '&order=version_number.desc&limit=1&select=version_number', {});
+        // Trouver le prochain numéro de version (par project_id pour respecter la contrainte unique)
+        var versionQuery = currentProject
+            ? SUPABASE_URL + '/rest/v1/project_versions?project_id=eq.' + currentProject.id + '&order=version_number.desc&limit=1&select=version_number'
+            : SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + submissionId + '&order=version_number.desc&limit=1&select=version_number';
+        const r = await authenticatedFetch(versionQuery, {});
         let nextVersion = 1;
         if (r.ok) {
             const data = await r.json();

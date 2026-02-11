@@ -1364,13 +1364,39 @@
 
         /* Split panels */
         .pv-split { flex: 1; display: flex; overflow: hidden; }
-        .pv-left { flex: 1; overflow-y: auto; padding: 24px 32px; }
+        .pv-left { flex: 1; overflow-y: auto; padding: 32px 40px; background: #f4f4f2; }
         .pv-right {
             width: 360px; min-width: 360px; overflow-y: auto;
             background: #f8f8f8; border-left: 1px solid rgba(0,0,0,0.1);
         }
 
-        .pv-content { max-width: 900px; margin: 0 auto; }
+        .pv-content {
+            max-width: 900px; margin: 0 auto;
+            background: #fff; padding: 40px 48px;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+            border-radius: 2px; min-height: 600px;
+        }
+
+        /* Document header (logo + soumission) */
+        .pv-doc-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 20px; margin-bottom: 28px;
+            border-bottom: 3px solid var(--stele-green);
+        }
+        .pv-doc-logo { height: 52px; width: auto; }
+        .pv-doc-header-right { text-align: right; }
+        .pv-doc-sub-number {
+            font-size: 20px; font-weight: 700; color: var(--stele-green); letter-spacing: 0.5px;
+        }
+        .pv-doc-date { font-size: 12px; color: #888; margin-top: 2px; }
+
+        /* Document footer */
+        .pv-doc-footer {
+            margin-top: 36px; padding-top: 16px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            text-align: center; font-size: 11px; color: #aaa;
+            letter-spacing: 0.5px;
+        }
 
         /* Tools panel */
         .pv-tools-header {
@@ -1413,24 +1439,28 @@
 
         /* Room cards */
         .pv-room-card {
-            margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 4px; overflow: hidden;
+            margin-bottom: 28px; border: 1px solid rgba(0,0,0,0.06);
+            border-radius: 6px; overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         }
         .pv-room-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 18px; background: var(--stele-green); color: #fff;
+            padding: 14px 22px; background: var(--stele-green); color: #fff;
         }
-        .pv-room-name { font-size: 15px; font-weight: 600; }
-        .pv-room-subtotal { font-size: 15px; font-weight: 700; white-space: nowrap; }
-        .pv-room-body { padding: 16px 18px; }
+        .pv-room-name { font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
+        .pv-room-subtotal { font-size: 16px; font-weight: 700; white-space: nowrap; }
+        .pv-room-body { padding: 20px 22px; }
 
-        .pv-room-images { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .pv-room-images {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 12px; margin-bottom: 16px;
+        }
         .pv-room-images img {
-            width: 300px; height: 220px; object-fit: cover; border-radius: 4px;
-            cursor: pointer; border: 1px solid rgba(0,0,0,0.1);
+            width: 100%; height: 280px; object-fit: cover; border-radius: 4px;
+            cursor: pointer; border: 1px solid rgba(0,0,0,0.08);
             transition: transform 0.15s, box-shadow 0.15s;
         }
-        .pv-room-images img:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+        .pv-room-images img:hover { transform: scale(1.01); box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
 
         .pv-room-desc {
             width: 100%; border: 1px dashed #ccc; border-radius: 4px;
@@ -1451,39 +1481,22 @@
         .pv-total-amount { font-size: 28px; font-weight: 700; }
         .pv-total-taxes { font-size: 12px; opacity: 0.7; margin-top: 2px; text-align: right; }
 
-        /* Exclusions */
-        .pv-exclusions {
-            margin-bottom: 28px; padding: 16px 20px; background: #f5f5f5;
-            border-radius: 4px; border: 1px solid rgba(0,0,0,0.08);
-        }
-        .pv-exclusions h4 {
-            font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
-            color: #8B6914; margin-bottom: 8px; font-weight: 600;
-        }
-        .pv-exclusions-text {
-            width: 100%; border: 1px dashed #ccc; border-radius: 4px;
-            padding: 10px 12px; font-size: 14px; line-height: 1.35; color: #555;
-            font-family: inherit; resize: vertical; min-height: 40px;
-            background: #fff; transition: border-color 0.2s;
-        }
-        .pv-exclusions-text:focus { outline: none; border-color: var(--stele-green); }
-        .pv-exclusions-text:disabled { background: #f0f0f0; opacity: 0.7; border-style: solid; cursor: default; }
-        .pv-exclusions-text::placeholder { color: #aaa; font-style: italic; }
-
         /* Clauses in document preview */
-        .pv-clauses-section { margin-bottom: 28px; }
+        .pv-clauses-section { margin: 32px 0; }
         .pv-clauses-section > h4 {
-            font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
-            color: var(--stele-green); margin-bottom: 12px; font-weight: 600;
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--stele-green); margin-bottom: 16px; font-weight: 700;
+            padding-bottom: 8px; border-bottom: 2px solid var(--stele-green);
         }
         .pv-doc-clause {
-            margin-bottom: 12px; padding: 14px 16px; background: #fff;
-            border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;
+            margin-bottom: 16px; padding: 16px 20px; background: #fff;
+            border-left: 3px solid var(--stele-green);
+            border-radius: 0 4px 4px 0;
             position: relative;
         }
         .pv-doc-clause-title {
             font-size: 13px; font-weight: 700; color: var(--stele-black);
-            margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;
+            margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px;
         }
         .pv-doc-clause-text {
             width: 100%; border: 1px dashed #ccc; border-radius: 4px;
@@ -1577,7 +1590,9 @@
         @media (max-width: 900px) {
             .pv-split { flex-direction: column; }
             .pv-left { padding: 16px; }
+            .pv-content { padding: 20px 24px; }
             .pv-right { width: 100%; min-width: 100%; max-height: 240px; border-left: none; border-top: 1px solid rgba(0,0,0,0.1); }
+            .pv-room-images { grid-template-columns: 1fr; }
         }
 
         .btn-preview {
@@ -3849,6 +3864,20 @@
 
             var html = '';
 
+            // Document header — logo + soumission
+            var subNum = currentSubmission ? currentSubmission.submission_number : '';
+            var subDate = '';
+            if (currentSubmission) {
+                var d = currentSubmission.sent_at || currentSubmission.approved_at || currentSubmission.created_at;
+                if (d) { var dt = new Date(d); subDate = dt.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' }); }
+            }
+            html += '<div class="pv-doc-header">';
+            html += '<img class="pv-doc-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+            html += '<div class="pv-doc-header-right">';
+            html += '<div class="pv-doc-sub-number">Soumission #' + escapeHtml(subNum + '') + '</div>';
+            if (subDate) html += '<div class="pv-doc-date">' + escapeHtml(subDate) + '</div>';
+            html += '</div></div>';
+
             // Client info
             if (currentProject) {
                 html += '<div class="pv-client-info">';
@@ -3940,6 +3969,9 @@
             html += '<div><div class="pv-total-amount">' + formatPrice(grandTotal) + '</div>';
             html += '<div class="pv-total-taxes">+ taxes applicables</div></div>';
             html += '</div>';
+
+            // Footer
+            html += '<div class="pv-doc-footer">Stele \u2014 \u00c9b\u00e9nisterie sur mesure</div>';
 
             container.innerHTML = html;
             wirePreviewSaveHandlers();

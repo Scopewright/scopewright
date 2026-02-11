@@ -1631,6 +1631,94 @@
             .pv-room-images { grid-template-columns: 1fr; }
         }
 
+        /* ── Presentation (slideshow) mode ── */
+        .pres-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 9999; background: #fff; overflow: hidden;
+        }
+        .pres-overlay.active { display: flex; flex-direction: column; }
+
+        .pres-slide {
+            display: none; flex: 1;
+            flex-direction: column; justify-content: center; align-items: center;
+            padding: 48px 64px; text-align: left;
+            animation: presFadeIn 0.35s ease;
+        }
+        .pres-slide.active { display: flex; }
+        @keyframes presFadeIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+        .pres-slide-inner {
+            width: 100%; max-width: 1100px; max-height: 100%;
+            overflow: hidden;
+        }
+
+        /* Slide: Title */
+        .pres-title-slide { justify-content: center; align-items: center; text-align: center; }
+        .pres-title-slide .pres-logo { height: 72px; margin-bottom: 40px; }
+        .pres-title-slide .pres-sub-number { font-size: 28px; font-weight: 700; color: var(--stele-green); margin-bottom: 8px; }
+        .pres-title-slide .pres-sub-date { font-size: 16px; color: #888; margin-bottom: 40px; }
+        .pres-title-slide .pres-client-name { font-size: 36px; font-weight: 300; color: var(--stele-black); margin-bottom: 8px; }
+        .pres-title-slide .pres-project-name { font-size: 20px; color: #666; margin-bottom: 4px; }
+        .pres-title-slide .pres-designer { font-size: 15px; color: #999; }
+
+        /* Slide: Room */
+        .pres-room-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px; background: var(--stele-green); color: #fff; border-radius: 6px;
+            margin-bottom: 24px;
+        }
+        .pres-room-header .room-name { font-size: 24px; font-weight: 600; }
+        .pres-room-header .room-subtotal { font-size: 22px; font-weight: 700; }
+        .pres-room-images {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px; margin-bottom: 20px;
+        }
+        .pres-room-images img {
+            width: 100%; height: 260px; object-fit: cover; border-radius: 6px;
+            cursor: pointer; border: 1px solid rgba(0,0,0,0.08);
+        }
+        .pres-room-desc {
+            font-size: 16px; line-height: 1.5; color: #444; white-space: pre-wrap;
+            padding: 12px 0;
+        }
+
+        /* Slide: Clauses */
+        .pres-clause-item {
+            margin-bottom: 16px; padding: 16px 24px;
+            border-left: 4px solid var(--stele-green); background: #fafafa; border-radius: 0 6px 6px 0;
+        }
+        .pres-clause-item .clause-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; color: var(--stele-black); }
+        .pres-clause-item .clause-text { font-size: 15px; line-height: 1.5; color: #444; white-space: pre-wrap; }
+
+        /* Slide: Total */
+        .pres-total-slide { justify-content: center; align-items: center; text-align: center; }
+        .pres-total-box {
+            padding: 40px 60px; background: var(--stele-black); color: #fff; border-radius: 8px;
+            min-width: 400px;
+        }
+        .pres-total-label { font-size: 18px; font-weight: 300; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; opacity: 0.8; }
+        .pres-total-amount { font-size: 48px; font-weight: 700; }
+        .pres-total-taxes { font-size: 14px; opacity: 0.6; margin-top: 8px; }
+        .pres-total-footer { margin-top: 40px; font-size: 13px; color: #aaa; letter-spacing: 0.5px; }
+
+        /* Navigation bar */
+        .pres-nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 32px; background: #fafafa; border-top: 1px solid rgba(0,0,0,0.06);
+            flex-shrink: 0;
+        }
+        .pres-nav-btn {
+            background: none; border: 1px solid var(--stele-green); color: var(--stele-green);
+            padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer;
+            font-family: inherit; font-weight: 500; transition: all 0.15s;
+        }
+        .pres-nav-btn:hover { background: var(--stele-green); color: #fff; }
+        .pres-nav-btn:disabled { opacity: 0.3; cursor: default; }
+        .pres-nav-btn:disabled:hover { background: none; color: var(--stele-green); }
+        .pres-nav-btn.close-btn { border-color: #999; color: #999; }
+        .pres-nav-btn.close-btn:hover { background: #999; color: #fff; }
+        .pres-nav-counter { font-size: 13px; color: #888; font-weight: 500; }
+
         .btn-preview {
             background: none; border: 1px solid #6a5acd; color: #6a5acd;
             padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;
@@ -2109,6 +2197,7 @@
                 <span class="pv-toolbar-title">Aper&ccedil;u soumission</span>
                 <span class="pv-toolbar-sub" id="pvSubNumber"></span>
                 <button class="btn-client-view" id="btnClientView" onclick="toggleClientView()">Vue client</button>
+                <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Mode pr&eacute;sentation plein &eacute;cran">&#9654; Pr&eacute;sentation</button>
             </div>
             <div class="pv-split">
                 <div class="pv-left">
@@ -2128,6 +2217,19 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Presentation overlay (fullscreen slides) -->
+    <div class="pres-overlay" id="presOverlay">
+        <div id="presSlides"></div>
+        <div class="pres-nav">
+            <button class="pres-nav-btn close-btn" onclick="closePresentation()">&#10005; Fermer</button>
+            <span class="pres-nav-counter" id="presCounter"></span>
+            <div style="display:flex;gap:8px;">
+                <button class="pres-nav-btn" id="presPrev" onclick="presGoTo(presCurrentSlide - 1)">&larr; Pr&eacute;c&eacute;dent</button>
+                <button class="pres-nav-btn" id="presNext" onclick="presGoTo(presCurrentSlide + 1)">Suivant &rarr;</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Rentabilité -->
@@ -4072,6 +4174,169 @@
                 });
             });
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MODE PRÉSENTATION (SLIDESHOW PLEIN ÉCRAN)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var presCurrentSlide = 0;
+        var presTotalSlides = 0;
+
+        function openPresentation() {
+            buildSlides();
+            presCurrentSlide = 0;
+            var overlay = document.getElementById('presOverlay');
+            overlay.classList.add('active');
+            presShowSlide(0);
+
+            // Request fullscreen
+            var el = overlay;
+            if (el.requestFullscreen) el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            else if (el.msRequestFullscreen) el.msRequestFullscreen();
+
+            // Keyboard navigation
+            document.addEventListener('keydown', presKeyHandler);
+        }
+
+        function closePresentation() {
+            document.getElementById('presOverlay').classList.remove('active');
+            document.removeEventListener('keydown', presKeyHandler);
+            if (document.fullscreenElement) document.exitFullscreen();
+            else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+        }
+
+        function presKeyHandler(e) {
+            if (e.key === 'Escape') { closePresentation(); return; }
+            if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault(); presGoTo(presCurrentSlide + 1);
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'ArrowUp') {
+                e.preventDefault(); presGoTo(presCurrentSlide - 1);
+            }
+        }
+
+        function presGoTo(idx) {
+            if (idx < 0 || idx >= presTotalSlides) return;
+            presCurrentSlide = idx;
+            presShowSlide(idx);
+        }
+
+        function presShowSlide(idx) {
+            var slides = document.querySelectorAll('#presSlides .pres-slide');
+            slides.forEach(function(s, i) {
+                s.classList.remove('active');
+                s.style.animation = 'none';
+            });
+            if (slides[idx]) {
+                slides[idx].classList.add('active');
+                // Re-trigger animation
+                slides[idx].offsetHeight;
+                slides[idx].style.animation = '';
+            }
+            // Update counter & nav buttons
+            document.getElementById('presCounter').textContent = (idx + 1) + ' / ' + presTotalSlides;
+            document.getElementById('presPrev').disabled = idx === 0;
+            document.getElementById('presNext').disabled = idx === presTotalSlides - 1;
+        }
+
+        function buildSlides() {
+            var container = document.getElementById('presSlides');
+            var slides = [];
+
+            // ── Slide 1: Title ──
+            var subNum = currentSubmission ? currentSubmission.submission_number : '';
+            var subDate = '';
+            if (currentSubmission) {
+                var d = currentSubmission.sent_at || currentSubmission.approved_at || currentSubmission.created_at;
+                if (d) { var dt = new Date(d); subDate = dt.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' }); }
+            }
+            var titleHtml = '<div class="pres-slide pres-title-slide">';
+            titleHtml += '<img class="pres-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+            titleHtml += '<div class="pres-sub-number">Soumission #' + escapeHtml(subNum + '') + '</div>';
+            if (subDate) titleHtml += '<div class="pres-sub-date">' + escapeHtml(subDate) + '</div>';
+            if (currentProject) {
+                titleHtml += '<div class="pres-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
+                titleHtml += '<div class="pres-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
+                if (currentProject.designer) titleHtml += '<div class="pres-designer">Designer : ' + escapeHtml(currentProject.designer) + '</div>';
+            }
+            titleHtml += '</div>';
+            slides.push(titleHtml);
+
+            // ── Room slides (one per room) ──
+            var grandTotal = 0;
+            var groups = document.querySelectorAll('#calculatorView .furniture-group');
+            groups.forEach(function(group) {
+                var groupId = group.id;
+                var nameInput = group.querySelector('.furniture-name-input');
+                var roomName = nameInput ? nameInput.value : 'Sans nom';
+
+                var subtotal = 0;
+                group.querySelectorAll('.calc-row').forEach(function(row) {
+                    subtotal += getRowTotal(row);
+                });
+                grandTotal += subtotal;
+
+                var allImgs = groupImages[groupId] || [];
+                var imgs = allImgs.filter(function(img) { return img.showInQuote; });
+                var descEl = document.getElementById(groupId + '-clientDesc');
+                var desc = descEl ? descEl.value : '';
+
+                var roomHtml = '<div class="pres-slide"><div class="pres-slide-inner">';
+                roomHtml += '<div class="pres-room-header"><span class="room-name">' + escapeHtml(roomName) + '</span><span class="room-subtotal">' + formatPrice(subtotal) + '</span></div>';
+
+                if (imgs.length > 0) {
+                    roomHtml += '<div class="pres-room-images">';
+                    imgs.forEach(function(img) {
+                        roomHtml += '<img src="' + img.dataUrl + '" alt="' + escapeAttr(img.name) + '" onclick="openLightbox(this.src)">';
+                    });
+                    roomHtml += '</div>';
+                }
+
+                if (desc && desc.trim()) {
+                    roomHtml += '<div class="pres-room-desc">' + escapeHtml(desc) + '</div>';
+                }
+
+                roomHtml += '</div></div>';
+                slides.push(roomHtml);
+            });
+
+            // ── Clauses slide (if any) ──
+            var subClauses = getSubmissionClauses();
+            if (subClauses.length > 0) {
+                var clauseHtml = '<div class="pres-slide"><div class="pres-slide-inner">';
+                clauseHtml += '<div style="font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--stele-green);font-weight:700;padding-bottom:10px;border-bottom:2px solid var(--stele-green);margin-bottom:20px;">Clauses du contrat</div>';
+                subClauses.forEach(function(clause) {
+                    clauseHtml += '<div class="pres-clause-item">';
+                    clauseHtml += '<div class="clause-title">' + escapeHtml(clause.title) + '</div>';
+                    clauseHtml += '<div class="clause-text">' + escapeHtml(clause.content || '') + '</div>';
+                    clauseHtml += '</div>';
+                });
+                clauseHtml += '</div></div>';
+                slides.push(clauseHtml);
+            }
+
+            // ── Total slide (last) ──
+            var totalHtml = '<div class="pres-slide pres-total-slide">';
+            totalHtml += '<div class="pres-total-box">';
+            totalHtml += '<div class="pres-total-label">Total</div>';
+            totalHtml += '<div class="pres-total-amount">' + formatPrice(grandTotal) + '</div>';
+            totalHtml += '<div class="pres-total-taxes">+ taxes applicables</div>';
+            totalHtml += '</div>';
+            totalHtml += '<div class="pres-total-footer">Stele \u2014 \u00c9b\u00e9nisterie sur mesure</div>';
+            totalHtml += '</div>';
+            slides.push(totalHtml);
+
+            container.innerHTML = slides.join('');
+            presTotalSlides = slides.length;
+        }
+
+        // Listen for fullscreen exit to also close presentation
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement && document.getElementById('presOverlay').classList.contains('active')) {
+                closePresentation();
+            }
+        });
 
         // ═══════════════════════════════════════════════════════════════════════
         // NAVIGATION ENTRE VUES

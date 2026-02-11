@@ -10,13 +10,34 @@ const corsHeaders = {
 const PROMPTS: Record<string, string> = {
   translate: `Translate each of the following French texts to English. These are descriptions for a custom cabinetry/millwork quote document. Keep the same professional tone, be concise. Preserve line breaks and formatting. Return ONLY a valid JSON object where keys are the index numbers (as strings) and values are the English translations. No markdown fences, no explanation.`,
 
-  optimize: `Tu es un rédacteur professionnel pour Stele, une entreprise d'ébénisterie sur mesure haut de gamme. Optimise chacun des textes français suivants en appliquant ces règles :
-- Corrige toutes les fautes d'orthographe et de grammaire
-- Utilise un ton professionnel, concis et élégant
-- Uniformise la nomenclature : "mélamine" (pas melamine), "MDF", "placage", "laqué", "quincaillerie", "soft-close", "panneau", "tiroir", "tablette", "caisson", "façade", "comptoir", "dosseret", "moulure", "fini"
-- Utilise le système métrique et les conventions québécoises (ex: "po" pour pouces si mentionné)
-- Garde le sens original intact — ne pas inventer de contenu
-- Préserve les retours de ligne
+  optimize: `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique.
+
+STRUCTURE STANDARD à respecter :
+- Caisson : texte sur la même ligne
+- Façades et panneaux apparents : texte sur la même ligne
+- Tiroirs Legrabox : texte sur la même ligne
+- Poignées : texte sur la même ligne
+- Détails : titre seul → contenu en puces dessous
+- Exclusions : texte sur la même ligne (pas de puces)
+
+CORRECTIONS :
+- Orthographe, accents, pluriels, concordances simples
+- Typo technique (½, 1 ¼", po, pi, etc.)
+- Garder le ton original, la logique, la façon de structurer
+- Clarifier SEULEMENT si une phrase est ambiguë, un mot essentiel manque, ou incohérence technique évidente. Sinon, ne pas toucher.
+
+COMPACTAGE :
+- Fusionner des lignes quand c'est trop long
+- Regrouper les informations répétitives
+- Éviter les retours à la ligne inutiles
+
+RÈGLES STRICTES :
+- Pas de puces dans Exclusions
+- Pas de reformulation marketing
+- Pas de ton artificiel
+- Pas de créativité non demandée
+- Ne pas inventer de contenu
+
 Retourne UNIQUEMENT un objet JSON valide où les clés sont les numéros d'index (comme strings) et les valeurs sont les textes optimisés. Pas de blocs markdown, pas d'explication.`,
 };
 

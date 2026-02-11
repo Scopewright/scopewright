@@ -991,6 +991,34 @@
             font-size: 11px;
         }
 
+        /* Description client par pièce */
+        .client-description-section {
+            padding: 6px 16px 10px; background: #fafaf8; border-top: 1px solid #eee;
+        }
+        .client-desc-label {
+            display: block; font-size: 10px; font-weight: 600; color: #999;
+            text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px;
+        }
+        .client-desc-textarea {
+            width: 100%; padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 12px; resize: vertical; min-height: 36px;
+        }
+        .client-desc-textarea:focus { outline: none; border-color: var(--stele-green); }
+
+        /* Toggle showInQuote sur images */
+        .image-quote-toggle {
+            position: absolute; bottom: 2px; left: 2px; display: flex; align-items: center; gap: 2px;
+            background: rgba(0,0,0,0.6); color: #fff; padding: 1px 4px; border-radius: 3px;
+            font-size: 9px; cursor: pointer;
+        }
+        .image-quote-toggle input[type="checkbox"] { width: 11px; height: 11px; margin: 0; }
+
+        /* Exclusions */
+        .exclusions-section {
+            margin-top: 16px; padding: 14px 16px; background: #fafaf8;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+        }
+
         .btn-add-group {
             display: flex;
             align-items: center;
@@ -1399,6 +1427,7 @@
         .btn-wf-submit { background: #1565c0; color: #fff; }
         .btn-wf-approve { background: #2e7d32; color: #fff; }
         .btn-wf-return { background: #e65100; color: #fff; }
+        .btn-wf-send-client { background: #4527a0; color: #fff; }
         .status-badge {
             display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700;
             border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
@@ -1717,6 +1746,7 @@
                         <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
                         <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
                         <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
+                        <button class="btn-wf btn-wf-send-client" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
                     </div>
                     <div class="project-header-field">
                         <label class="install-toggle-project">
@@ -1749,6 +1779,14 @@
             <div class="grand-total-container">
                 <span class="grand-total-label">Total estim&eacute;</span>
                 <span class="grand-total-amount" id="grandTotal">0,00 $</span>
+            </div>
+
+            <div class="exclusions-section" id="exclusionsSection">
+                <label class="form-label" style="font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:6px;">Exclusions / Conditions</label>
+                <textarea class="form-input client-desc-textarea" id="exclusionsText" rows="3"
+                          placeholder="Ex: Les travaux de plomberie et d'&eacute;lectricit&eacute; ne sont pas inclus..."
+                          style="resize:vertical; min-height:50px; font-size:13px;"
+                          onblur="saveExclusions()"></textarea>
             </div>
 
             <p class="calc-disclaimer">
@@ -2161,6 +2199,13 @@
                     </label>
                     <button class="btn-rentab" onclick="openRentab('group','${groupId}')">Rentabilit&eacute;</button>
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
+                </div>
+                <div class="client-description-section">
+                    <label class="client-desc-label">Description client (visible sur la soumission)</label>
+                    <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
+                              placeholder="Description visible par le client pour cette pi&egrave;ce..."
+                              rows="2"
+                              onblur="saveClientDescription('${groupId}')"></textarea>
                 </div>
                 <div class="calc-header">
                     <span></span>
@@ -3098,7 +3143,8 @@
             imgs.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button>`;
+                var checkedAttr = img.showInQuote ? 'checked' : '';
+                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${groupId}', ${index}, this.checked)"><span>Client</span></label>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
@@ -3115,13 +3161,34 @@
 
         const debouncedSaveGroupImages = debounce(function(groupId) {
             if (!roomMap[groupId]) return;
-            const imgs = (groupImages[groupId] || []).map(img => ({ name: img.name, dataUrl: img.dataUrl }));
+            const imgs = (groupImages[groupId] || []).map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote }));
             updateRoom(roomMap[groupId], { images: imgs });
             showSaveIndicator();
         }, 1000);
 
         function saveGroupImages(groupId) {
             debouncedSaveGroupImages(groupId);
+        }
+
+        function saveExclusions() {
+            if (!currentSubmission) return;
+            var text = document.getElementById('exclusionsText').value;
+            updateSubmission(currentSubmission.id, { exclusions: text });
+            showSaveIndicator();
+        }
+
+        function saveClientDescription(groupId) {
+            if (!roomMap[groupId]) return;
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+            updateRoom(roomMap[groupId], { client_description: textarea.value });
+            showSaveIndicator();
+        }
+
+        function toggleImageShowInQuote(groupId, index, checked) {
+            if (!groupImages[groupId] || !groupImages[groupId][index]) return;
+            groupImages[groupId][index].showInQuote = checked;
+            saveGroupImages(groupId);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -3460,6 +3527,7 @@
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
             document.getElementById('subTitle').value = currentSubmission.title || '';
+            document.getElementById('exclusionsText').value = currentSubmission.exclusions || '';
             updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
@@ -3481,8 +3549,13 @@
                         if (installCb) installCb.checked = false;
                     }
 
+                    if (room.client_description) {
+                        var descEl = document.getElementById(groupId + '-clientDesc');
+                        if (descEl) descEl.value = room.client_description;
+                    }
+
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {
-                        groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl }));
+                        groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote }));
                         renderGroupImagePreviews(groupId);
                     }
 
@@ -3626,7 +3699,7 @@
             var container = document.getElementById('calculatorView');
             if (!container) return;
 
-            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup').forEach(function(el) {
+            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup, .client-desc-textarea').forEach(function(el) {
                 el.disabled = !editable;
                 el.style.opacity = editable ? '' : '0.6';
             });
@@ -3684,9 +3757,11 @@
             var btnSubmit = document.getElementById('btnWfSubmit');
             var btnApprove = document.getElementById('btnWfApprove');
             var btnReturn = document.getElementById('btnWfReturn');
+            var btnSendClient = document.getElementById('btnWfSendClient');
             btnSubmit.style.display = 'none';
             btnApprove.style.display = 'none';
             btnReturn.style.display = 'none';
+            if (btnSendClient) { btnSendClient.style.display = 'none'; btnSendClient.textContent = 'Envoyer au client'; btnSendClient.onclick = function() { sendToClient(); }; }
             if (!currentSubmission) return;
 
             var s = currentSubmission.status;
@@ -3698,13 +3773,93 @@
                 btnApprove.style.display = 'inline-block';
                 btnReturn.style.display = 'inline-block';
             }
-            if (s === 'approved_internal') {
-                // "Envoyer" exists in the PDF modal — no extra button needed here
+            if (s === 'approved_internal' && btnSendClient) {
+                btnSendClient.style.display = 'inline-block';
+            }
+            if (s === 'sent_client' && btnSendClient) {
+                btnSendClient.style.display = 'inline-block';
+                btnSendClient.textContent = 'Copier le lien';
+                btnSendClient.onclick = function() { copyQuoteLink(); };
             }
         }
 
         // submitForApproval() redirigé vers le modal
         function submitForApproval() { openSubmitModal(); }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ENVOI AU CLIENT — LIEN PUBLIC
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function sendToClient() {
+            if (!currentSubmission) return;
+            if (currentSubmission.status !== 'approved_internal') {
+                steleAlert('La soumission doit \u00eatre approuv\u00e9e avant l\'envoi au client.');
+                return;
+            }
+            if (!(await steleConfirm('G\u00e9n\u00e9rer un lien de soumission pour le client ?\nLe statut passera \u00e0 \u00abEnvoy\u00e9e\u00bb.', 'Envoyer au client', 'G\u00e9n\u00e9rer le lien'))) return;
+
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/public_quote_tokens', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ submission_id: currentSubmission.id })
+                });
+                if (!r.ok) throw new Error('Erreur cr\u00e9ation token: ' + r.status);
+                var tokenData = (await r.json())[0];
+
+                await updateSubmission(currentSubmission.id, {
+                    status: 'sent_client',
+                    sent_at: new Date().toISOString()
+                });
+                await createSubmissionReview(currentSubmission.id, 'sent', 'Lien client g\u00e9n\u00e9r\u00e9');
+
+                currentSubmission.status = 'sent_client';
+                updateStatusBadge('sent_client');
+                updateWorkflowButtons();
+                setEditable(false);
+                loadSubmissionReviews(currentSubmission.id);
+
+                var link = window.location.origin + '/quote.html?token=' + tokenData.token;
+                showQuoteLinkModal(link);
+            } catch (e) {
+                console.error('Erreur envoi client:', e);
+                steleAlert('Erreur: ' + e.message);
+            }
+        }
+
+        function showQuoteLinkModal(link) {
+            document.getElementById('steleDialogTitle').textContent = 'Lien de soumission';
+            document.getElementById('steleDialogMessage').textContent = 'Copiez ce lien et envoyez-le au client par courriel :';
+            document.getElementById('steleDialogInputWrap').style.display = '';
+            var input = document.getElementById('steleDialogInput');
+            input.value = link;
+            input.readOnly = true;
+            input.style.fontSize = '12px';
+            document.getElementById('steleDialogCancel').style.display = 'none';
+            document.getElementById('steleDialogOk').textContent = 'Copier & Fermer';
+            document.getElementById('steleDialogOk').className = 'btn-generate';
+            document.getElementById('steleDialogOverlay').classList.add('active');
+
+            _steleDialogResolve = function() {
+                navigator.clipboard.writeText(link).catch(function() {});
+                document.getElementById('steleDialogOverlay').classList.remove('active');
+                input.readOnly = false;
+                input.style.fontSize = '';
+            };
+            setTimeout(function() { input.select(); }, 100);
+        }
+
+        async function copyQuoteLink() {
+            if (!currentSubmission) return;
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/public_quote_tokens?submission_id=eq.' + currentSubmission.id + '&order=created_at.desc&limit=1', {}
+            );
+            if (!r.ok) { steleAlert('Erreur chargement du lien.'); return; }
+            var tokens = await r.json();
+            if (tokens.length === 0) { steleAlert('Aucun lien trouv\u00e9 pour cette soumission.'); return; }
+            var link = window.location.origin + '/quote.html?token=' + tokens[0].token;
+            showQuoteLinkModal(link);
+        }
 
         async function approveSubmission() {
             if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;

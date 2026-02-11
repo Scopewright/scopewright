@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soumission — Scopewright</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --stele-black: #0A0203;
+            --stele-green: #4b6050;
+            --stele-gray: #C8C8C8;
+            --stele-light-gray: #F8F8F8;
+            --stele-white: #FFFFFF;
+        }
+
+        html, body {
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #F5F0E8;
+            color: var(--stele-black);
+            line-height: 1.5;
+        }
+
+        /* ── Layout ── */
+        .page-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+        }
+
+        /* ── Loading / Error states ── */
+        .state-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid var(--stele-gray);
+            border-top-color: var(--stele-green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .state-screen h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+        .state-screen p { font-size: 15px; opacity: 0.7; }
+
+        .error-icon {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            background: #f44336;
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        /* ── Header ── */
+        .quote-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--stele-black);
+        }
+
+        .quote-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .quote-logo {
+            height: 48px;
+            width: auto;
+        }
+
+        .quote-brand {
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            color: var(--stele-black);
+        }
+
+        .quote-header-right {
+            text-align: right;
+        }
+
+        .quote-number {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--stele-green);
+        }
+
+        .quote-date {
+            font-size: 13px;
+            opacity: 0.6;
+            margin-top: 2px;
+        }
+
+        /* ── Client info ── */
+        .client-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 36px;
+            padding: 20px 24px;
+            background: var(--stele-white);
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .client-info-block h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--stele-green);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .client-info-block p {
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* ── Room cards ── */
+        .room-card {
+            margin-bottom: 24px;
+            background: var(--stele-white);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .room-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+        }
+
+        .room-name {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .room-subtotal {
+            font-size: 16px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .room-body {
+            padding: 20px;
+        }
+
+        .room-description {
+            font-size: 14px;
+            line-height: 1.7;
+            color: #444;
+            white-space: pre-wrap;
+            margin-bottom: 16px;
+        }
+
+        .room-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .room-image-thumb {
+            width: 180px;
+            height: 140px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid rgba(0,0,0,0.1);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .room-image-thumb:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        /* ── Grand total ── */
+        .grand-total-section {
+            margin: 36px 0;
+            padding: 24px 28px;
+            background: var(--stele-black);
+            color: var(--stele-white);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .grand-total-label {
+            font-size: 18px;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .grand-total-right {
+            text-align: right;
+        }
+
+        .grand-total-amount {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .grand-total-taxes {
+            font-size: 13px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* ── Exclusions ── */
+        .exclusions-section {
+            margin-bottom: 36px;
+            padding: 20px 24px;
+            background: #FFF8E7;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .exclusions-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #8B6914;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .exclusions-text {
+            font-size: 14px;
+            line-height: 1.7;
+            color: #555;
+            white-space: pre-wrap;
+        }
+
+        /* ── Acceptance section ── */
+        .acceptance-section {
+            margin-top: 40px;
+            padding: 28px;
+            background: var(--stele-white);
+            border-radius: 4px;
+            border: 2px solid var(--stele-green);
+            text-align: center;
+        }
+
+        .acceptance-section h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--stele-black);
+        }
+
+        .acceptance-subtitle {
+            font-size: 14px;
+            opacity: 0.6;
+            margin-bottom: 24px;
+        }
+
+        .acceptance-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+
+        .acceptance-form input {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 15px;
+            font-family: inherit;
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 3px;
+            background: var(--stele-light-gray);
+        }
+
+        .acceptance-form input:focus {
+            outline: none;
+            border-color: var(--stele-green);
+            box-shadow: 0 0 0 2px rgba(75, 96, 80, 0.15);
+        }
+
+        .btn-accept {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 4px;
+        }
+
+        .btn-accept:hover { background: #3d5043; }
+        .btn-accept:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ── Accepted confirmation ── */
+        .accepted-banner {
+            padding: 28px;
+            background: #E8F5E9;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .accepted-banner .check-icon {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            background: #4CAF50;
+            color: #fff;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .accepted-banner h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2E7D32;
+            margin-bottom: 4px;
+        }
+
+        .accepted-banner p {
+            font-size: 14px;
+            color: #555;
+        }
+
+        /* ── Lightbox ── */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 4px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px; right: 24px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 36px;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .lightbox-close:hover { opacity: 1; }
+
+        /* ── Footer ── */
+        .quote-footer {
+            margin-top: 48px;
+            padding-top: 20px;
+            border-top: 1px solid var(--stele-gray);
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .page-wrapper { padding: 16px 12px 48px; }
+
+            .quote-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .quote-header-right { text-align: left; }
+
+            .client-info {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .grand-total-section {
+                flex-direction: column;
+                text-align: center;
+                gap: 8px;
+            }
+            .grand-total-right { text-align: center; }
+            .grand-total-amount { font-size: 26px; }
+
+            .room-image-thumb {
+                width: calc(50% - 6px);
+                height: 120px;
+            }
+
+            .room-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+        }
+
+        /* ── Print ── */
+        @media print {
+            html, body { background: #fff; }
+            .page-wrapper { padding: 0; max-width: 100%; }
+            .acceptance-section,
+            .accepted-banner,
+            .quote-footer { display: none; }
+            .room-card { break-inside: avoid; }
+            .room-image-thumb { cursor: default; }
+            .grand-total-section { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .room-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- LOADING STATE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-wrapper">
+    <div id="loadingState" class="state-screen">
+        <div class="spinner"></div>
+        <h2>Chargement de la soumission...</h2>
+        <p>Veuillez patienter</p>
+    </div>
+
+    <div id="errorState" class="state-screen" style="display:none;">
+        <div class="error-icon">!</div>
+        <h2 id="errorTitle">Lien invalide</h2>
+        <p id="errorMessage">Ce lien de soumission est invalide ou a expiré.</p>
+    </div>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- QUOTE CONTENT (hidden until loaded)      -->
+    <!-- ════════════════════════════════════════ -->
+    <div id="quoteContent" style="display:none;">
+
+        <!-- Header -->
+        <div class="quote-header">
+            <div class="quote-header-left">
+                <img class="quote-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png" alt="Logo">
+                <span class="quote-brand">Scopewright</span>
+            </div>
+            <div class="quote-header-right">
+                <div class="quote-number" id="quoteNumber"></div>
+                <div class="quote-date" id="quoteDate"></div>
+            </div>
+        </div>
+
+        <!-- Client info -->
+        <div class="client-info">
+            <div class="client-info-block">
+                <h3>Client</h3>
+                <p id="clientName"></p>
+                <p id="clientAddress"></p>
+            </div>
+            <div class="client-info-block">
+                <h3>Projet</h3>
+                <p id="projectName"></p>
+                <p id="designerName"></p>
+            </div>
+        </div>
+
+        <!-- Rooms container -->
+        <div id="roomsContainer"></div>
+
+        <!-- Grand total -->
+        <div class="grand-total-section">
+            <div class="grand-total-label">Total</div>
+            <div class="grand-total-right">
+                <div class="grand-total-amount" id="grandTotalAmount"></div>
+                <div class="grand-total-taxes">+ taxes applicables</div>
+            </div>
+        </div>
+
+        <!-- Exclusions (hidden if empty) -->
+        <div class="exclusions-section" id="exclusionsSection" style="display:none;">
+            <h3>Exclusions / Conditions</h3>
+            <div class="exclusions-text" id="exclusionsText"></div>
+        </div>
+
+        <!-- Acceptance form (hidden when already accepted) -->
+        <div class="acceptance-section" id="acceptanceSection">
+            <h2>Accepter cette soumission</h2>
+            <p class="acceptance-subtitle">Veuillez entrer vos informations pour confirmer votre acceptation.</p>
+            <div class="acceptance-form">
+                <input type="text" id="acceptName" placeholder="Votre nom complet" required>
+                <input type="email" id="acceptEmail" placeholder="Votre courriel" required>
+                <button class="btn-accept" id="btnAccept" onclick="acceptQuote()">Accepter la soumission</button>
+            </div>
+        </div>
+
+        <!-- Already accepted banner -->
+        <div class="accepted-banner" id="acceptedBanner" style="display:none;">
+            <div class="check-icon">&#10003;</div>
+            <h2>Soumission acceptée</h2>
+            <p id="acceptedInfo"></p>
+        </div>
+
+        <!-- Footer -->
+        <div class="quote-footer">
+            Scopewright &mdash; Ébénisterie sur mesure
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <img class="lightbox-img" id="lightboxImg" src="" alt="">
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════════
+
+const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
+
+let quoteData = null;
+let currentToken = null;
+
+(async function init() {
+    // Extract token from URL
+    const params = new URLSearchParams(window.location.search);
+    currentToken = params.get('token');
+
+    if (!currentToken) {
+        showError('Lien invalide', 'Aucun jeton de soumission trouvé dans le lien.');
+        return;
+    }
+
+    try {
+        const resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_public_quote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            },
+            body: JSON.stringify({ p_token: currentToken })
+        });
+
+        if (!resp.ok) {
+            const errText = await resp.text();
+            console.error('RPC error:', resp.status, errText);
+            showError('Erreur', 'Impossible de charger la soumission. Veuillez réessayer plus tard.');
+            return;
+        }
+
+        quoteData = await resp.json();
+
+        if (!quoteData || quoteData.error) {
+            showError('Lien invalide', quoteData?.error || 'Ce lien de soumission est invalide ou a expiré.');
+            return;
+        }
+
+        renderQuote();
+    } catch (err) {
+        console.error('Fetch error:', err);
+        showError('Erreur de connexion', 'Impossible de joindre le serveur. Vérifiez votre connexion internet.');
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderQuote() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('quoteContent').style.display = 'block';
+
+    var sub = quoteData.submission;
+    var proj = quoteData.project;
+    var rooms = quoteData.rooms || [];
+    var token = quoteData.token;
+
+    // Title
+    document.title = 'Soumission #' + sub.submission_number + ' — Scopewright';
+
+    // Header
+    document.getElementById('quoteNumber').textContent = 'Soumission #' + sub.submission_number;
+    document.getElementById('quoteDate').textContent = formatDate(sub.sent_at || sub.approved_at || new Date().toISOString());
+
+    // Client info
+    document.getElementById('clientName').textContent = proj.client_name || '';
+    document.getElementById('clientAddress').textContent = proj.client_address || '';
+    document.getElementById('projectName').textContent = proj.name || '';
+    document.getElementById('designerName').textContent = proj.designer ? 'Designer : ' + proj.designer : '';
+
+    // Rooms
+    var container = document.getElementById('roomsContainer');
+    container.innerHTML = '';
+
+    var grandTotal = 0;
+
+    rooms.forEach(function(room) {
+        var subtotal = parseFloat(room.subtotal) || 0;
+        grandTotal += subtotal;
+
+        var card = document.createElement('div');
+        card.className = 'room-card';
+
+        // Header
+        var header = document.createElement('div');
+        header.className = 'room-header';
+        header.innerHTML = '<span class="room-name">' + escapeHtml(room.name) + '</span>' +
+            '<span class="room-subtotal">' + formatMoney(subtotal) + '</span>';
+        card.appendChild(header);
+
+        // Body
+        var body = document.createElement('div');
+        body.className = 'room-body';
+
+        // Description
+        if (room.client_description && room.client_description.trim()) {
+            var desc = document.createElement('div');
+            desc.className = 'room-description';
+            desc.textContent = room.client_description;
+            body.appendChild(desc);
+        }
+
+        // Images (only showInQuote)
+        var images = (room.images || []).filter(function(img) { return img.showInQuote; });
+        if (images.length > 0) {
+            var imgContainer = document.createElement('div');
+            imgContainer.className = 'room-images';
+            images.forEach(function(img) {
+                var thumb = document.createElement('img');
+                thumb.className = 'room-image-thumb';
+                thumb.src = img.dataUrl;
+                thumb.alt = img.name || 'Image';
+                thumb.onclick = function() { openLightbox(img.dataUrl); };
+                imgContainer.appendChild(thumb);
+            });
+            body.appendChild(imgContainer);
+        }
+
+        // Only show body if there's content
+        if (body.children.length > 0) {
+            card.appendChild(body);
+        }
+
+        container.appendChild(card);
+    });
+
+    // Use approved_total if available, otherwise computed
+    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : grandTotal;
+    document.getElementById('grandTotalAmount').textContent = formatMoney(totalToShow);
+
+    // Exclusions
+    if (sub.exclusions && sub.exclusions.trim()) {
+        document.getElementById('exclusionsSection').style.display = 'block';
+        document.getElementById('exclusionsText').textContent = sub.exclusions;
+    }
+
+    // Acceptance state
+    if (token.accepted_at || sub.accepted_at) {
+        document.getElementById('acceptanceSection').style.display = 'none';
+        document.getElementById('acceptedBanner').style.display = 'block';
+        var acceptedDate = token.accepted_at || sub.accepted_at;
+        var acceptedName = token.client_name || '';
+        var info = 'Acceptée le ' + formatDate(acceptedDate);
+        if (acceptedName) info += ' par ' + acceptedName;
+        document.getElementById('acceptedInfo').textContent = info;
+    }
+
+    // Pre-fill acceptance form with project client info
+    if (proj.client_name) {
+        document.getElementById('acceptName').value = proj.client_name;
+    }
+    if (proj.client_email) {
+        document.getElementById('acceptEmail').value = proj.client_email;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ACCEPT QUOTE
+// ═══════════════════════════════════════════════════════════════════════
+
+async function acceptQuote() {
+    var name = document.getElementById('acceptName').value.trim();
+    var email = document.getElementById('acceptEmail').value.trim();
+
+    if (!name) {
+        document.getElementById('acceptName').focus();
+        return;
+    }
+    if (!email) {
+        document.getElementById('acceptEmail').focus();
+        return;
+    }
+
+    var btn = document.getElementById('btnAccept');
+    btn.disabled = true;
+    btn.textContent = 'Traitement en cours...';
+
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/accept_quote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            },
+            body: JSON.stringify({
+                p_token: currentToken,
+                p_name: name,
+                p_email: email
+            })
+        });
+
+        if (!resp.ok) {
+            var errText = await resp.text();
+            console.error('Accept error:', resp.status, errText);
+            btn.disabled = false;
+            btn.textContent = 'Accepter la soumission';
+            alert('Une erreur est survenue. Veuillez réessayer.');
+            return;
+        }
+
+        var result = await resp.json();
+
+        if (result && result.error) {
+            btn.disabled = false;
+            btn.textContent = 'Accepter la soumission';
+            alert(result.error);
+            return;
+        }
+
+        // Success — show accepted banner
+        document.getElementById('acceptanceSection').style.display = 'none';
+        document.getElementById('acceptedBanner').style.display = 'block';
+        document.getElementById('acceptedInfo').textContent =
+            'Acceptée le ' + formatDate(new Date().toISOString()) + ' par ' + name;
+
+    } catch (err) {
+        console.error('Accept fetch error:', err);
+        btn.disabled = false;
+        btn.textContent = 'Accepter la soumission';
+        alert('Erreur de connexion. Veuillez réessayer.');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════════════════════════════════
+
+function openLightbox(src) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightbox').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+function showError(title, message) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'flex';
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorMessage').textContent = message;
+}
+
+function formatMoney(val) {
+    return parseFloat(val).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+}
+
+function formatDate(isoStr) {
+    if (!isoStr) return '';
+    var d = new Date(isoStr);
+    return d.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+</body>
+</html>

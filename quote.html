@@ -317,6 +317,67 @@
             cursor: not-allowed;
         }
 
+        /* ── Signature pad ── */
+        .signature-block {
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .signature-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--stele-green);
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-align: left;
+        }
+
+        .signature-canvas-wrap {
+            position: relative;
+            width: 100%;
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 3px;
+            background: #fff;
+        }
+
+        .signature-canvas {
+            display: block;
+            width: 100%;
+            height: 140px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .signature-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: #bbb;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .signature-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 4px;
+        }
+
+        .btn-clear-sig {
+            background: none;
+            border: none;
+            font-size: 12px;
+            color: #999;
+            cursor: pointer;
+            font-family: inherit;
+            padding: 2px 0;
+        }
+
+        .btn-clear-sig:hover { color: var(--stele-black); }
+
         /* ── Accepted confirmation ── */
         .accepted-banner {
             padding: 28px;
@@ -520,6 +581,16 @@
             <div class="acceptance-form">
                 <input type="text" id="acceptName" placeholder="Votre nom complet" required>
                 <input type="email" id="acceptEmail" placeholder="Votre courriel" required>
+                <div class="signature-block">
+                    <div class="signature-label">Signature</div>
+                    <div class="signature-canvas-wrap">
+                        <canvas class="signature-canvas" id="signatureCanvas"></canvas>
+                        <span class="signature-placeholder" id="sigPlaceholder">Dessinez votre signature ici</span>
+                    </div>
+                    <div class="signature-actions">
+                        <button type="button" class="btn-clear-sig" onclick="clearSignature()">Effacer</button>
+                    </div>
+                </div>
                 <button class="btn-accept" id="btnAccept" onclick="acceptQuote()">Accepter la soumission</button>
             </div>
         </div>
@@ -730,6 +801,13 @@ async function acceptQuote() {
         return;
     }
 
+    if (!sigHasDrawn) {
+        alert('Veuillez dessiner votre signature.');
+        return;
+    }
+
+    var signatureData = document.getElementById('signatureCanvas').toDataURL('image/png');
+
     var btn = document.getElementById('btnAccept');
     btn.disabled = true;
     btn.textContent = 'Traitement en cours...';
@@ -745,7 +823,8 @@ async function acceptQuote() {
             body: JSON.stringify({
                 p_token: currentToken,
                 p_name: name,
-                p_email: email
+                p_email: email,
+                p_signature: signatureData
             })
         });
 
@@ -785,6 +864,94 @@ async function acceptQuote() {
         alert('Erreur de connexion : ' + err.message);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// SIGNATURE PAD
+// ═══════════════════════════════════════════════════════════════════════
+
+var sigCanvas, sigCtx, sigDrawing = false, sigHasDrawn = false;
+
+function initSignaturePad() {
+    sigCanvas = document.getElementById('signatureCanvas');
+    if (!sigCanvas) return;
+    sigCtx = sigCanvas.getContext('2d');
+
+    // Set canvas internal resolution to match display size
+    function resizeCanvas() {
+        var rect = sigCanvas.getBoundingClientRect();
+        sigCanvas.width = rect.width * 2;
+        sigCanvas.height = rect.height * 2;
+        sigCtx.scale(2, 2);
+        sigCtx.lineCap = 'round';
+        sigCtx.lineJoin = 'round';
+        sigCtx.lineWidth = 2;
+        sigCtx.strokeStyle = '#000';
+        if (sigHasDrawn) {
+            // Canvas cleared on resize — user will need to re-sign
+            sigHasDrawn = false;
+            document.getElementById('sigPlaceholder').style.opacity = '1';
+        }
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Mouse events
+    sigCanvas.addEventListener('mousedown', sigStart);
+    sigCanvas.addEventListener('mousemove', sigMove);
+    sigCanvas.addEventListener('mouseup', sigEnd);
+    sigCanvas.addEventListener('mouseleave', sigEnd);
+
+    // Touch events
+    sigCanvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        sigStart(e.touches[0]);
+    }, { passive: false });
+    sigCanvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        sigMove(e.touches[0]);
+    }, { passive: false });
+    sigCanvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        sigEnd();
+    });
+}
+
+function sigGetPos(e) {
+    var rect = sigCanvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function sigStart(e) {
+    sigDrawing = true;
+    var pos = sigGetPos(e);
+    sigCtx.beginPath();
+    sigCtx.moveTo(pos.x, pos.y);
+    if (!sigHasDrawn) {
+        sigHasDrawn = true;
+        document.getElementById('sigPlaceholder').style.opacity = '0';
+    }
+}
+
+function sigMove(e) {
+    if (!sigDrawing) return;
+    var pos = sigGetPos(e);
+    sigCtx.lineTo(pos.x, pos.y);
+    sigCtx.stroke();
+}
+
+function sigEnd() {
+    sigDrawing = false;
+}
+
+function clearSignature() {
+    if (!sigCtx) return;
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    sigHasDrawn = false;
+    document.getElementById('sigPlaceholder').style.opacity = '1';
+}
+
+// Init after DOM ready
+document.addEventListener('DOMContentLoaded', initSignaturePad);
 
 // ═══════════════════════════════════════════════════════════════════════
 // LIGHTBOX

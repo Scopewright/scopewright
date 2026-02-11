@@ -88,6 +88,8 @@
         .link-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
         .link-row:last-child { border-bottom: none; }
         .link-name { font-weight: 600; flex: 1; }
+        .link-clickable { color: var(--stele-green); text-decoration: none; cursor: pointer; }
+        .link-clickable:hover { text-decoration: underline; }
         .link-role { color: #888; font-size: 12px; }
         .link-primary { background: var(--stele-green); color: #fff; font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
         .link-remove { background: none; border: none; color: #ccc; font-size: 16px; cursor: pointer; padding: 2px 6px; }
@@ -523,12 +525,12 @@
     // ═══════════════════════════════════════════════════════════════
 
     async function loadContacts() {
-        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?order=last_name,first_name&select=*,contact_companies(id,company_id,role,is_primary_contact,companies(name))', {});
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?order=last_name,first_name&select=*,contact_companies(id,company_id,role,work_email,work_phone,is_primary_contact,companies(name))', {});
         if (r.ok) allContacts = await r.json();
     }
 
     async function loadCompanies() {
-        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?order=name&select=*,contact_companies(id,contact_id,role,is_primary_contact,contacts(first_name,last_name))', {});
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?order=name&select=*,contact_companies(id,contact_id,role,work_email,work_phone,is_primary_contact,contacts(first_name,last_name))', {});
         if (r.ok) allCompanies = await r.json();
     }
 
@@ -731,11 +733,12 @@
         for (var i = 0; i < links.length; i++) {
             var lk = links[i];
             var coName = lk.companies ? lk.companies.name : '?';
-            html += '<div class="link-row">' +
-                '<span class="link-name">' + escapeHtml(coName) + '</span>' +
-                (lk.role ? '<span class="link-role">' + escapeHtml(lk.role) + '</span>' : '') +
+            var details = [lk.role, lk.work_email, lk.work_phone].filter(Boolean).join(' \u00b7 ');
+            html += '<div class="link-row" style="flex-wrap:wrap;">' +
+                '<a href="#" class="link-name link-clickable" onclick="event.preventDefault(); closeContactModal(); openCompanyModal(\'' + lk.company_id + '\')">' + escapeHtml(coName) + '</a>' +
                 (lk.is_primary_contact ? '<span class="link-primary">Principal</span>' : '') +
                 '<button class="link-remove" onclick="removeLink(\'' + lk.id + '\')" title="Retirer">&times;</button>' +
+                (details ? '<div style="width:100%; font-size:11px; color:#999; margin-top:1px;">' + escapeHtml(details) + '</div>' : '') +
                 '</div>';
         }
         list.innerHTML = html;
@@ -913,11 +916,12 @@
         for (var i = 0; i < links.length; i++) {
             var lk = links[i];
             var name = lk.contacts ? (lk.contacts.first_name + ' ' + lk.contacts.last_name) : '?';
-            html += '<div class="link-row">' +
-                '<span class="link-name">' + escapeHtml(name) + '</span>' +
-                (lk.role ? '<span class="link-role">' + escapeHtml(lk.role) + '</span>' : '') +
+            var details = [lk.role, lk.work_email, lk.work_phone].filter(Boolean).join(' \u00b7 ');
+            html += '<div class="link-row" style="flex-wrap:wrap;">' +
+                '<a href="#" class="link-name link-clickable" onclick="event.preventDefault(); closeCompanyModal(); openContactModal(\'' + lk.contact_id + '\')">' + escapeHtml(name) + '</a>' +
                 (lk.is_primary_contact ? '<span class="link-primary">Principal</span>' : '') +
                 '<button class="link-remove" onclick="removeLinkFromCompany(\'' + lk.id + '\')" title="Retirer">&times;</button>' +
+                (details ? '<div style="width:100%; font-size:11px; color:#999; margin-top:1px;">' + escapeHtml(details) + '</div>' : '') +
                 '</div>';
         }
         list.innerHTML = html;

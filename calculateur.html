@@ -1260,6 +1260,17 @@
         .btn-wf-submit { background: #1565c0; color: #fff; }
         .btn-wf-approve { background: #2e7d32; color: #fff; }
         .btn-wf-return { background: #e65100; color: #fff; }
+        .status-badge {
+            display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700;
+            border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .status-draft { background: #f0f0f0; color: #666; }
+        .status-pending_internal { background: #fff3e0; color: #e65100; }
+        .status-returned { background: #fce4ec; color: #c62828; }
+        .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
+        .status-sent_client { background: #e3f2fd; color: #1565c0; }
+        .status-accepted { background: #e8f5e9; color: #1b5e20; }
+        .status-invoiced { background: #ede7f6; color: #4527a0; }
 
         .project-card-delete {
             position: absolute; top: 8px; right: 8px; background: none; border: none;
@@ -1487,19 +1498,8 @@
                         <label>Soumission <span id="subNumber" style="font-weight:700; color:var(--stele-green);"></span></label>
                         <input type="text" class="field-name" id="subTitle" placeholder="Titre de la soumission" onblur="saveSubmissionField()">
                     </div>
-                    <div class="project-header-field">
-                        <label>Statut</label>
-                        <select id="subStatus" onchange="saveSubmissionStatus()">
-                            <option value="draft">Brouillon</option>
-                            <option value="pending_internal">En approbation</option>
-                            <option value="returned">Retourn&eacute;e</option>
-                            <option value="approved_internal">Approuv&eacute;e</option>
-                            <option value="sent_client">Envoy&eacute;e client</option>
-                            <option value="accepted">Accept&eacute;e</option>
-                            <option value="invoiced">Factur&eacute;e</option>
-                        </select>
-                    </div>
                     <div class="project-header-field workflow-actions" id="workflowActions">
+                        <span class="status-badge" id="subStatusBadge"></span>
                         <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
                         <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
                         <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
@@ -3077,7 +3077,7 @@
                         approved_total: grandTotal
                     });
                     currentSubmission.status = 'approved_internal';
-                    document.getElementById('subStatus').value = 'approved_internal';
+                    updateStatusBadge('approved_internal');
                     showSendStatus('Soumission approuv\u00e9e!', false);
                 } else {
                     // Soumettre pour approbation interne
@@ -3086,7 +3086,7 @@
                         approved_total: grandTotal
                     });
                     currentSubmission.status = 'pending_internal';
-                    document.getElementById('subStatus').value = 'pending_internal';
+                    updateStatusBadge('pending_internal');
                     showSendStatus('Soumission envoy\u00e9e pour approbation!', false);
                 }
 
@@ -3155,6 +3155,14 @@
             'brouillon': 'Brouillon', 'soumis': 'Soumis', 'approuv\u00e9': 'Approuv\u00e9',
             'envoy\u00e9': 'Envoy\u00e9', 'sign\u00e9': 'Sign\u00e9'
         };
+
+        function updateStatusBadge(status) {
+            var badge = document.getElementById('subStatusBadge');
+            if (!badge) return;
+            var label = STATUS_LABELS[status] || status;
+            badge.textContent = label;
+            badge.className = 'status-badge status-' + status;
+        }
 
         async function renderProjectList() {
             const grid = document.getElementById('projectGrid');
@@ -3294,7 +3302,7 @@
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
             document.getElementById('subTitle').value = currentSubmission.title || '';
-            document.getElementById('subStatus').value = currentSubmission.status || 'draft';
+            updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
 
@@ -3450,16 +3458,6 @@
             showSaveIndicator();
         }
 
-        function saveSubmissionStatus() {
-            if (!currentSubmission) return;
-            var status = document.getElementById('subStatus').value;
-            currentSubmission.status = status;
-            updateSubmission(currentSubmission.id, { status: status });
-            updateWorkflowButtons();
-            setEditable(status === 'draft' || status === 'returned' || (status === 'pending_internal' && (canApproveQuotes || isApprovalMode)));
-            showSaveIndicator();
-        }
-
         // ═══════════════════════════════════════════════════════════════════════
         // VERROUILLAGE ÉDITION
         // ═══════════════════════════════════════════════════════════════════════
@@ -3499,9 +3497,7 @@
 
             // Header fields
             var subTitle = document.getElementById('subTitle');
-            var subStatus = document.getElementById('subStatus');
             if (subTitle) subTitle.readOnly = !editable;
-            if (subStatus) subStatus.disabled = !editable && !canApproveQuotes;
 
             // Bannière de statut
             var banner = document.getElementById('lockBanner');
@@ -3564,7 +3560,7 @@
                     approved_total: total
                 });
                 currentSubmission.status = 'approved_internal';
-                document.getElementById('subStatus').value = 'approved_internal';
+                updateStatusBadge('approved_internal');
                 updateWorkflowButtons();
                 setEditable(false);
                 showSaveIndicator();
@@ -3583,7 +3579,7 @@
                 await createSubmissionReview(currentSubmission.id, 'returned', comment);
                 await updateSubmission(currentSubmission.id, { status: 'returned' });
                 currentSubmission.status = 'returned';
-                document.getElementById('subStatus').value = 'returned';
+                updateStatusBadge('returned');
                 updateWorkflowButtons();
                 setEditable(true);
                 showSaveIndicator();

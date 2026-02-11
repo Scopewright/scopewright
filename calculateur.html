@@ -3743,6 +3743,7 @@
         // ── Edge Function helper ──
         async function callEdgeFunction(texts, action) {
             var token = localStorage.getItem('sb_access_token') || '';
+            console.log('[AI] Calling edge function:', action, 'with', texts.length, 'texts');
             var resp = await fetch(SUPABASE_URL + '/functions/v1/translate', {
                 method: 'POST',
                 headers: {
@@ -3753,11 +3754,17 @@
                 body: JSON.stringify({ texts: texts, action: action })
             });
             if (!resp.ok) {
-                var errData = await resp.json().catch(function() { return {}; });
-                throw new Error(errData.error || 'Erreur ' + resp.status);
+                var errText = await resp.text().catch(function() { return ''; });
+                console.error('[AI] Edge function error:', resp.status, errText);
+                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status + ': ' + errText.substring(0, 200)); }
             }
             var data = await resp.json();
-            return data.translations || {};
+            console.log('[AI] Edge function response:', data);
+            if (!data.translations || Object.keys(data.translations).length === 0) {
+                throw new Error('Aucun résultat retourné par l\'AI');
+            }
+            return data.translations;
         }
 
         // ── Collect all FR texts ──

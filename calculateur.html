@@ -1342,28 +1342,64 @@
         /* ═══════════════════════════════════════════════════════════════
            PREVIEW VIEW (Aperçu soumission)
            ═══════════════════════════════════════════════════════════════ */
-        .preview-view { display: none; }
-        .preview-view.active { display: block; }
+        /* Preview — split layout (document gauche, outils droite) */
+        .preview-view {
+            display: none; position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
+            z-index: 50; background: #fff;
+        }
+        .preview-view.active { display: flex; flex-direction: column; }
 
         .pv-toolbar {
             display: flex; align-items: center; gap: 16px;
-            margin-bottom: 24px; padding-bottom: 16px;
-            border-bottom: 2px solid var(--stele-black);
+            padding: 10px 24px; border-bottom: 2px solid var(--stele-black);
+            background: #fff; flex-shrink: 0;
         }
         .pv-toolbar button {
             background: none; border: 1px solid var(--stele-green); color: var(--stele-green);
             padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;
         }
         .pv-toolbar button:hover { background: var(--stele-green); color: #fff; }
-        .pv-toolbar-title {
-            font-size: 16px; font-weight: 600; color: var(--stele-black);
-        }
-        .pv-toolbar-sub {
-            font-size: 13px; color: var(--stele-green); font-weight: 600; margin-left: auto;
+        .pv-toolbar-title { font-size: 16px; font-weight: 600; color: var(--stele-black); }
+        .pv-toolbar-sub { font-size: 13px; color: var(--stele-green); font-weight: 600; margin-left: auto; }
+
+        /* Split panels */
+        .pv-split { flex: 1; display: flex; overflow: hidden; }
+        .pv-left { flex: 1; overflow-y: auto; padding: 24px 32px; }
+        .pv-right {
+            width: 360px; min-width: 360px; overflow-y: auto;
+            background: #f8f8f8; border-left: 1px solid rgba(0,0,0,0.1);
         }
 
         .pv-content { max-width: 900px; margin: 0 auto; }
 
+        /* Tools panel */
+        .pv-tools-header {
+            padding: 14px 20px; font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px; color: var(--stele-black);
+            border-bottom: 1px solid rgba(0,0,0,0.08); background: #f0f0f0;
+            position: sticky; top: 0; z-index: 1;
+        }
+        .pv-tools-section { padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .pv-tools-section h5 {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--stele-green); margin-bottom: 10px; font-weight: 600;
+        }
+        .pv-tools-placeholder { font-size: 13px; color: #888; line-height: 1.4; font-style: italic; }
+
+        .pv-clause-list { display: flex; flex-direction: column; gap: 6px; }
+        .pv-clause-item {
+            padding: 10px 12px; background: #fff; border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 4px; font-size: 13px; color: #333; cursor: grab;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        .pv-clause-item:hover { border-color: var(--stele-green); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .pv-clause-item .clause-title { font-weight: 600; margin-bottom: 2px; }
+        .pv-clause-item .clause-preview {
+            font-size: 12px; color: #888; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+
+        /* Document preview — client info */
         .pv-client-info {
             display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
             margin-bottom: 28px; padding: 16px 20px;
@@ -1375,6 +1411,7 @@
         }
         .pv-client-info p { font-size: 14px; line-height: 1.3; color: #333; }
 
+        /* Room cards */
         .pv-room-card {
             margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.08);
             border-radius: 4px; overflow: hidden;
@@ -1387,9 +1424,7 @@
         .pv-room-subtotal { font-size: 15px; font-weight: 700; white-space: nowrap; }
         .pv-room-body { padding: 16px 18px; }
 
-        .pv-room-images {
-            display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;
-        }
+        .pv-room-images { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
         .pv-room-images img {
             width: 300px; height: 220px; object-fit: cover; border-radius: 4px;
             cursor: pointer; border: 1px solid rgba(0,0,0,0.1);
@@ -1407,6 +1442,7 @@
         .pv-room-desc:disabled { background: #f5f5f5; opacity: 0.7; border-style: solid; cursor: default; }
         .pv-room-desc::placeholder { color: #aaa; font-style: italic; }
 
+        /* Total bar */
         .pv-total-bar {
             margin: 28px 0; padding: 20px 24px; background: var(--stele-black); color: #fff;
             border-radius: 4px; display: flex; align-items: center; justify-content: space-between;
@@ -1415,6 +1451,7 @@
         .pv-total-amount { font-size: 28px; font-weight: 700; }
         .pv-total-taxes { font-size: 12px; opacity: 0.7; margin-top: 2px; text-align: right; }
 
+        /* Exclusions */
         .pv-exclusions {
             margin-bottom: 28px; padding: 16px 20px; background: #f5f5f5;
             border-radius: 4px; border: 1px solid rgba(0,0,0,0.08);
@@ -1432,6 +1469,16 @@
         .pv-exclusions-text:focus { outline: none; border-color: var(--stele-green); }
         .pv-exclusions-text:disabled { background: #f0f0f0; opacity: 0.7; border-style: solid; cursor: default; }
         .pv-exclusions-text::placeholder { color: #aaa; font-style: italic; }
+
+        /* Responsive — tools panel collapses on small screens */
+        @media (max-width: 1100px) {
+            .pv-right { width: 300px; min-width: 300px; }
+        }
+        @media (max-width: 900px) {
+            .pv-split { flex-direction: column; }
+            .pv-left { padding: 16px; }
+            .pv-right { width: 100%; min-width: 100%; max-height: 240px; border-left: none; border-top: 1px solid rgba(0,0,0,0.1); }
+        }
 
         .btn-preview {
             background: none; border: 1px solid #6a5acd; color: #6a5acd;
@@ -1904,14 +1951,27 @@
 
         </div><!-- fin calculator-view -->
 
-        <!-- ═══════ PREVIEW VIEW ═══════ -->
+        <!-- ═══════ PREVIEW VIEW (split layout) ═══════ -->
         <div class="preview-view" id="previewView">
             <div class="pv-toolbar">
                 <button onclick="closePreview()">&larr; Retour au calculateur</button>
                 <span class="pv-toolbar-title">Aper&ccedil;u soumission</span>
                 <span class="pv-toolbar-sub" id="pvSubNumber"></span>
             </div>
-            <div class="pv-content" id="pvContent"></div>
+            <div class="pv-split">
+                <div class="pv-left">
+                    <div class="pv-content" id="pvContent"></div>
+                </div>
+                <div class="pv-right" id="pvRight">
+                    <div class="pv-tools-header">Outils</div>
+                    <div class="pv-tools-section">
+                        <h5>Clauses de contrat</h5>
+                        <div class="pv-clause-list" id="pvClauseList">
+                            <p class="pv-tools-placeholder">Biblioth&egrave;que de clauses &mdash; prochaine &eacute;tape</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>

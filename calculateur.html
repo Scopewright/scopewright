@@ -3501,8 +3501,8 @@
                 });
                 grandTotal += subtotal;
 
-                // Images filtered by showInQuote
-                var imgs = (groupImages[groupId] || []).filter(function(img) { return img.showInQuote; });
+                // All images (preview shows all, quote.html filters by showInQuote)
+                var imgs = groupImages[groupId] || [];
 
                 // Client description from calculator textarea
                 var descEl = document.getElementById(groupId + '-clientDesc');

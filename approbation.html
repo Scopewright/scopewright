@@ -737,7 +737,7 @@
                     wrap.style.display = '';
                     div.innerHTML = reviews.map(function(rev) {
                         var d = new Date(rev.created_at).toLocaleDateString('fr-CA');
-                        var act = rev.action === 'approved' ? 'Approuv\u00e9' : 'Retourn\u00e9';
+                        var act = rev.action === 'approved' ? 'Approuv\u00e9' : rev.action === 'submitted' ? 'Soumis' : 'Retourn\u00e9';
                         return '<div style="margin-bottom:6px;"><b>' + act + '</b> (v' + (rev.version_at_review || '?') + ') &mdash; ' + d +
                             (rev.comment ? '<br><span style="color:#888;">' + escapeHtml(rev.comment) + '</span>' : '') + '</div>';
                     }).join('');

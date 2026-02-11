@@ -2989,6 +2989,9 @@
                     showSendStatus('Soumission approuv\u00e9e!', false);
                 } else {
                     // Soumettre pour approbation interne
+                    var submitComment = projectDescription || '';
+                    if (projectDate) submitComment = 'Date requise: ' + projectDate + (submitComment ? '\n' + submitComment : '');
+                    await createSubmissionReview(currentSubmission.id, 'submitted', submitComment || 'Soumis pour approbation');
                     await updateSubmission(currentSubmission.id, {
                         status: 'pending_internal',
                         approved_total: grandTotal

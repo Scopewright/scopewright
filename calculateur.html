@@ -1470,6 +1470,106 @@
         .pv-exclusions-text:disabled { background: #f0f0f0; opacity: 0.7; border-style: solid; cursor: default; }
         .pv-exclusions-text::placeholder { color: #aaa; font-style: italic; }
 
+        /* Clauses in document preview */
+        .pv-clauses-section { margin-bottom: 28px; }
+        .pv-clauses-section > h4 {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+            color: var(--stele-green); margin-bottom: 12px; font-weight: 600;
+        }
+        .pv-doc-clause {
+            margin-bottom: 12px; padding: 14px 16px; background: #fff;
+            border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;
+            position: relative;
+        }
+        .pv-doc-clause-title {
+            font-size: 13px; font-weight: 700; color: var(--stele-black);
+            margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .pv-doc-clause-text {
+            width: 100%; border: 1px dashed #ccc; border-radius: 4px;
+            padding: 8px 10px; font-size: 13px; line-height: 1.4; color: #444;
+            font-family: inherit; resize: vertical; min-height: 36px;
+            background: #fafafa; transition: border-color 0.2s;
+        }
+        .pv-doc-clause-text:focus { outline: none; border-color: var(--stele-green); background: #fff; }
+        .pv-doc-clause-text:disabled { background: #f5f5f5; opacity: 0.7; border-style: solid; cursor: default; }
+        .pv-doc-clause-actions {
+            display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end;
+        }
+        .pv-doc-clause-btn {
+            background: none; border: none; font-size: 11px; cursor: pointer;
+            font-family: inherit; padding: 2px 6px; border-radius: 3px; transition: all 0.15s;
+        }
+        .pv-doc-clause-btn.remove { color: #c62828; }
+        .pv-doc-clause-btn.remove:hover { background: #ffebee; }
+        .pv-doc-clause-btn.save-lib { color: var(--stele-green); }
+        .pv-doc-clause-btn.save-lib:hover { background: #e8f5e9; }
+
+        /* Drop zone */
+        .pv-clause-dropzone {
+            padding: 16px; border: 2px dashed #ccc; border-radius: 6px;
+            text-align: center; color: #aaa; font-size: 13px; font-style: italic;
+            transition: all 0.2s; margin-top: 8px;
+        }
+        .pv-clause-dropzone.drag-over {
+            border-color: var(--stele-green); background: #f0f7f1; color: var(--stele-green);
+        }
+
+        /* Tools panel — clause library items */
+        .pv-lib-actions { display: flex; gap: 6px; margin-bottom: 10px; }
+        .pv-btn-add-clause {
+            background: var(--stele-green); color: #fff; border: none;
+            padding: 6px 12px; border-radius: 4px; font-size: 11px;
+            cursor: pointer; font-family: inherit; font-weight: 500;
+        }
+        .pv-btn-add-clause:hover { background: #3d5043; }
+        .pv-clause-item {
+            padding: 10px 12px; background: #fff; border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 4px; font-size: 13px; color: #333; cursor: grab;
+            transition: box-shadow 0.15s, border-color 0.15s; margin-bottom: 6px;
+        }
+        .pv-clause-item:hover { border-color: var(--stele-green); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .pv-clause-item.dragging { opacity: 0.5; }
+        .pv-clause-item-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;
+        }
+        .pv-clause-item-title { font-weight: 600; font-size: 12px; }
+        .pv-clause-item-btns { display: flex; gap: 4px; }
+        .pv-clause-item-btn {
+            background: none; border: none; font-size: 11px; cursor: pointer;
+            color: #888; padding: 1px 4px; border-radius: 2px;
+        }
+        .pv-clause-item-btn:hover { color: var(--stele-black); background: rgba(0,0,0,0.05); }
+        .pv-clause-item-btn.delete:hover { color: #c62828; background: #ffebee; }
+        .pv-clause-item-preview {
+            font-size: 11px; color: #999; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            line-height: 1.3;
+        }
+        .pv-clause-empty { font-size: 12px; color: #aaa; font-style: italic; padding: 8px 0; }
+
+        /* Clause edit modal (inline in tools panel) */
+        .pv-clause-edit {
+            padding: 12px; background: #fff; border: 2px solid var(--stele-green);
+            border-radius: 6px; margin-bottom: 10px;
+        }
+        .pv-clause-edit label { font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 3px; }
+        .pv-clause-edit input, .pv-clause-edit textarea {
+            width: 100%; border: 1px solid #ddd; border-radius: 4px;
+            padding: 6px 8px; font-size: 12px; font-family: inherit; margin-bottom: 8px;
+        }
+        .pv-clause-edit input:focus, .pv-clause-edit textarea:focus { outline: none; border-color: var(--stele-green); }
+        .pv-clause-edit textarea { resize: vertical; min-height: 60px; line-height: 1.35; }
+        .pv-clause-edit-btns { display: flex; gap: 6px; justify-content: flex-end; }
+        .pv-clause-edit-btns button {
+            padding: 5px 12px; border-radius: 4px; font-size: 11px;
+            cursor: pointer; font-family: inherit; border: none;
+        }
+        .pv-clause-edit-btns .save { background: var(--stele-green); color: #fff; }
+        .pv-clause-edit-btns .save:hover { background: #3d5043; }
+        .pv-clause-edit-btns .cancel { background: #eee; color: #666; }
+        .pv-clause-edit-btns .cancel:hover { background: #ddd; }
+
         /* Responsive — tools panel collapses on small screens */
         @media (max-width: 1100px) {
             .pv-right { width: 300px; min-width: 300px; }
@@ -1965,10 +2065,12 @@
                 <div class="pv-right" id="pvRight">
                     <div class="pv-tools-header">Outils</div>
                     <div class="pv-tools-section">
-                        <h5>Clauses de contrat</h5>
-                        <div class="pv-clause-list" id="pvClauseList">
-                            <p class="pv-tools-placeholder">Biblioth&egrave;que de clauses &mdash; prochaine &eacute;tape</p>
+                        <h5>Biblioth&egrave;que de clauses</h5>
+                        <div class="pv-lib-actions">
+                            <button class="pv-btn-add-clause" onclick="showClauseEditor()">+ Nouvelle clause</button>
                         </div>
+                        <div id="pvClauseEditZone"></div>
+                        <div class="pv-clause-list" id="pvClauseList"></div>
                     </div>
                 </div>
             </div>
@@ -3505,19 +3607,238 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // APERÇU SOUMISSION (PREVIEW VIEW)
+        // APERÇU SOUMISSION (PREVIEW VIEW) + BIBLIOTHÈQUE DE CLAUSES
         // ═══════════════════════════════════════════════════════════════════════
 
-        function openPreview() {
+        var clauseLibrary = []; // loaded from quote_clauses table
+
+        async function openPreview() {
             document.getElementById('calculatorView').classList.remove('active');
             document.getElementById('previewView').classList.add('active');
+            await loadClauseLibrary();
             renderPreview();
+            renderClauseLibrary();
         }
 
         function closePreview() {
             document.getElementById('previewView').classList.remove('active');
             document.getElementById('calculatorView').classList.add('active');
         }
+
+        // ── Clause Library CRUD ──
+
+        async function loadClauseLibrary() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses?order=sort_order.asc,title.asc&select=*', {});
+                if (r.ok) clauseLibrary = await r.json();
+            } catch (e) { console.error('loadClauseLibrary error:', e); }
+        }
+
+        function renderClauseLibrary() {
+            var container = document.getElementById('pvClauseList');
+            if (!container) return;
+
+            if (clauseLibrary.length === 0) {
+                container.innerHTML = '<p class="pv-clause-empty">Aucune clause dans la biblioth\u00e8que. Cliquez + pour en cr\u00e9er.</p>';
+                return;
+            }
+
+            var html = '';
+            clauseLibrary.forEach(function(clause, idx) {
+                html += '<div class="pv-clause-item" draggable="true" data-clause-idx="' + idx + '"';
+                html += ' ondragstart="onClauseDragStart(event, ' + idx + ')">';
+                html += '<div class="pv-clause-item-header">';
+                html += '<span class="pv-clause-item-title">' + escapeHtml(clause.title) + '</span>';
+                html += '<span class="pv-clause-item-btns">';
+                html += '<button class="pv-clause-item-btn" onclick="showClauseEditor(\'' + clause.id + '\')" title="Modifier">\u270E</button>';
+                html += '<button class="pv-clause-item-btn delete" onclick="deleteLibraryClause(\'' + clause.id + '\')" title="Supprimer">\u2715</button>';
+                html += '</span>';
+                html += '</div>';
+                var preview = (clause.content_fr || '').substring(0, 120);
+                if (preview) html += '<div class="pv-clause-item-preview">' + escapeHtml(preview) + '</div>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        function showClauseEditor(clauseId) {
+            var zone = document.getElementById('pvClauseEditZone');
+            if (!zone) return;
+
+            var clause = clauseId ? clauseLibrary.find(function(c) { return c.id === clauseId; }) : null;
+            var isNew = !clause;
+
+            zone.innerHTML = '<div class="pv-clause-edit">' +
+                '<label>Titre</label>' +
+                '<input type="text" id="ceTitle" value="' + escapeAttr(clause ? clause.title : '') + '" placeholder="Ex: Dessins d\'atelier">' +
+                '<label>Contenu (fran\u00e7ais)</label>' +
+                '<textarea id="ceFr" rows="4" placeholder="Texte de la clause...">' + escapeHtml(clause ? clause.content_fr : '') + '</textarea>' +
+                '<label>Contenu (anglais) <span style="font-weight:400;color:#aaa;">optionnel</span></label>' +
+                '<textarea id="ceEn" rows="3" placeholder="English text...">' + escapeHtml(clause ? clause.content_en : '') + '</textarea>' +
+                '<div class="pv-clause-edit-btns">' +
+                '<button class="cancel" onclick="closeClauseEditor()">Annuler</button>' +
+                '<button class="save" onclick="saveLibraryClause(' + (isNew ? 'null' : "'" + clauseId + "'") + ')">' + (isNew ? 'Cr\u00e9er' : 'Sauvegarder') + '</button>' +
+                '</div></div>';
+
+            zone.querySelector('#ceTitle').focus();
+        }
+
+        function closeClauseEditor() {
+            var zone = document.getElementById('pvClauseEditZone');
+            if (zone) zone.innerHTML = '';
+        }
+
+        async function saveLibraryClause(clauseId) {
+            var title = document.getElementById('ceTitle').value.trim();
+            var fr = document.getElementById('ceFr').value.trim();
+            var en = document.getElementById('ceEn').value.trim();
+            if (!title) { document.getElementById('ceTitle').focus(); return; }
+
+            var payload = { title: title, content_fr: fr, content_en: en };
+
+            try {
+                var r;
+                if (clauseId) {
+                    r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses?id=eq.' + clauseId, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (r.ok) {
+                    closeClauseEditor();
+                    await loadClauseLibrary();
+                    renderClauseLibrary();
+                    showSaveIndicator();
+                }
+            } catch (e) { console.error('saveLibraryClause error:', e); }
+        }
+
+        async function deleteLibraryClause(clauseId) {
+            if (!confirm('Supprimer cette clause de la biblioth\u00e8que ?')) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses?id=eq.' + clauseId, { method: 'DELETE' });
+                if (r.ok) {
+                    await loadClauseLibrary();
+                    renderClauseLibrary();
+                    showSaveIndicator();
+                }
+            } catch (e) { console.error('deleteLibraryClause error:', e); }
+        }
+
+        // ── Submission Clauses (JSONB on submissions) ──
+
+        function getSubmissionClauses() {
+            if (!currentSubmission) return [];
+            return currentSubmission.clauses || [];
+        }
+
+        async function saveSubmissionClauses(clauses) {
+            if (!currentSubmission) return;
+            currentSubmission.clauses = clauses;
+            await updateSubmission(currentSubmission.id, { clauses: clauses });
+            showSaveIndicator();
+        }
+
+        async function addClauseToSubmission(clauseIdx) {
+            var lib = clauseLibrary[clauseIdx];
+            if (!lib) return;
+            var clauses = getSubmissionClauses().slice();
+            // Avoid duplicate by id
+            if (clauses.some(function(c) { return c.clause_id === lib.id; })) return;
+            clauses.push({
+                clause_id: lib.id,
+                title: lib.title,
+                content: lib.content_fr,
+                sort_order: clauses.length
+            });
+            await saveSubmissionClauses(clauses);
+            renderPreview();
+        }
+
+        async function removeClauseFromSubmission(idx) {
+            var clauses = getSubmissionClauses().slice();
+            clauses.splice(idx, 1);
+            // Re-index sort_order
+            clauses.forEach(function(c, i) { c.sort_order = i; });
+            await saveSubmissionClauses(clauses);
+            renderPreview();
+        }
+
+        async function updateClauseText(idx, newText) {
+            var clauses = getSubmissionClauses().slice();
+            if (clauses[idx]) {
+                clauses[idx].content = newText;
+                await saveSubmissionClauses(clauses);
+            }
+        }
+
+        async function saveClauseBackToLibrary(idx) {
+            var clauses = getSubmissionClauses();
+            var c = clauses[idx];
+            if (!c) return;
+
+            // If came from library, update it; otherwise create new
+            if (c.clause_id) {
+                var existing = clauseLibrary.find(function(lib) { return lib.id === c.clause_id; });
+                if (existing) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses?id=eq.' + c.clause_id, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ title: c.title, content_fr: c.content })
+                    });
+                    await loadClauseLibrary();
+                    renderClauseLibrary();
+                    showSaveIndicator();
+                    return;
+                }
+            }
+
+            // Create new in library
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/quote_clauses', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ title: c.title, content_fr: c.content })
+            });
+            await loadClauseLibrary();
+            renderClauseLibrary();
+            showSaveIndicator();
+        }
+
+        // ── Drag and Drop ──
+
+        var draggedClauseIdx = null;
+
+        function onClauseDragStart(e, idx) {
+            draggedClauseIdx = idx;
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', idx.toString());
+            e.target.classList.add('dragging');
+            setTimeout(function() { e.target.classList.remove('dragging'); }, 200);
+        }
+
+        function onClauseDropZoneDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function onClauseDropZoneDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function onClauseDropZoneDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            var idx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            if (!isNaN(idx)) addClauseToSubmission(idx);
+            draggedClauseIdx = null;
+        }
+
+        // ── Render Preview ──
 
         function renderPreview() {
             var container = document.getElementById('pvContent');
@@ -3534,10 +3855,10 @@
             // Client info
             if (currentProject) {
                 html += '<div class="pv-client-info">';
-                html += '<div><h4>Client</h4><p>' + escapeHtml(currentProject.client_name || '—') + '</p>';
+                html += '<div><h4>Client</h4><p>' + escapeHtml(currentProject.client_name || '\u2014') + '</p>';
                 if (currentProject.client_address) html += '<p style="font-size:13px;opacity:0.7;margin-top:2px;">' + escapeHtml(currentProject.client_address) + '</p>';
                 html += '</div>';
-                html += '<div><h4>Projet</h4><p>' + escapeHtml(currentProject.name || '—') + '</p>';
+                html += '<div><h4>Projet</h4><p>' + escapeHtml(currentProject.name || '\u2014') + '</p>';
                 if (currentProject.designer) html += '<p style="font-size:13px;opacity:0.7;margin-top:2px;">Designer : ' + escapeHtml(currentProject.designer) + '</p>';
                 html += '</div>';
                 html += '</div>';
@@ -3554,17 +3875,13 @@
                 var nameInput = group.querySelector('.furniture-name-input');
                 var roomName = nameInput ? nameInput.value : 'Sans nom';
 
-                // Subtotal from calc rows
                 var subtotal = 0;
                 group.querySelectorAll('.calc-row').forEach(function(row) {
                     subtotal += getRowTotal(row);
                 });
                 grandTotal += subtotal;
 
-                // All images (preview shows all, quote.html filters by showInQuote)
                 var imgs = groupImages[groupId] || [];
-
-                // Client description from calculator textarea
                 var descEl = document.getElementById(groupId + '-clientDesc');
                 var desc = descEl ? descEl.value : '';
 
@@ -3572,7 +3889,6 @@
                 html += '<div class="pv-room-header"><span class="pv-room-name">' + escapeHtml(roomName) + '</span><span class="pv-room-subtotal">' + formatPrice(subtotal) + '</span></div>';
                 html += '<div class="pv-room-body">';
 
-                // Images
                 if (imgs.length > 0) {
                     html += '<div class="pv-room-images">';
                     imgs.forEach(function(img) {
@@ -3581,7 +3897,6 @@
                     html += '</div>';
                 }
 
-                // Editable description
                 html += '<textarea class="pv-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
                 html += ' placeholder="Description visible par le client pour cette pi\u00e8ce..."';
                 html += ' rows="2"' + (editable ? '' : ' disabled') + '>' + escapeHtml(desc) + '</textarea>';
@@ -3606,9 +3921,40 @@
             html += ' rows="3"' + (editable ? '' : ' disabled') + '>' + escapeHtml(exclText) + '</textarea>';
             html += '</div>';
 
-            container.innerHTML = html;
+            // ── Clauses de contrat ──
+            var subClauses = getSubmissionClauses();
+            if (subClauses.length > 0 || editable) {
+                html += '<div class="pv-clauses-section">';
+                html += '<h4>Clauses du contrat</h4>';
 
-            // Wire save handlers
+                subClauses.forEach(function(clause, idx) {
+                    html += '<div class="pv-doc-clause" data-clause-idx="' + idx + '">';
+                    html += '<div class="pv-doc-clause-title">' + escapeHtml(clause.title) + '</div>';
+                    html += '<textarea class="pv-doc-clause-text" data-clause-idx="' + idx + '"';
+                    html += ' rows="3"' + (editable ? '' : ' disabled') + '>' + escapeHtml(clause.content || '') + '</textarea>';
+                    if (editable) {
+                        html += '<div class="pv-doc-clause-actions">';
+                        html += '<button class="pv-doc-clause-btn save-lib" onclick="saveClauseBackToLibrary(' + idx + ')" title="Sauvegarder dans la biblioth\u00e8que">\u2191 Biblioth\u00e8que</button>';
+                        html += '<button class="pv-doc-clause-btn remove" onclick="removeClauseFromSubmission(' + idx + ')" title="Retirer">\u2715 Retirer</button>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+
+                // Drop zone (only if editable)
+                if (editable) {
+                    html += '<div class="pv-clause-dropzone" id="pvClauseDropZone"';
+                    html += ' ondragover="onClauseDropZoneDragOver(event)"';
+                    html += ' ondragleave="onClauseDropZoneDragLeave(event)"';
+                    html += ' ondrop="onClauseDropZoneDrop(event)">';
+                    html += 'Glissez une clause depuis la biblioth\u00e8que \u2192';
+                    html += '</div>';
+                }
+
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
             wirePreviewSaveHandlers();
         }
 
@@ -3618,10 +3964,8 @@
                 textarea.addEventListener('blur', function() {
                     var gid = this.getAttribute('data-group-id');
                     if (!gid || !roomMap[gid]) return;
-                    // Save to Supabase
                     updateRoom(roomMap[gid], { client_description: this.value });
                     showSaveIndicator();
-                    // Sync back to calculator textarea
                     var calcDesc = document.getElementById(gid + '-clientDesc');
                     if (calcDesc) calcDesc.value = this.value;
                 });
@@ -3634,11 +3978,18 @@
                     if (!currentSubmission) return;
                     updateSubmission(currentSubmission.id, { exclusions: this.value });
                     showSaveIndicator();
-                    // Sync back to calculator textarea
                     var calcExcl = document.getElementById('exclusionsText');
                     if (calcExcl) calcExcl.value = this.value;
                 });
             }
+
+            // Clause texts
+            document.querySelectorAll('#pvContent .pv-doc-clause-text').forEach(function(textarea) {
+                textarea.addEventListener('blur', function() {
+                    var idx = parseInt(this.getAttribute('data-clause-idx'), 10);
+                    if (!isNaN(idx)) updateClauseText(idx, this.value);
+                });
+            });
         }
 
         // ═══════════════════════════════════════════════════════════════════════

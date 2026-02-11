@@ -3742,8 +3742,7 @@
 
         // ── Edge Function helper ──
         async function callEdgeFunction(texts, action) {
-            var session = await window._supabase.auth.getSession();
-            var token = session?.data?.session?.access_token || '';
+            var token = localStorage.getItem('sb_access_token') || '';
             var resp = await fetch(SUPABASE_URL + '/functions/v1/translate', {
                 method: 'POST',
                 headers: {

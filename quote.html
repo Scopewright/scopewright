@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soumission — Scopewright</title>
+    <title>Soumission — Stele</title>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -80,15 +80,8 @@
         }
 
         .quote-logo {
-            height: 48px;
+            height: 56px;
             width: auto;
-        }
-
-        .quote-brand {
-            font-size: 28px;
-            font-weight: 300;
-            letter-spacing: 1px;
-            color: var(--stele-black);
         }
 
         .quote-header-right {
@@ -129,8 +122,8 @@
         }
 
         .client-info-block p {
-            font-size: 15px;
-            line-height: 1.6;
+            font-size: 14px;
+            line-height: 1.3;
         }
 
         /* ── Room cards ── */
@@ -167,23 +160,16 @@
             padding: 20px;
         }
 
-        .room-description {
-            font-size: 14px;
-            line-height: 1.7;
-            color: #444;
-            white-space: pre-wrap;
-            margin-bottom: 16px;
-        }
-
         .room-images {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
+            margin-bottom: 14px;
         }
 
         .room-image-thumb {
-            width: 180px;
-            height: 140px;
+            width: 340px;
+            height: 260px;
             object-fit: cover;
             border-radius: 4px;
             cursor: pointer;
@@ -192,8 +178,15 @@
         }
 
         .room-image-thumb:hover {
-            transform: scale(1.03);
+            transform: scale(1.02);
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .room-description {
+            font-size: 14px;
+            line-height: 1.35;
+            color: #444;
+            white-space: pre-wrap;
         }
 
         /* ── Grand total ── */
@@ -250,7 +243,7 @@
 
         .exclusions-text {
             font-size: 14px;
-            line-height: 1.7;
+            line-height: 1.35;
             color: #555;
             white-space: pre-wrap;
         }
@@ -430,7 +423,7 @@
 
             .room-image-thumb {
                 width: calc(50% - 6px);
-                height: 120px;
+                height: 180px;
             }
 
             .room-header {
@@ -480,8 +473,7 @@
         <!-- Header -->
         <div class="quote-header">
             <div class="quote-header-left">
-                <img class="quote-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png" alt="Logo">
-                <span class="quote-brand">Scopewright</span>
+                <img class="quote-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png" alt="Stele">
             </div>
             <div class="quote-header-right">
                 <div class="quote-number" id="quoteNumber"></div>
@@ -541,7 +533,7 @@
 
         <!-- Footer -->
         <div class="quote-footer">
-            Scopewright &mdash; Ébénisterie sur mesure
+            Stele &mdash; Ébénisterie sur mesure
         </div>
     </div>
 </div>
@@ -623,7 +615,7 @@ function renderQuote() {
     var token = quoteData.token;
 
     // Title
-    document.title = 'Soumission #' + sub.submission_number + ' — Scopewright';
+    document.title = 'Soumission #' + sub.submission_number + ' — Stele';
 
     // Header
     document.getElementById('quoteNumber').textContent = 'Soumission #' + sub.submission_number;
@@ -659,15 +651,7 @@ function renderQuote() {
         var body = document.createElement('div');
         body.className = 'room-body';
 
-        // Description
-        if (room.client_description && room.client_description.trim()) {
-            var desc = document.createElement('div');
-            desc.className = 'room-description';
-            desc.textContent = room.client_description;
-            body.appendChild(desc);
-        }
-
-        // Images (only showInQuote)
+        // Images first (only showInQuote)
         var images = (room.images || []).filter(function(img) { return img.showInQuote; });
         if (images.length > 0) {
             var imgContainer = document.createElement('div');
@@ -681,6 +665,14 @@ function renderQuote() {
                 imgContainer.appendChild(thumb);
             });
             body.appendChild(imgContainer);
+        }
+
+        // Description below images
+        if (room.client_description && room.client_description.trim()) {
+            var desc = document.createElement('div');
+            desc.className = 'room-description';
+            desc.textContent = room.client_description;
+            body.appendChild(desc);
         }
 
         // Only show body if there's content

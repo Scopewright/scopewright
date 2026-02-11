@@ -1570,29 +1570,12 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label" for="projectManager">Charg&eacute;(e) de projet</label>
-                    <select class="form-input" id="projectManager">
-                        <option value="">&mdash; S&eacute;lectionner &mdash;</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label class="form-label" for="projectDate">Date requise</label>
                     <input type="date" class="form-input" id="projectDate">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="projectDescription">Message / Notes</label>
                     <textarea class="form-input" id="projectDescription" rows="3" placeholder="Ex: J'en ai besoin pour demain, pr&eacute;voir 2 semaines de d&eacute;lai..." style="resize: vertical; min-height: 60px;"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Images / Captures d'&eacute;cran <span style="font-weight:normal; color:#888;">(max 4)</span></label>
-                    <div class="image-drop-zone" id="imageDropZone">
-                        <div class="image-drop-zone-text">
-                            <strong>Ctrl+V</strong> pour coller &middot; <strong>glisser-d&eacute;poser</strong> &middot; ou <strong>cliquer</strong> pour parcourir
-                        </div>
-                    </div>
-                    <input type="file" id="imageFileInput" accept="image/*" multiple style="display:none;">
-                    <div class="image-previews" id="imagePreviews"></div>
-                    <div class="image-count" id="imageCount"></div>
                 </div>
                 <div id="sendStatus" style="display: none; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 8px;"></div>
             </div>
@@ -1822,24 +1805,12 @@
                 })
                 .then(data => {
                     EMPLOYEES_DATA = data;
-                    populateEmployeeSelect();
                     resolve(true);
                 })
                 .catch(error => {
-                    console.warn('Erreur chargement employés:', error);
+                    console.warn('Erreur chargement employ\u00e9s:', error);
                     resolve(false);
                 });
-            });
-        }
-
-        function populateEmployeeSelect() {
-            const select = document.getElementById('projectManager');
-            select.innerHTML = '<option value="">— Sélectionner —</option>';
-            EMPLOYEES_DATA.forEach((emp, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = emp.name;
-                select.appendChild(option);
             });
         }
 
@@ -2789,7 +2760,6 @@
                 ? 'Approuver & soumettre la soumission #' + currentSubmission.submission_number
                 : 'Soumettre la soumission #' + currentSubmission.submission_number;
             document.getElementById('btnSend').textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
-            clearImages();
             document.getElementById('sendStatus').style.display = 'none';
             document.getElementById('pdfModal').classList.add('active');
         }
@@ -2810,30 +2780,6 @@
         // GESTION DES IMAGES
         // ═══════════════════════════════════════════════════════════════════════
 
-        const MAX_IMAGES = 4;
-        let attachedImages = [];
-
-        function setupImageHandlers() {
-            const dropZone = document.getElementById('imageDropZone');
-            const fileInput = document.getElementById('imageFileInput');
-
-            dropZone.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => { handleImageFiles(e.target.files); fileInput.value = ''; });
-
-            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
-            dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleImageFiles(e.dataTransfer.files); });
-
-            document.addEventListener('paste', (e) => {
-                const modal = document.getElementById('pdfModal');
-                if (!modal.classList.contains('active')) return;
-                const files = [];
-                for (let i = 0; i < e.clipboardData.items.length; i++) {
-                    if (e.clipboardData.items[i].type.startsWith('image/')) files.push(e.clipboardData.items[i].getAsFile());
-                }
-                if (files.length > 0) { e.preventDefault(); handleImageFiles(files); }
-            });
-        }
 
         function compressImage(file, maxWidth, quality) {
             return new Promise((resolve) => {
@@ -2853,38 +2799,6 @@
                 reader.readAsDataURL(file);
             });
         }
-
-        function handleImageFiles(files) {
-            const remaining = MAX_IMAGES - attachedImages.length;
-            if (remaining <= 0) {
-                showSendStatus('Maximum de ' + MAX_IMAGES + ' images atteint.', true);
-                setTimeout(() => { document.getElementById('sendStatus').style.display = 'none'; }, 2000);
-                return;
-            }
-            Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining).forEach(file => {
-                compressImage(file, 1024, 0.7).then(dataUrl => {
-                    attachedImages.push({ name: (file.name || ('screenshot_' + Date.now() + '.png')).replace(/\.\w+$/, '.jpg'), dataUrl: dataUrl });
-                    renderImagePreviews();
-                });
-            });
-        }
-
-        function renderImagePreviews() {
-            const container = document.getElementById('imagePreviews');
-            const countEl = document.getElementById('imageCount');
-            container.innerHTML = '';
-            attachedImages.forEach((img, index) => {
-                const item = document.createElement('div');
-                item.className = 'image-preview-item';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeImage(${index})" title="Supprimer">&times;</button>`;
-                container.appendChild(item);
-            });
-            countEl.textContent = attachedImages.length > 0 ? attachedImages.length + ' / ' + MAX_IMAGES + ' image(s)' : '';
-            document.getElementById('imageDropZone').style.display = attachedImages.length >= MAX_IMAGES ? 'none' : '';
-        }
-
-        function removeImage(index) { attachedImages.splice(index, 1); renderImagePreviews(); }
-        function clearImages() { attachedImages = []; renderImagePreviews(); }
 
         // ═══════════════════════════════════════════════════════════════════════
         // IMAGES PAR MEUBLE (dans le calculateur)
@@ -3039,9 +2953,6 @@
         async function soumettreSoumission() {
             if (!currentSubmission) return;
 
-            const managerSelect = document.getElementById('projectManager');
-            const selectedIndex = managerSelect.value;
-            const projectManager = selectedIndex !== '' ? EMPLOYEES_DATA[selectedIndex].name : '';
             const projectDate = document.getElementById('projectDate').value;
             const projectDescription = document.getElementById('projectDescription').value.trim();
 
@@ -3057,12 +2968,9 @@
                 // Cr\u00e9er un snapshot avec les notes du modal
                 await createVersion(currentSubmission.id);
 
-                // Sauvegarder les m\u00e9tadonn\u00e9es de soumission sur le projet
-                var projectUpdates = {};
-                if (projectManager) projectUpdates.designer = projectManager;
-                if (projectDescription) projectUpdates.notes = projectDescription;
-                if (Object.keys(projectUpdates).length > 0 && currentProject) {
-                    await updateProject(currentProject.id, projectUpdates);
+                // Sauvegarder les notes sur le projet
+                if (projectDescription && currentProject) {
+                    await updateProject(currentProject.id, { notes: projectDescription });
                 }
 
                 var grandTotal = calculerGrandTotal();
@@ -3851,7 +3759,6 @@
             await loadTauxAndExpenses();
             await loadMediaTags();
             await loadEmployeesData();
-            setupImageHandlers();
             setupProposerMediaHandlers();
 
             // Check for direct submission opening (from approbation page)

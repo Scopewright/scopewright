@@ -15,3 +15,7 @@
 !clients.html
 !google_apps_script.gs
 !ARCHITECTURE.md
+!supabase/
+!supabase/functions/
+!supabase/functions/translate/
+!supabase/functions/translate/index.ts

@@ -1350,7 +1350,7 @@
         .preview-view.active { display: flex; flex-direction: column; }
 
         .pv-toolbar {
-            display: flex; align-items: center; gap: 16px;
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
             padding: 10px 24px; border-bottom: 2px solid var(--stele-black);
             background: #fff; flex-shrink: 0;
         }
@@ -2093,6 +2093,7 @@
                 <button class="btn-client-view" id="btnClientView" onclick="toggleClientView()">Vue client</button>
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
                 <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
+                <button class="btn-client-view" id="btnTranslateAll" onclick="translateAll()" title="Traduire tout le document en anglais" style="display:none; background:var(--stele-green); color:#fff; font-weight:600;">Traduire tout</button>
             </div>
             <div class="pv-split">
                 <div class="pv-left">
@@ -3720,7 +3721,104 @@
                 btn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
                 btn.classList.toggle('active', currentLang === 'en');
             }
+            var btnTr = document.getElementById('btnTranslateAll');
+            if (btnTr) btnTr.style.display = currentLang === 'en' ? '' : 'none';
             renderPreview();
+        }
+
+        async function translateAll() {
+            var btn = document.getElementById('btnTranslateAll');
+            if (!btn) return;
+            var origText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Traduction en cours...';
+
+            try {
+                // Collect all FR texts to translate
+                var texts = [];
+
+                // Room descriptions
+                var groups = document.querySelectorAll('#calculator .furniture-group');
+                groups.forEach(function(g) {
+                    var gid = g.id;
+                    var descEl = document.getElementById(gid + '-clientDesc');
+                    var frText = descEl ? descEl.value.trim() : '';
+                    if (frText) {
+                        texts.push({ key: 'room_' + gid, text: frText });
+                    }
+                });
+
+                // Clause texts
+                var clauses = getSubmissionClauses();
+                clauses.forEach(function(c, i) {
+                    if (c.content && c.content.trim()) {
+                        texts.push({ key: 'clause_' + i, text: c.content });
+                    }
+                });
+
+                if (texts.length === 0) {
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                    showSaveIndicator();
+                    return;
+                }
+
+                // Call edge function
+                var session = await window._supabase.auth.getSession();
+                var token = session?.data?.session?.access_token || '';
+                var resp = await fetch(SUPABASE_URL + '/functions/v1/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token,
+                        'apikey': SUPABASE_KEY
+                    },
+                    body: JSON.stringify({ texts: texts })
+                });
+
+                if (!resp.ok) {
+                    var errData = await resp.json().catch(function() { return {}; });
+                    throw new Error(errData.error || 'Erreur ' + resp.status);
+                }
+
+                var data = await resp.json();
+                var translations = data.translations || {};
+
+                // Apply room translations
+                groups.forEach(function(g) {
+                    var gid = g.id;
+                    var key = 'room_' + gid;
+                    if (translations[key]) {
+                        roomDescEN[gid] = translations[key];
+                        if (roomMap[gid]) {
+                            updateRoom(roomMap[gid], { client_description_en: translations[key] });
+                        }
+                    }
+                });
+
+                // Apply clause translations
+                var updatedClauses = clauses.slice();
+                var clauseChanged = false;
+                clauses.forEach(function(c, i) {
+                    var key = 'clause_' + i;
+                    if (translations[key]) {
+                        updatedClauses[i].content_en = translations[key];
+                        clauseChanged = true;
+                    }
+                });
+                if (clauseChanged) {
+                    await saveSubmissionClauses(updatedClauses);
+                }
+
+                showSaveIndicator();
+                renderPreview();
+            } catch (err) {
+                console.error('Translation error:', err);
+                alert('Erreur de traduction : ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = origText;
+            }
         }
 
         function removePreviewImage(groupId, index) {
@@ -4003,7 +4101,7 @@
                 var descEl = document.getElementById(groupId + '-clientDesc');
                 var descFr = descEl ? descEl.value : '';
                 var descEn = roomDescEN[groupId] || '';
-                var desc = currentLang === 'en' ? descEn : descFr;
+                var desc = currentLang === 'en' ? (descEn || descFr) : descFr;
                 var hasImages = imgs.length > 0;
 
                 html += '<div class="pv-page" data-group-id="' + escapeAttr(groupId) + '">';

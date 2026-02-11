@@ -1,6 +1,6 @@
 # ARCHITECTURE — Scopewright (Stele)
 
-> Documentation de référence du projet. Dernière mise à jour : 2026-02-10.
+> Documentation de référence du projet. Dernière mise à jour : 2026-02-11.
 > Dernier audit complet : 2026-02-10.
 
 ---
@@ -31,6 +31,8 @@
 | `calculateur.html` | Calculateur de projets — gestion projets, meubles, lignes, estimation | Oui |
 | `admin.html` | Administration — permissions, rôles, catégories, tags, taux horaires, dépenses | Oui |
 | `approbation.html` | Approbation : soumissions (workflow) + items proposés au catalogue | Oui |
+| `quote.html` | Soumission client — vue publique avec acceptation + signature | Non (token URL) |
+| `clients.html` | Gestion des clients | Oui |
 | `fiche.html` | Fiche de vente d'un produit — affichage public + éditeur authentifié | Optionnel |
 
 ### Fichiers de support
@@ -38,6 +40,7 @@
 | Fichier | Rôle |
 |---------|------|
 | `google_apps_script.gs` | Cloud function Google Apps Script : génère l'email HTML + PDF d'estimation |
+| `supabase/functions/translate/index.ts` | Edge Function Supabase : proxy de traduction FR→EN via Claude Haiku |
 | `catalogue.json` | Données de catalogue en JSON (export/fallback) |
 
 ### Fichiers hors application (outils locaux, non déployés)
@@ -59,6 +62,8 @@
 - **Repo** : `Scopewright/scopewright` — branche `main`
 - **Backend** : Supabase (PostgreSQL + Auth + Storage)
 - **Email** : Google Apps Script (déploiement manuel requis après chaque modification du `.gs`)
+- **Edge Functions** : Supabase Edge Functions (Deno) — déployées via `supabase functions deploy`
+  - `translate` : proxy de traduction FR→EN via Anthropic Claude Haiku (clé API en secret Supabase)
 
 ---
 
@@ -130,6 +135,7 @@
 | `approved_at` | TIMESTAMPTZ | Date d'approbation |
 | `sent_at` | TIMESTAMPTZ | Date d'envoi au client |
 | `accepted_at` | TIMESTAMPTZ | Date d'acceptation client |
+| `clauses` | JSONB | Clauses du contrat `[{ clause_id, title, content, content_en, sort_order }]` |
 | `created_at` | TIMESTAMPTZ | Date de création |
 | `updated_at` | TIMESTAMPTZ | Dernière modification |
 
@@ -137,7 +143,7 @@
 
 **RLS** : propriétaire via JOIN `projects.user_id = auth.uid()`, approbateurs peuvent voir/modifier les soumissions `pending_internal`.
 
-**Utilisée par** : calculateur.html, approbation.html
+**Utilisée par** : calculateur.html, approbation.html, quote.html
 
 ---
 
@@ -169,11 +175,13 @@
 | `name` | TEXT | Nom du meuble / de la pièce |
 | `sort_order` | INTEGER | Ordre d'affichage |
 | `installation_included` | BOOLEAN | Toggle installation (défaut: true) |
-| `images` | JSONB | Images attachées au meuble `[{ name, dataUrl }]` |
+| `images` | JSONB | Images attachées au meuble `[{ name, dataUrl, showInQuote }]` |
+| `client_description` | TEXT | Description visible par le client (FR) |
+| `client_description_en` | TEXT | Description visible par le client (EN) |
 
 **RLS** : via JOIN chain depuis `projects` (propriétaire) ou `submissions` (approbateur).
 
-**Utilisée par** : calculateur.html
+**Utilisée par** : calculateur.html, quote.html
 
 ---
 
@@ -279,6 +287,21 @@
 
 ---
 
+#### `quote_clauses` — Bibliothèque de clauses contractuelles
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | UUID (PK) | Identifiant unique |
+| `title` | TEXT | Titre de la clause (ex: "Délai de livraison") |
+| `content_fr` | TEXT | Contenu en français |
+| `content_en` | TEXT | Contenu en anglais |
+| `sort_order` | INTEGER | Ordre d'affichage dans la bibliothèque |
+| `created_at` | TIMESTAMPTZ | Date de création |
+
+**Utilisée par** : calculateur.html (bibliothèque de clauses dans le panneau droit de l'aperçu, glisser-déposer vers la soumission)
+
+---
+
 ### 2.2 Relations entre les tables
 
 ```
@@ -298,6 +321,8 @@ catalogue_items (id = code texte)
 employees — table indépendante (liste pour dropdowns)
 
 app_config — table clé-valeur indépendante (configuration globale)
+
+quote_clauses — bibliothèque de clauses (indépendante, copiées dans submissions.clauses)
 ```
 
 ### 2.3 Workflow des soumissions
@@ -582,6 +607,13 @@ https://script.google.com/macros/s/AKfycby.../exec
 | Approbation | approbation.html | Approuver / rejeter items pending |
 | Permissions par rôle | admin.html → toutes pages | Matrice 6 rôles × 9 permissions |
 | Cache offline | catalogue + calculateur | LocalStorage fallback |
+| Aperçu soumission | calculateur.html | Vue prévisualisation landscape 8½×11, édition descriptions client, images filtrées (showInQuote) |
+| Vue client | calculateur.html | Mode lecture seule dans l'aperçu (masque outils d'édition) |
+| Présentation plein écran | calculateur.html | Fullscreen API, navigation page par page (clic/espace/enter) |
+| Bibliothèque de clauses | calculateur.html | Drag-and-drop depuis panneau droit, sauvegarde dans submissions.clauses JSONB |
+| Traduction FR/EN | calculateur.html | Toggle langue dans l'aperçu, dictionnaire i18n pour labels, champs séparés pour contenu dynamique |
+| Traduction automatique | calculateur.html + Edge Function | Bouton "Traduire tout" via Claude Haiku (proxy Supabase Edge Function) |
+| Soumission client | quote.html | Page publique : visualisation soumission + formulaire d'acceptation avec signature |
 
 ### 7.2 En cours / incomplet
 
@@ -593,6 +625,7 @@ https://script.google.com/macros/s/AKfycby.../exec
 | Toggle installation 3 niveaux | Projet → section → ligne | **CORRIGÉ** — cascade implémentée |
 | Modal Rentabilité | Analyse financière par meuble ou projet | **CORRIGÉ** — prix vente, coûtant, heures, marges |
 | Workflow soumissions | Projets → Soumissions avec approbation 7 étapes | **IMPLÉMENTÉ** — tables `submissions`, `submission_reviews` créées, calculateur + approbation mis à jour |
+| Edge Function translate | Supabase Edge Function pour traduction FR→EN via Claude Haiku | **DÉPLOYÉ** |
 | Documents | Carte "Documents" dans app.html affiche "Bientôt" | **Non implémenté** |
 | Assistant vente | Carte "Assistant vente" dans app.html affiche "Bientôt" | **Non implémenté** |
 | Page Analyse projet | Page dédiée à l'analyse de rentabilité d'un projet | **Non implémenté** |

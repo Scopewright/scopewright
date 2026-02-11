@@ -757,16 +757,21 @@ async function acceptQuote() {
             })
         });
 
+        var respText = await resp.text();
+        console.log('accept_quote response:', resp.status, respText);
+
         if (!resp.ok) {
-            var errText = await resp.text();
-            console.error('Accept error:', resp.status, errText);
             btn.disabled = false;
             btn.textContent = 'Accepter la soumission';
-            alert('Une erreur est survenue. Veuillez réessayer.');
+            alert('Erreur ' + resp.status + ' : ' + respText);
             return;
         }
 
-        var result = await resp.json();
+        // Parse JSON (may be empty for void functions)
+        var result = null;
+        if (respText && respText.trim()) {
+            try { result = JSON.parse(respText); } catch(e) { /* not JSON, that's ok */ }
+        }
 
         if (result && result.error) {
             btn.disabled = false;
@@ -785,7 +790,7 @@ async function acceptQuote() {
         console.error('Accept fetch error:', err);
         btn.disabled = false;
         btn.textContent = 'Accepter la soumission';
-        alert('Erreur de connexion. Veuillez réessayer.');
+        alert('Erreur de connexion : ' + err.message);
     }
 }
 

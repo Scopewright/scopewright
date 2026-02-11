@@ -223,7 +223,11 @@
                 version_at_review: versionAt
             })
         });
-        if (!r.ok) throw new Error('Erreur review: ' + r.status);
+        if (!r.ok) {
+            var errText = await r.text().catch(function() { return ''; });
+            console.error('createSubmissionReview failed:', r.status, errText);
+            throw new Error('Erreur review: ' + r.status + ' ' + errText);
+        }
         return (await r.json())[0];
     }
 
@@ -392,11 +396,16 @@
         // Also set project_id for transition period
         if (currentProject) payload.project_id = currentProject.id;
 
-        await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions', {
+        var vr = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify(payload)
         });
+        if (!vr.ok) {
+            var errText = await vr.text().catch(function() { return ''; });
+            console.error('createVersion failed:', vr.status, errText);
+            throw new Error('Erreur version: ' + vr.status + ' ' + errText);
+        }
 
         // Update current_version on submission
         await updateSubmission(submissionId, { current_version: nextVersion });
@@ -3247,7 +3256,7 @@
                 }, 1500);
             } catch (error) {
                 console.error('Erreur soumission:', error);
-                showSendStatus('Erreur lors de la soumission.', true);
+                showSendStatus('Erreur: ' + error.message, true);
                 btnSend.disabled = false;
                 btnSend.textContent = 'Soumettre';
             }
@@ -3715,7 +3724,7 @@
                 loadSubmissionReviews(currentSubmission.id);
             } catch (e) {
                 console.error('Erreur approbation:', e);
-                steleAlert('Erreur lors de l\'approbation.');
+                steleAlert('Erreur approbation: ' + e.message);
             }
         }
 
@@ -3735,7 +3744,7 @@
                 loadSubmissionReviews(currentSubmission.id);
             } catch (e) {
                 console.error('Erreur retour:', e);
-                steleAlert('Erreur lors du retour.');
+                steleAlert('Erreur retour: ' + e.message);
             }
         }
 

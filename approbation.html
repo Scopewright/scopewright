@@ -287,43 +287,6 @@
         <footer class="app-footer">stele &mdash; stele.ca</footer>
     </div>
 
-    <!-- Modal soumission -->
-    <div class="modal-overlay" id="subModal">
-        <div class="modal" style="max-width:520px;">
-            <div class="modal-header">
-                <div>
-                    <div class="modal-title" id="subModalTitle">Soumission</div>
-                    <div class="modal-proposed-by" id="subModalBy"></div>
-                </div>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Projet</label>
-                    <div id="subModalProject" style="font-size:14px; padding:4px 0;"></div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Version courante</label>
-                    <div id="subModalVersion" style="font-size:14px; padding:4px 0;"></div>
-                </div>
-                <div class="form-group" id="subModalReviewsWrap" style="display:none;">
-                    <label class="form-label">Historique des r&eacute;visions</label>
-                    <div id="subModalReviews" style="font-size:12px; color:#666; max-height:120px; overflow-y:auto;"></div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Commentaire</label>
-                    <textarea class="form-input" id="subModalComment" rows="3" placeholder="Commentaire (obligatoire pour un retour)"></textarea>
-                </div>
-                <div class="modal-status" id="subModalStatus"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-modal-cancel" onclick="closeSubModal()">Fermer</button>
-                <a id="subModalOpenCalc" href="#" class="btn-examine" style="text-decoration:none; padding:8px 16px;">Ouvrir le calcul</a>
-                <button class="btn-reject" onclick="returnFromSubModal()">Retourner</button>
-                <button class="btn-approve" onclick="approveFromSubModal()">Approuver</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal examiner -->
     <div class="modal-overlay" id="examineModal">
         <div class="modal">
@@ -696,7 +659,6 @@
     // ═══ Soumissions en attente ═══
 
     var pendingSubmissions = [];
-    var currentSubId = null;
 
     async function loadPendingSubmissions() {
         try {
@@ -730,161 +692,18 @@
             var sub = pendingSubmissions[i];
             var projName = sub.projects ? sub.projects.name : '—';
             var totalStr = sub.approved_total != null ? parseFloat(sub.approved_total).toFixed(2) + ' $' : '—';
-            html += '<tr style="cursor:pointer;" onclick="openSubModal(\'' + escapeAttr(sub.id) + '\')">'
+            html += '<tr style="cursor:pointer;" onclick="window.location.href=\'calculateur.html?submission=' + encodeURIComponent(sub.id) + '&from=approbation\'">'
                 + '<td style="font-weight:600; font-size:12px; color:#555;">#' + escapeHtml(String(sub.submission_number)) + '</td>'
                 + '<td>' + escapeHtml(projName) + '</td>'
                 + '<td>' + escapeHtml(sub.title || 'Sans titre') + '</td>'
                 + '<td>v' + (sub.current_version || 1) + '</td>'
                 + '<td>' + totalStr + '</td>'
                 + '<td style="text-align:right;">'
-                + '<a href="calculateur.html?submission=' + encodeURIComponent(sub.id) + '&from=approbation" class="btn-examine" style="text-decoration:none; margin-right:6px;" onclick="event.stopPropagation();">Ouvrir</a>'
-                + '<button class="btn-examine" onclick="event.stopPropagation(); openSubModal(\'' + escapeAttr(sub.id) + '\')">Examiner</button>'
+                + '<a href="calculateur.html?submission=' + encodeURIComponent(sub.id) + '&from=approbation" class="btn-examine" style="text-decoration:none;" onclick="event.stopPropagation();">Ouvrir</a>'
                 + '</td>'
                 + '</tr>';
         }
         body.innerHTML = html;
-    }
-
-    async function openSubModal(subId) {
-        var sub = pendingSubmissions.find(function(s) { return s.id === subId; });
-        if (!sub) return;
-        currentSubId = subId;
-
-        document.getElementById('subModalTitle').textContent = 'Soumission #' + sub.submission_number;
-        document.getElementById('subModalBy').textContent = sub.projects ? (sub.projects.client_name || sub.projects.name || '') : '';
-        document.getElementById('subModalProject').textContent = sub.projects ? sub.projects.name : '—';
-        document.getElementById('subModalVersion').textContent = 'v' + (sub.current_version || 1);
-        document.getElementById('subModalComment').value = '';
-        document.getElementById('subModalOpenCalc').href = 'calculateur.html?submission=' + encodeURIComponent(subId) + '&from=approbation';
-
-        // Load reviews
-        try {
-            var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/submission_reviews?submission_id=eq.' + subId + '&order=created_at.desc&select=*',
-                {}
-            );
-            if (r.ok) {
-                var reviews = await r.json();
-                var wrap = document.getElementById('subModalReviewsWrap');
-                var div = document.getElementById('subModalReviews');
-                if (reviews.length > 0) {
-                    wrap.style.display = '';
-                    div.innerHTML = reviews.map(function(rev) {
-                        var d = new Date(rev.created_at).toLocaleDateString('fr-CA');
-                        var act = rev.action === 'approved' ? 'Approuv\u00e9' : rev.action === 'submitted' ? 'Soumis' : 'Retourn\u00e9';
-                        return '<div style="margin-bottom:6px;"><b>' + act + '</b> (v' + (rev.version_at_review || '?') + ') &mdash; ' + d +
-                            (rev.comment ? '<br><span style="color:#888;">' + escapeHtml(rev.comment) + '</span>' : '') + '</div>';
-                    }).join('');
-                } else {
-                    wrap.style.display = 'none';
-                }
-            }
-        } catch (e) { /* ignore */ }
-
-        var st = document.getElementById('subModalStatus');
-        st.className = 'modal-status';
-        st.textContent = '';
-
-        document.getElementById('subModal').classList.add('active');
-    }
-
-    function closeSubModal() {
-        document.getElementById('subModal').classList.remove('active');
-        currentSubId = null;
-    }
-
-    document.getElementById('subModal').addEventListener('click', function(e) {
-        if (e.target === this) closeSubModal();
-    });
-
-    async function approveFromSubModal() {
-        if (!currentSubId) return;
-        var comment = document.getElementById('subModalComment').value.trim();
-        try {
-            var userId = localStorage.getItem('sb_user_id');
-            // Create review
-            await authenticatedFetch(SUPABASE_URL + '/rest/v1/submission_reviews', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    submission_id: currentSubId,
-                    reviewer_id: userId,
-                    action: 'approved',
-                    comment: comment,
-                    version_at_review: pendingSubmissions.find(function(s) { return s.id === currentSubId; }).current_version
-                })
-            });
-            // Update submission status
-            await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubId, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    status: 'approved_internal',
-                    approved_by: userId,
-                    approved_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                })
-            });
-
-            showSubModalStatus('success', 'Soumission approuv\u00e9e.');
-            var approvedId = currentSubId;
-            setTimeout(function() {
-                pendingSubmissions = pendingSubmissions.filter(function(s) { return s.id !== approvedId; });
-                renderSubTable();
-                closeSubModal();
-                showMsg('success', 'Soumission #' + approvedId.slice(0, 8) + ' approuv\u00e9e.');
-            }, 1200);
-        } catch (e) {
-            showSubModalStatus('error', 'Erreur lors de l\'approbation.');
-        }
-    }
-
-    async function returnFromSubModal() {
-        if (!currentSubId) return;
-        var comment = document.getElementById('subModalComment').value.trim();
-        if (!comment) {
-            showSubModalStatus('error', 'Veuillez indiquer une raison pour le retour.');
-            return;
-        }
-        try {
-            var userId = localStorage.getItem('sb_user_id');
-            await authenticatedFetch(SUPABASE_URL + '/rest/v1/submission_reviews', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    submission_id: currentSubId,
-                    reviewer_id: userId,
-                    action: 'returned',
-                    comment: comment,
-                    version_at_review: pendingSubmissions.find(function(s) { return s.id === currentSubId; }).current_version
-                })
-            });
-            await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubId, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    status: 'returned',
-                    updated_at: new Date().toISOString()
-                })
-            });
-
-            showSubModalStatus('success', 'Soumission retourn\u00e9e.');
-            var returnedId = currentSubId;
-            setTimeout(function() {
-                pendingSubmissions = pendingSubmissions.filter(function(s) { return s.id !== returnedId; });
-                renderSubTable();
-                closeSubModal();
-                showMsg('success', 'Soumission retourn\u00e9e avec commentaire.');
-            }, 1200);
-        } catch (e) {
-            showSubModalStatus('error', 'Erreur lors du retour.');
-        }
-    }
-
-    function showSubModalStatus(type, text) {
-        var el = document.getElementById('subModalStatus');
-        el.textContent = text;
-        el.className = 'modal-status ' + type;
     }
 
     // ═══ Load categories from app_config ═══

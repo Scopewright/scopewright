@@ -228,6 +228,70 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // TIMELINE DRAWER — HISTORIQUE SOUMISSION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var timelineReviews = [];
+
+    async function loadSubmissionReviews(submissionId) {
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submission_reviews?submission_id=eq.' + submissionId + '&order=created_at.asc&select=*', {});
+        if (!r.ok) { timelineReviews = []; return; }
+        timelineReviews = await r.json();
+        renderTimelineDrawer();
+        // Show button if there are reviews
+        var btn = document.getElementById('btnTimeline');
+        btn.style.display = '';
+    }
+
+    function renderTimelineDrawer() {
+        var body = document.getElementById('timelineBody');
+        if (timelineReviews.length === 0) {
+            body.innerHTML = '<div class="timeline-empty">Aucun historique pour cette soumission.</div>';
+            return;
+        }
+
+        var actionLabels = {
+            'submitted': 'Soumis pour approbation',
+            'approved': 'Approuv\u00e9',
+            'returned': 'Retourn\u00e9',
+            'sent': 'Envoy\u00e9 au client'
+        };
+
+        var html = '';
+        timelineReviews.forEach(function(rev) {
+            var action = rev.action || 'submitted';
+            var label = actionLabels[action] || action;
+            var date = rev.created_at ? new Date(rev.created_at) : null;
+            var dateStr = date ? date.toLocaleDateString('fr-CA', { year: 'numeric', month: 'short', day: 'numeric' }) + ' \u00e0 ' + date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' }) : '';
+            var version = rev.version_at_review ? 'V' + rev.version_at_review : '';
+
+            html += '<div class="timeline-entry">';
+            html += '<div class="timeline-dot timeline-dot-' + action + '"></div>';
+            html += '<div class="timeline-entry-header">';
+            html += '<span class="timeline-action timeline-action-' + action + '">' + label + '</span>';
+            if (version) html += '<span class="timeline-version">' + version + '</span>';
+            html += '</div>';
+            html += '<div class="timeline-date">' + dateStr + '</div>';
+            if (rev.comment) {
+                html += '<div class="timeline-comment timeline-comment-' + action + '">' + escapeHtml(rev.comment) + '</div>';
+            }
+            html += '</div>';
+        });
+
+        body.innerHTML = html;
+    }
+
+    function openTimelineDrawer() {
+        document.getElementById('timelineOverlay').classList.add('active');
+        document.getElementById('timelineDrawer').classList.add('active');
+    }
+
+    function closeTimelineDrawer() {
+        document.getElementById('timelineOverlay').classList.remove('active');
+        document.getElementById('timelineDrawer').classList.remove('active');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // PIÈCES & ARTICLES — CRUD SUPABASE
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1379,7 +1443,7 @@
 
         .project-header {
             background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 16px 20px; margin-bottom: 24px;
+            padding: 16px 20px; margin-bottom: 24px; position: relative;
             display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
         .btn-back-projects {
@@ -1414,7 +1478,8 @@
         .project-header-field input.field-code { width: 130px; }
 
         .save-indicator {
-            font-size: 11px; color: #999; white-space: nowrap; margin-left: auto;
+            font-size: 11px; color: #999; white-space: nowrap;
+            position: absolute; top: 8px; right: 12px;
         }
         .save-indicator.saving { color: var(--stele-green); }
 
@@ -1503,6 +1568,80 @@
             .ajout-description, .ajout-price, .ajout-markup { font-size: 11px !important; }
             .calculator-container { font-size: 13px; }
         }
+
+        /* ═══════════════════════════════════════════════════════════════
+           TIMELINE DRAWER (historique soumission)
+           ═══════════════════════════════════════════════════════════════ */
+        .timeline-drawer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); z-index: 8500;
+        }
+        .timeline-drawer-overlay.active { display: block; }
+        .timeline-drawer {
+            position: fixed; top: 0; right: -420px; width: 400px; height: 100%;
+            background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            z-index: 8600; transition: right 0.3s ease; overflow-y: auto;
+        }
+        .timeline-drawer.active { right: 0; }
+        .timeline-drawer-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; border-bottom: 2px solid var(--stele-green);
+            background: #fafafa; position: sticky; top: 0; z-index: 1;
+        }
+        .timeline-drawer-header h3 { font-size: 15px; font-weight: 700; margin: 0; color: var(--stele-black); }
+        .timeline-drawer-close {
+            background: none; border: none; font-size: 20px; cursor: pointer; color: #666; padding: 0 4px;
+        }
+        .timeline-drawer-close:hover { color: var(--stele-black); }
+        .timeline-drawer-body { padding: 20px; }
+        .timeline-empty { text-align: center; color: #999; font-size: 13px; padding: 40px 0; font-style: italic; }
+
+        .timeline-entry { position: relative; padding-left: 28px; margin-bottom: 20px; }
+        .timeline-entry::before {
+            content: ''; position: absolute; left: 8px; top: 24px; bottom: -20px;
+            width: 2px; background: #e0e0e0;
+        }
+        .timeline-entry:last-child::before { display: none; }
+        .timeline-dot {
+            position: absolute; left: 2px; top: 6px; width: 14px; height: 14px;
+            border-radius: 50%; border: 2px solid #fff;
+        }
+        .timeline-dot-submitted { background: #1565c0; }
+        .timeline-dot-approved { background: #2e7d32; }
+        .timeline-dot-returned { background: #e65100; }
+        .timeline-dot-sent { background: #4527a0; }
+        .timeline-entry-header {
+            display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;
+        }
+        .timeline-action {
+            font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .timeline-action-submitted { color: #1565c0; }
+        .timeline-action-approved { color: #2e7d32; }
+        .timeline-action-returned { color: #e65100; }
+        .timeline-action-sent { color: #4527a0; }
+        .timeline-date { font-size: 11px; color: #999; }
+        .timeline-reviewer { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .timeline-comment {
+            font-size: 13px; color: #444; background: #f8f8f8;
+            border-radius: 6px; padding: 8px 12px; border-left: 3px solid #e0e0e0;
+        }
+        .timeline-comment-submitted { border-left-color: #1565c0; }
+        .timeline-comment-approved { border-left-color: #2e7d32; }
+        .timeline-comment-returned { border-left-color: #e65100; }
+        .timeline-comment-sent { border-left-color: #4527a0; }
+        .timeline-version { font-size: 10px; color: #aaa; margin-top: 4px; }
+
+        .btn-timeline {
+            background: none; border: 1px solid #ddd; border-radius: 6px;
+            padding: 6px 12px; font-size: 12px; cursor: pointer;
+            color: #666; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+        }
+        .btn-timeline:hover { border-color: var(--stele-green); color: var(--stele-green); background: #f9faf9; }
+
+        @media (max-width: 600px) {
+            .timeline-drawer { width: 100%; right: -100%; }
+        }
     </style>
 </head>
 <body>
@@ -1574,6 +1713,7 @@
                         </label>
                     </div>
                 </div>
+                <button class="btn-timeline" id="btnTimeline" onclick="openTimelineDrawer()" style="display:none;">Historique</button>
                 <button class="btn-rentab-project" onclick="openRentab('project')">Rentabilit&eacute;</button>
                 <span class="save-indicator" id="saveIndicator"></span>
             </div>
@@ -1641,6 +1781,18 @@
                 <button class="btn-cancel" id="steleDialogCancel" onclick="steleDialogResolve(null)" style="display:none;">Annuler</button>
                 <button class="btn-generate" id="steleDialogOk" onclick="steleDialogOk()">OK</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Timeline drawer (historique soumission) -->
+    <div class="timeline-drawer-overlay" id="timelineOverlay" onclick="closeTimelineDrawer()"></div>
+    <div class="timeline-drawer" id="timelineDrawer">
+        <div class="timeline-drawer-header">
+            <h3>Historique</h3>
+            <button class="timeline-drawer-close" onclick="closeTimelineDrawer()">&times;</button>
+        </div>
+        <div class="timeline-drawer-body" id="timelineBody">
+            <div class="timeline-empty">Aucun historique</div>
         </div>
     </div>
 
@@ -3085,6 +3237,7 @@
 
                 updateWorkflowButtons();
                 setEditable(false);
+                loadSubmissionReviews(currentSubmission.id);
                 btnSend.textContent = 'Soumis!';
                 setTimeout(() => {
                     closePdfModal();
@@ -3356,6 +3509,7 @@
             }
 
             updateWorkflowButtons();
+            loadSubmissionReviews(submissionId);
             var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned' || (currentSubmission.status === 'pending_internal' && (canApproveQuotes || isApprovalMode)));
             setEditable(isEditable);
             showCalculator();
@@ -3558,6 +3712,7 @@
                 updateWorkflowButtons();
                 setEditable(false);
                 showSaveIndicator();
+                loadSubmissionReviews(currentSubmission.id);
             } catch (e) {
                 console.error('Erreur approbation:', e);
                 steleAlert('Erreur lors de l\'approbation.');
@@ -3577,6 +3732,7 @@
                 updateWorkflowButtons();
                 setEditable(true);
                 showSaveIndicator();
+                loadSubmissionReviews(currentSubmission.id);
             } catch (e) {
                 console.error('Erreur retour:', e);
                 steleAlert('Erreur lors du retour.');

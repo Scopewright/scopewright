@@ -40,7 +40,7 @@
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let saveTimeout = null;      // pour le debounce
-    const MAX_GROUP_IMAGES = 4;
+    const MAX_GROUP_IMAGES = 8;
 
     // ═══════════════════════════════════════════════════════════════════════
     // DIALOGUES CUSTOM (remplace alert/confirm/prompt natifs)
@@ -1341,6 +1341,44 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.4);
         }
 
+        /* Crop Modal */
+        .crop-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.88); z-index: 3000;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .crop-overlay.active { display: flex; }
+        .crop-box {
+            background: #fff; border-radius: 8px; overflow: hidden;
+            width: 90vw; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;
+        }
+        .crop-header {
+            padding: 14px 20px; font-weight: 700; font-size: 15px;
+            border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;
+        }
+        .crop-container { position: relative; flex: 1; min-height: 300px; max-height: 60vh; background: #222; overflow: hidden; }
+        .crop-container img { display: block; max-width: 100%; }
+        .crop-controls {
+            padding: 12px 20px; display: flex; gap: 10px; align-items: center;
+            border-top: 1px solid #eee; justify-content: space-between;
+        }
+        .crop-controls .crop-ratios { display: flex; gap: 6px; }
+        .crop-controls .crop-ratio-btn {
+            padding: 6px 16px; border: 2px solid #ccc; border-radius: 4px;
+            background: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+        }
+        .crop-controls .crop-ratio-btn.active { border-color: var(--stele-green); background: var(--stele-green); color: #fff; }
+        .crop-controls .crop-actions { display: flex; gap: 8px; }
+        .crop-controls .crop-btn {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 13px; font-weight: 600;
+        }
+        .crop-btn-cancel { background: #eee; color: #555; }
+        .crop-btn-confirm { background: var(--stele-green); color: #fff; }
+        .crop-btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+        .crop-error { padding: 10px 20px; background: #fee; color: #c00; font-size: 13px; display: none; }
+        .crop-loading { padding: 20px; text-align: center; color: #888; font-size: 14px; }
+
         /* ═══════════════════════════════════════════════════════════════
            VUE LISTE DE PROJETS
            ═══════════════════════════════════════════════════════════════ */
@@ -2291,6 +2329,30 @@
         <img id="lightboxImg" src="" alt="">
     </div>
 
+    <!-- Crop Modal -->
+    <div class="crop-overlay" id="cropModal">
+        <div class="crop-box">
+            <div class="crop-header">
+                <span>Cadrer l'image</span>
+                <span id="cropDimensions" style="font-weight:400; font-size:12px; color:#888;"></span>
+            </div>
+            <div class="crop-error" id="cropError"></div>
+            <div class="crop-container" id="cropContainer">
+                <img id="cropImage" src="">
+            </div>
+            <div class="crop-controls">
+                <div class="crop-ratios">
+                    <button class="crop-ratio-btn active" id="cropRatio43" onclick="setCropRatio('4:3')">4:3</button>
+                    <button class="crop-ratio-btn" id="cropRatio11" onclick="setCropRatio('1:1')">1:1</button>
+                </div>
+                <div class="crop-actions">
+                    <button class="crop-btn crop-btn-cancel" onclick="cancelCrop()">Annuler</button>
+                    <button class="crop-btn crop-btn-confirm" id="cropConfirmBtn" onclick="confirmCrop()">Valider</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
         // UTILITAIRES
@@ -2557,7 +2619,7 @@
                             <strong>Ctrl+V</strong> pour coller &middot; <strong>glisser-d&eacute;poser</strong> &middot; ou <strong>cliquer</strong>
                         </div>
                     </div>
-                    <input type="file" id="${groupId}-imgInput" accept="image/*" multiple style="display:none;">
+                    <input type="file" id="${groupId}-imgInput" accept="image/png,image/jpeg,image/webp,application/pdf" multiple style="display:none;">
                     <div class="image-previews" id="${groupId}-imgPreviews"></div>
                     <div class="image-count" id="${groupId}-imgCount"></div>
                 </div>
@@ -3393,6 +3455,258 @@
         // GESTION DES IMAGES
         // ═══════════════════════════════════════════════════════════════════════
 
+        // ── Chargement dynamique des librairies ──
+        var cropperLoaded = false;
+        var pdfJsLoaded = false;
+        var currentCropper = null;
+        var cropState = {}; // { groupId, originalBlob, existingMediaId, ratio }
+
+        function loadCropperLib() {
+            if (cropperLoaded) return Promise.resolve();
+            return new Promise(function(resolve, reject) {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css';
+                document.head.appendChild(link);
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js';
+                script.onload = function() { cropperLoaded = true; resolve(); };
+                script.onerror = function() { reject(new Error('Impossible de charger Cropper.js')); };
+                document.head.appendChild(script);
+            });
+        }
+
+        function loadPdfLib() {
+            if (pdfJsLoaded) return Promise.resolve();
+            return new Promise(function(resolve, reject) {
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                script.onload = function() {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    pdfJsLoaded = true;
+                    resolve();
+                };
+                script.onerror = function() { reject(new Error('Impossible de charger pdf.js')); };
+                document.head.appendChild(script);
+            });
+        }
+
+        function convertPdfToImage(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        var pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(e.target.result) }).promise;
+                        var page = await pdf.getPage(1);
+                        var scale = 300 / 72; // 300 DPI
+                        var viewport = page.getViewport({ scale: scale });
+                        var canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+                        canvas.toBlob(function(blob) {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.92);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // ── Crop Modal ──
+        function openCropModal(imageBlob, groupId, existingMediaId) {
+            cropState = { groupId: groupId, originalBlob: imageBlob, existingMediaId: existingMediaId || null, ratio: '4:3' };
+            var url = URL.createObjectURL(imageBlob);
+            var imgEl = document.getElementById('cropImage');
+            var modal = document.getElementById('cropModal');
+            var errEl = document.getElementById('cropError');
+            errEl.style.display = 'none';
+
+            // Check dimensions
+            var testImg = new Image();
+            testImg.onload = async function() {
+                document.getElementById('cropDimensions').textContent = testImg.width + ' × ' + testImg.height + ' px';
+                if (testImg.width < 800 || testImg.height < 600) {
+                    errEl.textContent = 'Image trop petite pour une présentation professionnelle (minimum 800×600). Celle-ci fait ' + testImg.width + '×' + testImg.height + '.';
+                    errEl.style.display = 'block';
+                    imgEl.src = url;
+                    modal.classList.add('active');
+                    document.getElementById('cropConfirmBtn').disabled = true;
+                    return;
+                }
+                document.getElementById('cropConfirmBtn').disabled = false;
+                imgEl.src = url;
+                modal.classList.add('active');
+
+                await loadCropperLib();
+                if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+                currentCropper = new Cropper(imgEl, {
+                    aspectRatio: 4 / 3,
+                    viewMode: 1,
+                    autoCropArea: 0.9,
+                    responsive: true,
+                    background: false
+                });
+                // Reset ratio buttons
+                document.getElementById('cropRatio43').classList.add('active');
+                document.getElementById('cropRatio11').classList.remove('active');
+            };
+            testImg.src = url;
+        }
+
+        function setCropRatio(ratio) {
+            cropState.ratio = ratio;
+            document.getElementById('cropRatio43').classList.toggle('active', ratio === '4:3');
+            document.getElementById('cropRatio11').classList.toggle('active', ratio === '1:1');
+            if (currentCropper) {
+                currentCropper.setAspectRatio(ratio === '1:1' ? 1 : 4 / 3);
+            }
+        }
+
+        async function confirmCrop() {
+            if (!currentCropper) return;
+            var confirmBtn = document.getElementById('cropConfirmBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Upload...';
+
+            try {
+                var croppedCanvas = currentCropper.getCroppedCanvas({ maxWidth: 2048, maxHeight: 2048, imageSmoothingQuality: 'high' });
+                var cropData = currentCropper.getData(true); // rounded
+                var croppedBlob = await new Promise(function(resolve) {
+                    croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.88);
+                });
+
+                await uploadToStorage(cropState.originalBlob, croppedBlob, cropState.groupId, cropState.ratio, cropData, cropState.existingMediaId);
+                closeCropModal();
+            } catch (err) {
+                console.error('Crop/upload error:', err);
+                alert('Erreur lors de l\'upload : ' + err.message);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Valider';
+            }
+        }
+
+        function cancelCrop() {
+            closeCropModal();
+        }
+
+        function closeCropModal() {
+            var modal = document.getElementById('cropModal');
+            modal.classList.remove('active');
+            if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+            var imgEl = document.getElementById('cropImage');
+            if (imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
+            imgEl.src = '';
+            var resolve = cropState._resolve;
+            cropState = {};
+            if (resolve) resolve(); // continue to next image in queue
+        }
+
+        // ── Upload vers Supabase Storage + insert room_media ──
+        async function uploadToStorage(originalBlob, croppedBlob, groupId, ratio, cropData, existingMediaId) {
+            var roomId = roomMap[groupId];
+            if (!roomId) throw new Error('Room non sauvegardée');
+            var ts = Date.now();
+
+            // Upload original (skip if recrop — original already exists)
+            var originalUrl;
+            if (existingMediaId) {
+                // Recrop: find existing media to get original URL
+                var existing = (groupImages[groupId] || []).find(function(img) { return img.mediaId === existingMediaId; });
+                originalUrl = existing ? existing.originalUrl : null;
+                if (!originalUrl) throw new Error('Original introuvable');
+            } else {
+                var origPath = 'originals/' + roomId + '/' + ts + '.jpg';
+                var origResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + origPath, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                    body: originalBlob
+                });
+                if (!origResp.ok) throw new Error('Upload original échoué: ' + origResp.status);
+                originalUrl = SUPABASE_URL + '/storage/v1/object/public/room-images/' + origPath;
+            }
+
+            // Upload cropped
+            var cropPath = 'cropped/' + roomId + '/' + ts + '_' + ratio.replace(':', 'x') + '.jpg';
+            var cropResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + cropPath, {
+                method: 'POST',
+                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                body: croppedBlob
+            });
+            if (!cropResp.ok) throw new Error('Upload crop échoué: ' + cropResp.status);
+            var croppedUrl = SUPABASE_URL + '/storage/v1/object/public/room-images/' + cropPath;
+
+            if (existingMediaId) {
+                // Recrop: update existing record
+                var oldMedia = (groupImages[groupId] || []).find(function(img) { return img.mediaId === existingMediaId; });
+                // Delete old cropped file
+                if (oldMedia && oldMedia.url) {
+                    var oldPath = oldMedia.url.split('/room-images/')[1];
+                    if (oldPath) {
+                        authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + oldPath, { method: 'DELETE' }).catch(function() {});
+                    }
+                }
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + existingMediaId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ cropped_url: croppedUrl, crop_ratio: ratio, crop_data: cropData })
+                });
+                // Update in memory
+                if (oldMedia) { oldMedia.url = croppedUrl; oldMedia.cropRatio = ratio; }
+            } else {
+                // New image: insert record
+                var sortOrder = (groupImages[groupId] || []).length;
+                var insResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({
+                        room_id: roomId,
+                        original_url: originalUrl,
+                        cropped_url: croppedUrl,
+                        crop_ratio: ratio,
+                        crop_data: cropData,
+                        tags: ['presentation_soumission'],
+                        sort_order: sortOrder
+                    })
+                });
+                if (!insResp.ok) throw new Error('Insert room_media échoué: ' + insResp.status);
+                var inserted = await insResp.json();
+                var mediaId = Array.isArray(inserted) ? inserted[0].id : inserted.id;
+
+                if (!groupImages[groupId]) groupImages[groupId] = [];
+                groupImages[groupId].push({
+                    name: 'photo_' + ts + '.jpg',
+                    url: croppedUrl,
+                    originalUrl: originalUrl,
+                    mediaId: mediaId,
+                    tags: ['presentation_soumission'],
+                    cropRatio: ratio,
+                    isLegacy: false,
+                    showInQuote: true // compat
+                });
+            }
+
+            renderGroupImagePreviews(groupId);
+            showSaveIndicator();
+        }
+
+        // ── Recrop depuis l'original ──
+        async function recropImage(groupId, index) {
+            var img = (groupImages[groupId] || [])[index];
+            if (!img || img.isLegacy || !img.originalUrl) return;
+            try {
+                var resp = await fetch(img.originalUrl);
+                if (!resp.ok) throw new Error('Fetch original failed');
+                var blob = await resp.blob();
+                openCropModal(blob, groupId, img.mediaId);
+            } catch (err) {
+                console.error('Recrop error:', err);
+                alert('Impossible de charger l\'image originale.');
+            }
+        }
 
         function compressImage(file, maxWidth, quality) {
             return new Promise((resolve) => {
@@ -3440,18 +3754,39 @@
             });
         }
 
-        function handleGroupImageFiles(groupId, files) {
+        async function handleGroupImageFiles(groupId, files) {
             if (!groupImages[groupId]) groupImages[groupId] = [];
-            const remaining = MAX_GROUP_IMAGES - groupImages[groupId].length;
-            if (remaining <= 0) return;
+            var remaining = MAX_GROUP_IMAGES - groupImages[groupId].length;
+            if (remaining <= 0) { alert('Maximum ' + MAX_GROUP_IMAGES + ' images atteint.'); return; }
 
-            Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remaining).forEach(file => {
-                compressImage(file, 1024, 0.7).then(dataUrl => {
-                    groupImages[groupId].push({ name: (file.name || ('photo_' + Date.now() + '.png')).replace(/\.\w+$/, '.jpg'), dataUrl: dataUrl });
-                    renderGroupImagePreviews(groupId);
-                    saveGroupImages(groupId);
+            var validFiles = Array.from(files).slice(0, remaining);
+            // Process one at a time (crop modal is sequential)
+            for (var i = 0; i < validFiles.length; i++) {
+                var file = validFiles[i];
+                var blob;
+
+                if (file.type === 'application/pdf') {
+                    // PDF → image conversion
+                    try {
+                        await loadPdfLib();
+                        blob = await convertPdfToImage(file);
+                    } catch (err) {
+                        console.error('PDF conversion error:', err);
+                        alert('Erreur de conversion PDF : ' + err.message);
+                        continue;
+                    }
+                } else if (file.type.startsWith('image/')) {
+                    blob = file;
+                } else {
+                    continue; // skip unsupported
+                }
+
+                // Open crop modal (awaits user action)
+                await new Promise(function(resolve) {
+                    openCropModal(blob, groupId, null);
+                    cropState._resolve = resolve; // must be after openCropModal which resets cropState
                 });
-            });
+            }
         }
 
         function renderGroupImagePreviews(groupId) {
@@ -3465,25 +3800,51 @@
             imgs.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
+                var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
                 var checkedAttr = img.showInQuote ? 'checked' : '';
-                item.innerHTML = `<img src="${img.dataUrl}" alt="${escapeAttr(img.name)}" ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"><button class="image-preview-remove" onclick="removeGroupImage('${groupId}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${groupId}', ${index}, this.checked)"><span>Client</span></label>`;
+                var recropAttr = (!img.isLegacy && img.originalUrl) ? ` onclick="recropImage('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="Cliquer pour recadrer"` : ` ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"`;
+                item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}><button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
             if (dropZone) dropZone.style.display = imgs.length >= MAX_GROUP_IMAGES ? 'none' : '';
         }
 
-        function removeGroupImage(groupId, index) {
-            if (groupImages[groupId]) {
-                groupImages[groupId].splice(index, 1);
-                renderGroupImagePreviews(groupId);
-                saveGroupImages(groupId);
+        async function removeGroupImage(groupId, index) {
+            if (!groupImages[groupId]) return;
+            var img = groupImages[groupId][index];
+            if (!img) return;
+
+            if (!img.isLegacy && img.mediaId) {
+                // Delete from room_media table
+                try {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + img.mediaId, { method: 'DELETE' });
+                } catch (e) { console.error('Delete room_media error:', e); }
+                // Delete files from Storage (best effort)
+                try {
+                    if (img.url) {
+                        var croppedPath = img.url.split('/room-images/')[1];
+                        if (croppedPath) authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + croppedPath, { method: 'DELETE' }).catch(function(){});
+                    }
+                    if (img.originalUrl) {
+                        var origPath = img.originalUrl.split('/room-images/')[1];
+                        if (origPath) authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + origPath, { method: 'DELETE' }).catch(function(){});
+                    }
+                } catch (e) { console.error('Delete storage files error:', e); }
             }
+
+            groupImages[groupId].splice(index, 1);
+            renderGroupImagePreviews(groupId);
+            // Only save to JSONB if there are legacy images
+            if (img.isLegacy) saveGroupImages(groupId);
+            showSaveIndicator();
         }
 
         const debouncedSaveGroupImages = debounce(function(groupId) {
             if (!roomMap[groupId]) return;
-            const imgs = (groupImages[groupId] || []).map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote }));
+            // Only save legacy (Base64) images to JSONB — new images are in room_media table
+            const legacyImgs = (groupImages[groupId] || []).filter(img => img.isLegacy);
+            const imgs = legacyImgs.map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote }));
             updateRoom(roomMap[groupId], { images: imgs });
             showSaveIndicator();
         }, 1000);
@@ -3515,10 +3876,28 @@
             showSaveIndicator();
         }
 
-        function toggleImageShowInQuote(groupId, index, checked) {
+        async function toggleImageShowInQuote(groupId, index, checked) {
             if (!groupImages[groupId] || !groupImages[groupId][index]) return;
-            groupImages[groupId][index].showInQuote = checked;
-            saveGroupImages(groupId);
+            var img = groupImages[groupId][index];
+            img.showInQuote = checked;
+
+            if (!img.isLegacy && img.mediaId) {
+                // Update tags in room_media
+                var newTags = checked
+                    ? Array.from(new Set((img.tags || []).concat(['presentation_soumission'])))
+                    : (img.tags || []).filter(function(t) { return t !== 'presentation_soumission'; });
+                img.tags = newTags;
+                try {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + img.mediaId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ tags: newTags })
+                    });
+                } catch (e) { console.error('Update room_media tags error:', e); }
+                showSaveIndicator();
+            } else {
+                saveGroupImages(groupId);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -4275,8 +4654,9 @@
                     html += '<div class="pv-page-room-media' + mediaCols + '">';
                     imgs.forEach(function(img) {
                         var realIdx = allImgs.indexOf(img);
+                        var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
                         html += '<div class="pv-img-wrap">';
-                        html += '<img src="' + img.dataUrl + '" alt="' + escapeAttr(img.name) + '" onclick="openLightbox(this.src)">';
+                        html += '<img src="' + imgSrc + '" alt="' + escapeAttr(img.name) + '" onclick="openLightbox(this.src)">';
                         if (editable && !clientViewMode) {
                             html += '<button class="pv-img-delete" onclick="removePreviewImage(\'' + escapeAttr(groupId) + '\', ' + realIdx + ')" title="Supprimer">&times;</button>';
                         }
@@ -4716,8 +5096,35 @@
                         roomDescEN[groupId] = room.client_description_en;
                     }
 
+                    // Load legacy images from JSONB
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {
-                        groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote }));
+                        groupImages[groupId] = room.images.map(img => ({ name: img.name, dataUrl: img.dataUrl, showInQuote: !!img.showInQuote, isLegacy: true }));
+                    }
+
+                    // Load room_media from dedicated table
+                    try {
+                        var mediaResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?room_id=eq.' + room.id + '&order=sort_order.asc', {});
+                        if (mediaResp.ok) {
+                            var mediaRows = await mediaResp.json();
+                            if (mediaRows.length > 0) {
+                                if (!groupImages[groupId]) groupImages[groupId] = [];
+                                mediaRows.forEach(function(m) {
+                                    groupImages[groupId].push({
+                                        name: m.cropped_url.split('/').pop() || 'image.jpg',
+                                        url: m.cropped_url,
+                                        originalUrl: m.original_url,
+                                        mediaId: m.id,
+                                        tags: m.tags || ['presentation_soumission'],
+                                        cropRatio: m.crop_ratio,
+                                        isLegacy: false,
+                                        showInQuote: (m.tags || []).includes('presentation_soumission')
+                                    });
+                                });
+                            }
+                        }
+                    } catch (e) { console.error('Load room_media error:', e); }
+
+                    if (groupImages[groupId] && groupImages[groupId].length > 0) {
                         renderGroupImagePreviews(groupId);
                     }
 

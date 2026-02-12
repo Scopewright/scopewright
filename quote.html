@@ -669,7 +669,7 @@ let currentToken = null;
             return;
         }
 
-        renderQuote();
+        await renderQuote();
         initSignaturePad();
     } catch (err) {
         console.error('Fetch error:', err);
@@ -681,7 +681,7 @@ let currentToken = null;
 // RENDER
 // ═══════════════════════════════════════════════════════════════════════
 
-function renderQuote() {
+async function renderQuote() {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('quoteContent').style.display = 'block';
 
@@ -689,6 +689,24 @@ function renderQuote() {
     var proj = quoteData.project;
     var rooms = quoteData.rooms || [];
     var token = quoteData.token;
+
+    // Load room_media for all rooms (new Storage-based images)
+    var roomMediaMap = {}; // { roomId: [media...] }
+    try {
+        var roomIds = rooms.map(function(r) { return r.id; }).filter(Boolean);
+        if (roomIds.length > 0) {
+            var mediaResp = await fetch(SUPABASE_URL + '/rest/v1/room_media?room_id=in.(' + roomIds.join(',') + ')&order=sort_order.asc', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            if (mediaResp.ok) {
+                var allMedia = await mediaResp.json();
+                allMedia.forEach(function(m) {
+                    if (!roomMediaMap[m.room_id]) roomMediaMap[m.room_id] = [];
+                    roomMediaMap[m.room_id].push(m);
+                });
+            }
+        }
+    } catch (e) { console.error('Load room_media error:', e); }
 
     // Title
     document.title = 'Soumission #' + sub.submission_number + ' — Stele';
@@ -727,17 +745,32 @@ function renderQuote() {
         var body = document.createElement('div');
         body.className = 'room-body';
 
-        // Images first (only showInQuote)
-        var images = (room.images || []).filter(function(img) { return img.showInQuote; });
-        if (images.length > 0) {
+        // Collect images: new room_media + legacy Base64
+        var allImages = [];
+
+        // New room_media images (with presentation_soumission tag)
+        var mediaImages = roomMediaMap[room.id] || [];
+        mediaImages.forEach(function(m) {
+            if ((m.tags || []).indexOf('presentation_soumission') !== -1) {
+                allImages.push({ src: m.cropped_url, name: m.cropped_url.split('/').pop() || 'image.jpg', isLegacy: false });
+            }
+        });
+
+        // Legacy Base64 images (showInQuote)
+        var legacyImages = (room.images || []).filter(function(img) { return img.showInQuote; });
+        legacyImages.forEach(function(img) {
+            allImages.push({ src: img.dataUrl, name: img.name || 'Image', isLegacy: true });
+        });
+
+        if (allImages.length > 0) {
             var imgContainer = document.createElement('div');
             imgContainer.className = 'room-images';
-            images.forEach(function(img) {
+            allImages.forEach(function(img) {
                 var thumb = document.createElement('img');
                 thumb.className = 'room-image-thumb';
-                thumb.src = img.dataUrl;
-                thumb.alt = img.name || 'Image';
-                thumb.onclick = function() { openLightbox(img.dataUrl); };
+                thumb.src = img.src;
+                thumb.alt = img.name;
+                thumb.onclick = function() { openLightbox(img.src); };
                 imgContainer.appendChild(thumb);
             });
             body.appendChild(imgContainer);

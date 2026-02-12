@@ -2110,7 +2110,7 @@
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
                 <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
                 <button class="btn-client-view" id="btnOptimizeAll" onclick="optimizeAll()" title="Optimiser tous les textes fran&ccedil;ais">&#10024; Optimiser</button>
-                <button class="btn-client-view" id="btnTranslateAll" onclick="translateAll()" title="Traduire tout le document en anglais" style="display:none;">&#127468;&#127463; Traduire</button>
+                <button class="btn-client-view" id="btnTranslateAll" onclick="translateAll()" title="Traduire tout le document en anglais">&#127468;&#127463; Traduire</button>
             </div>
             <div class="pv-split">
                 <div class="pv-left">
@@ -3747,10 +3747,6 @@
                 btn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
                 btn.classList.toggle('active', currentLang === 'en');
             }
-            var btnTr = document.getElementById('btnTranslateAll');
-            if (btnTr) btnTr.style.display = currentLang === 'en' ? '' : 'none';
-            var btnOpt = document.getElementById('btnOptimizeAll');
-            if (btnOpt) btnOpt.style.display = currentLang === 'fr' ? '' : 'none';
             renderPreview();
         }
 
@@ -3784,7 +3780,7 @@
         // ── Collect all FR texts (useHtml=true sends HTML for translate, plain for optimize) ──
         function collectFrTexts(useHtml) {
             var texts = [];
-            var groups = document.querySelectorAll('#calculator .furniture-group');
+            var groups = document.querySelectorAll('#calculatorView .furniture-group');
             groups.forEach(function(g) {
                 var gid = g.id;
                 var frText;
@@ -3820,7 +3816,7 @@
                 if (texts.length === 0) { showSaveIndicator(); return; }
 
                 var results = await callEdgeFunction(texts, 'optimize');
-                var groups = document.querySelectorAll('#calculator .furniture-group');
+                var groups = document.querySelectorAll('#calculatorView .furniture-group');
 
                 // Apply optimized room descriptions (HTML)
                 groups.forEach(function(g) {
@@ -3917,7 +3913,7 @@
                 if (texts.length === 0) { showSaveIndicator(); return; }
 
                 var results = await callEdgeFunction(texts, 'translate');
-                var groups = document.querySelectorAll('#calculator .furniture-group');
+                var groups = document.querySelectorAll('#calculatorView .furniture-group');
 
                 // Apply room translations
                 groups.forEach(function(g) {

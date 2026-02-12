@@ -7,10 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const PROMPTS: Record<string, string> = {
-  translate: `Translate each of the following French texts to English. These are descriptions for a custom cabinetry/millwork quote document. Keep the same professional tone, be concise. Preserve line breaks and formatting. Return ONLY a valid JSON object where keys are the index numbers (as strings) and values are the English translations. No markdown fences, no explanation.`,
-
-  optimize: `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique.
+const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique.
 
 STRUCTURE STANDARD à respecter :
 - Caisson : texte sur la même ligne
@@ -36,10 +33,9 @@ RÈGLES STRICTES :
 - Pas de reformulation marketing
 - Pas de ton artificiel
 - Pas de créativité non demandée
-- Ne pas inventer de contenu
+- Ne pas inventer de contenu`;
 
-Retourne UNIQUEMENT un objet JSON valide où les clés sont les numéros d'index (comme strings) et les valeurs sont les textes optimisés. Pas de blocs markdown, pas d'explication.`,
-};
+const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-end custom cabinetry company. Translate French to English. Keep the same professional tone, be concise. Preserve line breaks and formatting.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -75,10 +71,54 @@ serve(async (req) => {
       });
     }
 
-    const prompt = PROMPTS[action] || PROMPTS.translate;
+    const systemPrompt =
+      action === "optimize" ? OPTIMIZE_SYSTEM : TRANSLATE_SYSTEM;
+
+    // For single text: simpler prompt, no JSON wrapping needed
+    if (nonEmpty.length === 1) {
+      const userMsg =
+        action === "optimize"
+          ? `Optimise ce texte. Retourne UNIQUEMENT le texte optimisé, sans explication, sans markdown :\n\n${nonEmpty[0].text}`
+          : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
+
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMsg }],
+        }),
+      });
+
+      const data = await resp.json();
+      const result = data.content?.[0]?.text || "";
+      const translations: Record<string, string> = {};
+      translations[nonEmpty[0].key] = result.trim();
+
+      return new Response(JSON.stringify({ translations }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // For multiple texts: use ===SEPARATOR=== delimiter instead of JSON
+    const delimiter = "===SEPARATOR===";
     const numbered = nonEmpty
-      .map((t: { key: string; text: string }, i: number) => `[${i}] ${t.text}`)
+      .map(
+        (t: { key: string; text: string }, i: number) =>
+          `--- TEXT ${i} ---\n${t.text}`
+      )
       .join("\n\n");
+
+    const userMsg =
+      action === "optimize"
+        ? `Optimise chacun des textes suivants. Retourne les textes optimisés séparés par la ligne exacte "${delimiter}" (un par texte, même ordre). Pas de numérotation, pas de markdown, pas d'explication.\n\n${numbered}`
+        : `Translate each of the following French texts to English. Return the translations separated by the exact line "${delimiter}" (one per text, same order). No numbering, no markdown, no explanation.\n\n${numbered}`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -89,30 +129,21 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4096,
-        messages: [
-          {
-            role: "user",
-            content: `${prompt}\n\n${numbered}`,
-          },
-        ],
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMsg }],
       }),
     });
 
     const data = await resp.json();
-    const content = data.content?.[0]?.text || "{}";
+    const content = data.content?.[0]?.text || "";
 
-    let parsed: Record<string, string> = {};
-    try {
-      parsed = JSON.parse(content);
-    } catch (_e) {
-      const match = content.match(/\{[\s\S]*\}/);
-      if (match) parsed = JSON.parse(match[0]);
-    }
+    // Split by delimiter
+    const parts = content.split(delimiter).map((s: string) => s.trim());
 
     const translations: Record<string, string> = {};
     nonEmpty.forEach((t: { key: string; text: string }, i: number) => {
-      translations[t.key] = parsed[String(i)] || "";
+      translations[t.key] = parts[i] || "";
     });
 
     return new Response(JSON.stringify({ translations }), {

@@ -4624,7 +4624,7 @@
                 grandTotal += subtotal;
 
                 var allImgs = groupImages[groupId] || [];
-                var imgs = clientViewMode ? allImgs.filter(function(img) { return img.showInQuote; }) : allImgs;
+                var imgs = allImgs.filter(function(img) { return img.showInQuote; });
                 var descEl = document.getElementById(groupId + '-clientDesc');
                 var descPlain = descEl ? descEl.value : '';
                 var descFr = roomDescHTML[groupId] || descPlain;

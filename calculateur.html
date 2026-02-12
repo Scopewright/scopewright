@@ -1523,10 +1523,6 @@
         }
         .pv-toolbar .btn-client-view:hover { background: #333; color: #fff; }
         .pv-toolbar .btn-client-view.active { background: #333; color: #fff; }
-        .pv-toolbar #btnOptimizeAll { background: var(--stele-green); color: #fff; border-color: var(--stele-green); font-weight: 600; }
-        .pv-toolbar #btnOptimizeAll:hover { opacity: 0.85; }
-        .pv-toolbar #btnTranslateAll { background: var(--stele-green); color: #fff; border-color: var(--stele-green); font-weight: 600; }
-        .pv-toolbar #btnTranslateAll:hover { opacity: 0.85; }
         .pv-optimize-btn {
             position: absolute; top: 6px; right: 6px; z-index: 2;
             background: var(--stele-green); color: #fff; border: none; border-radius: 4px;
@@ -2109,7 +2105,6 @@
                 <button class="btn-client-view" id="btnClientView" onclick="toggleClientView()">Vue client</button>
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
                 <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
-                <button class="btn-client-view" id="btnTranslateAll" onclick="translateAll()" title="Traduire tout le document en anglais">&#127468;&#127463; Traduire</button>
             </div>
             <div class="pv-split">
                 <div class="pv-left">
@@ -3739,14 +3734,87 @@
             renderPreview();
         }
 
-        function toggleLang() {
-            currentLang = currentLang === 'fr' ? 'en' : 'fr';
+        async function toggleLang() {
             var btn = document.getElementById('btnLang');
+            if (currentLang === 'fr') {
+                // Switching to EN — check if translation needed
+                var stale = collectStaleFrTexts();
+                if (stale.length > 0) {
+                    if (btn) { btn.disabled = true; btn.textContent = 'Traduction...'; }
+                    try {
+                        var results = await callEdgeFunction(stale, 'translate');
+                        applyTranslations(results);
+                        showSaveIndicator();
+                    } catch (err) {
+                        console.error('Translation error:', err);
+                        alert('Erreur de traduction : ' + err.message);
+                        if (btn) { btn.disabled = false; btn.textContent = 'EN'; }
+                        return; // stay on FR
+                    }
+                }
+                currentLang = 'en';
+            } else {
+                currentLang = 'fr';
+            }
             if (btn) {
                 btn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
                 btn.classList.toggle('active', currentLang === 'en');
+                btn.disabled = false;
             }
             renderPreview();
+        }
+
+        // Collect only FR texts that have no EN translation (stale or missing)
+        function collectStaleFrTexts() {
+            var texts = [];
+            var groups = document.querySelectorAll('#calculatorView .furniture-group');
+            groups.forEach(function(g) {
+                var gid = g.id;
+                if (roomDescEN[gid]) return; // already has EN translation
+                var frText;
+                if (roomDescHTML[gid]) {
+                    frText = roomDescHTML[gid];
+                } else {
+                    var descEl = document.getElementById(gid + '-clientDesc');
+                    frText = descEl ? descEl.value.trim() : '';
+                }
+                if (frText) {
+                    texts.push({ key: 'room_' + gid, text: frText });
+                }
+            });
+            var clauses = getSubmissionClauses();
+            clauses.forEach(function(c, i) {
+                if (c.content && c.content.trim() && !c.content_en) {
+                    texts.push({ key: 'clause_' + i, text: c.content });
+                }
+            });
+            return texts;
+        }
+
+        // Apply translation results to memory + DB
+        function applyTranslations(results) {
+            var groups = document.querySelectorAll('#calculatorView .furniture-group');
+            groups.forEach(function(g) {
+                var gid = g.id;
+                var key = 'room_' + gid;
+                if (results[key]) {
+                    roomDescEN[gid] = results[key];
+                    if (roomMap[gid]) {
+                        updateRoom(roomMap[gid], { client_description_en: results[key] });
+                    }
+                }
+            });
+            var clauses = getSubmissionClauses();
+            var updated = clauses.slice();
+            var changed = false;
+            clauses.forEach(function(c, i) {
+                var key = 'clause_' + i;
+                if (results[key]) {
+                    updated[i].content_en = results[key];
+                    changed = true;
+                }
+            });
+            if (changed) saveSubmissionClauses(updated);
         }
 
         // ── Edge Function helper ──
@@ -3900,55 +3968,6 @@
         }
 
         // ── Traduire tout (FR → EN) ──
-        async function translateAll() {
-            var btn = document.getElementById('btnTranslateAll');
-            if (!btn) return;
-            var origText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = 'Traduction...';
-
-            try {
-                var texts = collectFrTexts(true); // send HTML for translation
-                if (texts.length === 0) { showSaveIndicator(); return; }
-
-                var results = await callEdgeFunction(texts, 'translate');
-                var groups = document.querySelectorAll('#calculatorView .furniture-group');
-
-                // Apply room translations
-                groups.forEach(function(g) {
-                    var gid = g.id;
-                    var key = 'room_' + gid;
-                    if (results[key]) {
-                        roomDescEN[gid] = results[key];
-                        if (roomMap[gid]) {
-                            updateRoom(roomMap[gid], { client_description_en: results[key] });
-                        }
-                    }
-                });
-
-                // Apply clause translations
-                var clauses = getSubmissionClauses();
-                var updated = clauses.slice();
-                var changed = false;
-                clauses.forEach(function(c, i) {
-                    var key = 'clause_' + i;
-                    if (results[key]) {
-                        updated[i].content_en = results[key];
-                        changed = true;
-                    }
-                });
-                if (changed) await saveSubmissionClauses(updated);
-
-                showSaveIndicator();
-                renderPreview();
-            } catch (err) {
-                console.error('Translation error:', err);
-                alert('Erreur de traduction : ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = origText;
-            }
-        }
 
         function removePreviewImage(groupId, index) {
             removeGroupImage(groupId, index);

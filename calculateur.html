@@ -1445,15 +1445,15 @@
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 10px 20px; background: var(--stele-green); color: #fff;
-            border-radius: 4px; margin-bottom: 14px; flex-shrink: 0;
+            border-radius: 4px; margin-bottom: 38px; flex-shrink: 0;
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
-        .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; align-items: center; }
+        .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; }
         .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
         .pv-page-room-media {
             flex: 1; display: grid; grid-template-columns: repeat(2, 1fr);
-            gap: 8px; align-content: center;
+            gap: 8px; align-content: center; max-height: 100%;
         }
         /* 1 image: single column, centered */
         .pv-page-room-media.imgs-1 { grid-template-columns: 1fr; }
@@ -1462,9 +1462,9 @@
         /* 3 images: first spans full width, 2 below side by side */
         .pv-page-room-media.imgs-3 { gap: 8px; }
         .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
-        .pv-page-room-media .pv-img-wrap { overflow: hidden; }
+        .pv-page-room-media .pv-img-wrap { overflow: hidden; min-height: 0; }
         .pv-page-room-media .pv-img-wrap img {
-            width: 100%; object-fit: cover; display: block; cursor: pointer;
+            width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;
         }
         .pv-page-room-desc {
             width: 100%; border: 1px dashed #ccc; border-radius: 4px;

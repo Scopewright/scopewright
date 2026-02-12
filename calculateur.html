@@ -857,7 +857,8 @@
 
         .furniture-group.collapsed .calc-header,
         .furniture-group.collapsed .calc-rows,
-        .furniture-group.collapsed .group-images-section {
+        .furniture-group.collapsed .group-images-section,
+        .furniture-group.collapsed .client-description-section {
             display: none;
         }
 
@@ -2088,17 +2089,6 @@
                 <span class="grand-total-amount" id="grandTotal">0,00 $</span>
             </div>
 
-            <div class="exclusions-section" id="exclusionsSection">
-                <label class="form-label" style="font-size:12px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:6px;">Exclusions / Conditions</label>
-                <textarea class="form-input client-desc-textarea" id="exclusionsText" rows="3"
-                          placeholder="Ex: Les travaux de plomberie et d'&eacute;lectricit&eacute; ne sont pas inclus..."
-                          style="resize:vertical; min-height:50px; font-size:13px;"
-                          onblur="saveExclusions()"></textarea>
-            </div>
-
-            <p class="calc-disclaimer">
-                Les montants affich&eacute;s sont fournis &agrave; titre indicatif uniquement. Une soumission d&eacute;taill&eacute;e sera requise pour confirmer les prix finaux.
-            </p>
 
             <button class="btn-pdf" id="btnOpenSubmit" onclick="openSubmitModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3510,8 +3500,9 @@
 
         function saveExclusions() {
             if (!currentSubmission) return;
-            var text = document.getElementById('exclusionsText').value;
-            updateSubmission(currentSubmission.id, { exclusions: text });
+            var el = document.getElementById('exclusionsText');
+            if (!el) return;
+            updateSubmission(currentSubmission.id, { exclusions: el.value });
             showSaveIndicator();
         }
 
@@ -4679,7 +4670,8 @@
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
             document.getElementById('subTitle').value = currentSubmission.title || '';
-            document.getElementById('exclusionsText').value = currentSubmission.exclusions || '';
+            var exclEl = document.getElementById('exclusionsText');
+            if (exclEl) exclEl.value = currentSubmission.exclusions || '';
             updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;

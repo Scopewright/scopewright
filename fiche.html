@@ -580,8 +580,8 @@
 
     <!-- Nav bar -->
     <nav class="nav-bar no-print">
-        <a href="index.html" class="nav-logo">stele</a>
-        <a href="catalogue_prix_stele_complet.html" class="nav-back">&larr; Catalogue</a>
+        <a href="https://stele.ca" class="nav-logo" target="_blank" rel="noopener">stele</a>
+        <a href="catalogue_prix_stele_complet.html" class="nav-back" id="navBackLink" style="display:none;">&larr; Catalogue</a>
         <button class="btn-print" onclick="window.print()" title="Imprimer">
             <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
         </button>
@@ -816,8 +816,9 @@
                 return;
             }
 
-            // Check edit permission
+            // Check edit permission + show internal nav for authenticated users
             if (isAuthenticated) {
+                document.getElementById('navBackLink').style.display = '';
                 try {
                     var email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
                     var cfgResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {});

@@ -186,8 +186,12 @@
             font-size: 14px;
             line-height: 1.35;
             color: #444;
-            white-space: pre-wrap;
+            white-space: normal;
         }
+        .room-description p { margin: 0 0 6px 0; }
+        .room-description ul { margin: 4px 0 8px 0; padding-left: 20px; }
+        .room-description li { margin-bottom: 2px; }
+        .room-description strong { font-weight: 700; }
 
         /* ── Grand total ── */
         .grand-total-section {
@@ -743,7 +747,13 @@ function renderQuote() {
         if (room.client_description && room.client_description.trim()) {
             var desc = document.createElement('div');
             desc.className = 'room-description';
-            desc.textContent = room.client_description;
+            var rawDesc = room.client_description;
+            // If already HTML (from optimizer), use innerHTML; else convert plain text
+            if (rawDesc.indexOf('<p>') !== -1 || rawDesc.indexOf('<strong>') !== -1 || rawDesc.indexOf('<ul>') !== -1) {
+                desc.innerHTML = rawDesc;
+            } else {
+                desc.textContent = rawDesc;
+            }
             body.appendChild(desc);
         }
 

@@ -116,6 +116,16 @@
         return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
     }
 
+    // Convert plain text (legacy) to basic HTML; if already HTML, return as-is
+    function textToHtml(str) {
+        if (!str) return '';
+        if (str.indexOf('<p>') !== -1 || str.indexOf('<strong>') !== -1 || str.indexOf('<ul>') !== -1) {
+            return str; // already HTML
+        }
+        // Legacy plain text: escape then convert newlines to <br>
+        return escapeHtml(str).replace(/\n/g, '<br>');
+    }
+
     function debounce(fn, delay) {
         let timer;
         return function(...args) {
@@ -1414,13 +1424,18 @@
         }
         .pv-page-room-desc {
             width: 100%; border: 1px dashed #ccc; border-radius: 4px;
-            padding: 10px 12px; font-size: 13px; line-height: 1.4; color: #444;
-            font-family: inherit; resize: none; flex: 1;
+            padding: 10px 12px; font-size: 13px; line-height: 1.5; color: #444;
+            font-family: inherit; flex: 1; min-height: 60px;
             background: #fafafa; transition: border-color 0.2s;
+            overflow-y: auto; white-space: normal; word-wrap: break-word;
         }
         .pv-page-room-desc:focus { outline: none; border-color: var(--stele-green); background: #fff; }
-        .pv-page-room-desc:disabled { background: transparent; border-color: transparent; cursor: default; }
-        .pv-page-room-desc::placeholder { color: #aaa; font-style: italic; }
+        .pv-page-room-desc[contenteditable="false"] { background: transparent; border-color: transparent; cursor: default; }
+        .pv-page-room-desc:empty::before { content: attr(data-placeholder); color: #aaa; font-style: italic; }
+        .pv-page-room-desc p { margin: 0 0 6px 0; }
+        .pv-page-room-desc ul { margin: 4px 0 8px 0; padding-left: 20px; }
+        .pv-page-room-desc li { margin-bottom: 2px; }
+        .pv-page-room-desc strong { font-weight: 700; }
 
         /* Clauses page — compact */
         .pv-page-clauses-header {
@@ -3504,7 +3519,14 @@
             if (!roomMap[groupId]) return;
             var textarea = document.getElementById(groupId + '-clientDesc');
             if (!textarea) return;
-            updateRoom(roomMap[groupId], { client_description: textarea.value });
+            // Plain text from calculator — clear HTML cache + stale EN
+            roomDescHTML[groupId] = '';
+            if (roomDescEN[groupId]) {
+                roomDescEN[groupId] = '';
+                updateRoom(roomMap[groupId], { client_description: textarea.value, client_description_en: '' });
+            } else {
+                updateRoom(roomMap[groupId], { client_description: textarea.value });
+            }
             showSaveIndicator();
         }
 
@@ -3662,7 +3684,8 @@
         var clauseLibrary = []; // loaded from quote_clauses table
         var clientViewMode = false;
         var currentLang = 'fr';
-        var roomDescEN = {}; // { groupDomId: 'english description' }
+        var roomDescEN = {}; // { groupDomId: 'english description (HTML)' }
+        var roomDescHTML = {}; // { groupDomId: 'HTML description from optimizer' }
         var i18n = {
             fr: {
                 soumission: 'Soumission',
@@ -3767,14 +3790,19 @@
             return data.translations;
         }
 
-        // ── Collect all FR texts ──
-        function collectFrTexts() {
+        // ── Collect all FR texts (useHtml=true sends HTML for translate, plain for optimize) ──
+        function collectFrTexts(useHtml) {
             var texts = [];
             var groups = document.querySelectorAll('#calculator .furniture-group');
             groups.forEach(function(g) {
                 var gid = g.id;
-                var descEl = document.getElementById(gid + '-clientDesc');
-                var frText = descEl ? descEl.value.trim() : '';
+                var frText;
+                if (useHtml && roomDescHTML[gid]) {
+                    frText = roomDescHTML[gid]; // HTML for translation
+                } else {
+                    var descEl = document.getElementById(gid + '-clientDesc');
+                    frText = descEl ? descEl.value.trim() : '';
+                }
                 if (frText) {
                     texts.push({ key: 'room_' + gid, text: frText });
                 }
@@ -3803,14 +3831,13 @@
                 var results = await callEdgeFunction(texts, 'optimize');
                 var groups = document.querySelectorAll('#calculator .furniture-group');
 
-                // Apply optimized room descriptions
+                // Apply optimized room descriptions (HTML)
                 groups.forEach(function(g) {
                     var gid = g.id;
                     var key = 'room_' + gid;
                     if (results[key]) {
-                        // Update FR description
-                        var descEl = document.getElementById(gid + '-clientDesc');
-                        if (descEl) descEl.value = results[key];
+                        // Store HTML in memory
+                        roomDescHTML[gid] = results[key];
                         if (roomMap[gid]) {
                             updateRoom(roomMap[gid], { client_description: results[key], client_description_en: '' });
                         }
@@ -3844,35 +3871,35 @@
             }
         }
 
-        // ── Optimiser un seul textarea (bouton ✨ par champ) ──
+        // ── Optimiser un seul champ (bouton ✨ par champ) ──
         async function optimizeText(btnEl) {
             var gid = btnEl.getAttribute('data-group-id');
             if (!gid) return;
-            var textarea = btnEl.parentElement.querySelector('.pv-page-room-desc');
-            if (!textarea || !textarea.value.trim()) return;
+            var descDiv = btnEl.parentElement.querySelector('.pv-page-room-desc');
+            if (!descDiv || !descDiv.textContent.trim()) return;
 
             btnEl.disabled = true;
             var origText = btnEl.textContent;
             btnEl.textContent = '...';
 
             try {
+                // Send plain text to AI, receive HTML back
                 var results = await callEdgeFunction(
-                    [{ key: 'room_' + gid, text: textarea.value }],
+                    [{ key: 'room_' + gid, text: descDiv.textContent }],
                     'optimize'
                 );
                 var optimized = results['room_' + gid];
                 console.log('[AI] Optimize result for', gid, ':', optimized ? optimized.substring(0, 200) : 'EMPTY');
                 if (optimized) {
-                    // Save optimized FR to hidden calculator field
-                    var descEl = document.getElementById(gid + '-clientDesc');
-                    if (descEl) descEl.value = optimized;
+                    // Save optimized HTML to memory + DB
+                    roomDescHTML[gid] = optimized;
                     if (roomMap[gid]) {
                         updateRoom(roomMap[gid], { client_description: optimized, client_description_en: '' });
                     }
                     // Clear stale EN
                     roomDescEN[gid] = '';
                     showSaveIndicator();
-                    // Re-render to show optimized text
+                    // Re-render to show optimized HTML
                     renderPreview();
                 } else {
                     alert('L\'AI n\'a retourné aucun texte. Vérifiez la console (F12).');
@@ -3895,7 +3922,7 @@
             btn.textContent = 'Traduction...';
 
             try {
-                var texts = collectFrTexts();
+                var texts = collectFrTexts(true); // send HTML for translation
                 if (texts.length === 0) { showSaveIndicator(); return; }
 
                 var results = await callEdgeFunction(texts, 'translate');
@@ -4215,7 +4242,8 @@
                 var allImgs = groupImages[groupId] || [];
                 var imgs = clientViewMode ? allImgs.filter(function(img) { return img.showInQuote; }) : allImgs;
                 var descEl = document.getElementById(groupId + '-clientDesc');
-                var descFr = descEl ? descEl.value : '';
+                var descPlain = descEl ? descEl.value : '';
+                var descFr = roomDescHTML[groupId] || descPlain;
                 var descEn = roomDescEN[groupId] || '';
                 var desc = currentLang === 'en' ? (descEn || descFr) : descFr;
                 var hasImages = imgs.length > 0;
@@ -4230,9 +4258,11 @@
                     if (editable && currentLang === 'fr') {
                         html += '<button class="pv-optimize-btn" onclick="optimizeText(this)" data-group-id="' + escapeAttr(groupId) + '">&#10024;</button>';
                     }
-                    html += '<textarea class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
-                    html += ' placeholder="' + t('descPlaceholder') + '"';
-                    html += (editable ? '' : ' disabled') + '>' + escapeHtml(desc) + '</textarea>';
+                    html += '<div class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
+                    html += ' data-placeholder="' + escapeAttr(t('descPlaceholder')) + '"';
+                    html += ' contenteditable="' + (editable ? 'true' : 'false') + '">';
+                    html += textToHtml(desc);
+                    html += '</div>';
                     html += '</div>';
 
                     // Right column: images
@@ -4257,9 +4287,11 @@
                     if (editable && currentLang === 'fr') {
                         html += '<button class="pv-optimize-btn" onclick="optimizeText(this)" data-group-id="' + escapeAttr(groupId) + '">&#10024;</button>';
                     }
-                    html += '<textarea class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
-                    html += ' placeholder="' + t('descPlaceholder') + '"';
-                    html += (editable ? '' : ' disabled') + '>' + escapeHtml(desc) + '</textarea>';
+                    html += '<div class="pv-page-room-desc" data-group-id="' + escapeAttr(groupId) + '"';
+                    html += ' data-placeholder="' + escapeAttr(t('descPlaceholder')) + '"';
+                    html += ' contenteditable="' + (editable ? 'true' : 'false') + '">';
+                    html += textToHtml(desc);
+                    html += '</div>';
                     html += '</div>';
                 }
 
@@ -4315,18 +4347,20 @@
         }
 
         function wirePreviewSaveHandlers() {
-            // Room descriptions — save to correct lang field + stale detection
-            document.querySelectorAll('#pvContent .pv-page-room-desc').forEach(function(textarea) {
-                textarea.addEventListener('blur', function() {
+            // Room descriptions — save HTML to correct lang field + stale detection
+            document.querySelectorAll('#pvContent .pv-page-room-desc').forEach(function(el) {
+                el.addEventListener('blur', function() {
                     var gid = this.getAttribute('data-group-id');
                     if (!gid || !roomMap[gid]) return;
+                    var htmlContent = this.innerHTML.trim();
                     if (currentLang === 'en') {
-                        roomDescEN[gid] = this.value;
-                        updateRoom(roomMap[gid], { client_description_en: this.value });
+                        roomDescEN[gid] = htmlContent;
+                        updateRoom(roomMap[gid], { client_description_en: htmlContent });
                     } else {
-                        updateRoom(roomMap[gid], { client_description: this.value });
+                        roomDescHTML[gid] = htmlContent;
+                        updateRoom(roomMap[gid], { client_description: htmlContent });
                         var calcDesc = document.getElementById(gid + '-clientDesc');
-                        if (calcDesc) calcDesc.value = this.value;
+                        if (calcDesc) calcDesc.value = this.textContent; // plain text for calc textarea
                         // Stale detection: FR changed → clear EN
                         if (roomDescEN[gid]) {
                             roomDescEN[gid] = '';
@@ -4458,6 +4492,7 @@
             itemMap = {};
             groupImages = {};
             roomDescEN = {};
+            roomDescHTML = {};
             renderProjectList();
         }
 
@@ -4639,6 +4674,7 @@
             itemMap = {};
             groupImages = {};
             roomDescEN = {};
+            roomDescHTML = {};
 
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
@@ -4668,6 +4704,7 @@
                     if (room.client_description) {
                         var descEl = document.getElementById(groupId + '-clientDesc');
                         if (descEl) descEl.value = room.client_description;
+                        roomDescHTML[groupId] = room.client_description;
                     }
                     if (room.client_description_en) {
                         roomDescEN[groupId] = room.client_description_en;

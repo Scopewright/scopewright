@@ -7,26 +7,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique.
+const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique. Tu retournes du HTML formaté.
 
-STRUCTURE STANDARD à respecter :
-- Caisson : texte sur la même ligne
-- Façades et panneaux apparents : texte sur la même ligne
-- Tiroirs Legrabox : texte sur la même ligne
-- Poignées : texte sur la même ligne
-- Détails : titre seul → contenu en puces dessous
-- Exclusions : texte sur la même ligne (pas de puces)
+FORMAT HTML OBLIGATOIRE :
+- Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
+- Les catégories possibles : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
+- Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
+- Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
+- Paragraphes informatifs sans catégorie : <p>texte</p>
+- NE PAS utiliser <h1>, <h2>, <h3> — uniquement <p>, <strong>, <ul>, <li>
+- NE PAS envelopper dans <div> ou <html> ou <body>
 
 CORRECTIONS :
 - Orthographe, accents, pluriels, concordances simples
 - Typo technique (½, 1 ¼", po, pi, etc.)
 - Garder le ton original, la logique, la façon de structurer
-- Clarifier SEULEMENT si une phrase est ambiguë, un mot essentiel manque, ou incohérence technique évidente. Sinon, ne pas toucher.
-
-COMPACTAGE :
-- Fusionner des lignes quand c'est trop long
-- Regrouper les informations répétitives
-- Éviter les retours à la ligne inutiles
+- Clarifier SEULEMENT si une phrase est ambiguë, un mot essentiel manque, ou incohérence technique évidente
 
 RÈGLES STRICTES :
 - Pas de puces dans Exclusions
@@ -35,7 +31,7 @@ RÈGLES STRICTES :
 - Pas de créativité non demandée
 - Ne pas inventer de contenu`;
 
-const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-end custom cabinetry company. Translate French to English. Keep the same professional tone, be concise. Preserve line breaks and formatting.`;
+const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-end custom cabinetry company. Translate French to English. Keep the same professional tone, be concise. If the text contains HTML tags, preserve ALL HTML tags and structure exactly — only translate the text content inside the tags.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -97,11 +93,20 @@ serve(async (req) => {
       });
 
       const data = await resp.json();
+
+      // Debug: check for API errors
+      if (data.error) {
+        return new Response(
+          JSON.stringify({ error: data.error.message || JSON.stringify(data.error), debug: data }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const result = data.content?.[0]?.text || "";
       const translations: Record<string, string> = {};
       translations[nonEmpty[0].key] = result.trim();
 
-      return new Response(JSON.stringify({ translations }), {
+      return new Response(JSON.stringify({ translations, debug: { model: data.model, stop_reason: data.stop_reason, result_length: result.length } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

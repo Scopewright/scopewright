@@ -35,6 +35,7 @@
     let currentProject = null;      // objet projet courant { id, name, client_name, ... }
     let currentSubmission = null;   // objet soumission courante { id, submission_number, title, status, ... }
     let canApproveQuotes = false;   // permission can_approve_quotes
+    let canBypassApproval = false;  // permission can_bypass_approval
     let isApprovalMode = false;     // true when opened from approbation.html via ?submission=
     let roomMap = {};               // { groupDomId: supabaseRoomUUID }
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
@@ -140,7 +141,7 @@
 
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at)', {});
+        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval)', {});
         if (!r.ok) return [];
         var projects = await r.json();
         projects.forEach(function(p) {
@@ -268,7 +269,8 @@
             'submitted': 'Soumis pour approbation',
             'approved': 'Approuv\u00e9',
             'returned': 'Retourn\u00e9',
-            'sent': 'Envoy\u00e9 au client'
+            'sent': 'Envoy\u00e9 au client',
+            'bypass': 'Bypass approbation'
         };
 
         var html = '';
@@ -1809,6 +1811,16 @@
         .btn-wf-approve { background: #2e7d32; color: #fff; }
         .btn-wf-return { background: #e65100; color: #fff; }
         .btn-wf-send-client { background: #4527a0; color: #fff; }
+        .btn-wf-bypass { background: #c0392b; color: #fff; }
+        .bypass-badge {
+            display: inline-block; background: #ffebee; color: #c0392b;
+            font-size: 9px; font-weight: 700; padding: 2px 6px;
+            border-radius: 3px; margin-left: 6px; text-transform: uppercase;
+            letter-spacing: 0.3px; vertical-align: middle;
+        }
+        .timeline-dot-bypass { background: #c0392b; }
+        .timeline-action-bypass { color: #c0392b; font-weight: 700; }
+        .timeline-comment-bypass { background: #ffebee; border-left: 3px solid #c0392b; padding: 6px 10px; border-radius: 4px; }
         .status-badge {
             display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700;
             border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
@@ -2128,6 +2140,7 @@
                         <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
                         <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
                         <button class="btn-wf btn-wf-send-client" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
+                        <button class="btn-wf btn-wf-bypass" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
                     </div>
                     <div class="project-header-field">
                         <label class="install-toggle-project">
@@ -2266,6 +2279,35 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closePdfModal()">Annuler</button>
                 <button class="btn-generate" id="btnSend" onclick="soumettreSoumission()">Soumettre</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Bypass approbation -->
+    <div class="modal-overlay" id="bypassModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" style="color:#c0392b;">Envoi sans approbation</h3>
+            </div>
+            <div class="modal-body">
+                <div style="background:#fff3e0; border:1px solid #e65100; border-radius:6px; padding:14px; margin-bottom:16px; font-size:13px; color:#e65100; line-height:1.5;">
+                    <strong>Attention :</strong> Vous vous appr&ecirc;tez &agrave; envoyer cette soumission directement au client <strong>sans approbation interne</strong>. Cette action sera consign&eacute;e avec votre identit&eacute; et votre adresse IP.
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="bypassConfirmCheck" style="margin-top:3px;">
+                        <span>Je confirme envoyer cette soumission sans approbation interne et j'en assume l'enti&egrave;re responsabilit&eacute;.</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="bypassReason">Raison du bypass <span style="color:#c0392b;">*</span></label>
+                    <textarea class="form-input" id="bypassReason" rows="3" placeholder="Ex: Client en urgence, d&eacute;j&agrave; discut&eacute; avec le directeur..." style="resize:vertical; min-height:60px;" required></textarea>
+                </div>
+                <div id="bypassStatus" style="display:none; padding:10px; border-radius:4px; font-size:13px; margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeBypassModal()">Annuler</button>
+                <button class="btn-generate" id="btnBypassConfirm" style="background:#c0392b;" onclick="executeBypass()">Envoyer sans approbation</button>
             </div>
         </div>
     </div>
@@ -5012,8 +5054,12 @@
             var badge = document.getElementById('subStatusBadge');
             if (!badge) return;
             var label = STATUS_LABELS[status] || status;
-            badge.textContent = label;
             badge.className = 'status-badge status-' + status;
+            if (currentSubmission && currentSubmission.bypass_approval) {
+                badge.innerHTML = escapeHtml(label) + ' <span class="bypass-badge">BYPASS</span>';
+            } else {
+                badge.textContent = label;
+            }
         }
 
         async function renderProjectList() {
@@ -5042,7 +5088,7 @@
                     subsHtml += '<div class="sub-line" data-subid="' + escapeAttr(sub.id) + '" data-projid="' + escapeAttr(proj.id) + '">' +
                         '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                         '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
-                        '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + '</span>' +
+                        '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
                         '</div>';
                 });
 
@@ -5283,7 +5329,7 @@
                 html += '<div class="sub-line' + (isActive ? ' active' : '') + '" data-subid="' + escapeAttr(sub.id) + '">' +
                     '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                     '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
-                    '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + '</span>' +
+                    '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
                     '</div>';
             });
             list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';
@@ -5419,16 +5465,21 @@
             var btnApprove = document.getElementById('btnWfApprove');
             var btnReturn = document.getElementById('btnWfReturn');
             var btnSendClient = document.getElementById('btnWfSendClient');
+            var btnBypass = document.getElementById('btnWfBypass');
             btnSubmit.style.display = 'none';
             btnApprove.style.display = 'none';
             btnReturn.style.display = 'none';
             if (btnSendClient) { btnSendClient.style.display = 'none'; btnSendClient.textContent = 'Envoyer au client'; btnSendClient.onclick = function() { sendToClient(); }; }
+            if (btnBypass) btnBypass.style.display = 'none';
             if (!currentSubmission) return;
 
             var s = currentSubmission.status;
             if (s === 'draft' || s === 'returned') {
                 btnSubmit.style.display = 'inline-block';
                 btnSubmit.textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
+                if (canBypassApproval && btnBypass) {
+                    btnBypass.style.display = 'inline-block';
+                }
             }
             if (s === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {
                 btnApprove.style.display = 'inline-block';
@@ -5564,6 +5615,131 @@
             } catch (e) {
                 console.error('Erreur retour:', e);
                 steleAlert('Erreur retour: ' + e.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // BYPASS APPROBATION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function bypassApproval() {
+            if (!currentSubmission) return;
+            var s = currentSubmission.status;
+            if (s !== 'draft' && s !== 'returned') {
+                steleAlert('Seules les soumissions en brouillon ou retournées peuvent utiliser le bypass.');
+                return;
+            }
+            if (!canBypassApproval) {
+                steleAlert('Vous n\'avez pas la permission de contourner l\'approbation.');
+                return;
+            }
+            var rows = document.querySelectorAll('.calc-row');
+            if (rows.length === 0) {
+                steleAlert('Veuillez ajouter au moins un article au calculateur.');
+                return;
+            }
+            document.getElementById('bypassConfirmCheck').checked = false;
+            document.getElementById('bypassReason').value = '';
+            document.getElementById('bypassStatus').style.display = 'none';
+            document.getElementById('btnBypassConfirm').disabled = false;
+            document.getElementById('btnBypassConfirm').textContent = 'Envoyer sans approbation';
+            document.getElementById('bypassModal').classList.add('active');
+        }
+
+        function closeBypassModal() {
+            document.getElementById('bypassModal').classList.remove('active');
+        }
+
+        function showBypassStatus(msg, isError) {
+            var el = document.getElementById('bypassStatus');
+            el.style.display = 'block';
+            el.textContent = msg;
+            el.style.background = isError ? '#ffebee' : '#e8f5e9';
+            el.style.color = isError ? '#c62828' : '#2e7d32';
+        }
+
+        async function executeBypass() {
+            if (!document.getElementById('bypassConfirmCheck').checked) {
+                showBypassStatus('Vous devez cocher la case de confirmation.', true);
+                return;
+            }
+            var reason = document.getElementById('bypassReason').value.trim();
+            if (!reason) {
+                showBypassStatus('La raison est obligatoire.', true);
+                return;
+            }
+            if (reason.length < 10) {
+                showBypassStatus('La raison doit contenir au moins 10 caractères.', true);
+                return;
+            }
+
+            var btn = document.getElementById('btnBypassConfirm');
+            btn.disabled = true;
+            btn.textContent = 'Envoi en cours...';
+            showBypassStatus('Traitement en cours...', false);
+
+            try {
+                var statusBefore = currentSubmission.status;
+
+                // 1. Snapshot
+                await createVersion(currentSubmission.id);
+
+                // 2. Log immutable via RPC (capture IP serveur)
+                var rpcResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/log_bypass_approval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        p_submission_id: currentSubmission.id,
+                        p_reason: reason,
+                        p_status_before: statusBefore,
+                        p_status_after: 'sent_client'
+                    })
+                });
+                if (!rpcResp.ok) throw new Error('Erreur journalisation bypass: ' + rpcResp.status);
+
+                // 3. Générer token client (même logique que sendToClient)
+                var tokenResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/public_quote_tokens', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ submission_id: currentSubmission.id })
+                });
+                if (!tokenResp.ok) throw new Error('Erreur création token: ' + tokenResp.status);
+                var tokenData = (await tokenResp.json())[0];
+
+                // 4. Mettre à jour la soumission
+                var grandTotal = calculerGrandTotal();
+                await updateSubmission(currentSubmission.id, {
+                    status: 'sent_client',
+                    sent_at: new Date().toISOString(),
+                    bypass_approval: true,
+                    approved_total: grandTotal
+                });
+
+                // 5. Entrée timeline
+                await createSubmissionReview(currentSubmission.id, 'bypass', 'BYPASS: ' + reason);
+
+                // 6. Mettre à jour l'UI
+                currentSubmission.status = 'sent_client';
+                currentSubmission.bypass_approval = true;
+                updateStatusBadge('sent_client');
+                updateWorkflowButtons();
+                setEditable(false);
+                loadSubmissionReviews(currentSubmission.id);
+
+                showBypassStatus('Soumission envoyée au client (bypass approbation).', false);
+
+                // 7. Afficher le lien client
+                var link = window.location.origin + '/quote.html?token=' + tokenData.token;
+                setTimeout(function() {
+                    closeBypassModal();
+                    showQuoteLinkModal(link);
+                }, 1500);
+
+            } catch (e) {
+                console.error('Erreur bypass:', e);
+                showBypassStatus('Erreur: ' + e.message, true);
+                btn.disabled = false;
+                btn.textContent = 'Envoyer sans approbation';
             }
         }
 
@@ -5790,6 +5966,7 @@
                 canEditMinutes = !!allowed.edit_minutes;
                 canEditMaterials = !!allowed.edit_materials;
                 canApproveQuotes = !!allowed.can_approve_quotes;
+                canBypassApproval = !!allowed.can_bypass_approval;
                 var hasSubParam = new URLSearchParams(window.location.search).has('submission');
                 if (!allowed.calculateur && !(hasSubParam && (allowed.approbation || allowed.can_approve_quotes))) {
                     window.location.href = 'app.html'; return false;
@@ -5801,6 +5978,7 @@
                 canEditMinutes = !!defPerms.edit_minutes;
                 canEditMaterials = !!defPerms.edit_materials;
                 canApproveQuotes = !!defPerms.can_approve_quotes;
+                canBypassApproval = !!defPerms.can_bypass_approval;
                 if (!defPerms.calculateur) { window.location.href = 'app.html'; return false; }
             }
             return true;

@@ -1449,7 +1449,7 @@
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
-        .pv-page-room-body { flex: 1; display: flex; gap: 24px; overflow: hidden; min-height: 0; align-items: center; }
+        .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; align-items: center; }
         .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
         .pv-page-room-media {
             flex: 1; display: grid; grid-template-columns: repeat(2, 1fr);
@@ -1604,7 +1604,15 @@
         .pv-fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
         .pv-fullscreen .pv-toolbar { display: none; }
         .pv-fullscreen .pv-right { display: none; }
-        .pv-fullscreen .pv-left { padding: 4px 0; background: #ddd; }
+        .pv-fullscreen .pv-left { padding: 0; background: #fff; scroll-snap-type: y mandatory; }
+        .pv-fullscreen .pv-content { gap: 0; }
+        .pv-fullscreen .pv-page {
+            scroll-snap-align: start;
+            height: 100vh; max-height: 100vh;
+            width: calc(100vh * 11 / 8.5); max-width: 100vw;
+            margin: 0 auto; box-sizing: border-box;
+            aspect-ratio: auto;
+        }
         .pv-fullscreen .pv-page-room-desc { border-color: transparent; background: transparent; padding: 0; }
         .pv-fullscreen .pv-page-clause-text { border-color: transparent; background: transparent; padding: 0; }
         .pv-fullscreen .pv-page-clause-actions,
@@ -4120,6 +4128,7 @@
                 if (btn) { btn.classList.remove('active'); btn.textContent = 'Vue client'; }
             }
             renderPreview();
+            document.getElementById('pvContent').scrollTop = 0;
         }
 
         async function toggleLang() {
@@ -4799,6 +4808,7 @@
             var btn = document.getElementById('btnClientView');
             if (btn) { btn.classList.add('active'); btn.textContent = 'Mode \u00e9dition'; }
             renderPreview();
+            document.getElementById('pvContent').scrollTop = 0;
 
             // Request fullscreen on the preview view
             if (pv.requestFullscreen) pv.requestFullscreen();

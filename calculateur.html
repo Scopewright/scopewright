@@ -1513,6 +1513,32 @@
         .pv-total-box .total-taxes { font-size: 13px; opacity: 0.6; margin-top: 6px; }
         .pv-page-footer-text { margin-top: 32px; font-size: 12px; color: #aaa; letter-spacing: 0.5px; }
 
+        /* Steps page */
+        .pv-page-steps { padding: 32px 48px; }
+        .pv-steps-title {
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--stele-green); font-weight: 700; margin-bottom: 20px;
+            padding-bottom: 6px; border-bottom: 2px solid var(--stele-green);
+        }
+        .pv-steps-grid {
+            flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(4, 1fr); gap: 10px 48px;
+            grid-auto-flow: column;
+        }
+        .pv-step { display: flex; gap: 14px; align-items: flex-start; }
+        .pv-step-circle {
+            width: 36px; height: 36px; min-width: 36px; border-radius: 50%;
+            background: var(--stele-green); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700; margin-top: 2px;
+        }
+        .pv-step-content { flex: 1; min-width: 0; }
+        .pv-step-label {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.3px; color: var(--stele-black); margin-bottom: 3px;
+        }
+        .pv-step-desc { font-size: 10px; line-height: 1.4; color: #555; }
+
         /* Tools panel */
         .pv-tools-header {
             padding: 14px 20px; font-size: 13px; font-weight: 700;
@@ -4081,7 +4107,18 @@
                 footer: 'Stele \u2014 \u00c9b\u00e9nisterie sur mesure',
                 descPlaceholder: 'Description visible par le client...',
                 dropClause: 'Glissez une clause ici',
-                biblio: '\u2191 Bib.'
+                biblio: '\u2191 Bib.',
+                stepsTitle: '\u00c9tapes d\u2019un projet type',
+                steps: [
+                    { label: 'Conception', desc: '\u00c0 cette \u00e9tape, nous veillerons \u00e0 rassembler toutes les informations n\u00e9cessaires au bon d\u00e9roulement du projet. Cela inclut le choix des poign\u00e9es, l\u2019approbation des mat\u00e9riaux, ainsi que l\u2019\u00e9tude des d\u00e9fis sp\u00e9cifiques au projet. Nous rassemblerons \u00e9galement les fiches techniques des \u00e9lectrom\u00e9nagers et validerons l\u2019\u00e9ch\u00e9ancier avec le client et l\u2019entrepreneur.' },
+                    { label: 'Prise de mesure initiale', desc: 'Typiquement, cette prise de mesures s\u2019effectue sur les colombages et le plancher non fini. Nous tiendrons compte de l\u2019\u00e9paisseur du rev\u00eatement de sol et des murs pr\u00e9vus afin d\u2019\u00e9laborer nos dessins.' },
+                    { label: 'Approbation des dessins d\u2019atelier', desc: 'Suite \u00e0 notre premi\u00e8re prise de mesures, les dessins d\u2019atelier vous seront remis pour approbation. Une fois ces dessins approuv\u00e9s, aucune modification ne pourra y \u00eatre apport\u00e9e.' },
+                    { label: 'Commande de mat\u00e9riaux', desc: 'Comme nous prenons en compte les \u00e9paisseurs de rev\u00eatement lors de notre prise de mesures sur l\u2019ossature brute, nous sommes en mesure de commander les mat\u00e9riaux, tels que les placages de bois et la quincaillerie sp\u00e9ciale, afin d\u2019\u00e9viter tout d\u00e9lai lors de la mise en production.' },
+                    { label: 'Prise de mesure finale', desc: 'La prise de mesures finale s\u2019effectue une fois le plancher fini et les joints ainsi que les coins de fer pos\u00e9s. Apr\u00e8s cette prise de mesures, un d\u00e9lai de 6 semaines est n\u00e9cessaire avant le d\u00e9but de l\u2019installation.' },
+                    { label: 'Dessins d\u2019atelier pour production', desc: 'Comme nous avons pr\u00e9alablement ajust\u00e9 la prise de mesures initiale pour qu\u2019elle soit presque conforme au r\u00e9sultat final, les ajustements \u00e0 ce stade sont mineurs. Sauf en cas de changement majeur, les dessins d\u2019atelier ne vous seront pas renvoy\u00e9s pour approbation \u00e0 cette \u00e9tape.' },
+                    { label: 'Installation', desc: 'La dur\u00e9e de cette \u00e9tape varie en fonction de l\u2019ampleur du projet, mais elle marque un moment cl\u00e9\u00a0: celui o\u00f9 votre vision prend forme. Il ne restera plus que notre mobilier, pr\u00eat \u00e0 s\u2019int\u00e9grer dans votre quotidien et \u00e0 accompagner vos plus beaux moments \u00e0 la maison.' },
+                    { label: 'Contr\u00f4le de qualit\u00e9', desc: 'Une fois l\u2019installation termin\u00e9e, un repr\u00e9sentant Stele effectuera une visite avec vous pour \u00e9tablir ensemble une liste unique d\u2019ajustements, si n\u00e9cessaire. Stele pr\u00e9parera ensuite tout le n\u00e9cessaire et, lors d\u2019une seule visite suppl\u00e9mentaire, apportera les ajustements n\u00e9cessaires pour garantir un r\u00e9sultat final \u00e0 la hauteur de vos attentes.' }
+                ]
             },
             en: {
                 soumission: 'Quote',
@@ -4094,7 +4131,18 @@
                 footer: 'Stele \u2014 Custom Cabinetry',
                 descPlaceholder: 'Client-facing description...',
                 dropClause: 'Drag a clause here',
-                biblio: '\u2191 Lib.'
+                biblio: '\u2191 Lib.',
+                stepsTitle: 'Typical Project Steps',
+                steps: [
+                    { label: 'Design', desc: 'At this stage, we will gather all the information necessary for the smooth progress of the project. This includes the choice of handles, material approval, and the study of project-specific challenges. We will also collect technical specifications for appliances and validate the timeline with the client and contractor.' },
+                    { label: 'Initial Measurement', desc: 'Typically, this measurement is taken on the framing and unfinished floor. We will account for the thickness of the planned flooring and wall coverings in order to develop our drawings.' },
+                    { label: 'Shop Drawing Approval', desc: 'Following our initial measurements, the shop drawings will be submitted to you for approval. Once these drawings are approved, no modifications can be made.' },
+                    { label: 'Material Ordering', desc: 'Since we account for covering thicknesses during our measurements on the rough framing, we are able to order materials such as wood veneers and specialty hardware, avoiding any delay when production begins.' },
+                    { label: 'Final Measurement', desc: 'The final measurement is taken once the finished floor is installed and the joints and corner beads are in place. After this measurement, a 6-week lead time is required before installation begins.' },
+                    { label: 'Production Shop Drawings', desc: 'Since we previously adjusted the initial measurements to be nearly consistent with the final result, adjustments at this stage are minor. Unless there is a major change, the shop drawings will not be resubmitted for your approval at this step.' },
+                    { label: 'Installation', desc: 'The duration of this stage varies depending on the scope of the project, but it marks a key moment: the one where your vision takes shape. All that will remain is our furniture, ready to integrate into your daily life and accompany your finest moments at home.' },
+                    { label: 'Quality Control', desc: 'Once installation is complete, a Stele representative will visit you to establish a single list of adjustments, if necessary. Stele will then prepare everything needed and, in one additional visit, make the necessary adjustments to ensure a final result that meets your expectations.' }
+                ]
             }
         };
         function t(key) { return (i18n[currentLang] || i18n.fr)[key] || key; }
@@ -4744,6 +4792,23 @@
             html += '</div>';
             html += '<div class="pv-page-footer-text">' + t('footer') + '</div>';
             html += '</div>';
+
+            // ── Steps page ──
+            var steps = t('steps');
+            if (steps && Array.isArray(steps)) {
+                html += '<div class="pv-page pv-page-steps">';
+                html += '<div class="pv-steps-title">' + escapeHtml(t('stepsTitle')) + '</div>';
+                html += '<div class="pv-steps-grid">';
+                steps.forEach(function(step, i) {
+                    html += '<div class="pv-step">';
+                    html += '<div class="pv-step-circle">' + (i + 1) + '</div>';
+                    html += '<div class="pv-step-content">';
+                    html += '<div class="pv-step-label">' + escapeHtml(step.label) + '</div>';
+                    html += '<div class="pv-step-desc">' + escapeHtml(step.desc) + '</div>';
+                    html += '</div></div>';
+                });
+                html += '</div></div>';
+            }
 
             container.innerHTML = html;
             wirePreviewSaveHandlers();

@@ -2348,6 +2348,7 @@
             <div class="crop-controls">
                 <div class="crop-ratios">
                     <button class="crop-ratio-btn active" id="cropRatio43" onclick="setCropRatio('4:3')">4:3</button>
+                    <button class="crop-ratio-btn" id="cropRatio34" onclick="setCropRatio('3:4')">3:4</button>
                     <button class="crop-ratio-btn" id="cropRatio11" onclick="setCropRatio('1:1')">1:1</button>
                 </div>
                 <div class="crop-actions">
@@ -3556,6 +3557,7 @@
                 });
                 // Reset ratio buttons
                 document.getElementById('cropRatio43').classList.add('active');
+                document.getElementById('cropRatio34').classList.remove('active');
                 document.getElementById('cropRatio11').classList.remove('active');
             };
             testImg.src = url;
@@ -3564,9 +3566,11 @@
         function setCropRatio(ratio) {
             cropState.ratio = ratio;
             document.getElementById('cropRatio43').classList.toggle('active', ratio === '4:3');
+            document.getElementById('cropRatio34').classList.toggle('active', ratio === '3:4');
             document.getElementById('cropRatio11').classList.toggle('active', ratio === '1:1');
+            var numRatio = ratio === '1:1' ? 1 : ratio === '3:4' ? 3 / 4 : 4 / 3;
             if (currentCropper) {
-                currentCropper.setAspectRatio(ratio === '1:1' ? 1 : 4 / 3);
+                currentCropper.setAspectRatio(numRatio);
             }
         }
 
@@ -4660,7 +4664,7 @@
                     imgs.forEach(function(img) {
                         var realIdx = allImgs.indexOf(img);
                         var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
-                        var ratio = img.cropRatio === '1:1' ? '1/1' : '4/3';
+                        var ratio = img.cropRatio === '1:1' ? '1/1' : img.cropRatio === '3:4' ? '3/4' : '4/3';
                         html += '<div class="pv-img-wrap">';
                         html += '<img src="' + imgSrc + '" alt="' + escapeAttr(img.name) + '" style="aspect-ratio:' + ratio + ';" onclick="openLightbox(this.src)">';
                         if (editable && !clientViewMode) {

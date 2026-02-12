@@ -1450,16 +1450,21 @@
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
         .pv-page-room-body { flex: 1; display: flex; gap: 24px; overflow: hidden; min-height: 0; }
-        .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
         .pv-page-room-media {
             flex: 1; display: grid; grid-template-columns: repeat(2, 1fr);
-            gap: 8px; align-content: start;
+            gap: 8px; align-content: center;
         }
-        .pv-page-room-media.cols-1 { grid-template-columns: 1fr; }
-        .pv-page-room-media .pv-img-wrap { border-radius: 4px; overflow: hidden; }
+        /* 1 image: single column, centered */
+        .pv-page-room-media.imgs-1 { grid-template-columns: 1fr; }
+        /* 2 images: stacked vertically, gap = header height */
+        .pv-page-room-media.imgs-2 { grid-template-columns: 1fr; gap: 38px; }
+        /* 3 images: first spans full width, 2 below side by side */
+        .pv-page-room-media.imgs-3 { gap: 8px; }
+        .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        .pv-page-room-media .pv-img-wrap { overflow: hidden; }
         .pv-page-room-media .pv-img-wrap img {
-            width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block;
-            border: 1px solid rgba(0,0,0,0.08); cursor: pointer;
+            width: 100%; object-fit: cover; display: block; cursor: pointer;
         }
         .pv-page-room-desc {
             width: 100%; border: 1px dashed #ccc; border-radius: 4px;
@@ -4650,18 +4655,16 @@
                     html += '</div>';
 
                     // Right column: images
-                    var mediaCols = imgs.length === 1 ? ' cols-1' : '';
-                    html += '<div class="pv-page-room-media' + mediaCols + '">';
+                    var imgCount = Math.min(imgs.length, 4);
+                    html += '<div class="pv-page-room-media imgs-' + imgCount + '">';
                     imgs.forEach(function(img) {
                         var realIdx = allImgs.indexOf(img);
                         var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
+                        var ratio = img.cropRatio === '1:1' ? '1/1' : '4/3';
                         html += '<div class="pv-img-wrap">';
-                        html += '<img src="' + imgSrc + '" alt="' + escapeAttr(img.name) + '" onclick="openLightbox(this.src)">';
+                        html += '<img src="' + imgSrc + '" alt="' + escapeAttr(img.name) + '" style="aspect-ratio:' + ratio + ';" onclick="openLightbox(this.src)">';
                         if (editable && !clientViewMode) {
                             html += '<button class="pv-img-delete" onclick="removePreviewImage(\'' + escapeAttr(groupId) + '\', ' + realIdx + ')" title="Supprimer">&times;</button>';
-                        }
-                        if (img.showInQuote && !clientViewMode) {
-                            html += '<span class="pv-img-badge-client">Client</span>';
                         }
                         html += '</div>';
                     });

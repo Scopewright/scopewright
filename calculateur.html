@@ -4097,8 +4097,9 @@
                     const groupId = group.id;
                     const imgs = (groupImages[groupId] || []).map(img => ({
                         name: img.name,
-                        mimeType: img.dataUrl.match(/^data:(.*?);/)?.[1] || 'image/jpeg',
-                        data: img.dataUrl.split(',')[1]
+                        mimeType: img.dataUrl ? (img.dataUrl.match(/^data:(.*?);/)?.[1] || 'image/jpeg') : 'image/jpeg',
+                        data: img.dataUrl ? img.dataUrl.split(',')[1] : null,
+                        url: img.url || null
                     }));
                     meubles.push({ name: meubleName, items: items, subtotal: formatPrice(subtotal), images: imgs });
                 }

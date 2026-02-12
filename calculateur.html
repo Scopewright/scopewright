@@ -3861,10 +3861,9 @@
                     'optimize'
                 );
                 var optimized = results['room_' + gid];
-                console.log('[AI] Optimize result for', gid, ':', optimized ? optimized.substring(0, 100) + '...' : 'EMPTY');
+                console.log('[AI] Optimize result for', gid, ':', optimized ? optimized.substring(0, 200) : 'EMPTY');
                 if (optimized) {
-                    textarea.value = optimized;
-                    // Save optimized FR
+                    // Save optimized FR to hidden calculator field
                     var descEl = document.getElementById(gid + '-clientDesc');
                     if (descEl) descEl.value = optimized;
                     if (roomMap[gid]) {
@@ -3873,10 +3872,14 @@
                     // Clear stale EN
                     roomDescEN[gid] = '';
                     showSaveIndicator();
+                    // Re-render to show optimized text
+                    renderPreview();
+                } else {
+                    alert('L\'AI n\'a retourné aucun texte. Vérifiez la console (F12).');
                 }
             } catch (err) {
                 console.error('Optimize error:', err);
-                alert('Erreur : ' + err.message);
+                alert('Erreur d\'optimisation : ' + err.message);
             } finally {
                 btnEl.disabled = false;
                 btnEl.textContent = origText;

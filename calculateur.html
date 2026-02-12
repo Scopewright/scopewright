@@ -5079,7 +5079,7 @@
             if (rooms.length === 0) {
                 addFurnitureGroup('');
             } else {
-                rooms.forEach(room => {
+                for (const room of rooms) {
                     const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
 
                     if (room.installation_included === false) {
@@ -5159,7 +5159,7 @@
                             updateRow(rowId);
                         });
                     }
-                });
+                }
             }
 
             updateWorkflowButtons();

@@ -1525,19 +1525,18 @@
             grid-template-rows: repeat(4, 1fr); gap: 10px 48px;
             grid-auto-flow: column;
         }
-        .pv-step { display: flex; gap: 14px; align-items: flex-start; }
+        .pv-step { display: flex; gap: 16px; align-items: flex-start; }
         .pv-step-circle {
-            width: 36px; height: 36px; min-width: 36px; border-radius: 50%;
-            background: var(--stele-green); color: #fff;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 700; margin-top: 2px;
+            width: 64px; height: 64px; min-width: 64px; border-radius: 50%;
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 700; margin-top: 2px;
         }
         .pv-step-content { flex: 1; min-width: 0; }
         .pv-step-label {
-            font-size: 11px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.3px; color: var(--stele-black); margin-bottom: 3px;
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.3px; color: var(--stele-black); margin-bottom: 4px;
         }
-        .pv-step-desc { font-size: 10px; line-height: 1.4; color: #555; }
+        .pv-step-desc { font-size: 11px; line-height: 1.45; color: #555; }
 
         /* Tools panel */
         .pv-tools-header {
@@ -4796,12 +4795,14 @@
             // ── Steps page ──
             var steps = t('steps');
             if (steps && Array.isArray(steps)) {
+                // Gradient from dark green to light green
+                var stepColors = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','#849c86','#97b098'];
                 html += '<div class="pv-page pv-page-steps">';
                 html += '<div class="pv-steps-title">' + escapeHtml(t('stepsTitle')) + '</div>';
                 html += '<div class="pv-steps-grid">';
                 steps.forEach(function(step, i) {
                     html += '<div class="pv-step">';
-                    html += '<div class="pv-step-circle">' + (i + 1) + '</div>';
+                    html += '<div class="pv-step-circle" style="background:' + stepColors[i] + '">' + (i + 1) + '</div>';
                     html += '<div class="pv-step-content">';
                     html += '<div class="pv-step-label">' + escapeHtml(step.label) + '</div>';
                     html += '<div class="pv-step-desc">' + escapeHtml(step.desc) + '</div>';

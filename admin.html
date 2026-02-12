@@ -107,7 +107,7 @@
         .section.collapsed .section-content { display: none; }
 
         /* Permissions table */
-        .perm-table { width: 100%; border-collapse: collapse; }
+        .perm-table { min-width: 100%; border-collapse: collapse; white-space: nowrap; }
         .perm-table th, .perm-table td {
             padding: 12px 16px; text-align: center;
             border-bottom: 1px solid #f0f0f0;
@@ -268,10 +268,12 @@
                     <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
                 <div class="section-content">
+                    <div style="overflow-x:auto;">
                     <table class="perm-table">
                         <thead><tr id="permHead"></tr></thead>
                         <tbody id="permBody"></tbody>
                     </table>
+                    </div>
                     <div class="save-bar">
                         <button class="btn-save" onclick="savePermissions()">Sauvegarder les permissions</button>
                         <span class="save-feedback" id="permFeedback"></span>

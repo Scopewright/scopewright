@@ -1075,23 +1075,8 @@
         }
 
         .btn-pdf {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            background: var(--stele-green);
-            color: var(--stele-white);
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 16px;
+            display: none; /* Hidden - replaced by timeline CTA */
         }
-
-        .btn-pdf:hover { background: #3d4f42; }
-        .btn-pdf svg { width: 18px; height: 18px; }
 
         /* Ajout personnalis&eacute; */
         .ajout-description:focus,
@@ -2037,6 +2022,23 @@
         }
         .timeline-cta button.btn-orange:hover {
             background: #f57c00;
+        }
+
+        /* Timeline step clickable (pour copier lien client) */
+        .timeline-step.clickable {
+            cursor: pointer;
+        }
+        .timeline-step.clickable .timeline-circle {
+            animation: heartbeat 2s ease-in-out infinite;
+        }
+        .timeline-step.clickable:hover .timeline-circle {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(75,96,80,0.25);
+        }
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            14% { transform: scale(1.15); }
+            28% { transform: scale(1); }
         }
 
         /* Modal Rentabilité */
@@ -5478,7 +5480,13 @@
                 var classNames = 'timeline-step ' + stepState;
                 if (step.key === 'returned' && stepState === 'active') classNames += ' returned';
 
-                html += '<div class="' + classNames + '">';
+                // Rendre "Envoyée" cliquable pour copier le lien client
+                var isClickable = (status === 'sent_client' && step.key === 'sent_client');
+                if (isClickable) classNames += ' clickable';
+
+                var onclick = isClickable ? ' onclick="copyQuoteLink()" title="Cliquer pour copier le lien client"' : '';
+
+                html += '<div class="' + classNames + '"' + onclick + '>';
                 html += '<div class="timeline-circle">';
                 if (stepState === 'completed') {
                     html += '\u2713'; // checkmark

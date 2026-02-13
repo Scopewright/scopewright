@@ -5254,7 +5254,10 @@
             pv.classList.add('pv-client-mode');
             pv.classList.add('pv-fullscreen');
             renderPreview();
-            document.getElementById('pvContent').scrollTop = 0;
+
+            // Scroll to top in fullscreen mode (pv-left is the scrolling element)
+            var scrollEl = document.querySelector('#previewView .pv-left');
+            if (scrollEl) scrollEl.scrollTop = 0;
 
             // Request fullscreen on the preview view
             if (pv.requestFullscreen) pv.requestFullscreen();

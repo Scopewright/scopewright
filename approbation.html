@@ -211,7 +211,212 @@
             border-top: 1px solid #e0e0e0;
         }
 
+        /* Modal élargi pour vue complète article */
+        .modal.modal-edit {
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .edit-row {
+            display: flex;
+            gap: 12px;
+        }
+        .edit-row .form-group {
+            flex: 1;
+        }
+
+        /* Prix composé — tableaux minutes & matériaux */
+        .composed-price-section {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        .cp-table-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+        .cp-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--stele-green);
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .cp-sub-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .cp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .cp-table th {
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            color: #888;
+            padding: 4px 6px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .cp-table th:last-child {
+            text-align: right;
+        }
+        .cp-table td {
+            padding: 3px 6px;
+        }
+        .cp-table td:first-child {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
+            font-size: 11px;
+        }
+        .cp-table td:last-child {
+            text-align: right;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            color: #555;
+        }
+        .cp-calculated {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f8f8f4;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .cp-calculated .cp-total-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .cp-calculated .cp-total-value {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--stele-green);
+        }
+        .cp-calculated .cp-breakdown {
+            font-size: 11px;
+            color: #888;
+            margin-left: 8px;
+        }
+
+        /* Médias */
+        .cat-media-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--stele-green);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .cat-media-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .cat-media-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 6px;
+            align-items: flex-start;
+        }
+        .cat-media-item img {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid var(--stele-gray);
+            flex-shrink: 0;
+        }
+        .cat-pdf-icon {
+            width: 80px;
+            height: 60px;
+            background: #e8e8e8;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #999;
+            flex-shrink: 0;
+        }
+        .cat-media-info { flex: 1; min-width: 0; }
+        .cat-media-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: #333;
+            word-break: break-word;
+        }
+
+        /* Toggles */
+        .edit-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .edit-toggle {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 22px;
+        }
+        .edit-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .edit-toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ddd;
+            border-radius: 22px;
+            transition: background 0.25s;
+        }
+        .edit-toggle .slider::before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .edit-toggle input:checked + .slider {
+            background: var(--stele-green);
+        }
+        .edit-toggle input:checked + .slider::before {
+            transform: translateX(16px);
+        }
+        .edit-toggle-label {
+            font-size: 13px;
+            color: var(--stele-black);
+        }
+
         @media (max-width: 768px) {
+            .composed-price-section {
+                flex-direction: column;
+            }
+            .modal.modal-edit {
+                max-width: 98vw;
+            }
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .app-content { padding: 24px 16px; padding-top: 80px; }
             .section { padding: 20px 16px; }
@@ -289,7 +494,7 @@
 
     <!-- Modal examiner -->
     <div class="modal-overlay" id="examineModal">
-        <div class="modal">
+        <div class="modal modal-edit">
             <div class="modal-header">
                 <div>
                     <div class="modal-title">Examiner l'article</div>
@@ -297,26 +502,81 @@
                 </div>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Code</label>
-                    <input class="form-input" id="modalCode" type="text" readonly style="background:#f5f5f5; color:#888;">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Cat&eacute;gorie</label>
-                    <select class="form-select" id="modalCategory"></select>
+                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Code</label>
+                        <input class="form-input" id="modalCode" type="text" readonly style="background:#f5f5f5; color:#888;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cat&eacute;gorie</label>
+                        <select class="form-select" id="modalCategory"></select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <input class="form-input" id="modalDescription" type="text">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Type</label>
-                    <select class="form-select" id="modalType"></select>
+                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" id="modalType"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prix</label>
+                        <div class="form-input" id="modalPriceDisplay" style="background:#f5f5f5; color:#888;">Calculé automatiquement</div>
+                        <input type="hidden" id="modalPrice">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Prix</label>
-                    <input class="form-input" id="modalPrice" type="number" min="0" step="0.01">
+                    <label class="form-label">Instruction</label>
+                    <textarea class="form-input" id="modalInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+
+                <!-- Prix composé -->
+                <div class="form-group" id="composedPriceGroup">
+                    <div class="cp-section-title">Prix compos&eacute;</div>
+                    <div class="composed-price-section">
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
+                            <table class="cp-table">
+                                <thead><tr><th>D&eacute;partement</th><th style="width:70px">Min.</th></tr></thead>
+                                <tbody id="cpMinutesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="cp-table-wrap">
+                            <div class="cp-sub-title">Mat&eacute;riaux</div>
+                            <table class="cp-table">
+                                <thead><tr><th>Cat&eacute;gorie</th><th style="width:80px">Co&ucirc;t ($)</th></tr></thead>
+                                <tbody id="cpMaterialsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="cp-calculated">
+                        <div>
+                            <span class="cp-total-label">Prix calcul&eacute;</span>
+                            <span class="cp-breakdown" id="cpBreakdown"></span>
+                        </div>
+                        <span class="cp-total-value" id="cpTotalValue">—</span>
+                    </div>
+                </div>
+
+                <!-- Médias -->
+                <div class="form-group" id="mediaGroup">
+                    <div class="cat-media-title">M&eacute;dias</div>
+                    <div class="cat-media-list" id="catMediaList"></div>
+                </div>
+
+                <!-- Toggles -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <div class="edit-toggle-row">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="modalInCalculator">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    </div>
+                </div>
+
                 <div class="modal-status" id="modalStatus"></div>
             </div>
             <div class="modal-footer">
@@ -459,7 +719,7 @@
     async function loadPending() {
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator',
+                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator,instruction,labor_minutes,material_costs,image_url,has_sales_sheet',
                 {}
             );
             if (!r.ok) { showMsg('error', 'Erreur chargement: ' + r.status); return; }
@@ -506,6 +766,103 @@
     // ═══ Modal ═══
 
     var currentItemId = null;
+    var tauxHoraires = {};
+    var expenseCategories = [];
+
+    // Helper: render composed price
+    function renderComposedPrice(item) {
+        var laborMinutes = item.labor_minutes || {};
+        var materialCosts = item.material_costs || {};
+
+        // Minutes table
+        var minutesHtml = '';
+        Object.keys(laborMinutes).forEach(function(dept) {
+            var mins = laborMinutes[dept] || 0;
+            minutesHtml += '<tr><td>' + escapeHtml(dept) + '</td><td>' + mins + '</td></tr>';
+        });
+        document.getElementById('cpMinutesBody').innerHTML = minutesHtml || '<tr><td colspan="2" style="text-align:center; color:#999;">Aucune</td></tr>';
+
+        // Materials table
+        var materialsHtml = '';
+        Object.keys(materialCosts).forEach(function(cat) {
+            var cost = materialCosts[cat] || 0;
+            materialsHtml += '<tr><td>' + escapeHtml(cat) + '</td><td>' + cost.toFixed(2) + ' $</td></tr>';
+        });
+        document.getElementById('cpMaterialsBody').innerHTML = materialsHtml || '<tr><td colspan="2" style="text-align:center; color:#999;">Aucun</td></tr>';
+
+        // Calculate total
+        var total = computeComposedPrice(laborMinutes, materialCosts);
+        document.getElementById('cpTotalValue').textContent = total.toFixed(2) + ' $';
+
+        // Breakdown (simplified for read-only view)
+        var laborTotal = 0;
+        Object.keys(laborMinutes).forEach(function(dept) {
+            var rate = tauxHoraires[dept] || 0;
+            laborTotal += (laborMinutes[dept] || 0) / 60 * rate;
+        });
+        var materialTotal = 0;
+        Object.keys(materialCosts).forEach(function(cat) {
+            var expense = expenseCategories.find(function(e) { return e.name === cat; });
+            var markup = expense ? (expense.markup || 0) : 0;
+            var waste = expense ? (expense.waste || 0) : 0;
+            var cost = materialCosts[cat] || 0;
+            materialTotal += cost * (1 + markup/100 + waste/100);
+        });
+        var breakdown = 'MO: ' + laborTotal.toFixed(2) + ' $ + Mat: ' + materialTotal.toFixed(2) + ' $';
+        document.getElementById('cpBreakdown').textContent = breakdown;
+
+        document.getElementById('modalPriceDisplay').textContent = total.toFixed(2) + ' $';
+        document.getElementById('modalPrice').value = total;
+    }
+
+    function computeComposedPrice(laborMinutes, materialCosts) {
+        var total = 0;
+        // Labor
+        Object.keys(laborMinutes).forEach(function(dept) {
+            var rate = tauxHoraires[dept] || 0;
+            total += (laborMinutes[dept] || 0) / 60 * rate;
+        });
+        // Materials
+        Object.keys(materialCosts).forEach(function(cat) {
+            var expense = expenseCategories.find(function(e) { return e.name === cat; });
+            var markup = expense ? (expense.markup || 0) : 0;
+            var waste = expense ? (expense.waste || 0) : 0;
+            var cost = materialCosts[cat] || 0;
+            total += cost * (1 + markup/100 + waste/100);
+        });
+        return total;
+    }
+
+    // Helper: render media
+    async function renderMedia(itemId) {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/room_media?catalogue_item_id=eq.' + encodeURIComponent(itemId) + '&order=created_at',
+                {}
+            );
+            if (!r.ok) {
+                document.getElementById('catMediaList').innerHTML = '<div style="text-align:center; color:#999; padding:10px;">Erreur chargement médias</div>';
+                return;
+            }
+            var media = await r.json();
+            var html = '';
+            if (media.length === 0) {
+                html = '<div style="text-align:center; color:#999; padding:10px;">Aucun média</div>';
+            } else {
+                media.forEach(function(m) {
+                    var isPdf = m.url && m.url.toLowerCase().endsWith('.pdf');
+                    var thumb = isPdf
+                        ? '<div class="cat-pdf-icon">PDF</div>'
+                        : '<img src="' + escapeAttr(m.url) + '" alt="">';
+                    var name = m.url ? m.url.split('/').pop() : 'media';
+                    html += '<div class="cat-media-item">' + thumb + '<div class="cat-media-info"><div class="cat-media-name">' + escapeHtml(name) + '</div></div></div>';
+                });
+            }
+            document.getElementById('catMediaList').innerHTML = html;
+        } catch (e) {
+            document.getElementById('catMediaList').innerHTML = '<div style="text-align:center; color:#999; padding:10px;">Erreur réseau</div>';
+        }
+    }
 
     function openModal(itemId) {
         var item = pendingItems.find(function(it) { return it.id === itemId; });
@@ -534,8 +891,17 @@
             return '<option value="' + escapeAttr(t) + '"' + (t === item.type ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
         }).join('');
 
-        // Populate price
-        document.getElementById('modalPrice').value = item.price != null ? item.price : '';
+        // Populate instruction
+        document.getElementById('modalInstruction').value = item.instruction || '';
+
+        // Populate toggle
+        document.getElementById('modalInCalculator').checked = item.in_calculator !== false;
+
+        // Render composed price
+        renderComposedPrice(item);
+
+        // Render media
+        renderMedia(itemId);
 
         // Reset status
         var st = document.getElementById('modalStatus');
@@ -578,6 +944,8 @@
         var type = document.getElementById('modalType').value;
         var priceVal = document.getElementById('modalPrice').value;
         var price = priceVal !== '' ? parseFloat(priceVal) : null;
+        var instruction = document.getElementById('modalInstruction').value.trim();
+        var inCalculator = document.getElementById('modalInCalculator').checked;
 
         try {
             var r = await authenticatedFetch(
@@ -590,7 +958,9 @@
                         category: category,
                         description: description,
                         type: type,
-                        price: price
+                        price: price,
+                        instruction: instruction || null,
+                        in_calculator: inCalculator
                     })
                 }
             );
@@ -722,11 +1092,31 @@
         } catch (e) { /* keep defaults */ }
     }
 
+    async function loadPricingConfig() {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories)&select=key,value', {}
+            );
+            if (r.ok) {
+                var rows = await r.json();
+                rows.forEach(function(row) {
+                    if (row.key === 'taux_horaires' && row.value) {
+                        tauxHoraires = row.value;
+                    }
+                    if (row.key === 'expense_categories' && Array.isArray(row.value)) {
+                        expenseCategories = row.value;
+                    }
+                });
+            }
+        } catch (e) { /* keep defaults */ }
+    }
+
     // ═══ Init ═══
 
     (async function() {
         if (!(await checkPageAccess())) return;
         await loadCategories();
+        await loadPricingConfig();
         loadPending();
         loadPendingSubmissions();
     })();

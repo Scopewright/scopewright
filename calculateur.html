@@ -5242,23 +5242,144 @@
 
         function closePdfViewer() {
             document.getElementById('pdfViewerOverlay').classList.remove('active');
-            pdfDoc = null;
-            currentPdfUrl = null;
-            currentPlanRecord = null;
+            // Don't reset pdfDoc - keep it in memory for captures
+            // pdfDoc = null;
+            // currentPdfUrl = null;
+            // currentPlanRecord = null;
         }
 
         function openPdfInNewWindow() {
-            if (!currentPdfUrl) {
+            if (!pdfDoc || !currentPlanRecord) {
                 alert('Aucun PDF chargé');
                 return;
             }
 
-            // Open PDF in new window - this allows dragging to another screen
-            var newWindow = window.open(currentPdfUrl, '_blank', 'width=1200,height=800,toolbar=yes,location=yes,menubar=yes');
+            // Create standalone viewer page
+            var viewerHtml = createStandaloneViewer();
+            var blob = new Blob([viewerHtml], { type: 'text/html' });
+            var blobUrl = URL.createObjectURL(blob);
+
+            // Open in new window
+            var newWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
 
             if (!newWindow) {
                 alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
+            } else {
+                // Pass data to new window after it loads
+                newWindow.addEventListener('load', function() {
+                    newWindow.postMessage({
+                        type: 'INIT_PDF',
+                        pdfUrl: currentPdfUrl,
+                        planRecord: currentPlanRecord,
+                        submissionId: currentSubmission.id,
+                        supabaseUrl: SUPABASE_URL,
+                        accessToken: localStorage.getItem('sb_access_token')
+                    }, '*');
+                });
             }
+        }
+
+        function createStandaloneViewer() {
+            return '<!DOCTYPE html>' +
+'<html><head><meta charset="utf-8"><title>Plan - ' + (currentPlanRecord ? currentPlanRecord.file_name : 'PDF') + '</title>' +
+'<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>' +
+'<style>' +
+'* { margin: 0; padding: 0; box-sizing: border-box; }' +
+'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #2b2b2b; color: #fff; overflow: hidden; }' +
+'.viewer-header { background: #1a1a1a; padding: 12px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #444; }' +
+'.viewer-title { font-size: 14px; font-weight: 600; flex: 1; }' +
+'.controls { display: flex; align-items: center; gap: 8px; }' +
+'.btn { background: #3a3a3a; border: 1px solid #555; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: inherit; }' +
+'.btn:hover { background: #4a4a4a; }' +
+'.btn:disabled { opacity: 0.5; cursor: not-allowed; }' +
+'.page-info { font-size: 13px; color: #999; }' +
+'.canvas-container { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }' +
+'canvas { box-shadow: 0 4px 24px rgba(0,0,0,0.5); background: #fff; }' +
+'.capture-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 1000; }' +
+'.capture-modal.active { display: flex; }' +
+'.modal-content { background: #2b2b2b; border-radius: 8px; padding: 24px; max-width: 500px; width: 90%; border: 1px solid #444; }' +
+'.modal-title { font-size: 18px; margin-bottom: 16px; }' +
+'.form-group { margin-bottom: 16px; }' +
+'.form-label { display: block; font-size: 13px; margin-bottom: 6px; color: #aaa; }' +
+'.form-input { width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #fff; font-family: inherit; font-size: 14px; }' +
+'.modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }' +
+'.status { margin-top: 12px; padding: 10px; border-radius: 4px; font-size: 13px; display: none; }' +
+'</style></head><body>' +
+'<div class="viewer-header">' +
+'  <div class="viewer-title" id="title">Chargement...</div>' +
+'  <div class="controls">' +
+'    <button class="btn" id="btnPrev" onclick="navigate(-1)">◀</button>' +
+'    <span class="page-info" id="pageInfo">1 / 1</span>' +
+'    <button class="btn" id="btnNext" onclick="navigate(1)">▶</button>' +
+'    <button class="btn" onclick="zoom(-0.25)">−</button>' +
+'    <span class="page-info" id="zoomInfo">100%</span>' +
+'    <button class="btn" onclick="zoom(0.25)">+</button>' +
+'    <button class="btn" onclick="rotate()">↻</button>' +
+'    <button class="btn" onclick="openCaptureModal()">📸 Capturer</button>' +
+'  </div>' +
+'</div>' +
+'<div class="canvas-container" id="canvasContainer"><canvas id="pdfCanvas"></canvas></div>' +
+'<div class="capture-modal" id="captureModal">' +
+'  <div class="modal-content">' +
+'    <div class="modal-title">Capturer la page</div>' +
+'    <div class="form-group"><label class="form-label">Pièce / Meuble</label><select class="form-input" id="roomSelect"><option value="">-- Sélectionnez --</option></select></div>' +
+'    <div class="status" id="status"></div>' +
+'    <div class="modal-actions"><button class="btn" onclick="closeCaptureModal()">Annuler</button><button class="btn" onclick="confirmCapture()">Capturer</button></div>' +
+'  </div>' +
+'</div>' +
+'<script>' +
+'pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";' +
+'var pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.0, rotation = 0, planRecord = null, submissionId = null, supabaseUrl = null, accessToken = null;' +
+'window.addEventListener("message", async function(e) {' +
+'  if (e.data.type === "INIT_PDF") {' +
+'    planRecord = e.data.planRecord; submissionId = e.data.submissionId; supabaseUrl = e.data.supabaseUrl; accessToken = e.data.accessToken;' +
+'    document.getElementById("title").textContent = planRecord.file_name;' +
+'    var loadingTask = pdfjsLib.getDocument(e.data.pdfUrl);' +
+'    pdfDoc = await loadingTask.promise; totalPages = pdfDoc.numPages; await render(); await loadRooms();' +
+'  }' +
+'});' +
+'async function render() {' +
+'  if (!pdfDoc) return;' +
+'  var page = await pdfDoc.getPage(currentPage);' +
+'  var canvas = document.getElementById("pdfCanvas"); var ctx = canvas.getContext("2d");' +
+'  var viewport = page.getViewport({ scale: scale, rotation: rotation });' +
+'  canvas.width = viewport.width; canvas.height = viewport.height;' +
+'  await page.render({ canvasContext: ctx, viewport: viewport }).promise;' +
+'  document.getElementById("pageInfo").textContent = currentPage + " / " + totalPages;' +
+'  document.getElementById("zoomInfo").textContent = Math.round(scale * 100) + "%";' +
+'  document.getElementById("btnPrev").disabled = currentPage <= 1; document.getElementById("btnNext").disabled = currentPage >= totalPages;' +
+'}' +
+'function navigate(d) { currentPage += d; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; render(); }' +
+'function zoom(d) { scale += d; if (scale < 0.5) scale = 0.5; if (scale > 3.0) scale = 3.0; render(); }' +
+'function rotate() { rotation = (rotation + 90) % 360; render(); }' +
+'document.getElementById("canvasContainer").addEventListener("wheel", function(e) { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); }}, { passive: false });' +
+'async function loadRooms() {' +
+'  try {' +
+'    var r = await fetch(supabaseUrl + "/rest/v1/project_rooms?submission_id=eq." + submissionId + "&select=id,name&order=sort_order.asc", { headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken } });' +
+'    var rooms = await r.json(); var sel = document.getElementById("roomSelect");' +
+'    rooms.forEach(function(rm) { var opt = document.createElement("option"); opt.value = rm.id; opt.textContent = rm.name; sel.appendChild(opt); });' +
+'  } catch (e) { console.error(e); }' +
+'}' +
+'function openCaptureModal() { document.getElementById("captureModal").classList.add("active"); }' +
+'function closeCaptureModal() { document.getElementById("captureModal").classList.remove("active"); document.getElementById("status").style.display = "none"; }' +
+'async function confirmCapture() {' +
+'  var roomId = document.getElementById("roomSelect").value; if (!roomId) { alert("Sélectionnez une pièce"); return; }' +
+'  var status = document.getElementById("status"); status.style.display = "block"; status.style.background = "#e3f2fd"; status.style.color = "#1565c0"; status.textContent = "Capture...";' +
+'  try {' +
+'    var page = await pdfDoc.getPage(currentPage); var viewport = page.getViewport({ scale: 3.0, rotation: rotation });' +
+'    var canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height;' +
+'    await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;' +
+'    status.textContent = "Compression...";' +
+'    var blob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.85); });' +
+'    status.textContent = "Upload..."; var ts = Date.now(); var filename = "plan_p" + currentPage + "_" + ts + ".jpg"; var uploadPath = roomId + "/" + filename;' +
+'    var up = await fetch(supabaseUrl + "/storage/v1/object/room-media/" + uploadPath, { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken, "Content-Type": "image/jpeg" }, body: blob });' +
+'    if (!up.ok) throw new Error("Upload failed");' +
+'    var meta = { type: "pdf_plan", plan_id: planRecord.id, page_number: currentPage, pdf_filename: planRecord.file_name, pdf_version: planRecord.version_number, captured_at: new Date().toISOString(), scale: 3.0 };' +
+'    await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({ room_id: roomId, file_path: uploadPath, file_name: filename, file_size: blob.size, tags: [], source_metadata: meta }) });' +
+'    status.style.background = "#e8f5e9"; status.style.color = "#2e7d32"; status.textContent = "✓ Capture réussie!"; setTimeout(closeCaptureModal, 2000);' +
+'  } catch (e) { console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "✗ Erreur: " + e.message; }' +
+'}' +
+'</script></body></html>';
         }
 
         async function renderPdfPage() {

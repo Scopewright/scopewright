@@ -2358,6 +2358,10 @@
             14% { transform: scale(1.15); }
             28% { transform: scale(1); }
         }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
 
         /* Modal Rentabilité */
         /* ── Rentabilité modal ── */
@@ -2968,9 +2972,10 @@
             <div class="modal-body">
                 <div class="plans-upload-zone">
                     <input type="file" id="planFileInput" accept=".pdf" style="display:none;" onchange="handlePlanFileSelect(event)">
-                    <button class="btn-upload-plan" onclick="document.getElementById('planFileInput').click()">
+                    <button class="btn-upload-plan" id="btnUploadPlan" onclick="document.getElementById('planFileInput').click()">
                         <span style="font-size:20px;">&#128196;</span> T&eacute;l&eacute;verser un nouveau plan
                     </button>
+                    <div id="planUploadStatus" style="display:none; margin-top:12px; padding:10px; border-radius:6px; font-size:13px; text-align:center;"></div>
                 </div>
                 <div id="plansListContainer" class="plans-list">
                     <div class="plans-empty">Aucun plan pour cette soumission</div>
@@ -3001,6 +3006,7 @@
                     <button class="pdf-control-btn" onclick="pdfRotate()" title="Rotation 90\u00b0">&#8635;</button>
                     <div class="pdf-control-divider"></div>
                     <button class="pdf-action-btn" id="btnCapturePage" onclick="capturePdfPage()" title="Capturer cette page">&#128248; Capturer</button>
+                    <button class="pdf-action-btn" onclick="openPdfInNewWindow()" title="Ouvrir dans une nouvelle fen\u00eatre" style="margin-left:8px;">&#8599; Nouvelle fen\u00eatre</button>
                 </div>
                 <button class="pdf-viewer-close" onclick="closePdfViewer()">&times;</button>
             </div>
@@ -4991,7 +4997,17 @@
         async function uploadNewPlan(file) {
             if (!currentSubmission) return;
 
+            var status = document.getElementById('planUploadStatus');
+            var btn = document.getElementById('btnUploadPlan');
+
             try {
+                // Show upload status
+                btn.disabled = true;
+                status.style.display = 'block';
+                status.style.background = '#e3f2fd';
+                status.style.color = '#1565c0';
+                status.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">📄</span> Préparation...';
+
                 // Get next version number
                 var versionResp = await authenticatedFetch(
                     SUPABASE_URL + '/rest/v1/rpc/get_next_plan_version',
@@ -5004,6 +5020,8 @@
 
                 if (!versionResp.ok) throw new Error('Erreur de récupération de la version');
                 var nextVersion = await versionResp.json();
+
+                status.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">⬆️</span> Upload en cours (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)...';
 
                 // Upload to Storage
                 var storagePath = currentSubmission.id + '/v' + nextVersion + '_' + file.name;
@@ -5020,6 +5038,8 @@
                     var errData = await uploadResp.text();
                     throw new Error('Erreur d\'upload: ' + errData);
                 }
+
+                status.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">💾</span> Enregistrement...';
 
                 // Create database record
                 var dbResp = await authenticatedFetch(
@@ -5043,12 +5063,31 @@
 
                 if (!dbResp.ok) throw new Error('Erreur de création de l\'enregistrement');
 
+                // Success
+                status.style.background = '#e8f5e9';
+                status.style.color = '#2e7d32';
+                status.innerHTML = '✓ Plan téléversé avec succès!';
+
                 // Reload list
                 await loadSubmissionPlans();
 
+                // Hide status after 3 seconds
+                setTimeout(function() {
+                    status.style.display = 'none';
+                }, 3000);
+
             } catch (err) {
                 console.error('Upload error:', err);
-                alert('Erreur d\'upload: ' + err.message);
+                status.style.background = '#ffebee';
+                status.style.color = '#c62828';
+                status.innerHTML = '✗ Erreur: ' + err.message;
+
+                // Keep error visible longer (10 seconds)
+                setTimeout(function() {
+                    status.style.display = 'none';
+                }, 10000);
+            } finally {
+                btn.disabled = false;
             }
         }
 
@@ -5206,6 +5245,20 @@
             pdfDoc = null;
             currentPdfUrl = null;
             currentPlanRecord = null;
+        }
+
+        function openPdfInNewWindow() {
+            if (!currentPdfUrl) {
+                alert('Aucun PDF chargé');
+                return;
+            }
+
+            // Open PDF in new window - this allows dragging to another screen
+            var newWindow = window.open(currentPdfUrl, '_blank', 'width=1200,height=800,toolbar=yes,location=yes,menubar=yes');
+
+            if (!newWindow) {
+                alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
+            }
         }
 
         async function renderPdfPage() {
@@ -5369,6 +5422,12 @@
             var roomId = document.getElementById('captureRoomSelect').value;
             if (!roomId) {
                 alert('Veuillez sélectionner une pièce');
+                return;
+            }
+
+            // Validate PDF is loaded
+            if (!pdfDoc || !currentPlanRecord) {
+                alert('Erreur: Le PDF n\'est pas chargé correctement. Veuillez fermer et rouvrir le PDF.');
                 return;
             }
 
@@ -7854,6 +7913,18 @@
             await loadMediaTags();
             await loadEmployeesData();
             setupProposerMediaHandlers();
+
+            // Setup PDF viewer Ctrl+scroll zoom
+            var pdfCanvasContainer = document.getElementById('pdfCanvasContainer');
+            if (pdfCanvasContainer) {
+                pdfCanvasContainer.addEventListener('wheel', function(e) {
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        var delta = e.deltaY > 0 ? -0.1 : 0.1;
+                        pdfZoom(delta);
+                    }
+                }, { passive: false });
+            }
 
             // Check for direct submission opening (from approbation page)
             var params = new URLSearchParams(window.location.search);

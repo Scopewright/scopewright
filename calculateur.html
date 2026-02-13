@@ -254,9 +254,9 @@
         if (!r.ok) { timelineReviews = []; return; }
         timelineReviews = await r.json();
         renderTimelineDrawer();
-        // Show button if there are reviews
+        // Show button if there are reviews (now in kebab menu, always visible)
         var btn = document.getElementById('btnTimeline');
-        btn.style.display = '';
+        if (btn) btn.style.display = '';
     }
 
     function renderTimelineDrawer() {
@@ -1722,12 +1722,6 @@
             .pv-page-room-media { grid-template-columns: 1fr 1fr; }
         }
 
-        .btn-preview {
-            background: none; border: 1px solid #6a5acd; color: #6a5acd;
-            padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;
-        }
-        .btn-preview:hover { background: #6a5acd; color: #fff; }
-
         .project-list-header {
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
@@ -1798,31 +1792,61 @@
             display: none; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
             padding: 10px 14px; margin: -8px 0 16px;
         }
+        .header-sub-panel .sub-line {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 4px; cursor: pointer;
+        }
+        .header-sub-panel .sub-line:hover { background: #f5f5f5; }
         .header-sub-panel .sub-line.active { background: #eef3ef; }
         .header-sub-panel .sub-line.active .sub-number { color: var(--stele-black); }
+        .header-sub-panel .sub-line .sub-kebab {
+            margin-left: auto; background: none; border: none;
+            color: #999; cursor: pointer; font-size: 16px; padding: 2px 6px;
+            font-family: inherit; border-radius: 4px;
+        }
+        .header-sub-panel .sub-line .sub-kebab:hover { color: #333; background: #e0e0e0; }
         .header-sub-panel .header-sub-label {
             font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
             letter-spacing: 0.5px; margin-bottom: 6px;
         }
 
-        /* Workflow action buttons */
-        .workflow-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
-        .btn-wf {
-            display: none; padding: 6px 14px; font-size: 12px; font-weight: 600;
-            border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;
-            transition: opacity 0.15s; min-width: 210px; text-align: center;
+        /* ── Main action buttons ── */
+        .ph-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+        .btn-main-action {
+            display: none; padding: 12px 28px; font-size: 15px; font-weight: 600;
+            border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+            transition: opacity 0.15s; background: #1565c0; color: #fff;
         }
-        .btn-wf:hover { opacity: 0.85; }
-        .btn-wf-submit { background: #1565c0; color: #fff; }
-        .btn-wf-approve { background: #2e7d32; color: #fff; }
-        .btn-wf-return { background: #e65100; color: #fff; }
-        .btn-wf-send-client { background: #4527a0; color: #fff; }
-        .btn-wf-bypass { background: #c0392b; color: #fff; }
-        .btn-wf-accept-offline { background: #2e7d32; color: #fff; }
-        .btn-wf-invoiced { background: #4527a0; color: #fff; }
-        .btn-wf-duplicate { background: #546e7a; color: #fff; }
-        .btn-wf-unlock { background: #c62828; color: #fff; }
-        .btn-wf-versions { background: #37474f; color: #fff; }
+        .btn-main-action:hover { opacity: 0.85; }
+        .btn-main-green { background: var(--stele-green); color: #fff; }
+        .btn-main-orange { background: #e65100; color: #fff; }
+        .btn-main-purple { background: #4527a0; color: #fff; }
+        .btn-main-red { background: #c0392b; color: #fff; }
+
+        /* ── Kebab menu ── */
+        .kebab-menu { position: relative; }
+        .btn-kebab {
+            background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 50%;
+            width: 32px; height: 32px; font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: #666; transition: all 0.15s; font-family: inherit;
+        }
+        .btn-kebab:hover { background: #eee; border-color: #ccc; }
+        .btn-kebab.active { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
+        .kebab-dropdown {
+            display: none; position: absolute; top: 100%; right: 0; margin-top: 4px;
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 180px; z-index: 100;
+            padding: 4px 0;
+        }
+        .kebab-dropdown.open { display: block; }
+        .kebab-dropdown button {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            background: none; border: none; padding: 10px 16px; font-size: 13px;
+            font-family: inherit; cursor: pointer; color: #333; text-align: left;
+        }
+        .kebab-dropdown button:hover { background: #f5f5f5; }
+        .kebab-icon { font-size: 15px; width: 20px; text-align: center; }
 
         /* Version Drawer */
         .version-drawer { position:fixed; right:0; top:0; width:360px; height:100vh; background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15); z-index:1000; display:flex; flex-direction:column; transition:transform .3s ease; }
@@ -1855,9 +1879,9 @@
         .timeline-action-unlocked { color: #c62828; font-weight: 700; text-transform: uppercase; }
         .timeline-comment-unlocked { background: #ffebee; border-left: 3px solid #c62828; padding: 6px 10px; border-radius: 4px; font-weight: 600; }
         .status-badge {
-            display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; font-size: 11px; font-weight: 700;
             border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
-            min-width: 210px; text-align: center; box-sizing: border-box;
         }
         .status-draft { background: #f0f0f0; color: #666; }
         .status-pending_internal { background: #fff3e0; color: #e65100; }
@@ -1911,40 +1935,37 @@
 
         .project-header {
             background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 16px 20px; margin-bottom: 24px; position: relative;
-            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            padding: 20px 24px; margin-bottom: 16px; position: relative;
+            display: flex; flex-direction: column; gap: 4px;
         }
+        .ph-top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+        }
+        .ph-top-actions { display: flex; align-items: center; gap: 8px; }
         .btn-back-projects {
             background: none; border: none; color: var(--stele-green);
             cursor: pointer; font-size: 14px; font-family: inherit;
             padding: 6px 0; white-space: nowrap;
         }
         .btn-back-projects:hover { text-decoration: underline; }
-
-        .project-header-fields {
-            display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap;
+        .btn-header-link {
+            background: none; border: none; color: #555; font-size: 13px;
+            font-family: inherit; cursor: pointer; padding: 4px 8px;
+            transition: color 0.15s;
         }
-        .project-header-field {
-            display: flex; flex-direction: column; gap: 2px;
+        .btn-header-link:hover { color: var(--stele-green); }
+        .ph-project-name {
+            font-size: 26px; font-weight: 700; border: none; outline: none;
+            background: transparent; font-family: inherit; color: var(--stele-black);
+            padding: 0; width: 100%;
         }
-        .project-header-field label {
-            font-size: 10px; text-transform: uppercase; color: #999; letter-spacing: 0.5px;
-        }
-        .project-header-field input,
-        .project-header-field select {
-            border: 1px solid transparent; border-radius: 4px; padding: 4px 8px;
-            font-size: 14px; font-family: inherit; background: transparent;
-            transition: border-color 0.15s;
-        }
-        .project-header-field input:hover,
-        .project-header-field select:hover { border-color: #e0e0e0; }
-        .project-header-field input:focus,
-        .project-header-field select:focus { outline: none; border-color: var(--stele-green); background: #fff; }
-
-        .project-header-field input.field-name { font-weight: 600; font-size: 16px; min-width: 200px; }
-        .project-header-field input.field-client { min-width: 150px; }
-        .project-header-field input.field-code { width: 130px; }
-
+        .ph-project-name:hover { background: #fafafa; }
+        .ph-project-name:focus { background: #fff; box-shadow: 0 0 0 2px rgba(75,96,80,0.15); border-radius: 4px; }
+        .ph-status-row { margin: 4px 0; }
+        .ph-total-section { margin: 12px 0 4px; }
+        .ph-total-label { font-size: 12px; color: #888; margin-bottom: 2px; }
+        .ph-total-amount { font-size: 28px; font-weight: 700; color: var(--stele-black); }
         .save-indicator {
             font-size: 11px; color: #999; white-space: nowrap;
             position: absolute; top: 8px; right: 12px;
@@ -2007,12 +2028,6 @@
             padding: 2px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; white-space: nowrap;
         }
         .btn-rentab:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
-        .btn-rentab-project {
-            background: none; border: 1px solid var(--stele-green); color: var(--stele-green);
-            padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;
-        }
-        .btn-rentab-project:hover { background: var(--stele-green); color: #fff; }
-
         /* Print */
         @media print {
             .nav-bar { display: none; }
@@ -2100,13 +2115,6 @@
         .timeline-comment-sent { border-left-color: #4527a0; }
         .timeline-version { font-size: 10px; color: #aaa; margin-top: 4px; }
 
-        .btn-timeline {
-            background: none; border: 1px solid #ddd; border-radius: 6px;
-            padding: 6px 12px; font-size: 12px; cursor: pointer;
-            color: #666; font-family: inherit; white-space: nowrap; transition: all 0.15s;
-        }
-        .btn-timeline:hover { border-color: var(--stele-green); color: var(--stele-green); background: #f9faf9; }
-
         @media (max-width: 600px) {
             .timeline-drawer { width: 100%; right: -100%; }
         }
@@ -2158,40 +2166,43 @@
         <div class="calculator-view" id="calculatorView">
 
             <div class="project-header" id="projectHeader">
-                <button class="btn-back-projects" id="btnBackProjects" onclick="backToProjectList()">&larr; Projets</button>
-                <div class="project-header-fields">
-                    <div class="project-header-field">
-                        <label>Projet</label>
-                        <input type="text" class="field-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
-                    </div>
-                    <div class="project-header-field">
-                        <label>Soumission <span id="subNumber" style="font-weight:700; color:var(--stele-green);"></span></label>
-                        <input type="text" class="field-name" id="subTitle" placeholder="Titre de la soumission" onblur="saveSubmissionField()">
-                    </div>
-                    <div class="project-header-field workflow-actions" id="workflowActions">
-                        <span class="status-badge" id="subStatusBadge"></span>
-                        <button class="btn-wf btn-wf-submit" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
-                        <button class="btn-wf btn-wf-approve" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
-                        <button class="btn-wf btn-wf-return" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
-                        <button class="btn-wf btn-wf-send-client" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
-                        <button class="btn-wf btn-wf-bypass" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
-                        <button class="btn-wf btn-wf-accept-offline" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer vente</button>
-                        <button class="btn-wf btn-wf-invoiced" id="btnWfInvoiced" onclick="markInvoiced()">Marquer factur&eacute;e</button>
-                        <button class="btn-wf btn-wf-duplicate" id="btnWfDuplicate" onclick="duplicateSubmission()">Dupliquer</button>
-                        <button class="btn-wf btn-wf-unlock" id="btnWfUnlock" onclick="unlockSubmission()" style="display:none;">D&eacute;verrouiller</button>
-                        <button class="btn-wf btn-wf-versions" id="btnWfVersions" onclick="openVersionDrawer()">Versions</button>
-                    </div>
-                    <div class="project-header-field">
-                        <label class="install-toggle-project">
-                            <input type="checkbox" id="projInstallation" checked onchange="toggleProjectInstallation()">
-                            <span>Installation (tout)</span>
-                        </label>
+                <div class="ph-top-bar">
+                    <button class="btn-back-projects" id="btnBackProjects" onclick="backToProjectList()">&larr; Projets</button>
+                    <div class="ph-top-actions">
+                        <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
+                        <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
+                        <div class="kebab-menu" id="headerKebab">
+                            <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
+                            <div class="kebab-dropdown" id="headerKebabDropdown">
+                                <button id="kebabDuplicate" onclick="duplicateSubmission(); closeHeaderKebab()"><span class="kebab-icon">&#9633;</span> Dupliquer</button>
+                                <button id="kebabVersions" onclick="openVersionDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9776;</span> Versions</button>
+                                <button id="kebabTimeline" onclick="openTimelineDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9201;</span> Historique</button>
+                                <button id="kebabUnlock" onclick="unlockSubmission(); closeHeaderKebab()" style="display:none;"><span class="kebab-icon">&#128275;</span> D&eacute;verrouiller</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <button class="btn-timeline" id="btnTimeline" onclick="openTimelineDrawer()" style="display:none;">Historique</button>
-                <button class="btn-preview" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
-                <button class="btn-rentab-project" onclick="openRentab('project')">Rentabilit&eacute;</button>
+                <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
                 <span class="save-indicator" id="saveIndicator"></span>
+                <div class="ph-status-row">
+                    <span class="status-badge" id="subStatusBadge"></span>
+                </div>
+                <div class="ph-total-section">
+                    <div class="ph-total-label">Total estim&eacute;</div>
+                    <div class="ph-total-amount" id="headerTotal">0,00 $</div>
+                </div>
+                <div class="ph-actions" id="mainActions">
+                    <button class="btn-main-action" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
+                    <button class="btn-main-action btn-main-green" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
+                    <button class="btn-main-action btn-main-orange" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
+                    <button class="btn-main-action btn-main-purple" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
+                    <button class="btn-main-action btn-main-red" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
+                    <button class="btn-main-action btn-main-green" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer la vente</button>
+                    <button class="btn-main-action btn-main-purple" id="btnWfInvoiced" onclick="markInvoiced()">Marquer factur&eacute;e</button>
+                </div>
+                <input type="hidden" id="subTitle" value="">
+                <span id="subNumber" style="display:none;"></span>
+                <label style="display:none;"><input type="checkbox" id="projInstallation" checked onchange="toggleProjectInstallation()"></label>
             </div>
 
             <div class="header-sub-panel" id="headerSubPanel">
@@ -3622,12 +3633,20 @@
             let total = 0;
             document.querySelectorAll('.calc-row').forEach(row => { total += getRowTotal(row); });
             document.getElementById('grandTotal').textContent = formatPrice(total);
+            updateHeaderTotal();
         }
 
         function calculerGrandTotal() {
             let total = 0;
             document.querySelectorAll('.calc-row').forEach(row => { total += getRowTotal(row); });
             return Math.round(total * 100) / 100;
+        }
+
+        function updateHeaderTotal() {
+            var el = document.getElementById('headerTotal');
+            if (!el) return;
+            var total = calculerGrandTotal();
+            el.textContent = total.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -5247,6 +5266,30 @@
             showProjectList();
         }
 
+        // ── Kebab menu ──
+        function toggleHeaderKebab(e) {
+            e.stopPropagation();
+            var dropdown = document.getElementById('headerKebabDropdown');
+            var btn = e.currentTarget;
+            var isOpen = dropdown.classList.contains('open');
+            dropdown.classList.toggle('open');
+            btn.classList.toggle('active');
+            if (!isOpen) {
+                setTimeout(function() {
+                    document.addEventListener('click', closeHeaderKebabOnOutside, { once: true });
+                }, 0);
+            }
+        }
+        function closeHeaderKebab() {
+            var dd = document.getElementById('headerKebabDropdown');
+            if (dd) dd.classList.remove('open');
+            var btn = document.querySelector('.btn-kebab');
+            if (btn) btn.classList.remove('active');
+        }
+        function closeHeaderKebabOnOutside(e) {
+            if (!e.target.closest('.kebab-menu')) closeHeaderKebab();
+        }
+
         function showSaveIndicator() {
             const el = document.getElementById('saveIndicator');
             el.textContent = 'Sauvegardé ✓';
@@ -5273,10 +5316,12 @@
             if (!badge) return;
             var label = STATUS_LABELS[status] || status;
             badge.className = 'status-badge status-' + status;
+            var locked = !isSubmissionCurrentlyEditable();
+            var prefix = locked ? '\uD83D\uDD12 ' : '';
             if (currentSubmission && currentSubmission.bypass_approval) {
-                badge.innerHTML = escapeHtml(label) + ' <span class="bypass-badge">BYPASS</span>';
+                badge.innerHTML = escapeHtml(prefix + label) + ' <span class="bypass-badge">BYPASS</span>';
             } else {
-                badge.textContent = label;
+                badge.textContent = prefix + label;
             }
         }
 
@@ -5548,6 +5593,7 @@
                     '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                     '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
                     '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
+                    '<button class="sub-kebab" onclick="event.stopPropagation(); openSubmission(\'' + escapeAttr(sub.id) + '\')" title="Ouvrir">&middot;&middot;&middot;</button>' +
                     '</div>';
             });
             list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';
@@ -5904,9 +5950,8 @@
             var btnBypass = document.getElementById('btnWfBypass');
             var btnAcceptOffline = document.getElementById('btnWfAcceptOffline');
             var btnInvoiced = document.getElementById('btnWfInvoiced');
-            var btnDuplicate = document.getElementById('btnWfDuplicate');
-            var btnUnlock = document.getElementById('btnWfUnlock');
-            var btnVersions = document.getElementById('btnWfVersions');
+
+            // Hide all main action buttons
             btnSubmit.style.display = 'none';
             btnApprove.style.display = 'none';
             btnReturn.style.display = 'none';
@@ -5914,9 +5959,7 @@
             if (btnBypass) btnBypass.style.display = 'none';
             if (btnAcceptOffline) btnAcceptOffline.style.display = 'none';
             if (btnInvoiced) btnInvoiced.style.display = 'none';
-            if (btnDuplicate) btnDuplicate.style.display = 'none';
-            if (btnUnlock) btnUnlock.style.display = 'none';
-            if (btnVersions) btnVersions.style.display = 'none';
+
             if (!currentSubmission) return;
 
             var s = currentSubmission.status;
@@ -5946,17 +5989,18 @@
                 if (btnInvoiced) btnInvoiced.style.display = 'inline-block';
             }
 
-            // Bouton Dupliquer — toujours visible
-            if (btnDuplicate) btnDuplicate.style.display = 'inline-block';
-
-            // Bouton Déverrouiller — visible pour statuts verrouillés si permission
-            if (btnUnlock && canUnlockSubmission) {
-                var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted','invoiced'];
-                if (lockedStatuses.includes(s)) btnUnlock.style.display = 'inline-block';
+            // Kebab: Déverrouiller — visible pour statuts verrouillés si permission
+            var kebabUnlock = document.getElementById('kebabUnlock');
+            if (kebabUnlock) {
+                kebabUnlock.style.display = 'none';
+                if (canUnlockSubmission) {
+                    var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted','invoiced'];
+                    if (lockedStatuses.includes(s)) kebabUnlock.style.display = '';
+                }
             }
 
-            // Bouton Versions — toujours visible
-            if (btnVersions) btnVersions.style.display = 'inline-block';
+            // Update header total
+            updateHeaderTotal();
         }
 
         // submitForApproval() redirigé vers le modal

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stele — Tableau de bord</title>
+    <title>Stele &mdash; Tableau de bord</title>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -30,7 +30,7 @@
             display: flex;
         }
 
-        /* Nav bar — identique au catalogue */
+        /* ── Nav bar ── */
         .nav-bar {
             position: fixed;
             top: 0; left: 0; right: 0;
@@ -79,7 +79,7 @@
             border-color: #999;
         }
 
-        /* Cover verte — comme le catalogue */
+        /* ── Cover verte ── */
         .cover {
             margin-top: 56px;
             min-height: 100vh;
@@ -121,30 +121,32 @@
             opacity: 0.9;
         }
 
-        /* Grille de cartes */
+        /* ── Grille de cartes — 3 colonnes ── */
         .cover-right {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            max-width: 800px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 960px;
         }
 
+        /* ── Tool card ── */
         .tool-card {
             display: flex;
             flex-direction: column;
             background: var(--stele-white);
             border: none;
-            border-radius: 8px;
-            padding: 24px 22px;
+            border-radius: 12px;
+            padding: 28px 24px;
             text-decoration: none;
             color: var(--stele-black);
             transition: all 0.2s;
             box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            position: relative;
         }
 
         .tool-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
         }
 
         .tool-card--disabled {
@@ -167,58 +169,101 @@
             box-shadow: 0 2px 12px rgba(0,0,0,0.12);
         }
 
-        .tool-top {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 8px;
-        }
-
+        /* Icon — round green circle */
         .tool-icon {
-            width: 36px;
-            height: 36px;
+            width: 48px;
+            height: 48px;
             background: var(--stele-green);
-            border-radius: 6px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            margin-bottom: 16px;
         }
 
         .tool-icon--grey { background: #bbb; }
 
         .tool-icon svg {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             color: #fff;
         }
 
         .tool-name {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 700;
+            margin-bottom: 6px;
         }
 
         .tool-desc {
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
-            line-height: 1.4;
-            margin-bottom: 8px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+            flex: 1;
         }
 
+        /* Status badge */
         .tool-badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 4px 12px;
             background: #e8ece9;
             color: var(--stele-green);
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 600;
-            border-radius: 3px;
+            border-radius: 20px;
             width: fit-content;
         }
 
         .tool-badge--grey {
             background: #eee;
             color: #999;
+        }
+
+        /* ── Alert badge — yellow circle with ! ── */
+        .alert-badge {
+            display: none;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 28px;
+            height: 28px;
+            background: #f0ad4e;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(240,173,78,0.4);
+            line-height: 1;
+        }
+
+        .alert-badge.visible {
+            display: flex;
+        }
+
+        .alert-badge-count {
+            display: none;
+            position: absolute;
+            top: 14px;
+            right: 50px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #f0ad4e;
+            background: rgba(255,255,255,0.9);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .alert-badge-count.visible {
+            display: block;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .cover-right { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 700px) {
@@ -233,7 +278,7 @@
 <body>
 
     <div class="app-wrapper" id="appWrapper">
-        <!-- Nav bar blanche — identique au catalogue -->
+        <!-- Nav bar -->
         <nav class="nav-bar">
             <span class="nav-logo">stele</span>
             <div class="nav-user">
@@ -255,100 +300,78 @@
             <div class="cover-right">
                 <!-- Catalogue de prix -->
                 <a href="catalogue_prix_stele_complet.html" class="tool-card" data-page="catalogue">
-                    <div class="tool-top">
-                        <div class="tool-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Catalogue de prix</div>
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">Consultez les prix et les d&eacute;tails du catalogue.</div>
+                    <div class="tool-name">Catalogue de prix</div>
+                    <div class="tool-desc">Consultez les prix, sp&eacute;cifications et d&eacute;tails de tous les produits.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
-                <!-- Calculateur -->
-                <a href="calculateur.html" class="tool-card" data-page="calculateur">
-                    <div class="tool-top">
-                        <div class="tool-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Projets</div>
+                <!-- Projets -->
+                <a href="calculateur.html" class="tool-card" data-page="calculateur" id="cardProjets">
+                    <div class="alert-badge" id="alertProjets">!</div>
+                    <span class="alert-badge-count" id="alertProjetsCount"></span>
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">Acc&eacute;dez &agrave; vos projets, soumissions et estimations.</div>
+                    <div class="tool-name">Projets</div>
+                    <div class="tool-desc">Acc&eacute;dez &agrave; vos projets, soumissions et estimations de co&ucirc;ts.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
                 <!-- Clients -->
                 <a href="clients.html" class="tool-card" data-page="clients">
-                    <div class="tool-top">
-                        <div class="tool-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Clients</div>
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">G&eacute;rez vos contacts, entreprises et communications.</div>
+                    <div class="tool-name">Clients</div>
+                    <div class="tool-desc">G&eacute;rez vos contacts, entreprises et communications clients.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
-                <!-- Documents -->
-                <div class="tool-card tool-card--disabled" data-page="documents">
-                    <div class="tool-top">
-                        <div class="tool-icon tool-icon--grey">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Documents</div>
-                    </div>
-                    <div class="tool-desc">Acc&eacute;dez aux documents et fichiers de l'entreprise.</div>
-                    <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
-                </div>
-
                 <!-- Assistant vente -->
                 <div class="tool-card tool-card--disabled" data-page="assistant">
-                    <div class="tool-top">
-                        <div class="tool-icon tool-icon--grey">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Assistant vente</div>
+                    <div class="tool-icon tool-icon--grey">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">Utilisez l'assistant IA pour vos processus de vente.</div>
+                    <div class="tool-name">Assistant vente</div>
+                    <div class="tool-desc">Utilisez l'assistant IA pour optimiser vos processus de vente.</div>
                     <span class="tool-badge tool-badge--grey">Bient&ocirc;t</span>
                 </div>
 
                 <!-- Approbations -->
-                <a href="approbation.html" class="tool-card" data-page="approbation">
-                    <div class="tool-top">
-                        <div class="tool-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Approbations</div>
+                <a href="approbation.html" class="tool-card" data-page="approbation" id="cardApprobations">
+                    <div class="alert-badge" id="alertApprobations">!</div>
+                    <span class="alert-badge-count" id="alertApprobationsCount"></span>
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">Examinez et approuvez les articles propos&eacute;s au catalogue.</div>
+                    <div class="tool-name">Approbations</div>
+                    <div class="tool-desc">Examinez et approuvez les soumissions et articles propos&eacute;s.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
 
                 <!-- Administration -->
                 <a href="admin.html" class="tool-card" data-page="admin">
-                    <div class="tool-top">
-                        <div class="tool-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </div>
-                        <div class="tool-name">Administration</div>
+                    <div class="tool-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
                     </div>
-                    <div class="tool-desc">G&eacute;rez les permissions et les r&ocirc;les utilisateurs.</div>
+                    <div class="tool-name">Administration</div>
+                    <div class="tool-desc">G&eacute;rez les permissions, r&ocirc;les et configuration du syst&egrave;me.</div>
                     <span class="tool-badge">Disponible</span>
                 </a>
             </div>
@@ -425,6 +448,7 @@
             document.getElementById('userEmail').textContent = userEmail || '';
             document.getElementById('appWrapper').classList.add('ready');
             loadAndApplyPermissions();
+            loadAlerts();
         }
 
         function loadAndApplyPermissions() {
@@ -449,7 +473,6 @@
         function applyCardVisibility(perms, roles) {
             var email = (userEmail || '').toLowerCase();
             var role = roles[email] || 'Client';
-            // Fusionner les défauts avec les permissions sauvées (pour les nouvelles clés)
             var defaults = DEFAULT_PERMISSIONS[role] || {};
             var saved = perms[role] || {};
             var allowed = {};
@@ -465,6 +488,51 @@
                         cards[i].removeAttribute('href');
                     }
                 }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ALERTES — badges jaunes
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function loadAlerts() {
+            try {
+                // Approbations: soumissions en attente d'approbation (pending_internal)
+                var respApprob = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submissions?status=eq.pending_internal&select=id',
+                    { headers: { 'Prefer': 'count=exact' } }
+                );
+                var countApprob = parseInt(respApprob.headers.get('content-range')?.split('/')[1] || '0');
+                if (countApprob > 0) {
+                    var badgeA = document.getElementById('alertApprobations');
+                    var countA = document.getElementById('alertApprobationsCount');
+                    if (badgeA) badgeA.classList.add('visible');
+                    if (countA) {
+                        countA.textContent = countApprob + ' en attente';
+                        countA.classList.add('visible');
+                    }
+                }
+
+                // Projets: soumissions retournées pour l'utilisateur courant
+                var userId = localStorage.getItem('sb_user_id');
+                if (userId) {
+                    var respReturn = await authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/submissions?status=eq.returned&select=id,project_id,projects!inner(user_id)&projects.user_id=eq.' + userId,
+                        { headers: { 'Prefer': 'count=exact' } }
+                    );
+                    var countReturn = parseInt(respReturn.headers.get('content-range')?.split('/')[1] || '0');
+                    if (countReturn > 0) {
+                        var badgeP = document.getElementById('alertProjets');
+                        var countP = document.getElementById('alertProjetsCount');
+                        if (badgeP) badgeP.classList.add('visible');
+                        if (countP) {
+                            countP.textContent = countReturn + ' retour' + (countReturn > 1 ? 's' : '');
+                            countP.classList.add('visible');
+                        }
+                    }
+                }
+            } catch (e) {
+                // Silently fail — alerts are non-critical
             }
         }
 

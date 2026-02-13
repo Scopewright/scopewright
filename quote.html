@@ -18,16 +18,16 @@
         html, body {
             min-height: 100vh;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #fff;
+            background: #f0f0f0;
             color: var(--stele-black);
             line-height: 1.5;
         }
 
         /* ── Layout ── */
-        .page-wrapper {
-            max-width: 900px;
+        .quote-page-wrapper {
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 32px 24px 64px;
+            padding: 24px;
         }
 
         /* ── Loading / Error states ── */
@@ -63,194 +63,119 @@
             margin-bottom: 16px;
         }
 
-        /* ── Header ── */
-        .quote-header {
+        /* ── Pages container ── */
+        .quote-pages {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 32px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid var(--stele-black);
-        }
-
-        .quote-header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .quote-logo {
-            height: 56px;
-            width: auto;
-        }
-
-        .quote-header-right {
-            text-align: right;
-        }
-
-        .quote-number {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--stele-green);
-        }
-
-        .quote-date {
-            font-size: 13px;
-            opacity: 0.6;
-            margin-top: 2px;
-        }
-
-        /* ── Client info ── */
-        .client-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            flex-direction: column;
             gap: 24px;
-            margin-bottom: 36px;
-            padding: 20px 24px;
-            background: var(--stele-white);
-            border-radius: 4px;
-            border: 1px solid rgba(0,0,0,0.08);
         }
 
-        .client-info-block h3 {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--stele-green);
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .client-info-block p {
-            font-size: 14px;
-            line-height: 1.3;
-        }
-
-        /* ── Room cards ── */
-        .room-card {
-            margin-bottom: 24px;
-            background: var(--stele-white);
-            border-radius: 4px;
+        /* ── Landscape pages (11 × 8.5 in) ── */
+        .pv-page {
+            background: #fff;
+            padding: 36px 48px;
+            aspect-ratio: 11 / 8.5;
             overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.08);
-        }
-
-        .room-header {
+            position: relative;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 20px;
-            background: var(--stele-green);
-            color: var(--stele-white);
-        }
-
-        .room-name {
-            font-size: 16px;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-        }
-
-        .room-subtotal {
-            font-size: 16px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .room-body {
-            padding: 20px;
-        }
-
-        .room-images {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-
-        .room-image-thumb {
-            width: 340px;
-            height: 260px;
-            object-fit: cover;
+            flex-direction: column;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid rgba(0,0,0,0.1);
-            transition: transform 0.15s, box-shadow 0.15s;
         }
 
-        .room-image-thumb:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        /* Title page */
+        .pv-page-title { justify-content: center; align-items: center; text-align: center; }
+        .pv-page-title .pv-logo { height: 64px; margin-bottom: 32px; }
+        .pv-page-title .pv-sub-number { font-size: 24px; font-weight: 700; color: var(--stele-green); margin-bottom: 6px; }
+        .pv-page-title .pv-sub-date { font-size: 14px; color: #888; margin-bottom: 32px; }
+        .pv-page-title .pv-client-name { font-size: 32px; font-weight: 300; color: var(--stele-black); margin-bottom: 6px; }
+        .pv-page-title .pv-project-name { font-size: 18px; color: #666; }
+        .pv-page-title .pv-designer { font-size: 14px; color: #999; margin-top: 4px; }
+        .pv-page-title .pv-client-address { font-size: 14px; color: #999; margin-top: 2px; }
+
+        /* Room page — landscape layout */
+        .pv-page-room-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 20px; background: var(--stele-green); color: #fff;
+            border-radius: 4px; margin-bottom: 38px; flex-shrink: 0;
+        }
+        .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
+        .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
+        .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; }
+        .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
+        .pv-page-room-media {
+            flex: 1; display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 8px; align-content: center; max-height: 100%;
+        }
+        .pv-page-room-media.imgs-1 { grid-template-columns: 1fr; }
+        .pv-page-room-media.imgs-2 { grid-template-columns: 1fr; gap: 38px; }
+        .pv-page-room-media.imgs-3 { gap: 8px; }
+        .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        .pv-img-wrap { position: relative; border-radius: 4px; overflow: hidden; min-height: 0; }
+        .pv-img-wrap img {
+            width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;
         }
 
-        .room-description {
-            font-size: 14px;
-            line-height: 1.35;
-            color: #444;
-            white-space: normal;
+        /* Room description — client mode (no edit borders) */
+        .pv-page-room-desc {
+            font-size: 13px; line-height: 1.5; color: #444;
+            font-family: inherit; white-space: normal; word-wrap: break-word;
         }
-        .room-description p { margin: 0 0 6px 0; }
-        .room-description ul { margin: 4px 0 8px 0; padding-left: 20px; }
-        .room-description li { margin-bottom: 2px; }
-        .room-description strong { font-weight: 700; }
+        .pv-page-room-desc p { margin: 0 0 6px 0; }
+        .pv-page-room-desc ul { margin: 4px 0 8px 0; padding-left: 20px; }
+        .pv-page-room-desc li { margin-bottom: 2px; }
+        .pv-page-room-desc strong { font-weight: 700; }
 
-        /* ── Grand total ── */
-        .grand-total-section {
-            margin: 36px 0;
-            padding: 24px 28px;
-            background: var(--stele-black);
-            color: var(--stele-white);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        /* Clauses page */
+        .pv-page-clauses-header {
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--stele-green); font-weight: 700; margin-bottom: 14px;
+            padding-bottom: 6px; border-bottom: 2px solid var(--stele-green);
         }
+        .pv-page-clauses-body { flex: 1; overflow: hidden; }
+        .pv-page-clause {
+            margin-bottom: 8px; padding: 6px 14px;
+            border: 1px solid #e0e0e0;
+            border-left: 3px solid var(--stele-green);
+            border-radius: 0 3px 3px 0;
+        }
+        .pv-page-clause-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+        .pv-page-clause-text { font-size: 12px; line-height: 1.3; color: #555; }
 
-        .grand-total-label {
-            font-size: 18px;
-            font-weight: 300;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        /* Total page */
+        .pv-page-total { justify-content: center; align-items: center; text-align: center; }
+        .pv-total-box {
+            padding: 36px 56px; background: var(--stele-black); color: #fff; border-radius: 6px;
         }
+        .pv-total-box .total-label { font-size: 16px; font-weight: 300; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; opacity: 0.8; }
+        .pv-total-box .total-amount { font-size: 42px; font-weight: 700; }
+        .pv-total-box .total-taxes { font-size: 13px; opacity: 0.6; margin-top: 6px; }
+        .pv-page-footer-text { margin-top: 32px; font-size: 12px; color: #aaa; letter-spacing: 0.5px; }
 
-        .grand-total-right {
-            text-align: right;
+        /* Steps page */
+        .pv-page-steps { padding: 32px 48px; }
+        .pv-steps-title {
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--stele-green); font-weight: 700; margin-bottom: 20px;
+            padding-bottom: 6px; border-bottom: 2px solid var(--stele-green);
         }
-
-        .grand-total-amount {
-            font-size: 32px;
-            font-weight: 700;
+        .pv-steps-grid {
+            flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(4, 1fr); gap: 10px 48px;
+            grid-auto-flow: column;
         }
-
-        .grand-total-taxes {
-            font-size: 13px;
-            opacity: 0.7;
-            margin-top: 2px;
+        .pv-step { display: flex; gap: 16px; align-items: flex-start; }
+        .pv-step-circle {
+            width: 64px; height: 64px; min-width: 64px; border-radius: 50%;
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 700; margin-top: 2px;
         }
-
-        /* ── Exclusions ── */
-        .exclusions-section {
-            margin-bottom: 36px;
-            padding: 20px 24px;
-            background: #f5f5f5;
-            border-radius: 4px;
-            border: 1px solid rgba(0,0,0,0.08);
+        .pv-step-content { flex: 1; min-width: 0; }
+        .pv-step-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.3px; color: var(--stele-black); margin-bottom: 4px;
         }
-
-        .exclusions-section h3 {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #8B6914;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .exclusions-text {
-            font-size: 14px;
-            line-height: 1.35;
-            color: #555;
-            white-space: pre-wrap;
-        }
+        .pv-step-desc { font-size: 11px; line-height: 1.45; color: #555; }
 
         /* ── Acceptance section ── */
         .acceptance-section {
@@ -260,6 +185,9 @@
             border-radius: 4px;
             border: 2px solid var(--stele-green);
             text-align: center;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .acceptance-section h2 {
@@ -390,6 +318,9 @@
             border-radius: 4px;
             text-align: center;
             margin-top: 40px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .accepted-banner .check-icon {
@@ -463,52 +394,36 @@
         }
 
         /* ── Responsive ── */
-        @media (max-width: 640px) {
-            .page-wrapper { padding: 16px 12px 48px; }
-
-            .quote-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-            .quote-header-right { text-align: left; }
-
-            .client-info {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .grand-total-section {
-                flex-direction: column;
-                text-align: center;
-                gap: 8px;
-            }
-            .grand-total-right { text-align: center; }
-            .grand-total-amount { font-size: 26px; }
-
-            .room-image-thumb {
-                width: calc(50% - 6px);
-                height: 180px;
-            }
-
-            .room-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-            }
+        @media (max-width: 768px) {
+            .quote-page-wrapper { padding: 8px; }
+            .quote-pages { gap: 12px; }
+            .pv-page { padding: 20px 24px; }
+            .pv-page-room-body { flex-direction: column; gap: 16px; }
+            .pv-page-room-media { grid-template-columns: 1fr 1fr; }
+            .pv-steps-grid { grid-template-columns: 1fr; grid-auto-flow: row; }
+            .pv-step-circle { width: 48px; height: 48px; min-width: 48px; font-size: 18px; }
+            .pv-page-title .pv-client-name { font-size: 22px; }
+            .pv-page-title .pv-sub-number { font-size: 18px; }
+            .pv-total-box .total-amount { font-size: 28px; }
         }
 
         /* ── Print ── */
         @media print {
             html, body { background: #fff; }
-            .page-wrapper { padding: 0; max-width: 100%; }
+            .quote-page-wrapper { padding: 0; max-width: 100%; }
+            .pv-page {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #eee;
+                page-break-after: always;
+            }
             .acceptance-section,
             .accepted-banner,
             .quote-footer { display: none; }
-            .room-card { break-inside: avoid; }
-            .room-image-thumb { cursor: default; }
-            .grand-total-section { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .room-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .pv-page-room-header, .pv-total-box, .pv-step-circle {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -517,7 +432,7 @@
 <!-- ════════════════════════════════════════════ -->
 <!-- LOADING STATE                                -->
 <!-- ════════════════════════════════════════════ -->
-<div class="page-wrapper">
+<div class="quote-page-wrapper">
     <div id="loadingState" class="state-screen">
         <div class="spinner"></div>
         <h2>Chargement de la soumission...</h2>
@@ -535,48 +450,8 @@
     <!-- ════════════════════════════════════════ -->
     <div id="quoteContent" style="display:none;">
 
-        <!-- Header -->
-        <div class="quote-header">
-            <div class="quote-header-left">
-                <a href="https://stele.ca" target="_blank" rel="noopener"><img class="quote-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele"></a>
-            </div>
-            <div class="quote-header-right">
-                <div class="quote-number" id="quoteNumber"></div>
-                <div class="quote-date" id="quoteDate"></div>
-            </div>
-        </div>
-
-        <!-- Client info -->
-        <div class="client-info">
-            <div class="client-info-block">
-                <h3>Client</h3>
-                <p id="clientName"></p>
-                <p id="clientAddress"></p>
-            </div>
-            <div class="client-info-block">
-                <h3>Projet</h3>
-                <p id="projectName"></p>
-                <p id="designerName"></p>
-            </div>
-        </div>
-
-        <!-- Rooms container -->
-        <div id="roomsContainer"></div>
-
-        <!-- Grand total -->
-        <div class="grand-total-section">
-            <div class="grand-total-label">Total</div>
-            <div class="grand-total-right">
-                <div class="grand-total-amount" id="grandTotalAmount"></div>
-                <div class="grand-total-taxes">+ taxes applicables</div>
-            </div>
-        </div>
-
-        <!-- Exclusions (hidden if empty) -->
-        <div class="exclusions-section" id="exclusionsSection" style="display:none;">
-            <h3>Exclusions / Conditions</h3>
-            <div class="exclusions-text" id="exclusionsText"></div>
-        </div>
+        <!-- Pages container (landscape pages) -->
+        <div class="quote-pages" id="quotePages"></div>
 
         <!-- Acceptance form (hidden when already accepted) -->
         <div class="acceptance-section" id="acceptanceSection">
@@ -626,6 +501,19 @@
 
 const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
+
+// Steps data (same as calculateur.html)
+var STEPS = [
+    { label: 'Conception', desc: '\u00c0 cette \u00e9tape, nous veillerons \u00e0 rassembler toutes les informations n\u00e9cessaires au bon d\u00e9roulement du projet. Cela inclut le choix des poign\u00e9es, l\u2019approbation des mat\u00e9riaux, ainsi que l\u2019\u00e9tude des d\u00e9fis sp\u00e9cifiques au projet. Nous rassemblerons \u00e9galement les fiches techniques des \u00e9lectrom\u00e9nagers et validerons l\u2019\u00e9ch\u00e9ancier avec le client et l\u2019entrepreneur.' },
+    { label: 'Prise de mesure initiale', desc: 'Typiquement, cette prise de mesures s\u2019effectue sur les colombages et le plancher non fini. Nous tiendrons compte de l\u2019\u00e9paisseur du rev\u00eatement de sol et des murs pr\u00e9vus afin d\u2019\u00e9laborer nos dessins.' },
+    { label: 'Approbation des dessins d\u2019atelier', desc: 'Suite \u00e0 notre premi\u00e8re prise de mesures, les dessins d\u2019atelier vous seront remis pour approbation. Une fois ces dessins approuv\u00e9s, aucune modification ne pourra y \u00eatre apport\u00e9e.' },
+    { label: 'Commande de mat\u00e9riaux', desc: 'Comme nous prenons en compte les \u00e9paisseurs de rev\u00eatement lors de notre prise de mesures sur l\u2019ossature brute, nous sommes en mesure de commander les mat\u00e9riaux, tels que les placages de bois et la quincaillerie sp\u00e9ciale, afin d\u2019\u00e9viter tout d\u00e9lai lors de la mise en production.' },
+    { label: 'Prise de mesure finale', desc: 'La prise de mesures finale s\u2019effectue une fois le plancher fini et les joints ainsi que les coins de fer pos\u00e9s. Apr\u00e8s cette prise de mesures, un d\u00e9lai de 6 semaines est n\u00e9cessaire avant le d\u00e9but de l\u2019installation.' },
+    { label: 'Dessins d\u2019atelier pour production', desc: 'Comme nous avons pr\u00e9alablement ajust\u00e9 la prise de mesures initiale pour qu\u2019elle soit presque conforme au r\u00e9sultat final, les ajustements \u00e0 ce stade sont mineurs. Sauf en cas de changement majeur, les dessins d\u2019atelier ne vous seront pas renvoy\u00e9s pour approbation \u00e0 cette \u00e9tape.' },
+    { label: 'Installation', desc: 'La dur\u00e9e de cette \u00e9tape varie en fonction de l\u2019ampleur du projet, mais elle marque un moment cl\u00e9\u00a0: celui o\u00f9 votre vision prend forme. Il ne restera plus que notre mobilier, pr\u00eat \u00e0 s\u2019int\u00e9grer dans votre quotidien et \u00e0 accompagner vos plus beaux moments \u00e0 la maison.' },
+    { label: 'Contr\u00f4le de qualit\u00e9', desc: 'Une fois l\u2019installation termin\u00e9e, un repr\u00e9sentant Stele effectuera une visite avec vous pour \u00e9tablir ensemble une liste unique d\u2019ajustements, si n\u00e9cessaire. Stele pr\u00e9parera ensuite tout le n\u00e9cessaire et, lors d\u2019une seule visite suppl\u00e9mentaire, apportera les ajustements n\u00e9cessaires pour garantir un r\u00e9sultat final \u00e0 la hauteur de vos attentes.' }
+];
+var STEP_COLORS = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','#849c86','#97b098'];
 
 // ═══════════════════════════════════════════════════════════════════════
 // INIT
@@ -691,7 +579,7 @@ async function renderQuote() {
     var token = quoteData.token;
 
     // Load room_media for all rooms (new Storage-based images)
-    var roomMediaMap = {}; // { roomId: [media...] }
+    var roomMediaMap = {};
     try {
         var roomIds = rooms.map(function(r) { return r.id; }).filter(Boolean);
         if (roomIds.length > 0) {
@@ -711,104 +599,129 @@ async function renderQuote() {
     // Title
     document.title = 'Soumission #' + sub.submission_number + ' — Stele';
 
-    // Header
-    document.getElementById('quoteNumber').textContent = 'Soumission #' + sub.submission_number;
-    document.getElementById('quoteDate').textContent = formatDate(sub.sent_at || sub.approved_at || new Date().toISOString());
-
-    // Client info
-    document.getElementById('clientName').textContent = proj.client_name || '';
-    document.getElementById('clientAddress').textContent = proj.client_address || '';
-    document.getElementById('projectName').textContent = proj.name || '';
-    document.getElementById('designerName').textContent = proj.designer ? 'Designer : ' + proj.designer : '';
-
-    // Rooms
-    var container = document.getElementById('roomsContainer');
-    container.innerHTML = '';
-
+    var html = '';
     var grandTotal = 0;
 
+    // ── PAGE 1: Title ──
+    var subDate = formatDate(sub.sent_at || sub.approved_at || new Date().toISOString());
+    html += '<div class="pv-page pv-page-title">';
+    html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+    html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
+    if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
+    if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
+    if (proj.client_address) html += '<div class="pv-client-address">' + escapeHtml(proj.client_address) + '</div>';
+    if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
+    if (proj.designer) html += '<div class="pv-designer">Designer : ' + escapeHtml(proj.designer) + '</div>';
+    html += '</div>';
+
+    // ── Room pages (one per room) — text left, images right ──
     rooms.forEach(function(room) {
         var subtotal = parseFloat(room.subtotal) || 0;
         grandTotal += subtotal;
 
-        var card = document.createElement('div');
-        card.className = 'room-card';
-
-        // Header
-        var header = document.createElement('div');
-        header.className = 'room-header';
-        header.innerHTML = '<span class="room-name">' + escapeHtml(room.name) + '</span>' +
-            '<span class="room-subtotal">' + formatMoney(subtotal) + '</span>';
-        card.appendChild(header);
-
-        // Body
-        var body = document.createElement('div');
-        body.className = 'room-body';
-
         // Collect images: new room_media + legacy Base64
         var allImages = [];
-
-        // New room_media images (with presentation_soumission tag)
         var mediaImages = roomMediaMap[room.id] || [];
         mediaImages.forEach(function(m) {
             if ((m.tags || []).indexOf('presentation_soumission') !== -1) {
-                allImages.push({ src: m.cropped_url, name: m.cropped_url.split('/').pop() || 'image.jpg', isLegacy: false });
+                allImages.push({
+                    src: m.cropped_url,
+                    name: (m.cropped_url || '').split('/').pop() || 'image.jpg',
+                    cropRatio: m.crop_ratio || '16:9'
+                });
             }
         });
-
-        // Legacy Base64 images (showInQuote)
         var legacyImages = (room.images || []).filter(function(img) { return img.showInQuote; });
         legacyImages.forEach(function(img) {
-            allImages.push({ src: img.dataUrl, name: img.name || 'Image', isLegacy: true });
+            allImages.push({ src: img.dataUrl, name: img.name || 'Image', cropRatio: '16:9' });
         });
 
-        if (allImages.length > 0) {
-            var imgContainer = document.createElement('div');
-            imgContainer.className = 'room-images';
-            allImages.forEach(function(img) {
-                var thumb = document.createElement('img');
-                thumb.className = 'room-image-thumb';
-                thumb.src = img.src;
-                thumb.alt = img.name;
-                thumb.onclick = function() { openLightbox(img.src); };
-                imgContainer.appendChild(thumb);
+        var hasImages = allImages.length > 0;
+        var desc = room.client_description || '';
+
+        html += '<div class="pv-page">';
+        html += '<div class="pv-page-room-header">';
+        html += '<span class="pv-page-room-name">' + escapeHtml(room.name) + '</span>';
+        html += '<span class="pv-page-room-subtotal">' + formatMoney(subtotal) + '</span>';
+        html += '</div>';
+        html += '<div class="pv-page-room-body">';
+
+        // Left column: description
+        if (hasImages) {
+            html += '<div class="pv-page-room-text">';
+            html += '<div class="pv-page-room-desc">';
+            html += textToHtml(desc);
+            html += '</div>';
+            html += '</div>';
+
+            // Right column: images grid
+            var imgCount = Math.min(allImages.length, 4);
+            html += '<div class="pv-page-room-media imgs-' + imgCount + '">';
+            allImages.slice(0, 4).forEach(function(img) {
+                var ratio = img.cropRatio === '1:1' ? '1/1' : img.cropRatio === '9:16' ? '9/16' : '16/9';
+                html += '<div class="pv-img-wrap">';
+                html += '<img src="' + img.src + '" alt="' + escapeHtml(img.name) + '"';
+                html += ' style="aspect-ratio:' + ratio + ';"';
+                html += ' onclick="openLightbox(this.src)">';
+                html += '</div>';
             });
-            body.appendChild(imgContainer);
+            html += '</div>';
+        } else {
+            // No images — description takes full width
+            html += '<div class="pv-page-room-text" style="flex:1;">';
+            html += '<div class="pv-page-room-desc">';
+            html += textToHtml(desc);
+            html += '</div>';
+            html += '</div>';
         }
 
-        // Description below images
-        if (room.client_description && room.client_description.trim()) {
-            var desc = document.createElement('div');
-            desc.className = 'room-description';
-            var rawDesc = room.client_description;
-            // If already HTML (from optimizer), use innerHTML; else convert plain text
-            if (rawDesc.indexOf('<p>') !== -1 || rawDesc.indexOf('<strong>') !== -1 || rawDesc.indexOf('<ul>') !== -1) {
-                desc.innerHTML = rawDesc;
-            } else {
-                desc.textContent = rawDesc;
-            }
-            body.appendChild(desc);
-        }
-
-        // Only show body if there's content
-        if (body.children.length > 0) {
-            card.appendChild(body);
-        }
-
-        container.appendChild(card);
+        html += '</div></div>';
     });
 
-    // Use approved_total if available, otherwise computed
-    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : grandTotal;
-    document.getElementById('grandTotalAmount').textContent = formatMoney(totalToShow);
-
-    // Exclusions
-    if (sub.exclusions && sub.exclusions.trim()) {
-        document.getElementById('exclusionsSection').style.display = 'block';
-        document.getElementById('exclusionsText').textContent = sub.exclusions;
+    // ── Clauses page ──
+    var clauses = sub.clauses || [];
+    if (clauses.length > 0) {
+        html += '<div class="pv-page">';
+        html += '<div class="pv-page-clauses-header">Clauses du contrat</div>';
+        html += '<div class="pv-page-clauses-body">';
+        clauses.forEach(function(clause) {
+            html += '<div class="pv-page-clause">';
+            html += '<div class="pv-page-clause-title">' + escapeHtml(clause.title) + '</div>';
+            html += '<div class="pv-page-clause-text">' + escapeHtml(clause.content || '') + '</div>';
+            html += '</div>';
+        });
+        html += '</div></div>';
     }
 
-    // Acceptance state
+    // ── Total page ──
+    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : grandTotal;
+    html += '<div class="pv-page pv-page-total">';
+    html += '<div class="pv-total-box">';
+    html += '<div class="total-label">Total</div>';
+    html += '<div class="total-amount">' + formatMoney(totalToShow) + '</div>';
+    html += '<div class="total-taxes">+ taxes applicables</div>';
+    html += '</div>';
+    html += '<div class="pv-page-footer-text">Stele \u2014 \u00c9b\u00e9nisterie sur mesure</div>';
+    html += '</div>';
+
+    // ── Steps page ──
+    html += '<div class="pv-page pv-page-steps">';
+    html += '<div class="pv-steps-title">\u00c9tapes d\u2019un projet type</div>';
+    html += '<div class="pv-steps-grid">';
+    STEPS.forEach(function(step, i) {
+        html += '<div class="pv-step">';
+        html += '<div class="pv-step-circle" style="background:' + STEP_COLORS[i] + '">' + (i + 1) + '</div>';
+        html += '<div class="pv-step-content">';
+        html += '<div class="pv-step-label">' + escapeHtml(step.label) + '</div>';
+        html += '<div class="pv-step-desc">' + escapeHtml(step.desc) + '</div>';
+        html += '</div></div>';
+    });
+    html += '</div></div>';
+
+    // ── Inject all pages ──
+    document.getElementById('quotePages').innerHTML = html;
+
+    // ── Acceptance state ──
     if (token.accepted_at || sub.accepted_at) {
         document.getElementById('acceptanceSection').style.display = 'none';
         document.getElementById('acceptedBanner').style.display = 'block';
@@ -931,7 +844,6 @@ function initSignaturePad() {
         sigCtx.lineWidth = 2;
         sigCtx.strokeStyle = '#000';
         if (sigHasDrawn) {
-            // Canvas cleared on resize — user will need to re-sign
             sigHasDrawn = false;
             document.getElementById('sigPlaceholder').style.opacity = '1';
         }
@@ -994,8 +906,6 @@ function clearSignature() {
     document.getElementById('sigPlaceholder').style.opacity = '1';
 }
 
-// initSignaturePad() is called after renderQuote() when canvas is visible
-
 // ═══════════════════════════════════════════════════════════════════════
 // LIGHTBOX
 // ═══════════════════════════════════════════════════════════════════════
@@ -1041,6 +951,14 @@ function escapeHtml(str) {
     var div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function textToHtml(str) {
+    if (!str) return '';
+    if (str.indexOf('<p>') !== -1 || str.indexOf('<strong>') !== -1 || str.indexOf('<ul>') !== -1) {
+        return str; // already HTML
+    }
+    return escapeHtml(str).replace(/\n/g, '<br>');
 }
 </script>
 </body>

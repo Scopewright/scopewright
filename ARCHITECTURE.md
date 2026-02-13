@@ -1,6 +1,6 @@
 # ARCHITECTURE — Scopewright (Stele)
 
-> Documentation de référence du projet. Dernière mise à jour : 2026-02-11.
+> Documentation de référence du projet. Dernière mise à jour : 2026-02-12.
 > Dernier audit complet : 2026-02-10.
 
 ---
@@ -135,6 +135,8 @@
 | `approved_at` | TIMESTAMPTZ | Date d'approbation |
 | `sent_at` | TIMESTAMPTZ | Date d'envoi au client |
 | `accepted_at` | TIMESTAMPTZ | Date d'acceptation client |
+| `accepted_by_name` | TEXT | Nom du client qui a accepté |
+| `bypass_approval` | BOOLEAN | Indique si l'approbation a été bypassée |
 | `clauses` | JSONB | Clauses du contrat `[{ clause_id, title, content, content_en, sort_order }]` |
 | `created_at` | TIMESTAMPTZ | Date de création |
 | `updated_at` | TIMESTAMPTZ | Dernière modification |
@@ -153,11 +155,13 @@
 |---------|------|-------------|
 | `id` | UUID (PK) | Identifiant unique |
 | `submission_id` | UUID (FK → submissions) | Soumission concernée |
-| `reviewer_id` | UUID (FK → auth.users) | Approbateur |
-| `action` | TEXT | `approved` ou `returned` |
+| `reviewer_id` | UUID (FK → auth.users) | Approbateur / auteur de l'action |
+| `action` | TEXT | Type d'action (voir liste ci-dessous) |
 | `comment` | TEXT | Commentaire (obligatoire pour retour) |
 | `version_at_review` | INTEGER | Numéro de version au moment de la révision |
 | `created_at` | TIMESTAMPTZ | Date de la révision |
+
+**Actions possibles** : `submitted`, `approved`, `returned`, `sent`, `bypass`, `offline_accepted`, `invoiced`, `duplicated`, `unlocked`
 
 **RLS** : authentifié peut insérer, propriétaire + approbateurs peuvent lire.
 
@@ -220,7 +224,9 @@
 | `status_at_save` | TEXT | Statut de la soumission au moment du snapshot |
 | `created_by` | TEXT | ID de l'utilisateur |
 
-**Utilisée par** : calculateur.html (créé lors de l'envoi d'une estimation ou soumission pour approbation)
+**Utilisée par** : calculateur.html — snapshot créé automatiquement lors de : soumission pour approbation, approbation, envoi au client, acceptation hors-ligne, bypass, déverrouillage d'urgence.
+
+**Contenu enrichi du snapshot** (depuis 2026-02-12) : le snapshot JSONB inclut désormais `projectName`, `clientName`, `clientEmail`, `clientAddress`, `designer`, `clauses`, `status`, `approvedTotal`, et pour chaque meuble : `clientDescription`, `installationIncluded`, `mediaUrls[]` (références sans base64).
 
 ---
 
@@ -302,16 +308,56 @@
 
 ---
 
+#### `submission_unlock_logs` — Journal de déverrouillage d'urgence (IMMUABLE)
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | UUID (PK) | Identifiant unique |
+| `submission_id` | UUID (FK → submissions) | Soumission déverrouillée |
+| `unlocked_by` | UUID | ID utilisateur Supabase qui a déverrouillé |
+| `unlocked_by_name` | TEXT | Nom complet saisi par l'utilisateur |
+| `reason` | TEXT | Raison du déverrouillage (obligatoire) |
+| `previous_status` | TEXT | Statut avant déverrouillage |
+| `ip_address` | INET | Adresse IP capturée côté serveur |
+| `created_at` | TIMESTAMPTZ | Date de l'action |
+
+**RLS** : INSERT + SELECT uniquement (pas de UPDATE/DELETE) → table immuable pour audit.
+
+**Utilisée par** : calculateur.html (via RPC `log_submission_unlock`)
+
+---
+
+#### `public_quote_tokens` — Tokens de soumission publique
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | UUID (PK) | Identifiant unique |
+| `submission_id` | UUID (FK → submissions) | Soumission associée |
+| `token` | TEXT (UNIQUE) | Token aléatoire pour URL publique |
+| `accepted_at` | TIMESTAMPTZ | Date d'acceptation en ligne |
+| `accepted_by_name` | TEXT | Nom du signataire |
+| `accepted_by_email` | TEXT | Email du signataire |
+| `accepted_from_ip` | INET | IP du signataire |
+| `signature_data` | TEXT | Données de signature (base64 PNG) |
+| `created_at` | TIMESTAMPTZ | Date de création du token |
+
+**Utilisée par** : calculateur.html (création token), quote.html (lecture + acceptation)
+
+---
+
 ### 2.2 Relations entre les tables
 
 ```
 auth.users
   └─── projects (user_id)
          └─── submissions (project_id)
-                └─── project_rooms (submission_id)
+                ├─── project_rooms (submission_id)
                 │      └─── room_items (room_id)
-                └─── project_versions (submission_id)
-                └─── submission_reviews (submission_id)
+                │      └─── room_media (room_id)
+                ├─── project_versions (submission_id)
+                ├─── submission_reviews (submission_id)
+                ├─── public_quote_tokens (submission_id)
+                └─── submission_unlock_logs (submission_id)
 
 catalogue_items (id = code texte)
   └─── item_media (catalogue_item_id)
@@ -329,8 +375,15 @@ quote_clauses — bibliothèque de clauses (indépendante, copiées dans submiss
 
 ```
 draft → pending_internal ←→ returned
-         ↓
-  approved_internal → sent_client → accepted → invoiced
+  │        ↓
+  │   approved_internal → sent_client → accepted → invoiced
+  │                           ↑ bypass        ↑ offline
+  │                           │               │
+  └───────────────────────────┘               │
+                                              │
+  ┌───────────────────────────────────────────┘
+  │  Déverrouillage d'urgence (can_unlock_submission) :
+  │  tout statut verrouillé → draft (avec audit immuable)
 ```
 
 | Statut | Label FR | Signification |
@@ -339,13 +392,31 @@ draft → pending_internal ←→ returned
 | `pending_internal` | En approbation | Soumise pour révision interne |
 | `returned` | Retournée | Retournée avec commentaire par l'approbateur |
 | `approved_internal` | Approuvée | Approuvée en interne, prête à envoyer |
-| `sent_client` | Envoyée client | Envoyée au client (email via GAS) |
-| `accepted` | Acceptée | Client a accepté |
+| `sent_client` | Envoyée client | Lien public généré, envoyée au client |
+| `accepted` | Acceptée | Client a accepté (signature en ligne ou hors-ligne) |
 | `invoiced` | Facturée | Facturée (statut terminal) |
 
-**Auto-approbation** : Un utilisateur avec la permission `can_approve_quotes` peut passer directement de `draft`/`returned` à `approved_internal` sans passer par `pending_internal`.
+**Chemins alternatifs :**
+
+- **Auto-approbation** : `can_approve_quotes` → `draft`/`returned` directement à `approved_internal`
+- **Bypass** : `can_bypass_approval` → `draft`/`returned` directement à `sent_client` (token généré, logged)
+- **Acceptation hors-ligne** : `sent_client` → `accepted` via confirmation manuelle (RPC `log_offline_acceptance`)
+- **Déverrouillage d'urgence** : tout statut verrouillé → `draft` (permission `can_unlock_submission`, snapshot + audit immuable avec IP)
+- **Duplication** : toute soumission → nouveau brouillon (copie profonde rooms + items + media, via RPC `duplicate_submission`)
+
+**Gel du contenu** : Dès qu'une soumission quitte le statut `draft`/`returned`, le calculateur est verrouillé : inputs, boutons, checkboxes, zones de drop d'images, et suppression d'images sont désactivés. La fonction `isSubmissionCurrentlyEditable()` centralise cette logique.
 
 **Numérotation** : Séquence PostgreSQL `submission_number_seq`, démarre à 100, globale (pas par projet).
+
+### 2.4 Fonctions RPC Supabase
+
+| Fonction | Paramètres | Description |
+|----------|-----------|-------------|
+| `log_bypass_approval` | `p_submission_id, p_user_name, p_reason` | Log immuable d'un bypass avec capture IP (`SECURITY DEFINER`) |
+| `log_offline_acceptance` | `p_submission_id, p_user_name, p_acceptance_method, p_acceptance_date, p_client_name, p_notes` | Log immuable d'une acceptation hors-ligne avec capture IP |
+| `log_submission_unlock` | `p_submission_id, p_user_name, p_reason, p_previous_status` | Log immuable d'un déverrouillage d'urgence avec capture IP |
+| `duplicate_submission` | `p_submission_id` → `UUID` | Copie profonde d'une soumission (rooms, items, media) en nouveau brouillon |
+| `get_public_quote` | `p_token` | Retourne les données de soumission pour la vue client publique |
 
 ---
 
@@ -474,6 +545,8 @@ Si le résultat est > 0, il remplace `item.price`. Sinon, le prix fixe `item.pri
 | `edit_minutes` | Éditer les minutes (prix composé) | ✓ | — | — | — | — | — |
 | `edit_materials` | Éditer les matériaux (prix composé) | ✓ | — | — | ✓ | — | — |
 | `can_approve_quotes` | Approuver les soumissions (workflow) | ✓ | — | — | — | — | — |
+| `can_bypass_approval` | Envoyer sans approbation (bypass) | ✓ | — | — | — | — | — |
+| `can_unlock_submission` | Déverrouiller une soumission vendue | ✓ | — | — | — | — | — |
 
 ### 4.3 Stockage
 
@@ -613,7 +686,16 @@ https://script.google.com/macros/s/AKfycby.../exec
 | Bibliothèque de clauses | calculateur.html | Drag-and-drop depuis panneau droit, sauvegarde dans submissions.clauses JSONB |
 | Traduction FR/EN | calculateur.html | Toggle langue dans l'aperçu, dictionnaire i18n pour labels, champs séparés pour contenu dynamique |
 | Traduction automatique | calculateur.html + Edge Function | Bouton "Traduire tout" via Claude Haiku (proxy Supabase Edge Function) |
-| Soumission client | quote.html | Page publique : visualisation soumission + formulaire d'acceptation avec signature |
+| Soumission client | quote.html | Page publique landscape paginée (identique à la présentation), acceptation + signature |
+| Bypass approbation | calculateur.html | Envoyer directement au client sans approbation (permission `can_bypass_approval`, log immuable) |
+| Acceptation hors-ligne | calculateur.html | Confirmer vente par autre moyen (courriel, téléphone, papier), log immuable avec IP |
+| Marquage facturée | calculateur.html | Transition accepted → invoiced |
+| Gel du contenu | calculateur.html | Verrouillage complet à sent_client : inputs, boutons, images (upload + suppression), drop zones |
+| Snapshots enrichis | calculateur.html | Versions incluent projet, client, descriptions, clauses, mediaUrls — créés à chaque transition clé |
+| Historique des versions | calculateur.html | Drawer latéral pour parcourir les versions, overlay plein écran pour consulter un snapshot |
+| Duplication soumission | calculateur.html | Copie profonde (rooms, items, media) en nouveau brouillon via RPC `duplicate_submission` |
+| Déverrouillage d'urgence | calculateur.html | Remettre en brouillon avec audit immuable (nom, raison, IP), permission `can_unlock_submission` |
+| Preuve d'acceptation | calculateur.html | Page verte dans la présentation montrant la preuve (signature, méthode, date, IP) |
 
 ### 7.2 En cours / incomplet
 
@@ -622,10 +704,16 @@ https://script.google.com/macros/s/AKfycby.../exec
 | ~~Catégories hardcodées~~ | Dropdown de catégories dans catalogue et approbation | **CORRIGÉ** — chargé depuis `app_config` |
 | ~~Types d'unité hardcodés~~ | Dropdown type (pi², unitaire, linéaire, %) | **CORRIGÉ** — extrait dynamiquement |
 | ~~Permissions non vérifiées~~ | Pages sans vérification côté client | **CORRIGÉ** — `checkPageAccess()` ajouté (client-side uniquement) |
-| Toggle installation 3 niveaux | Projet → section → ligne | **CORRIGÉ** — cascade implémentée |
-| Modal Rentabilité | Analyse financière par meuble ou projet | **CORRIGÉ** — prix vente, coûtant, heures, marges |
-| Workflow soumissions | Projets → Soumissions avec approbation 7 étapes | **IMPLÉMENTÉ** — tables `submissions`, `submission_reviews` créées, calculateur + approbation mis à jour |
-| Edge Function translate | Supabase Edge Function pour traduction FR→EN via Claude Haiku | **DÉPLOYÉ** |
+| ~~Toggle installation 3 niveaux~~ | Projet → section → ligne | **CORRIGÉ** — cascade implémentée |
+| ~~Modal Rentabilité~~ | Analyse financière par meuble ou projet | **CORRIGÉ** — prix vente, coûtant, heures, marges |
+| ~~Workflow soumissions~~ | Projets → Soumissions avec approbation 7 étapes | **IMPLÉMENTÉ** — workflow complet incluant bypass, acceptation en ligne/hors-ligne, facturée |
+| ~~Edge Function translate~~ | Supabase Edge Function pour traduction FR→EN via Claude Haiku | **DÉPLOYÉ** |
+| ~~Gel du contenu~~ | Protection images + inputs après envoi client | **IMPLÉMENTÉ** — guards sur removeGroupImage, handleGroupImageFiles, drop zones désactivées |
+| ~~Historique versions~~ | Drawer consultable avec snapshots enrichis | **IMPLÉMENTÉ** — versions créées à chaque transition, overlay lecture seule |
+| ~~Duplication~~ | Copier une soumission en nouveau brouillon | **IMPLÉMENTÉ** — RPC `duplicate_submission` (rooms, items, media) |
+| ~~Déverrouillage d'urgence~~ | Remettre en brouillon avec audit | **IMPLÉMENTÉ** — table immuable, RPC avec IP, permission dédiée |
+| ~~Preuve d'acceptation~~ | Visible dans la présentation | **IMPLÉMENTÉ** — page verte avec méthode, nom, date, IP, signature |
+| SQL à exécuter | `submission_unlock_logs` + RPC `log_submission_unlock` + RPC `duplicate_submission` | **EN ATTENTE** — à exécuter dans Supabase SQL Editor |
 | Documents | Carte "Documents" dans app.html affiche "Bientôt" | **Non implémenté** |
 | Assistant vente | Carte "Assistant vente" dans app.html affiche "Bientôt" | **Non implémenté** |
 | Page Analyse projet | Page dédiée à l'analyse de rentabilité d'un projet | **Non implémenté** |
@@ -639,7 +727,7 @@ https://script.google.com/macros/s/AKfycby.../exec
 | **Validation** | Pas de validation email côté admin, pas de limites sur les champs numériques |
 | **UX** | Pas d'indication de changements non sauvegardés dans admin.html |
 | **UX** | Pas de recherche/filtre dans le catalogue (navigation par catégorie uniquement) |
-| **Données** | Pas d'audit trail (qui a changé quoi, quand) — seulement `updated_at` sur app_config |
+| **Données** | ~~Pas d'audit trail~~ — Partiellement corrigé : `submission_reviews` (timeline), `submission_unlock_logs`, bypass/offline acceptance logs. `app_config` reste sans audit. |
 | **Données** | Pas de gestion de conflits d'édition simultanée (last write wins) |
 | **Code** | `generateNextCode()` a 2 implémentations légèrement différentes (calculateur vs catalogue) |
 | **Code** | Certains appels Supabase n'ont pas de `.catch()` — échecs silencieux possibles |

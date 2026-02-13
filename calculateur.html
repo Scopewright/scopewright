@@ -2232,7 +2232,6 @@
                 <button onclick="closePreview()">&larr; Retour au calculateur</button>
                 <span class="pv-toolbar-title">Aper&ccedil;u soumission</span>
                 <span class="pv-toolbar-sub" id="pvSubNumber"></span>
-                <button class="btn-client-view" id="btnClientView" onclick="toggleClientView()">Vue client</button>
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
                 <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
             </div>
@@ -4374,8 +4373,6 @@
         async function openPreview() {
             clientViewMode = false;
             document.getElementById('previewView').classList.remove('pv-client-mode');
-            var btn = document.getElementById('btnClientView');
-            if (btn) btn.classList.remove('active');
             document.getElementById('calculatorView').classList.remove('active');
             document.getElementById('previewView').classList.add('active');
             await loadClauseLibrary();
@@ -4391,20 +4388,7 @@
             clientViewMode = false;
         }
 
-        function toggleClientView() {
-            clientViewMode = !clientViewMode;
-            var pv = document.getElementById('previewView');
-            var btn = document.getElementById('btnClientView');
-            if (clientViewMode) {
-                pv.classList.add('pv-client-mode');
-                if (btn) { btn.classList.add('active'); btn.textContent = 'Mode \u00e9dition'; }
-            } else {
-                pv.classList.remove('pv-client-mode');
-                if (btn) { btn.classList.remove('active'); btn.textContent = 'Vue client'; }
-            }
-            renderPreview();
-            document.getElementById('pvContent').scrollTop = 0;
-        }
+        // toggleClientView removed — Présentation handles client mode directly
 
         async function toggleLang() {
             var btn = document.getElementById('btnLang');
@@ -5158,8 +5142,6 @@
             var pv = document.getElementById('previewView');
             pv.classList.add('pv-client-mode');
             pv.classList.add('pv-fullscreen');
-            var btn = document.getElementById('btnClientView');
-            if (btn) { btn.classList.add('active'); btn.textContent = 'Mode \u00e9dition'; }
             renderPreview();
             document.getElementById('pvContent').scrollTop = 0;
 

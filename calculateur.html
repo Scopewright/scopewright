@@ -1632,9 +1632,19 @@
 
         /* Drop zone for clauses */
         .pv-clause-dropzone {
-            padding: 10px; border: 2px dashed #ccc; border-radius: 4px;
+            padding: 10px; border: 2px dashed #ccc; border-radius: 6px;
             text-align: center; color: #aaa; font-size: 12px; font-style: italic;
             transition: all 0.2s; margin-top: 6px;
+        }
+        .pv-clause-dropzone.empty-state {
+            padding: 40px 20px; border-color: #b5c4b8; color: #888;
+            font-size: 14px; font-style: normal; margin-top: 0;
+        }
+        .pv-clause-dropzone.empty-state .drop-icon {
+            font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.5;
+        }
+        .pv-clause-dropzone.empty-state .drop-hint {
+            font-size: 11px; color: #aaa; margin-top: 4px;
         }
         .pv-clause-dropzone.drag-over {
             border-color: var(--stele-green); background: #f0f7f1; color: var(--stele-green);
@@ -1686,6 +1696,8 @@
             color: #888; padding: 1px 4px; border-radius: 2px;
         }
         .pv-clause-item-btn:hover { color: var(--stele-black); background: rgba(0,0,0,0.05); }
+        .pv-clause-item-btn.add-to-sub { color: var(--stele-green); font-size: 14px; font-weight: 700; }
+        .pv-clause-item-btn.add-to-sub:hover { background: #e8f5e9; }
         .pv-clause-item-btn.delete:hover { color: #c62828; background: #ffebee; }
         .pv-clause-item-preview {
             font-size: 11px; color: #999; overflow: hidden;
@@ -4696,6 +4708,7 @@
                 html += '<div class="pv-clause-item-header">';
                 html += '<span class="pv-clause-item-title">' + escapeHtml(clause.title) + '</span>';
                 html += '<span class="pv-clause-item-btns">';
+                html += '<button class="pv-clause-item-btn add-to-sub" onclick="event.stopPropagation(); addClauseToSubmission(' + idx + ')" title="Ajouter \u00e0 la soumission">+</button>';
                 html += '<button class="pv-clause-item-btn" onclick="showClauseEditor(\'' + clause.id + '\')" title="Modifier">\u270E</button>';
                 html += '<button class="pv-clause-item-btn delete" onclick="deleteLibraryClause(\'' + clause.id + '\')" title="Supprimer">\u2715</button>';
                 html += '</span>';
@@ -5072,11 +5085,18 @@
                 });
 
                 if (editable) {
-                    html += '<div class="pv-clause-dropzone" id="pvClauseDropZone"';
+                    var isEmpty = subClauses.length === 0;
+                    html += '<div class="pv-clause-dropzone' + (isEmpty ? ' empty-state' : '') + '" id="pvClauseDropZone"';
                     html += ' ondragover="onClauseDropZoneDragOver(event)"';
                     html += ' ondragleave="onClauseDropZoneDragLeave(event)"';
                     html += ' ondrop="onClauseDropZoneDrop(event)">';
-                    html += t('dropClause');
+                    if (isEmpty) {
+                        html += '<span class="drop-icon">📋</span>';
+                        html += 'Aucune clause ajout\u00e9e';
+                        html += '<span class="drop-hint">Cliquez + dans la biblioth\u00e8que \u00e0 droite ou glissez-d\u00e9posez ici</span>';
+                    } else {
+                        html += t('dropClause');
+                    }
                     html += '</div>';
                 }
 

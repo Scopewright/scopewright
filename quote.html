@@ -18,16 +18,17 @@
         html, body {
             min-height: 100vh;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #f0f0f0;
+            background: #fff;
             color: var(--stele-black);
             line-height: 1.5;
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
         }
 
         /* ── Layout ── */
         .quote-page-wrapper {
-            max-width: 1100px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 0;
         }
 
         /* ── Loading / Error states ── */
@@ -67,20 +68,24 @@
         .quote-pages {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 0;
         }
 
-        /* ── Landscape pages (11 × 8.5 in) ── */
+        /* ── Landscape pages (11 × 8.5 in) — fullscreen presentation ── */
         .pv-page {
             background: #fff;
             padding: 36px 48px;
-            aspect-ratio: 11 / 8.5;
+            scroll-snap-align: start;
+            height: 100vh;
+            max-height: 100vh;
+            width: calc(100vh * 11 / 8.5);
+            max-width: 100vw;
+            margin: 0 auto;
+            box-sizing: border-box;
             overflow: hidden;
             position: relative;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            border-radius: 4px;
         }
 
         /* Title page */
@@ -120,6 +125,8 @@
         .pv-page-room-desc {
             font-size: 13px; line-height: 1.5; color: #444;
             font-family: inherit; white-space: normal; word-wrap: break-word;
+            border-color: transparent; background: transparent; padding: 0;
+            flex: initial; min-height: auto;
         }
         .pv-page-room-desc p { margin: 0 0 6px 0; }
         .pv-page-room-desc ul { margin: 4px 0 8px 0; padding-left: 20px; }
@@ -179,15 +186,15 @@
 
         /* ── Acceptance section ── */
         .acceptance-section {
-            margin-top: 40px;
+            scroll-snap-align: start;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             padding: 28px;
             background: var(--stele-white);
-            border-radius: 4px;
-            border: 2px solid var(--stele-green);
             text-align: center;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
         .acceptance-section h2 {
@@ -312,15 +319,15 @@
 
         /* ── Accepted confirmation ── */
         .accepted-banner {
+            scroll-snap-align: start;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             padding: 28px;
-            background: #E8F5E9;
-            border: 2px solid #4CAF50;
-            border-radius: 4px;
+            background: var(--stele-white);
             text-align: center;
-            margin-top: 40px;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
         .accepted-banner .check-icon {
@@ -385,19 +392,13 @@
 
         /* ── Footer ── */
         .quote-footer {
-            margin-top: 48px;
-            padding-top: 20px;
-            border-top: 1px solid var(--stele-gray);
-            text-align: center;
-            font-size: 12px;
-            opacity: 0.5;
+            display: none;
         }
 
         /* ── Responsive ── */
         @media (max-width: 768px) {
-            .quote-page-wrapper { padding: 8px; }
-            .quote-pages { gap: 12px; }
-            .pv-page { padding: 20px 24px; }
+            .quote-page-wrapper { padding: 0; }
+            .pv-page { padding: 20px 24px; width: 100vw; }
             .pv-page-room-body { flex-direction: column; gap: 16px; }
             .pv-page-room-media { grid-template-columns: 1fr 1fr; }
             .pv-steps-grid { grid-template-columns: 1fr; grid-auto-flow: row; }
@@ -604,7 +605,19 @@ async function renderQuote() {
 
     // ── PAGE 1: Title ──
     var subDate = formatDate(sub.sent_at || sub.approved_at || new Date().toISOString());
+    var acceptanceProofHtml = '';
+    if (token.accepted_at || sub.accepted_at) {
+        acceptanceProofHtml += '<div style="position:absolute;top:10px;left:20px;background:#e8f5e9;border:1px solid var(--stele-green);border-radius:8px;padding:12px 16px;max-width:320px;font-size:11px;line-height:1.6;z-index:1;text-align:left;">';
+        acceptanceProofHtml += '<div style="font-weight:700;font-size:13px;color:var(--stele-green);margin-bottom:6px;">Soumission accept\u00e9e</div>';
+        if (token.client_name) acceptanceProofHtml += '<div><strong>Nom :</strong> ' + escapeHtml(token.client_name) + '</div>';
+        if (token.client_email) acceptanceProofHtml += '<div><strong>Courriel :</strong> ' + escapeHtml(token.client_email) + '</div>';
+        var acceptedDate = token.accepted_at || sub.accepted_at;
+        if (acceptedDate) acceptanceProofHtml += '<div><strong>Date :</strong> ' + new Date(acceptedDate).toLocaleString('fr-CA') + '</div>';
+        if (token.signature_data) acceptanceProofHtml += '<div style="margin-top:8px;"><img src="' + token.signature_data + '" style="max-width:200px;border:1px solid #ccc;border-radius:4px;" alt="Signature"></div>';
+        acceptanceProofHtml += '</div>';
+    }
     html += '<div class="pv-page pv-page-title">';
+    html += acceptanceProofHtml;
     html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
     html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
     if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
@@ -623,7 +636,7 @@ async function renderQuote() {
         var allImages = [];
         var mediaImages = roomMediaMap[room.id] || [];
         mediaImages.forEach(function(m) {
-            if ((m.tags || []).indexOf('presentation_soumission') !== -1) {
+            if ((m.tags || ['presentation_soumission']).indexOf('presentation_soumission') !== -1) {
                 allImages.push({
                     src: m.cropped_url,
                     name: (m.cropped_url || '').split('/').pop() || 'image.jpg',
@@ -922,8 +935,51 @@ function closeLightbox() {
 }
 
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'Escape') { closeLightbox(); return; }
+    var pages = document.querySelectorAll('.pv-page');
+    if (pages.length === 0) return;
+
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        presScrollToNext(pages, 1);
+    }
+    if (e.key === 'ArrowUp' || e.key === 'Backspace' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        presScrollToNext(pages, -1);
+    }
 });
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('button, a, input, canvas, .pv-img-wrap, .acceptance-form, .lightbox-overlay')) return;
+    var pages = document.querySelectorAll('.pv-page');
+    if (pages.length > 0) presScrollToNext(pages, 1);
+});
+
+function presScrollToNext(pages, direction) {
+    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    var threshold = 20;
+    for (var i = 0; i < pages.length; i++) {
+        var top = pages[i].offsetTop;
+        if (direction > 0 && top > scrollTop + threshold) {
+            pages[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+        if (direction < 0 && i > 0 && top >= scrollTop - threshold) {
+            pages[i - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+    }
+    // Edge: at last page going forward, try acceptance section
+    if (direction > 0) {
+        var acceptance = document.getElementById('acceptanceSection');
+        var accepted = document.getElementById('acceptedBanner');
+        var target = (acceptance && acceptance.style.display !== 'none') ? acceptance : accepted;
+        if (target && target.style.display !== 'none') {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+    if (direction < 0) pages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS

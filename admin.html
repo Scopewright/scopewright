@@ -859,6 +859,33 @@
         }
     }
 
+    async function loadUserRoles() {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/user_roles?select=email,role_id,roles(name)',
+                {}
+            );
+            if (!r.ok) {
+                console.warn('Could not load user roles from database, using app_config fallback');
+                return;
+            }
+            var assignments = await r.json();
+            if (assignments && assignments.length > 0) {
+                // Build map: email -> role name
+                userRolesMap = {};
+                for (var i = 0; i < assignments.length; i++) {
+                    var a = assignments[i];
+                    if (a.roles && a.roles.name) {
+                        userRolesMap[a.email.toLowerCase()] = a.roles.name;
+                    }
+                }
+                console.log('Loaded ' + assignments.length + ' user role assignments from database');
+            }
+        } catch (e) {
+            console.error('Error loading user roles:', e);
+        }
+    }
+
     function loadConfig() {
         authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {})
         .then(function(r) {
@@ -881,6 +908,7 @@
             }
             await loadUserProfiles();
             await loadRoles();
+            await loadUserRoles(); // Load user role assignments from database
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
@@ -888,6 +916,7 @@
         .catch(async function() {
             await loadUserProfiles();
             await loadRoles();
+            await loadUserRoles(); // Load user role assignments from database
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
@@ -1449,7 +1478,7 @@
         }
     }
 
-    function saveUserRoles() {
+    async function saveUserRoles() {
         var newRoles = {};
         var rows = document.querySelectorAll('#rolesBody tr');
         for (var i = 0; i < rows.length; i++) {
@@ -1459,7 +1488,75 @@
         }
 
         userRolesMap = newRoles;
-        saveConfig('user_roles', userRolesMap, 'rolesFeedback');
+
+        // If we have roles from DB, save to user_roles table
+        if (rolesFromDB.length > 0) {
+            var fb = document.getElementById('rolesFeedback');
+            fb.textContent = 'Sauvegarde en cours...';
+            fb.className = 'save-feedback visible';
+
+            try {
+                // First, get all existing user_roles to handle deletions
+                var existingResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/user_roles?select=id,email',
+                    {}
+                );
+                var existing = existingResp.ok ? await existingResp.json() : [];
+
+                // Track which emails are in the new set
+                var newEmails = Object.keys(newRoles);
+
+                // Delete assignments that are no longer in the list
+                for (var i = 0; i < existing.length; i++) {
+                    if (newEmails.indexOf(existing[i].email.toLowerCase()) === -1) {
+                        await authenticatedFetch(
+                            SUPABASE_URL + '/rest/v1/user_roles?id=eq.' + existing[i].id,
+                            { method: 'DELETE' }
+                        );
+                    }
+                }
+
+                // Upsert each assignment
+                for (var email in newRoles) {
+                    var roleName = newRoles[email];
+                    var role = rolesFromDB.find(function(r) { return r.name === roleName; });
+
+                    if (role) {
+                        // Try to update first, then insert if not exists
+                        var updateResp = await authenticatedFetch(
+                            SUPABASE_URL + '/rest/v1/user_roles?email=eq.' + encodeURIComponent(email),
+                            {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                body: JSON.stringify({ role_id: role.id })
+                            }
+                        );
+
+                        // If no row was updated, insert
+                        if (!updateResp.ok || updateResp.status === 406) {
+                            await authenticatedFetch(
+                                SUPABASE_URL + '/rest/v1/user_roles',
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                    body: JSON.stringify({ email: email, role_id: role.id })
+                                }
+                            );
+                        }
+                    }
+                }
+
+                await loadUserRoles(); // Reload to sync
+                renderRolesTable(); // Re-render the table
+                showFeedback(fb, 'Rôles utilisateurs sauvegardés avec succès', false);
+            } catch (e) {
+                console.error('Error saving user roles:', e);
+                showFeedback(fb, 'Erreur lors de la sauvegarde', true);
+            }
+        } else {
+            // Fallback to app_config
+            saveConfig('user_roles', userRolesMap, 'rolesFeedback');
+        }
     }
 
     function saveConfig(key, value, feedbackId) {

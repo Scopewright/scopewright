@@ -390,6 +390,29 @@
 
         .lightbox-close:hover { opacity: 1; }
 
+        /* ── Fullscreen button ── */
+        .btn-fullscreen {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background: var(--stele-green);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s, transform 0.2s;
+            opacity: 0.7;
+        }
+        .btn-fullscreen:hover { opacity: 1; transform: scale(1.1); }
+
         /* ── Footer ── */
         .quote-footer {
             display: none;
@@ -488,6 +511,9 @@
         </div>
     </div>
 </div>
+
+<!-- Fullscreen toggle -->
+<button class="btn-fullscreen" id="btnFullscreen" onclick="toggleFullscreen()" title="Plein écran">&#x26F6;</button>
 
 <!-- Lightbox -->
 <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
@@ -980,6 +1006,29 @@ function presScrollToNext(pages, direction) {
     }
     if (direction < 0) pages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// FULLSCREEN
+// ═══════════════════════════════════════════════════════════════════════
+
+function toggleFullscreen() {
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        document.documentElement.requestFullscreen();
+    }
+}
+
+document.addEventListener('fullscreenchange', function() {
+    var btn = document.getElementById('btnFullscreen');
+    if (document.fullscreenElement) {
+        btn.innerHTML = '&#x2716;';
+        btn.title = 'Quitter plein \u00e9cran';
+    } else {
+        btn.innerHTML = '&#x26F6;';
+        btn.title = 'Plein \u00e9cran';
+    }
+});
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS

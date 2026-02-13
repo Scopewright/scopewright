@@ -294,9 +294,12 @@
                     <table class="roles-table">
                         <thead>
                             <tr>
-                                <th style="width:55%">Courriel</th>
-                                <th style="width:35%">R&ocirc;le</th>
-                                <th style="width:10%"></th>
+                                <th style="width:20%">Nom</th>
+                                <th style="width:25%">Courriel</th>
+                                <th style="width:15%">T&eacute;l&eacute;phone</th>
+                                <th style="width:20%">Entreprise</th>
+                                <th style="width:15%">R&ocirc;le</th>
+                                <th style="width:5%"></th>
                             </tr>
                         </thead>
                         <tbody id="rolesBody"></tbody>
@@ -602,6 +605,7 @@
 
     var permissions = {};
     var userRolesMap = {};
+    var userProfiles = {}; // { email: { name, phone, company } }
     var mediaTags = [];
     var catalogueCategories = [];
     var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
@@ -638,13 +642,45 @@
     document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
     loadConfig();
 
+    async function loadUserProfiles() {
+        try {
+            // Fetch user profiles with contact and company data
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/user_profiles?select=user_id,contact_id,contacts(first_name,last_name,phone,email,contact_companies(companies(name)))',
+                {}
+            );
+            if (!r.ok) return;
+            var profiles = await r.json();
+
+            // Build map: email -> { name, phone, company }
+            userProfiles = {};
+            for (var i = 0; i < profiles.length; i++) {
+                var p = profiles[i];
+                if (!p.contacts) continue;
+                var contact = p.contacts;
+                var email = contact.email;
+                var name = (contact.first_name || '') + ' ' + (contact.last_name || '');
+                name = name.trim() || '—';
+                var phone = contact.phone || '—';
+                var company = '—';
+                if (contact.contact_companies && contact.contact_companies.length > 0) {
+                    var cc = contact.contact_companies[0];
+                    if (cc.companies) company = cc.companies.name;
+                }
+                userProfiles[email] = { name: name, phone: phone, company: company };
+            }
+        } catch (e) {
+            console.error('Error loading user profiles:', e);
+        }
+    }
+
     function loadConfig() {
         authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {})
         .then(function(r) {
             if (!r.ok) throw new Error('not available');
             return r.json();
         })
-        .then(function(rows) {
+        .then(async function(rows) {
             if (Array.isArray(rows)) {
                 for (var i = 0; i < rows.length; i++) {
                     if (rows[i].key === 'permissions') permissions = rows[i].value;
@@ -658,11 +694,13 @@
                     if (rows[i].key === 'communication_types') communicationTypes = rows[i].value;
                 }
             }
+            await loadUserProfiles();
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
         })
-        .catch(function() {
+        .catch(async function() {
+            await loadUserProfiles();
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
@@ -776,8 +814,18 @@
             var sel = (ROLES[i] === role) ? ' selected' : '';
             options += '<option value="' + ROLES[i] + '"' + sel + '>' + ROLES[i] + '</option>';
         }
+
+        // Get enriched data from user profiles
+        var profile = userProfiles[email] || {};
+        var name = profile.name || '—';
+        var phone = profile.phone || '—';
+        var company = profile.company || '—';
+
         return '<tr>' +
+            '<td style="color:#555; font-weight:500;">' + escapeHtml(name) + '</td>' +
             '<td><input type="email" class="input-email" value="' + escapeHtml(email) + '" placeholder="nom@entreprise.ca"></td>' +
+            '<td style="color:#888; font-size:12px;">' + escapeHtml(phone) + '</td>' +
+            '<td style="color:#888; font-size:12px;">' + escapeHtml(company) + '</td>' +
             '<td><select class="select-role">' + options + '</select></td>' +
             '<td><button class="btn-remove" onclick="removeUserRow(this)" title="Retirer">&times;</button></td>' +
             '</tr>';

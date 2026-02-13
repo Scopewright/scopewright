@@ -1632,19 +1632,9 @@
 
         /* Drop zone for clauses */
         .pv-clause-dropzone {
-            padding: 10px; border: 2px dashed #ccc; border-radius: 6px;
+            padding: 10px; border: 2px dashed #ccc; border-radius: 4px;
             text-align: center; color: #aaa; font-size: 12px; font-style: italic;
             transition: all 0.2s; margin-top: 6px;
-        }
-        .pv-clause-dropzone.empty-state {
-            padding: 40px 20px; border-color: #b5c4b8; color: #888;
-            font-size: 14px; font-style: normal; margin-top: 0;
-        }
-        .pv-clause-dropzone.empty-state .drop-icon {
-            font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.5;
-        }
-        .pv-clause-dropzone.empty-state .drop-hint {
-            font-size: 11px; color: #aaa; margin-top: 4px;
         }
         .pv-clause-dropzone.drag-over {
             border-color: var(--stele-green); background: #f0f7f1; color: var(--stele-green);
@@ -5085,18 +5075,11 @@
                 });
 
                 if (editable) {
-                    var isEmpty = subClauses.length === 0;
-                    html += '<div class="pv-clause-dropzone' + (isEmpty ? ' empty-state' : '') + '" id="pvClauseDropZone"';
+                    html += '<div class="pv-clause-dropzone" id="pvClauseDropZone"';
                     html += ' ondragover="onClauseDropZoneDragOver(event)"';
                     html += ' ondragleave="onClauseDropZoneDragLeave(event)"';
                     html += ' ondrop="onClauseDropZoneDrop(event)">';
-                    if (isEmpty) {
-                        html += '<span class="drop-icon">📋</span>';
-                        html += 'Aucune clause ajout\u00e9e';
-                        html += '<span class="drop-hint">Cliquez + dans la biblioth\u00e8que \u00e0 droite ou glissez-d\u00e9posez ici</span>';
-                    } else {
-                        html += t('dropClause');
-                    }
+                    html += t('dropClause');
                     html += '</div>';
                 }
 

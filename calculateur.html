@@ -5219,11 +5219,14 @@
             presActive = false;
             var pv = document.getElementById('previewView');
             pv.classList.remove('pv-fullscreen');
+            pv.classList.remove('pv-client-mode');
+            clientViewMode = false;
             if (document.fullscreenElement) document.exitFullscreen();
             else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
             document.removeEventListener('keydown', presPageNav);
             var pvContent = document.getElementById('pvContent');
             if (pvContent) pvContent.removeEventListener('click', presClickNav);
+            renderPreview();
         }
 
         function presPageNav(e) {

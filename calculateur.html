@@ -3915,6 +3915,7 @@
 
         // ── Recrop depuis l'original ──
         async function recropImage(groupId, index) {
+            if (currentSubmission && !isSubmissionCurrentlyEditable()) return;
             var img = (groupImages[groupId] || [])[index];
             if (!img || img.isLegacy || !img.originalUrl) return;
             try {
@@ -4027,7 +4028,8 @@
                 item.className = 'image-preview-item';
                 var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
                 var checkedAttr = img.showInQuote ? 'checked' : '';
-                var recropAttr = (!img.isLegacy && img.originalUrl) ? ` onclick="recropImage('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="Cliquer pour recadrer"` : ` ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"`;
+                var canRecrop = !img.isLegacy && img.originalUrl && isSubmissionCurrentlyEditable();
+                var recropAttr = canRecrop ? ` onclick="recropImage('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="Cliquer pour recadrer"` : ` ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"`;
                 item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}><button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label>`;
                 container.appendChild(item);
             });

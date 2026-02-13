@@ -1805,11 +1805,11 @@
         }
 
         /* Workflow action buttons */
-        .workflow-actions { display: flex; gap: 6px; align-items: flex-end; }
+        .workflow-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
         .btn-wf {
             display: none; padding: 6px 14px; font-size: 12px; font-weight: 600;
             border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s; min-width: 210px; text-align: center;
         }
         .btn-wf:hover { opacity: 0.85; }
         .btn-wf-submit { background: #1565c0; color: #fff; }
@@ -3644,10 +3644,8 @@
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('projectDescription').value = '';
             // Titre du modal adapté
-            document.getElementById('submitModalTitle').textContent = canApproveQuotes
-                ? 'Approuver & soumettre la soumission #' + currentSubmission.submission_number
-                : 'Soumettre la soumission #' + currentSubmission.submission_number;
-            document.getElementById('btnSend').textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
+            document.getElementById('submitModalTitle').textContent = 'Soumettre la soumission #' + currentSubmission.submission_number;
+            document.getElementById('btnSend').textContent = 'Soumettre';
             document.getElementById('sendStatus').style.display = 'none';
             document.getElementById('pdfModal').classList.add('active');
         }
@@ -5932,7 +5930,7 @@
             var s = currentSubmission.status;
             if (s === 'draft' || s === 'returned') {
                 btnSubmit.style.display = 'inline-block';
-                btnSubmit.textContent = canApproveQuotes ? 'Approuver & Soumettre' : 'Soumettre';
+                btnSubmit.textContent = 'Soumettre';
                 if (canBypassApproval && btnBypass) {
                     btnBypass.style.display = 'inline-block';
                 }

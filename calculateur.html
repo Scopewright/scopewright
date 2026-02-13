@@ -3021,6 +3021,32 @@
         </div>
     </div>
 
+    <!-- Modal Capture Room Selection -->
+    <div class="modal-overlay" id="captureRoomModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Capturer la page du plan</h3>
+                <button class="modal-close" onclick="closeCaptureRoomModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:#666; margin-bottom:16px;">
+                    S&eacute;lectionnez la pi&egrave;ce/meuble o&ugrave; associer cette capture haute r&eacute;solution.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Pi&egrave;ce / Meuble</label>
+                    <select class="form-input" id="captureRoomSelect">
+                        <option value="">-- S&eacute;lectionnez --</option>
+                    </select>
+                </div>
+                <div id="captureStatus" style="display:none; padding:10px; border-radius:4px; font-size:13px; margin-top:12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeCaptureRoomModal()">Annuler</button>
+                <button class="btn-generate" id="btnConfirmCapture" onclick="confirmCapture()">Capturer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Crop Modal -->
     <div class="crop-overlay" id="cropModal">
         <div class="crop-box">
@@ -5288,10 +5314,167 @@
             renderPdfPage();
         }
 
-        // Capture function (placeholder for Étape 4)
+        // ═══════════════════════════════════════════════════════════════════════
+        // Capture PDF Page → Room Media
+        // ═══════════════════════════════════════════════════════════════════════
+        var capturedImageBlob = null;
+
         async function capturePdfPage() {
-            alert('Fonction de capture à implémenter (Étape 4)');
-            // Will be implemented in step 4 with room selection modal
+            if (!currentSubmission) {
+                alert('Aucune soumission ouverte');
+                return;
+            }
+
+            // Load rooms and open modal
+            await loadRoomsForCapture();
+            document.getElementById('captureRoomModal').classList.add('active');
+        }
+
+        async function loadRoomsForCapture() {
+            var select = document.getElementById('captureRoomSelect');
+            select.innerHTML = '<option value="">-- Sélectionnez --</option>';
+
+            if (!currentSubmission) return;
+
+            try {
+                var response = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/project_rooms?submission_id=eq.' + currentSubmission.id + '&select=id,name&order=sort_order.asc',
+                    {}
+                );
+
+                if (!response.ok) throw new Error('Erreur de chargement des pièces');
+
+                var rooms = await response.json();
+
+                for (var i = 0; i < rooms.length; i++) {
+                    var option = document.createElement('option');
+                    option.value = rooms[i].id;
+                    option.textContent = rooms[i].name;
+                    select.appendChild(option);
+                }
+
+            } catch (err) {
+                console.error('Error loading rooms:', err);
+                alert('Erreur de chargement des pièces');
+            }
+        }
+
+        function closeCaptureRoomModal() {
+            document.getElementById('captureRoomModal').classList.remove('active');
+            capturedImageBlob = null;
+            document.getElementById('captureStatus').style.display = 'none';
+        }
+
+        async function confirmCapture() {
+            var roomId = document.getElementById('captureRoomSelect').value;
+            if (!roomId) {
+                alert('Veuillez sélectionner une pièce');
+                return;
+            }
+
+            var status = document.getElementById('captureStatus');
+            var btn = document.getElementById('btnConfirmCapture');
+
+            try {
+                btn.disabled = true;
+                status.style.display = 'block';
+                status.style.background = '#e3f2fd';
+                status.style.color = '#1565c0';
+                status.textContent = 'Capture en cours...';
+
+                // Render page at high resolution (scale=3 for ~300 DPI)
+                if (!pdfDoc) throw new Error('PDF non chargé');
+
+                var page = await pdfDoc.getPage(pdfCurrentPage);
+                var viewport = page.getViewport({ scale: 3.0, rotation: pdfRotation });
+
+                // Create temporary canvas for high-res render
+                var canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                var ctx = canvas.getContext('2d');
+
+                await page.render({
+                    canvasContext: ctx,
+                    viewport: viewport
+                }).promise;
+
+                status.textContent = 'Compression de l\'image...';
+
+                // Convert to JPEG blob
+                var blob = await new Promise(function(resolve) {
+                    canvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
+                });
+
+                status.textContent = 'Upload en cours...';
+
+                // Generate unique filename
+                var timestamp = Date.now();
+                var filename = 'plan_p' + pdfCurrentPage + '_' + timestamp + '.jpg';
+
+                // Upload to room_media bucket
+                var uploadPath = roomId + '/' + filename;
+                var uploadResp = await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/room-media/' + uploadPath,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'image/jpeg' },
+                        body: blob
+                    }
+                );
+
+                if (!uploadResp.ok) {
+                    var errText = await uploadResp.text();
+                    throw new Error('Erreur d\'upload: ' + errText);
+                }
+
+                // Create room_media record with source_metadata
+                var sourceMetadata = {
+                    type: 'pdf_plan',
+                    plan_id: currentPlanRecord.id,
+                    page_number: pdfCurrentPage,
+                    pdf_filename: currentPlanRecord.file_name,
+                    pdf_version: currentPlanRecord.version_number,
+                    captured_at: new Date().toISOString(),
+                    scale: 3.0
+                };
+
+                var mediaResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/room_media',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            room_id: roomId,
+                            file_path: uploadPath,
+                            file_name: filename,
+                            file_size: blob.size,
+                            tags: [],
+                            source_metadata: sourceMetadata
+                        })
+                    }
+                );
+
+                if (!mediaResp.ok) throw new Error('Erreur de création de l\'enregistrement');
+
+                status.style.background = '#e8f5e9';
+                status.style.color = '#2e7d32';
+                status.textContent = '✓ Capture réussie!';
+
+                setTimeout(function() {
+                    closeCaptureRoomModal();
+                }, 1500);
+
+            } catch (err) {
+                console.error('Capture error:', err);
+                status.style.background = '#ffebee';
+                status.style.color = '#c62828';
+                status.textContent = 'Erreur: ' + err.message;
+                btn.disabled = false;
+            }
         }
 
         // toggleClientView removed — Présentation handles client mode directly

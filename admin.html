@@ -232,12 +232,89 @@
             border-top: 1px solid #e0e0e0;
         }
 
+        /* Role modal */
+        .role-modal {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .role-modal-content {
+            background: #fff; border-radius: 8px;
+            max-width: 600px; width: 100%;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+        }
+        .role-modal-header {
+            padding: 24px 28px; border-bottom: 1px solid #e0e0e0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .role-modal-title {
+            font-size: 18px; font-weight: 700; margin: 0;
+        }
+        .role-modal-close {
+            background: none; border: none; font-size: 24px;
+            color: #999; cursor: pointer; padding: 0; width: 32px; height: 32px;
+        }
+        .role-modal-close:hover { color: #333; }
+        .role-modal-body {
+            padding: 24px 28px;
+        }
+        .role-form-group {
+            margin-bottom: 20px;
+        }
+        .role-form-label {
+            display: block; font-size: 13px; font-weight: 600;
+            margin-bottom: 6px; color: #333;
+        }
+        .role-form-input {
+            width: 100%; padding: 10px 12px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 14px;
+        }
+        .role-form-input:focus {
+            outline: none; border-color: #4b6050;
+        }
+        .role-form-textarea {
+            min-height: 60px; resize: vertical;
+        }
+        .role-perm-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 12px 16px; margin-top: 12px;
+        }
+        .role-perm-item {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .role-perm-item input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer;
+        }
+        .role-perm-item label {
+            font-size: 13px; color: #555; cursor: pointer;
+        }
+        .role-modal-footer {
+            padding: 16px 28px; border-top: 1px solid #e0e0e0;
+            display: flex; gap: 12px; justify-content: flex-end;
+        }
+        .btn-modal {
+            padding: 10px 24px; font-size: 14px; font-weight: 500;
+            border: none; border-radius: 4px; cursor: pointer;
+            font-family: inherit; transition: opacity 0.2s;
+        }
+        .btn-modal:hover { opacity: 0.85; }
+        .btn-modal-cancel {
+            background: #f5f5f5; color: #555;
+        }
+        .btn-modal-save {
+            background: #4b6050; color: #fff;
+        }
+
         @media (max-width: 768px) {
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .app-content { padding: 24px 16px; padding-top: 80px; }
             .section-toggle { padding: 16px; }
             .section-content { padding: 0 16px 20px; }
             .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
+            .role-perm-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -278,6 +355,31 @@
                         <button class="btn-save" onclick="savePermissions()">Sauvegarder les permissions</button>
                         <span class="save-feedback" id="permFeedback"></span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Gestion des rôles -->
+            <div class="section collapsed" id="sectionManageRoles">
+                <div class="section-toggle" onclick="toggleSection('sectionManageRoles')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Gestion des r&ocirc;les</div>
+                        <div class="section-desc">Cr&eacute;ez, modifiez et supprimez les r&ocirc;les disponibles dans le syst&egrave;me.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead>
+                            <tr>
+                                <th style="width:25%">Nom du r&ocirc;le</th>
+                                <th style="width:50%">Description</th>
+                                <th style="width:15%">Type</th>
+                                <th style="width:10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manageRolesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="openRoleModal()">+ Nouveau r&ocirc;le</button>
                 </div>
             </div>
 
@@ -493,6 +595,49 @@
         <footer class="app-footer">stele — stele.ca</footer>
     </div>
 
+    <!-- Role management modal -->
+    <div class="role-modal" id="roleModal" onclick="if(event.target === this) closeRoleModal()">
+        <div class="role-modal-content">
+            <div class="role-modal-header">
+                <h2 class="role-modal-title" id="roleModalTitle">Nouveau r&ocirc;le</h2>
+                <button class="role-modal-close" onclick="closeRoleModal()">&times;</button>
+            </div>
+            <div class="role-modal-body">
+                <div class="role-form-group">
+                    <label class="role-form-label">Nom du r&ocirc;le *</label>
+                    <input type="text" class="role-form-input" id="roleNameInput" placeholder="Ex: Gestionnaire">
+                </div>
+                <div class="role-form-group">
+                    <label class="role-form-label">Description</label>
+                    <textarea class="role-form-input role-form-textarea" id="roleDescInput" placeholder="Description du r&ocirc;le et de ses responsabilit&eacute;s"></textarea>
+                </div>
+                <div class="role-form-group">
+                    <label class="role-form-label">Permissions</label>
+                    <div class="role-perm-grid" id="rolePermChecks">
+                        <script>
+                        // Generate checkboxes for all permissions
+                        document.write((function() {
+                            var html = '';
+                            for (var i = 0; i < PAGES.length; i++) {
+                                var page = PAGES[i];
+                                html += '<div class="role-perm-item">' +
+                                    '<input type="checkbox" id="rolePerm_' + page.key + '">' +
+                                    '<label for="rolePerm_' + page.key + '">' + page.label + '</label>' +
+                                    '</div>';
+                            }
+                            return html;
+                        })());
+                        </script>
+                    </div>
+                </div>
+            </div>
+            <div class="role-modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeRoleModal()">Annuler</button>
+                <button class="btn-modal btn-modal-save" id="roleSaveBtn" onclick="saveRole()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     /*
      * Pour activer la sauvegarde partagee dans Supabase, executez ce SQL
@@ -606,6 +751,7 @@
     var permissions = {};
     var userRolesMap = {};
     var userProfiles = {}; // { email: { name, phone, company } }
+    var rolesFromDB = []; // Roles loaded from database
     var mediaTags = [];
     var catalogueCategories = [];
     var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
@@ -632,6 +778,25 @@
     var DEFAULT_COMPANY_TYPES = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var DEFAULT_CONTACT_ROLES = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var DEFAULT_COMM_TYPES = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
+
+    // ── Helper functions ──
+
+    // Returns the active list of roles (from DB if available, otherwise hardcoded)
+    function getActiveRoles() {
+        if (rolesFromDB.length > 0) {
+            return rolesFromDB.map(function(r) { return r.name; });
+        }
+        return ROLES.slice();
+    }
+
+    // Get permissions for a role (from DB if available, otherwise from permissions object)
+    function getRolePermissions(roleName) {
+        if (rolesFromDB.length > 0) {
+            var role = rolesFromDB.find(function(r) { return r.name === roleName; });
+            if (role) return role.permissions || {};
+        }
+        return permissions[roleName] || {};
+    }
 
     // ── Toggle sections ──
     function toggleSection(id) {
@@ -674,6 +839,26 @@
         }
     }
 
+    async function loadRoles() {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/roles?select=*&order=sort_order.asc,name.asc',
+                {}
+            );
+            if (!r.ok) {
+                console.warn('Could not load roles from database, using hardcoded roles');
+                return;
+            }
+            var roles = await r.json();
+            if (roles && roles.length > 0) {
+                rolesFromDB = roles;
+                console.log('Loaded ' + roles.length + ' roles from database');
+            }
+        } catch (e) {
+            console.error('Error loading roles:', e);
+        }
+    }
+
     function loadConfig() {
         authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?select=key,value', {})
         .then(function(r) {
@@ -695,12 +880,14 @@
                 }
             }
             await loadUserProfiles();
+            await loadRoles();
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
         })
         .catch(async function() {
             await loadUserProfiles();
+            await loadRoles();
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
@@ -712,8 +899,9 @@
             permissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
         }
         // S'assurer que tous les roles et pages existent
-        for (var r = 0; r < ROLES.length; r++) {
-            var role = ROLES[r];
+        var activeRoles = getActiveRoles();
+        for (var r = 0; r < activeRoles.length; r++) {
+            var role = activeRoles[r];
             if (!permissions[role]) permissions[role] = {};
             for (var p = 0; p < PAGES.length; p++) {
                 var pageKey = PAGES[p].key;
@@ -758,6 +946,7 @@
 
     function renderAll() {
         renderPermTable();
+        renderManageRolesTable();
         renderRolesTable();
         renderCategoriesTable();
         renderTagsTable();
@@ -780,20 +969,65 @@
         }
         head.innerHTML = headHtml;
 
+        var activeRoles = getActiveRoles();
         var bodyHtml = '';
-        for (var r = 0; r < ROLES.length; r++) {
-            var role = ROLES[r];
-            bodyHtml += '<tr><td>' + role + '</td>';
+        for (var r = 0; r < activeRoles.length; r++) {
+            var roleName = activeRoles[r];
+            var rolePerms = getRolePermissions(roleName);
+
+            bodyHtml += '<tr><td>' + roleName + '</td>';
             for (var p2 = 0; p2 < PAGES.length; p2++) {
                 var pk = PAGES[p2].key;
-                var checked = (permissions[role] && permissions[role][pk]) ? ' checked' : '';
+                var checked = rolePerms[pk] ? ' checked' : '';
                 bodyHtml += '<td><label class="toggle">' +
-                    '<input type="checkbox" data-role="' + role + '" data-page="' + pk + '"' + checked + '>' +
+                    '<input type="checkbox" data-role="' + roleName + '" data-page="' + pk + '"' + checked + '>' +
                     '<span class="slider"></span></label></td>';
             }
             bodyHtml += '</tr>';
         }
         body.innerHTML = bodyHtml;
+    }
+
+    // ── Manage roles table ──
+
+    function renderManageRolesTable() {
+        var body = document.getElementById('manageRolesBody');
+        if (!body) return;
+
+        var html = '';
+        var rolesToDisplay = rolesFromDB.length > 0 ? rolesFromDB : [];
+
+        // If no roles from DB, show hardcoded roles as read-only reference
+        if (rolesToDisplay.length === 0) {
+            for (var i = 0; i < ROLES.length; i++) {
+                html += '<tr>' +
+                    '<td style="font-weight:500;">' + escapeHtml(ROLES[i]) + '</td>' +
+                    '<td style="color:#888; font-size:13px;">R&ocirc;le syst&egrave;me (hardcoded)</td>' +
+                    '<td><span style="background:#f0f0f0; padding:3px 8px; border-radius:3px; font-size:11px; color:#666;">SYST&Egrave;ME</span></td>' +
+                    '<td></td>' +
+                    '</tr>';
+            }
+        } else {
+            for (var i = 0; i < rolesToDisplay.length; i++) {
+                var role = rolesToDisplay[i];
+                var isSystem = role.is_system || false;
+                var typeLabel = isSystem ? 'SYST&Egrave;ME' : 'CUSTOM';
+                var typeBg = isSystem ? '#f0f0f0' : '#e8f5e9';
+                var typeColor = isSystem ? '#666' : '#2e7d32';
+
+                html += '<tr>' +
+                    '<td style="font-weight:500;">' + escapeHtml(role.name) + '</td>' +
+                    '<td style="color:#666; font-size:13px;">' + escapeHtml(role.description || '—') + '</td>' +
+                    '<td><span style="background:' + typeBg + '; padding:3px 8px; border-radius:3px; font-size:11px; color:' + typeColor + ';">' + typeLabel + '</span></td>' +
+                    '<td style="text-align:right;">' +
+                        '<button class="btn-remove" onclick="editRole(\'' + role.id + '\')" title="Modifier" style="color:#4b6050;">&bull;&bull;&bull;</button>' +
+                        (isSystem ? '' : '<button class="btn-remove" onclick="deleteRole(\'' + role.id + '\')" title="Supprimer">&times;</button>') +
+                    '</td>' +
+                    '</tr>';
+            }
+        }
+
+        body.innerHTML = html;
     }
 
     // ── User roles table ──
@@ -809,10 +1043,11 @@
     }
 
     function buildUserRowHtml(email, role) {
+        var activeRoles = getActiveRoles();
         var options = '';
-        for (var i = 0; i < ROLES.length; i++) {
-            var sel = (ROLES[i] === role) ? ' selected' : '';
-            options += '<option value="' + ROLES[i] + '"' + sel + '>' + ROLES[i] + '</option>';
+        for (var i = 0; i < activeRoles.length; i++) {
+            var sel = (activeRoles[i] === role) ? ' selected' : '';
+            options += '<option value="' + activeRoles[i] + '"' + sel + '>' + activeRoles[i] + '</option>';
         }
 
         // Get enriched data from user profiles
@@ -1165,10 +1400,11 @@
 
     // ── Save functions ──
 
-    function savePermissions() {
+    async function savePermissions() {
+        var activeRoles = getActiveRoles();
         var newPerm = {};
-        for (var r = 0; r < ROLES.length; r++) {
-            newPerm[ROLES[r]] = {};
+        for (var r = 0; r < activeRoles.length; r++) {
+            newPerm[activeRoles[r]] = {};
         }
 
         var checkboxes = document.querySelectorAll('#permBody input[type="checkbox"]');
@@ -1180,7 +1416,37 @@
         }
 
         permissions = newPerm;
-        saveConfig('permissions', permissions, 'permFeedback');
+
+        // If using roles from DB, update each role's permissions in the database
+        if (rolesFromDB.length > 0) {
+            var fb = document.getElementById('permFeedback');
+            fb.textContent = 'Sauvegarde en cours...';
+            fb.className = 'save-feedback visible';
+
+            try {
+                var savePromises = [];
+                for (var roleName in newPerm) {
+                    var role = rolesFromDB.find(function(r) { return r.name === roleName; });
+                    if (role) {
+                        var promise = authenticatedFetch(SUPABASE_URL + '/rest/v1/roles?id=eq.' + role.id, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ permissions: newPerm[roleName] })
+                        });
+                        savePromises.push(promise);
+                    }
+                }
+                await Promise.all(savePromises);
+                await loadRoles();
+                showFeedback(fb, 'Permissions sauvegard\u00e9es avec succ\u00e8s', false);
+            } catch (e) {
+                console.error('Error saving permissions:', e);
+                showFeedback(fb, 'Erreur lors de la sauvegarde', true);
+            }
+        } else {
+            // Fallback to app_config
+            saveConfig('permissions', permissions, 'permFeedback');
+        }
     }
 
     function saveUserRoles() {
@@ -1233,6 +1499,137 @@
         localStorage.removeItem('sb_user_email');
         localStorage.removeItem('sb_user_id');
         window.location.href = 'login.html';
+    }
+
+    // ── Role management functions ──
+
+    function openRoleModal(roleId) {
+        var modal = document.getElementById('roleModal');
+        if (!modal) return;
+
+        var title = document.getElementById('roleModalTitle');
+        var nameInput = document.getElementById('roleNameInput');
+        var descInput = document.getElementById('roleDescInput');
+        var permChecksContainer = document.getElementById('rolePermChecks');
+        var saveBtn = document.getElementById('roleSaveBtn');
+
+        if (roleId) {
+            // Edit mode
+            var role = rolesFromDB.find(function(r) { return r.id === roleId; });
+            if (!role) return;
+
+            title.textContent = 'Modifier le r\u00f4le';
+            nameInput.value = role.name;
+            descInput.value = role.description || '';
+            saveBtn.setAttribute('data-role-id', roleId);
+
+            // Check permissions
+            var perms = role.permissions || {};
+            for (var i = 0; i < PAGES.length; i++) {
+                var cb = document.getElementById('rolePerm_' + PAGES[i].key);
+                if (cb) cb.checked = perms[PAGES[i].key] || false;
+            }
+        } else {
+            // Create mode
+            title.textContent = 'Nouveau r\u00f4le';
+            nameInput.value = '';
+            descInput.value = '';
+            saveBtn.removeAttribute('data-role-id');
+
+            // Uncheck all permissions
+            for (var i = 0; i < PAGES.length; i++) {
+                var cb = document.getElementById('rolePerm_' + PAGES[i].key);
+                if (cb) cb.checked = false;
+            }
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeRoleModal() {
+        var modal = document.getElementById('roleModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function editRole(roleId) {
+        openRoleModal(roleId);
+    }
+
+    async function deleteRole(roleId) {
+        if (!confirm('Voulez-vous vraiment supprimer ce r\u00f4le ?')) return;
+
+        try {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/roles?id=eq.' + roleId, {
+                method: 'DELETE'
+            });
+
+            if (resp.ok) {
+                await loadRoles();
+                renderAll(); // Re-render all tables including permissions
+                alert('R\u00f4le supprim\u00e9 avec succ\u00e8s');
+            } else {
+                alert('Erreur lors de la suppression du r\u00f4le');
+            }
+        } catch (e) {
+            console.error('Error deleting role:', e);
+            alert('Erreur lors de la suppression du r\u00f4le');
+        }
+    }
+
+    async function saveRole() {
+        var roleId = document.getElementById('roleSaveBtn').getAttribute('data-role-id');
+        var name = document.getElementById('roleNameInput').value.trim();
+        var description = document.getElementById('roleDescInput').value.trim();
+
+        if (!name) {
+            alert('Le nom du r\u00f4le est requis');
+            return;
+        }
+
+        // Collect permissions
+        var permissions = {};
+        for (var i = 0; i < PAGES.length; i++) {
+            var cb = document.getElementById('rolePerm_' + PAGES[i].key);
+            permissions[PAGES[i].key] = cb ? cb.checked : false;
+        }
+
+        var payload = {
+            name: name,
+            description: description,
+            permissions: permissions,
+            is_system: false
+        };
+
+        try {
+            var resp;
+            if (roleId) {
+                // Update
+                resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/roles?id=eq.' + roleId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // Create
+                resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/roles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (resp.ok || resp.status === 201) {
+                await loadRoles();
+                renderAll(); // Re-render all tables including permissions
+                closeRoleModal();
+                alert('R\u00f4le sauvegard\u00e9 avec succ\u00e8s');
+            } else {
+                alert('Erreur lors de la sauvegarde du r\u00f4le');
+            }
+        } catch (e) {
+            console.error('Error saving role:', e);
+            alert('Erreur lors de la sauvegarde du r\u00f4le');
+        }
     }
     </script>
 </body>

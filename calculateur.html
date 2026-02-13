@@ -1340,6 +1340,132 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.4);
         }
 
+        /* Modal Plans */
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            background: none;
+            border: none;
+            font-size: 28px;
+            line-height: 1;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+        .modal-close:hover { color: var(--stele-black); }
+
+        .plans-upload-zone {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f9f9f9;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .btn-upload-plan {
+            padding: 12px 24px;
+            background: var(--stele-green);
+            color: var(--stele-white);
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+        .btn-upload-plan:hover { background: #3d4f42; }
+
+        .plans-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .plans-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .plan-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: background 0.15s;
+        }
+        .plan-item:hover { background: #f9f9f9; }
+
+        .plan-icon {
+            font-size: 32px;
+            color: #c62828;
+        }
+
+        .plan-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .plan-version {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--stele-green);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .plan-filename {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--stele-black);
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .plan-meta {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .plan-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .plan-action-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: #555;
+            font-family: inherit;
+        }
+        .plan-action-btn:hover {
+            background: #f0f0f0;
+            border-color: #b0b0b0;
+            color: var(--stele-black);
+        }
+        .plan-action-btn.danger {
+            color: #c62828;
+            border-color: #ffcdd2;
+        }
+        .plan-action-btn.danger:hover {
+            background: #ffebee;
+            border-color: #ef9a9a;
+        }
+
         /* Crop Modal */
         .crop-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -2253,6 +2379,7 @@
                     <div class="ph-top-actions">
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
+                        <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
                             <div class="kebab-dropdown" id="headerKebabDropdown">
@@ -2637,6 +2764,30 @@
     <!-- Lightbox pour agrandir les images -->
     <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
         <img id="lightboxImg" src="" alt="">
+    </div>
+
+    <!-- Modal Plans architecturaux -->
+    <div class="modal-overlay" id="plansModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Plans architecturaux</h3>
+                <button class="modal-close" onclick="closePlansModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="plans-upload-zone">
+                    <input type="file" id="planFileInput" accept=".pdf" style="display:none;" onchange="handlePlanFileSelect(event)">
+                    <button class="btn-upload-plan" onclick="document.getElementById('planFileInput').click()">
+                        <span style="font-size:20px;">&#128196;</span> T&eacute;l&eacute;verser un nouveau plan
+                    </button>
+                </div>
+                <div id="plansListContainer" class="plans-list">
+                    <div class="plans-empty">Aucun plan pour cette soumission</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closePlansModal()">Fermer</button>
+            </div>
+        </div>
     </div>
 
     <!-- Crop Modal -->
@@ -4498,6 +4649,232 @@
             document.getElementById('previewView').classList.remove('pv-client-mode');
             document.getElementById('calculatorView').classList.add('active');
             clientViewMode = false;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Plans architecturaux
+        // ═══════════════════════════════════════════════════════════════════════
+        async function openPlansModal() {
+            if (!currentSubmission) {
+                alert('Veuillez ouvrir une soumission d\'abord.');
+                return;
+            }
+            document.getElementById('plansModal').classList.add('active');
+            await loadSubmissionPlans();
+        }
+
+        function closePlansModal() {
+            document.getElementById('plansModal').classList.remove('active');
+        }
+
+        async function loadSubmissionPlans() {
+            if (!currentSubmission) return;
+
+            var container = document.getElementById('plansListContainer');
+            container.innerHTML = '<div class="plans-empty">Chargement...</div>';
+
+            try {
+                var response = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc',
+                    { headers: { 'Prefer': 'return=representation' } }
+                );
+
+                if (!response.ok) throw new Error('Erreur de chargement des plans');
+
+                var plans = await response.json();
+
+                if (plans.length === 0) {
+                    container.innerHTML = '<div class="plans-empty">Aucun plan pour cette soumission</div>';
+                    return;
+                }
+
+                var html = '';
+                for (var i = 0; i < plans.length; i++) {
+                    var plan = plans[i];
+                    var date = new Date(plan.uploaded_at).toLocaleDateString('fr-CA');
+                    var size = (plan.file_size / 1024).toFixed(0) + ' Ko';
+                    var pages = plan.page_count ? plan.page_count + ' pages' : '';
+
+                    html += '<div class="plan-item">';
+                    html += '  <div class="plan-icon">📄</div>';
+                    html += '  <div class="plan-info">';
+                    html += '    <div class="plan-version">Version ' + plan.version_number + '</div>';
+                    html += '    <div class="plan-filename">' + plan.file_name + '</div>';
+                    html += '    <div class="plan-meta">' + date + ' • ' + size + (pages ? ' • ' + pages : '') + '</div>';
+                    html += '  </div>';
+                    html += '  <div class="plan-actions">';
+                    html += '    <button class="plan-action-btn" onclick="downloadPlan(\'' + plan.id + '\', \'' + plan.file_name + '\')">Télécharger</button>';
+                    html += '    <button class="plan-action-btn danger" onclick="deletePlan(\'' + plan.id + '\')">Supprimer</button>';
+                    html += '  </div>';
+                    html += '</div>';
+                }
+
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Error loading plans:', err);
+                container.innerHTML = '<div class="plans-empty">Erreur de chargement</div>';
+            }
+        }
+
+        async function handlePlanFileSelect(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            if (file.type !== 'application/pdf') {
+                alert('Veuillez sélectionner un fichier PDF.');
+                event.target.value = '';
+                return;
+            }
+
+            await uploadNewPlan(file);
+            event.target.value = '';
+        }
+
+        async function uploadNewPlan(file) {
+            if (!currentSubmission) return;
+
+            try {
+                // Get next version number
+                var versionResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/rpc/get_next_plan_version',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ p_submission_id: currentSubmission.id })
+                    }
+                );
+
+                if (!versionResp.ok) throw new Error('Erreur de récupération de la version');
+                var nextVersion = await versionResp.json();
+
+                // Upload to Storage
+                var storagePath = currentSubmission.id + '/v' + nextVersion + '_' + file.name;
+                var uploadResp = await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/submission-plans/' + storagePath,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': file.type },
+                        body: file
+                    }
+                );
+
+                if (!uploadResp.ok) {
+                    var errData = await uploadResp.text();
+                    throw new Error('Erreur d\'upload: ' + errData);
+                }
+
+                // Create database record
+                var dbResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({
+                            submission_id: currentSubmission.id,
+                            version_number: nextVersion,
+                            file_path: storagePath,
+                            file_name: file.name,
+                            file_size: file.size,
+                            status: 'ready'
+                        })
+                    }
+                );
+
+                if (!dbResp.ok) throw new Error('Erreur de création de l\'enregistrement');
+
+                // Reload list
+                await loadSubmissionPlans();
+
+            } catch (err) {
+                console.error('Upload error:', err);
+                alert('Erreur d\'upload: ' + err.message);
+            }
+        }
+
+        async function downloadPlan(planId, fileName) {
+            try {
+                // Get plan record to get file_path
+                var planResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans?id=eq.' + planId + '&select=file_path',
+                    {}
+                );
+
+                if (!planResp.ok) throw new Error('Plan introuvable');
+                var plans = await planResp.json();
+                if (plans.length === 0) throw new Error('Plan introuvable');
+
+                var filePath = plans[0].file_path;
+
+                // Get signed URL for download
+                var signResp = await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/sign/submission-plans/' + filePath,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ expiresIn: 60 })
+                    }
+                );
+
+                if (!signResp.ok) throw new Error('Erreur de génération du lien');
+                var signData = await signResp.json();
+
+                // Download file
+                var downloadUrl = SUPABASE_URL + '/storage/v1' + signData.signedURL;
+                var link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = fileName;
+                link.click();
+
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('Erreur de téléchargement: ' + err.message);
+            }
+        }
+
+        async function deletePlan(planId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce plan ?')) return;
+
+            try {
+                // Get plan record to get file_path
+                var planResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans?id=eq.' + planId + '&select=file_path',
+                    {}
+                );
+
+                if (!planResp.ok) throw new Error('Plan introuvable');
+                var plans = await planResp.json();
+                if (plans.length === 0) throw new Error('Plan introuvable');
+
+                var filePath = plans[0].file_path;
+
+                // Delete from Storage
+                var deleteStorageResp = await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/submission-plans/' + filePath,
+                    { method: 'DELETE' }
+                );
+
+                if (!deleteStorageResp.ok) {
+                    console.warn('Storage deletion failed, continuing with DB deletion');
+                }
+
+                // Delete from database
+                var deleteDbResp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans?id=eq.' + planId,
+                    { method: 'DELETE' }
+                );
+
+                if (!deleteDbResp.ok) throw new Error('Erreur de suppression');
+
+                // Reload list
+                await loadSubmissionPlans();
+
+            } catch (err) {
+                console.error('Delete error:', err);
+                alert('Erreur de suppression: ' + err.message);
+            }
         }
 
         // toggleClientView removed — Présentation handles client mode directly

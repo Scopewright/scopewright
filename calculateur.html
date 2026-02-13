@@ -466,6 +466,7 @@
     }
 
     async function authenticatedFetch(url, options) {
+        options = options || {};
         const token = localStorage.getItem('sb_access_token');
         const headers = Object.assign({}, options.headers || {}, {
             'apikey': SUPABASE_KEY,
@@ -5716,7 +5717,7 @@
             if (!currentSubmission) { list.innerHTML = '<p style="text-align:center;color:#999;">Aucune soumission</p>'; return; }
 
             try {
-                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc&select=id,version_number,status_at_save,created_at,created_by');
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc&select=id,version_number,status_at_save,created_at,created_by', {});
                 if (!r.ok) throw new Error(r.status);
                 var versions = await r.json();
 
@@ -5744,7 +5745,7 @@
 
         async function viewVersion(versionId) {
             try {
-                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?id=eq.' + versionId + '&select=snapshot,version_number,status_at_save,created_at');
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?id=eq.' + versionId + '&select=snapshot,version_number,status_at_save,created_at', {});
                 if (!r.ok) return;
                 var data = (await r.json())[0];
                 if (!data) return;

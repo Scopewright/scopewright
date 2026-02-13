@@ -4482,6 +4482,13 @@
             renderPreview();
             renderClauseLibrary();
             document.getElementById('pvContent').scrollTop = 0;
+
+            // Hide EN toggle and clause panel when submission is locked
+            var isLocked = !isSubmissionCurrentlyEditable();
+            var btnLang = document.getElementById('btnLang');
+            var pvRight = document.getElementById('pvRight');
+            if (btnLang) btnLang.style.display = isLocked ? 'none' : '';
+            if (pvRight) pvRight.style.display = isLocked ? 'none' : '';
         }
 
         function closePreview() {

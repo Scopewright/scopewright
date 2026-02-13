@@ -36,6 +36,7 @@
     let currentSubmission = null;   // objet soumission courante { id, submission_number, title, status, ... }
     let canApproveQuotes = false;   // permission can_approve_quotes
     let canBypassApproval = false;  // permission can_bypass_approval
+    let canUnlockSubmission = false; // permission can_unlock_submission
     let isApprovalMode = false;     // true when opened from approbation.html via ?submission=
     let roomMap = {};               // { groupDomId: supabaseRoomUUID }
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
@@ -272,7 +273,9 @@
             'sent': 'Envoy\u00e9 au client',
             'bypass': 'Bypass approbation',
             'offline_accepted': 'Vente confirmée (hors-ligne)',
-            'invoiced': 'Marquée facturée'
+            'invoiced': 'Marquée facturée',
+            'duplicated': 'Soumission dupliquée',
+            'unlocked': 'DÉVERROUILLÉ'
         };
 
         var html = '';
@@ -1816,6 +1819,21 @@
         .btn-wf-bypass { background: #c0392b; color: #fff; }
         .btn-wf-accept-offline { background: #2e7d32; color: #fff; }
         .btn-wf-invoiced { background: #4527a0; color: #fff; }
+        .btn-wf-duplicate { background: #546e7a; color: #fff; }
+        .btn-wf-unlock { background: #c62828; color: #fff; }
+        .btn-wf-versions { background: #37474f; color: #fff; }
+
+        /* Version Drawer */
+        .version-drawer { position:fixed; right:0; top:0; width:360px; height:100vh; background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15); z-index:1000; display:flex; flex-direction:column; transition:transform .3s ease; }
+        .version-drawer-header { padding:16px 20px; border-bottom:1px solid #e0e0e0; display:flex; justify-content:space-between; align-items:center; }
+        .version-drawer-header h3 { margin:0; font-size:16px; }
+        .btn-close-drawer { background:none; border:none; font-size:22px; cursor:pointer; color:#666; padding:4px 8px; }
+        .btn-close-drawer:hover { color:#000; }
+        .version-list { flex:1; overflow-y:auto; padding:12px; }
+        .version-card { padding:12px; border:1px solid #e0e0e0; border-radius:8px; margin-bottom:8px; cursor:pointer; transition:all .15s; }
+        .version-card:hover { background:#f5f5f5; border-color:#bbb; }
+        .version-snapshot-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1100; overflow-y:auto; padding:40px; }
+
         .bypass-badge {
             display: inline-block; background: #ffebee; color: #c0392b;
             font-size: 9px; font-weight: 700; padding: 2px 6px;
@@ -1830,6 +1848,11 @@
         .timeline-comment-offline_accepted { background: #e8f5e9; border-left: 3px solid #2e7d32; padding: 6px 10px; border-radius: 4px; }
         .timeline-dot-invoiced { background: #4527a0; }
         .timeline-action-invoiced { color: #4527a0; font-weight: 700; }
+        .timeline-dot-duplicated { background: #546e7a; }
+        .timeline-action-duplicated { color: #546e7a; font-weight: 700; }
+        .timeline-dot-unlocked { background: #c62828; }
+        .timeline-action-unlocked { color: #c62828; font-weight: 700; text-transform: uppercase; }
+        .timeline-comment-unlocked { background: #ffebee; border-left: 3px solid #c62828; padding: 6px 10px; border-radius: 4px; font-weight: 600; }
         .status-badge {
             display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700;
             border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
@@ -2152,6 +2175,9 @@
                         <button class="btn-wf btn-wf-bypass" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
                         <button class="btn-wf btn-wf-accept-offline" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer vente</button>
                         <button class="btn-wf btn-wf-invoiced" id="btnWfInvoiced" onclick="markInvoiced()">Marquer factur&eacute;e</button>
+                        <button class="btn-wf btn-wf-duplicate" id="btnWfDuplicate" onclick="duplicateSubmission()">Dupliquer</button>
+                        <button class="btn-wf btn-wf-unlock" id="btnWfUnlock" onclick="unlockSubmission()" style="display:none;">D&eacute;verrouiller</button>
+                        <button class="btn-wf btn-wf-versions" id="btnWfVersions" onclick="openVersionDrawer()">Versions</button>
                     </div>
                     <div class="project-header-field">
                         <label class="install-toggle-project">
@@ -2370,6 +2396,48 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeOfflineAcceptModal()">Annuler</button>
                 <button class="btn-generate" id="btnOfflineConfirm" style="background:#2e7d32;" onclick="executeOfflineAcceptance()">Confirmer la vente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Version Drawer -->
+    <div id="versionDrawer" class="version-drawer" style="display:none;">
+        <div class="version-drawer-header">
+            <h3>Historique des versions</h3>
+            <button onclick="closeVersionDrawer()" class="btn-close-drawer">&times;</button>
+        </div>
+        <div id="versionList" class="version-list"></div>
+    </div>
+
+    <!-- Modal Déverrouillage d'urgence -->
+    <div class="modal-overlay" id="unlockModal">
+        <div class="modal" style="max-width:460px;">
+            <div class="modal-header">
+                <h3 class="modal-title" style="color:#c62828;">D&eacute;verrouillage d'urgence</h3>
+            </div>
+            <div class="modal-body">
+                <div style="background:#ffebee; border:1px solid #c62828; border-radius:6px; padding:14px; margin-bottom:16px; font-size:13px; color:#c62828; line-height:1.5;">
+                    Cette action sera enregistr&eacute;e de fa&ccedil;on <strong>permanente et irr&eacute;versible</strong> dans le journal d'audit. Le contenu actuel sera sauvegard&eacute; en version avant le d&eacute;verrouillage.
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="unlockUserName">Votre nom complet <span style="color:#c62828;">*</span></label>
+                    <input type="text" class="form-input" id="unlockUserName" placeholder="Pr&eacute;nom Nom">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="unlockReason">Raison du d&eacute;verrouillage <span style="color:#c62828;">*</span></label>
+                    <textarea class="form-input" id="unlockReason" rows="3" placeholder="Expliquer pourquoi cette soumission doit &ecirc;tre d&eacute;verrouill&eacute;e..." style="resize:vertical;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="unlockConfirmCheck" style="margin-top:3px;">
+                        <span>Je comprends que cette action est permanente et tra&ccedil;able. L'adresse IP sera consign&eacute;e.</span>
+                    </label>
+                </div>
+                <div id="unlockStatus" style="display:none; padding:10px; border-radius:4px; font-size:13px; margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeUnlockModal()">Annuler</button>
+                <button class="btn-generate" id="btnUnlockConfirm" style="background:#c62828;" onclick="executeUnlock()">D&eacute;verrouiller</button>
             </div>
         </div>
     </div>
@@ -3903,6 +3971,11 @@
         }
 
         async function handleGroupImageFiles(groupId, files) {
+            // Guard: bloquer si soumission verrouillée
+            if (currentSubmission && !isSubmissionCurrentlyEditable()) {
+                steleAlert('Soumission verrouillée — impossible d\'ajouter des images.');
+                return;
+            }
             if (!groupImages[groupId]) groupImages[groupId] = [];
             var remaining = MAX_GROUP_IMAGES - groupImages[groupId].length;
             if (remaining <= 0) { alert('Maximum ' + MAX_GROUP_IMAGES + ' images atteint.'); return; }
@@ -3962,6 +4035,14 @@
             if (!groupImages[groupId]) return;
             var img = groupImages[groupId][index];
             if (!img) return;
+
+            // Guard: bloquer si soumission verrouillée
+            if (currentSubmission && !isSubmissionCurrentlyEditable()) {
+                steleAlert('Soumission verrouillée — impossible de supprimer des images.');
+                return;
+            }
+            // Confirmation avant suppression
+            if (!(await steleConfirm('Supprimer cette image ?', 'Supprimer'))) return;
 
             if (!img.isLegacy && img.mediaId) {
                 // Delete from room_media table
@@ -4109,7 +4190,40 @@
             if (currentSubmission) {
                 result.submissionNumber = currentSubmission.submission_number;
                 result.submissionTitle = currentSubmission.title;
+                result.clauses = currentSubmission.clauses || [];
+                result.status = currentSubmission.status;
+                result.approvedTotal = currentSubmission.approved_total;
             }
+            if (currentProject) {
+                result.projectName = currentProject.name;
+                result.clientName = currentProject.client_name;
+                result.clientEmail = currentProject.client_email;
+                result.clientAddress = currentProject.client_address;
+                result.designer = currentProject.designer;
+            }
+            // Descriptions client + installation + media URLs par room
+            var allGroups = document.querySelectorAll('.furniture-group');
+            var mIdx = 0;
+            allGroups.forEach(function(group) {
+                // Only match groups that produced a meuble (items.length > 0)
+                var rows = group.querySelectorAll('.calc-row');
+                var hasItems = false;
+                rows.forEach(function(row) {
+                    var sel = row.querySelector('.item-select');
+                    if (sel && sel.value) hasItems = true;
+                });
+                if (!hasItems) return;
+                if (mIdx >= result.meubles.length) return;
+                var textarea = group.querySelector('.client-desc-textarea');
+                if (textarea) result.meubles[mIdx].clientDescription = textarea.value || '';
+                var instCheckbox = group.querySelector('.install-toggle');
+                if (instCheckbox) result.meubles[mIdx].installationIncluded = instCheckbox.checked;
+                var groupId = group.id;
+                result.meubles[mIdx].mediaUrls = (groupImages[groupId] || []).map(function(img) {
+                    return { url: img.url || null, originalUrl: img.originalUrl || null, mediaId: img.mediaId || null, cropRatio: img.cropRatio || null, name: img.name };
+                });
+                mIdx++;
+            });
             return result;
         }
 
@@ -4746,7 +4860,33 @@
 
         // ── Render Preview ──
 
-        function renderPreview() {
+        async function loadAcceptanceProof(submissionId) {
+            if (!currentSubmission) return null;
+            var s = currentSubmission.status;
+            if (s !== 'accepted' && s !== 'invoiced') return null;
+
+            try {
+                // Essayer acceptation en ligne (public_quote_tokens)
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/public_quote_tokens?submission_id=eq.' + submissionId + '&select=accepted_at,accepted_by_name,accepted_by_email,accepted_from_ip,signature_data');
+                if (r.ok) {
+                    var tokens = await r.json();
+                    var accepted = tokens.find(function(t) { return t.accepted_at; });
+                    if (accepted) return Object.assign({ method: 'online' }, accepted);
+                }
+
+                // Essayer acceptation hors-ligne via submission_reviews
+                var r2 = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submission_reviews?submission_id=eq.' + submissionId + '&action=eq.offline_accepted&order=created_at.desc&limit=1&select=comment,created_at');
+                if (r2.ok) {
+                    var reviews = await r2.json();
+                    if (reviews.length > 0) return { method: 'offline', comment: reviews[0].comment, created_at: reviews[0].created_at };
+                }
+            } catch (e) {
+                console.error('Erreur chargement preuve acceptation:', e);
+            }
+            return null;
+        }
+
+        async function renderPreview() {
             var container = document.getElementById('pvContent');
             var subLabel = document.getElementById('pvSubNumber');
             if (!container) return;
@@ -4914,6 +5054,31 @@
                     html += '</div></div>';
                 });
                 html += '</div></div>';
+            }
+
+            // ── Acceptance proof page ──
+            if (currentSubmission) {
+                var proof = await loadAcceptanceProof(currentSubmission.id);
+                if (proof) {
+                    html += '<div class="pv-page">';
+                    html += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">';
+                    html += '<div style="background:#e8f5e9;border:2px solid var(--stele-green);border-radius:12px;padding:32px;max-width:500px;width:100%;">';
+                    html += '<h2 style="color:var(--stele-green);margin:0 0 16px;font-size:22px;">Soumission accept\u00e9e</h2>';
+                    html += '<div style="font-size:14px;line-height:1.8;">';
+                    if (proof.method === 'online') {
+                        html += '<div><strong>M\u00e9thode :</strong> Signature en ligne</div>';
+                        if (proof.accepted_by_name) html += '<div><strong>Nom :</strong> ' + escapeHtml(proof.accepted_by_name) + '</div>';
+                        if (proof.accepted_by_email) html += '<div><strong>Courriel :</strong> ' + escapeHtml(proof.accepted_by_email) + '</div>';
+                        if (proof.accepted_at) html += '<div><strong>Date :</strong> ' + new Date(proof.accepted_at).toLocaleString('fr-CA') + '</div>';
+                        if (proof.accepted_from_ip) html += '<div><strong>IP :</strong> ' + escapeHtml(proof.accepted_from_ip) + '</div>';
+                        if (proof.signature_data) html += '<div style="margin-top:12px;"><img src="' + proof.signature_data + '" style="max-width:300px;border:1px solid #ccc;border-radius:4px;" alt="Signature"></div>';
+                    } else {
+                        html += '<div><strong>M\u00e9thode :</strong> Hors-ligne</div>';
+                        if (proof.comment) html += '<div style="margin-top:4px;font-size:13px;color:#555;">' + escapeHtml(proof.comment) + '</div>';
+                        if (proof.created_at) html += '<div><strong>Date :</strong> ' + new Date(proof.created_at).toLocaleString('fr-CA') + '</div>';
+                    }
+                    html += '</div></div></div></div>';
+                }
             }
 
             container.innerHTML = html;
@@ -5365,7 +5530,7 @@
 
             updateWorkflowButtons();
             loadSubmissionReviews(submissionId);
-            var isEditable = (currentSubmission.status === 'draft' || currentSubmission.status === 'returned' || (currentSubmission.status === 'pending_internal' && (canApproveQuotes || isApprovalMode)));
+            var isEditable = isSubmissionCurrentlyEditable();
             setEditable(isEditable);
             showCalculator();
             if (isApprovalMode) {
@@ -5464,6 +5629,13 @@
         // VERROUILLAGE ÉDITION
         // ═══════════════════════════════════════════════════════════════════════
 
+        function isSubmissionCurrentlyEditable() {
+            if (!currentSubmission) return true;
+            var s = currentSubmission.status;
+            return s === 'draft' || s === 'returned' ||
+                   (s === 'pending_internal' && (canApproveQuotes || isApprovalMode));
+        }
+
         function setEditable(editable) {
             // Inputs et selects du calculateur
             var container = document.getElementById('calculatorView');
@@ -5501,6 +5673,15 @@
             var subTitle = document.getElementById('subTitle');
             if (subTitle) subTitle.readOnly = !editable;
 
+            // Image drop zones + file inputs
+            container.querySelectorAll('.drop-zone, .image-upload-input').forEach(function(el) {
+                if (el.tagName === 'INPUT') {
+                    el.disabled = !editable;
+                }
+                el.style.pointerEvents = editable ? '' : 'none';
+                el.style.opacity = editable ? '' : '0.4';
+            });
+
             // Bannière de statut
             var banner = document.getElementById('lockBanner');
             if (!editable && currentSubmission) {
@@ -5520,6 +5701,208 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // HISTORIQUE DES VERSIONS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function openVersionDrawer() {
+            var drawer = document.getElementById('versionDrawer');
+            drawer.style.display = 'flex';
+            var list = document.getElementById('versionList');
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">Chargement...</div>';
+            if (!currentSubmission) { list.innerHTML = '<p style="text-align:center;color:#999;">Aucune soumission</p>'; return; }
+
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc&select=id,version_number,status_at_save,created_at,created_by');
+                if (!r.ok) throw new Error(r.status);
+                var versions = await r.json();
+
+                if (versions.length === 0) {
+                    list.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Aucune version enregistr\u00e9e</p>';
+                    return;
+                }
+
+                list.innerHTML = versions.map(function(v) {
+                    var label = STATUS_LABELS[v.status_at_save] || v.status_at_save;
+                    var date = new Date(v.created_at).toLocaleString('fr-CA');
+                    return '<div class="version-card" onclick="viewVersion(\'' + v.id + '\')">' +
+                        '<div style="font-weight:600;">Version ' + v.version_number + '</div>' +
+                        '<div style="font-size:12px;color:#666;">' + date + ' \u2014 ' + label + '</div></div>';
+                }).join('');
+            } catch (e) {
+                console.error('Erreur chargement versions:', e);
+                list.innerHTML = '<p style="text-align:center;color:#c62828;">Erreur chargement</p>';
+            }
+        }
+
+        function closeVersionDrawer() {
+            document.getElementById('versionDrawer').style.display = 'none';
+        }
+
+        async function viewVersion(versionId) {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?id=eq.' + versionId + '&select=snapshot,version_number,status_at_save,created_at');
+                if (!r.ok) return;
+                var data = (await r.json())[0];
+                if (!data) return;
+                renderVersionSnapshot(data);
+            } catch (e) {
+                console.error('Erreur affichage version:', e);
+            }
+        }
+
+        function renderVersionSnapshot(data) {
+            var snap = data.snapshot;
+            if (!snap) { steleAlert('Snapshot vide'); return; }
+            var overlay = document.createElement('div');
+            overlay.className = 'version-snapshot-overlay';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            var html = '<div style="max-width:900px;margin:auto;background:#fff;border-radius:12px;padding:32px;">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">';
+            html += '<h2 style="margin:0;">Version ' + data.version_number + ' \u2014 ' + (STATUS_LABELS[data.status_at_save] || data.status_at_save) + '</h2>';
+            html += '<button onclick="this.closest(\'.version-snapshot-overlay\').remove()" style="font-size:24px;background:none;border:none;cursor:pointer;color:#666;">&times;</button></div>';
+
+            // Infos projet/client si disponibles
+            if (snap.projectName || snap.clientName) {
+                html += '<div style="margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:8px;font-size:13px;">';
+                if (snap.projectName) html += '<div><strong>Projet :</strong> ' + escapeHtml(snap.projectName) + '</div>';
+                if (snap.clientName) html += '<div><strong>Client :</strong> ' + escapeHtml(snap.clientName) + '</div>';
+                if (snap.designer) html += '<div><strong>Designer :</strong> ' + escapeHtml(snap.designer) + '</div>';
+                html += '</div>';
+            }
+
+            // Render chaque meuble
+            (snap.meubles || []).forEach(function(m) {
+                html += '<div style="border:1px solid #e0e0e0;border-radius:8px;margin-bottom:16px;overflow:hidden;">';
+                html += '<div style="background:var(--stele-green);color:#fff;padding:10px 16px;font-weight:600;">' + escapeHtml(m.name) + ' \u2014 ' + m.subtotal + ' $</div>';
+                html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+                html += '<thead><tr style="background:#f5f5f5;"><th style="padding:6px 12px;text-align:left;">Description</th><th style="padding:6px;text-align:right;">Qt\u00e9</th><th style="padding:6px;text-align:right;">Prix unit.</th><th style="padding:6px;text-align:right;">Total</th></tr></thead>';
+                (m.items || []).forEach(function(it) {
+                    html += '<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px 12px;">' + escapeHtml(it.description) + '</td>';
+                    html += '<td style="padding:6px;text-align:right;">' + it.qty + '</td>';
+                    html += '<td style="padding:6px;text-align:right;">' + it.unitPrice + ' $</td>';
+                    html += '<td style="padding:6px;text-align:right;font-weight:600;">' + it.lineTotal + ' $</td></tr>';
+                });
+                html += '</table>';
+                if (m.clientDescription) {
+                    html += '<div style="padding:10px 16px;border-top:1px solid #e0e0e0;font-size:13px;color:#555;"><strong>Description client :</strong> ' + escapeHtml(m.clientDescription).replace(/\n/g, '<br>') + '</div>';
+                }
+                html += '</div>';
+            });
+
+            html += '<div style="text-align:right;font-size:20px;font-weight:700;margin-top:16px;">Total : ' + snap.total + ' $</div>';
+            html += '</div>';
+            overlay.innerHTML = html;
+            document.body.appendChild(overlay);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // DUPLICATION DE SOUMISSION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function duplicateSubmission() {
+            if (!currentSubmission) return;
+            if (!(await steleConfirm('Dupliquer cette soumission en nouveau brouillon ?\nLes pi\u00e8ces, articles et images seront copi\u00e9s.', 'Dupliquer la soumission', 'Dupliquer'))) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/duplicate_submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_submission_id: currentSubmission.id })
+                });
+                if (!r.ok) throw new Error('Erreur duplication: ' + r.status);
+                var newSubId = await r.json();
+
+                await createSubmissionReview(currentSubmission.id, 'duplicated', 'Soumission dupliqu\u00e9e \u2192 nouveau brouillon');
+                steleAlert('Soumission dupliqu\u00e9e avec succ\u00e8s!');
+                openSubmission(newSubId);
+            } catch (e) {
+                console.error('Erreur duplication:', e);
+                steleAlert('Erreur: ' + e.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // DÉVERROUILLAGE D'URGENCE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function unlockSubmission() {
+            if (!currentSubmission || !canUnlockSubmission) return;
+            document.getElementById('unlockUserName').value = '';
+            document.getElementById('unlockReason').value = '';
+            document.getElementById('unlockConfirmCheck').checked = false;
+            document.getElementById('unlockStatus').style.display = 'none';
+            document.getElementById('btnUnlockConfirm').disabled = false;
+            document.getElementById('unlockModal').classList.add('active');
+        }
+
+        function closeUnlockModal() {
+            document.getElementById('unlockModal').classList.remove('active');
+        }
+
+        function showUnlockStatus(msg, isError) {
+            var el = document.getElementById('unlockStatus');
+            el.style.display = 'block';
+            el.textContent = msg;
+            el.style.background = isError ? '#ffebee' : '#e8f5e9';
+            el.style.color = isError ? '#c62828' : '#2e7d32';
+        }
+
+        async function executeUnlock() {
+            var userName = document.getElementById('unlockUserName').value.trim();
+            var reason = document.getElementById('unlockReason').value.trim();
+
+            if (!userName) { showUnlockStatus('Le nom est obligatoire.', true); return; }
+            if (!reason) { showUnlockStatus('La raison est obligatoire.', true); return; }
+            if (!document.getElementById('unlockConfirmCheck').checked) {
+                showUnlockStatus('Vous devez cocher la case de confirmation.', true);
+                return;
+            }
+
+            var btn = document.getElementById('btnUnlockConfirm');
+            btn.disabled = true;
+            showUnlockStatus('D\u00e9verrouillage en cours...', false);
+
+            try {
+                // 1. Snapshot avant d\u00e9verrouillage
+                await createVersion(currentSubmission.id);
+
+                // 2. Log immuable via RPC (IP captur\u00e9e c\u00f4t\u00e9 serveur)
+                var rpcResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/log_submission_unlock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        p_submission_id: currentSubmission.id,
+                        p_user_name: userName,
+                        p_reason: reason,
+                        p_previous_status: currentSubmission.status
+                    })
+                });
+                if (!rpcResp.ok) throw new Error('Erreur journalisation: ' + rpcResp.status);
+
+                // 3. Remettre en brouillon
+                await updateSubmission(currentSubmission.id, { status: 'draft' });
+
+                // 4. Timeline
+                await createSubmissionReview(currentSubmission.id, 'unlocked',
+                    'D\u00c9VERROUILLAGE par ' + userName + ' \u2014 Raison: ' + reason);
+
+                // 5. UI
+                currentSubmission.status = 'draft';
+                updateStatusBadge('draft');
+                updateWorkflowButtons();
+                setEditable(true);
+                loadSubmissionReviews(currentSubmission.id);
+
+                showUnlockStatus('Soumission d\u00e9verrouill\u00e9e!', false);
+                setTimeout(function() { closeUnlockModal(); }, 1000);
+            } catch (e) {
+                console.error('Erreur d\u00e9verrouillage:', e);
+                showUnlockStatus('Erreur: ' + e.message, true);
+                btn.disabled = false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // WORKFLOW : SOUMETTRE / APPROUVER / RETOURNER
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -5531,6 +5914,9 @@
             var btnBypass = document.getElementById('btnWfBypass');
             var btnAcceptOffline = document.getElementById('btnWfAcceptOffline');
             var btnInvoiced = document.getElementById('btnWfInvoiced');
+            var btnDuplicate = document.getElementById('btnWfDuplicate');
+            var btnUnlock = document.getElementById('btnWfUnlock');
+            var btnVersions = document.getElementById('btnWfVersions');
             btnSubmit.style.display = 'none';
             btnApprove.style.display = 'none';
             btnReturn.style.display = 'none';
@@ -5538,6 +5924,9 @@
             if (btnBypass) btnBypass.style.display = 'none';
             if (btnAcceptOffline) btnAcceptOffline.style.display = 'none';
             if (btnInvoiced) btnInvoiced.style.display = 'none';
+            if (btnDuplicate) btnDuplicate.style.display = 'none';
+            if (btnUnlock) btnUnlock.style.display = 'none';
+            if (btnVersions) btnVersions.style.display = 'none';
             if (!currentSubmission) return;
 
             var s = currentSubmission.status;
@@ -5566,6 +5955,18 @@
             if (s === 'accepted') {
                 if (btnInvoiced) btnInvoiced.style.display = 'inline-block';
             }
+
+            // Bouton Dupliquer — toujours visible
+            if (btnDuplicate) btnDuplicate.style.display = 'inline-block';
+
+            // Bouton Déverrouiller — visible pour statuts verrouillés si permission
+            if (btnUnlock && canUnlockSubmission) {
+                var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted','invoiced'];
+                if (lockedStatuses.includes(s)) btnUnlock.style.display = 'inline-block';
+            }
+
+            // Bouton Versions — toujours visible
+            if (btnVersions) btnVersions.style.display = 'inline-block';
         }
 
         // submitForApproval() redirigé vers le modal
@@ -5584,6 +5985,9 @@
             if (!(await steleConfirm('G\u00e9n\u00e9rer un lien de soumission pour le client ?\nLe statut passera \u00e0 \u00abEnvoy\u00e9e\u00bb.', 'Envoyer au client', 'G\u00e9n\u00e9rer le lien'))) return;
 
             try {
+                // Snapshot avant envoi
+                await createVersion(currentSubmission.id);
+
                 var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/public_quote_tokens', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
@@ -5651,6 +6055,8 @@
             var comment = await stelePrompt('Commentaire d\'approbation (optionnel) :', 'Approuver la soumission');
             if (comment === null) return;
             try {
+                // Snapshot avant approbation
+                await createVersion(currentSubmission.id);
                 await createSubmissionReview(currentSubmission.id, 'approved', comment);
                 var total = calculerGrandTotal();
                 await updateSubmission(currentSubmission.id, {
@@ -5882,6 +6288,9 @@
             showOfflineAcceptStatus('Enregistrement...', false);
 
             try {
+                // 0. Snapshot avant acceptation
+                await createVersion(currentSubmission.id);
+
                 // 1. Log immutable via RPC (capture IP serveur)
                 var rpcResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/log_offline_acceptance', {
                     method: 'POST',
@@ -6191,6 +6600,7 @@
                 canEditMaterials = !!allowed.edit_materials;
                 canApproveQuotes = !!allowed.can_approve_quotes;
                 canBypassApproval = !!allowed.can_bypass_approval;
+                canUnlockSubmission = !!allowed.can_unlock_submission;
                 var hasSubParam = new URLSearchParams(window.location.search).has('submission');
                 if (!allowed.calculateur && !(hasSubParam && (allowed.approbation || allowed.can_approve_quotes))) {
                     window.location.href = 'app.html'; return false;
@@ -6203,6 +6613,7 @@
                 canEditMaterials = !!defPerms.edit_materials;
                 canApproveQuotes = !!defPerms.can_approve_quotes;
                 canBypassApproval = !!defPerms.can_bypass_approval;
+                canUnlockSubmission = !!defPerms.can_unlock_submission;
                 if (!defPerms.calculateur) { window.location.href = 'app.html'; return false; }
             }
             return true;

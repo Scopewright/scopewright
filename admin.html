@@ -522,18 +522,19 @@
         { key: 'edit_minutes', label: 'Modifier minutes' },
         { key: 'edit_materials', label: 'Modifier mat\u00e9riaux' },
         { key: 'can_approve_quotes', label: 'Approuver soumissions' },
-        { key: 'can_bypass_approval', label: 'Bypass approbation' }
+        { key: 'can_bypass_approval', label: 'Bypass approbation' },
+        { key: 'can_unlock_submission', label: 'D\u00e9verrouiller soumissions' }
     ];
 
     var ROLES = ['Admin', 'Vente', 'Charg\u00e9 de projet', 'Achat', 'Atelier', 'Client'];
 
     var DEFAULT_PERMISSIONS = {
-        'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true,  can_approve_quotes: true,  can_bypass_approval: true  },
-        'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false },
-        'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  clients: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false },
-        'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true,  can_approve_quotes: false, can_bypass_approval: false },
-        'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false },
-        'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false }
+        'Admin':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: true,  admin: true,  edit_minutes: true,  edit_materials: true,  can_approve_quotes: true,  can_bypass_approval: true,  can_unlock_submission: true  },
+        'Vente':             { catalogue: true,  catalogue_edit: true,  calculateur: true,  clients: true,  documents: true,  assistant: true,  approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false, can_unlock_submission: false },
+        'Charg\u00e9 de projet': { catalogue: true,  catalogue_edit: false, calculateur: true,  clients: true,  documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false, can_unlock_submission: false },
+        'Achat':             { catalogue: true,  catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: true,  can_approve_quotes: false, can_bypass_approval: false, can_unlock_submission: false },
+        'Atelier':           { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: true,  assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false, can_unlock_submission: false },
+        'Client':            { catalogue: false, catalogue_edit: false, calculateur: false, clients: false, documents: false, assistant: false, approbation: false, admin: false, edit_minutes: false, edit_materials: false, can_approve_quotes: false, can_bypass_approval: false, can_unlock_submission: false }
     };
 
     var DEFAULT_USER_ROLES = { 'hubert@stele.ca': 'Admin' };

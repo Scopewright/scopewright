@@ -1972,7 +1972,8 @@
                 var catName = cInputs[j].getAttribute('data-cat');
                 var expCat = expenseCategories.find(function(c) { return c.name === catName; });
                 var markup = expCat ? (expCat.markup || 0) : 0;
-                materialTotal += cost * (1 + markup / 100);
+                var waste = expCat ? (expCat.waste || 0) : 0;
+                materialTotal += cost * (1 + markup / 100 + waste / 100);
             }
 
             var total = laborTotal + materialTotal;

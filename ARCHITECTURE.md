@@ -259,7 +259,7 @@
 | `catalogue_categories` | `["Budgétaire", "Panneaux", ...]` | Catégories du catalogue | admin.html |
 | `media_tags` | `["fiche_client", "catalogue", "technique", "dessin"]` | Tags pour les médias | admin.html |
 | `taux_horaires` | `[{ department, taux_horaire, frais_fixe, salaire }]` | Taux horaires par département | admin.html |
-| `expense_categories` | `[{ name, markup }]` | Catégories de dépenses + majoration % | admin.html |
+| `expense_categories` | `[{ name, markup, waste }]` | Catégories de dépenses + majoration % + perte % | admin.html |
 
 ---
 
@@ -490,7 +490,12 @@ Main d'oeuvre = Σ pour chaque département :
   (exclut "Installation" si includeInstallation = false)
 
 Matériaux = Σ pour chaque catégorie de dépense :
-  coût × (1 + markup% / 100)
+  coût × (1 + markup% / 100 + waste% / 100)
+
+  waste% = facteur de perte (défaut: 0%)
+  Prix coûtant = coût × (1 + waste/100) — inclut la perte, PAS le markup
+  Profit matériaux = coût × markup/100 — le markup seulement
+  Prix vendu = coût × (1 + waste/100 + markup/100) — perte + markup parallèles
 ```
 
 Si le résultat est > 0, il remplace `item.price`. Sinon, le prix fixe `item.price` est utilisé.

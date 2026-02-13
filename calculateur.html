@@ -3024,7 +3024,9 @@
                 var cat = expenseCategories[j].name;
                 var cost = materialCosts[cat] || 0;
                 if (cost > 0) {
-                    materialTotal += cost * (1 + (expenseCategories[j].markup || 0) / 100);
+                    var markup = (expenseCategories[j].markup || 0) / 100;
+                    var waste = (expenseCategories[j].waste || 0) / 100;
+                    materialTotal += cost * (1 + markup + waste);
                     hasComposed = true;
                 }
             }
@@ -3169,7 +3171,9 @@
                 var cost = parseFloat(cInputs[j].value) || 0;
                 var catName = cInputs[j].getAttribute('data-cat');
                 var expCat = expenseCategories.find(function(c) { return c.name === catName; });
-                materialTotal += cost * (1 + (expCat ? (expCat.markup || 0) : 0) / 100);
+                var markup = (expCat ? (expCat.markup || 0) : 0) / 100;
+                var waste = (expCat ? (expCat.waste || 0) : 0) / 100;
+                materialTotal += cost * (1 + markup + waste);
             }
 
             var total = laborTotal + materialTotal;
@@ -6408,6 +6412,7 @@
             var deptMinutes = {};
             var matCoutant = {};
             var totalMatMarkup = 0;
+            var totalMatWaste = 0;
             var totalMatCoutant = 0;
             var totalHeuresCharge = 0;
             var totalSalaires = 0;
@@ -6465,10 +6470,11 @@
                     matCoutant[c.name] = (matCoutant[c.name] || 0) + cost;
                     totalMatCoutant += cost;
                     totalMatMarkup += cost * ((c.markup || 0) / 100);
+                    totalMatWaste += cost * ((c.waste || 0) / 100);
                 });
             });
 
-            totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatMarkup;
+            totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
 
             // Marges
             var profitNet = totalProfitMO + totalMatMarkup;
@@ -6496,7 +6502,8 @@
             html += '<table class="rentab-table">';
             html += '<tr class="highlight"><td>PRIX DE VENTE TOTAL</td><td>' + f(totalPrixVente) + '</td></tr>';
             html += '<tr class="spacer"><td></td><td></td></tr>';
-            html += '<tr><td>Prix co\u00fbtant mat\u00e9riaux</td><td>' + f(totalMatCoutant) + '</td></tr>';
+            html += '<tr><td>Prix co\u00fbtant mat\u00e9riaux (base)</td><td>' + f(totalMatCoutant) + '</td></tr>';
+            html += '<tr><td>Perte mat\u00e9riaux</td><td>' + f(totalMatWaste) + '</td></tr>';
             html += '<tr><td>Mark up mat\u00e9riaux</td><td>' + f(totalMatMarkup) + '</td></tr>';
             html += '<tr class="spacer"><td></td><td></td></tr>';
             html += '<tr class="highlight"><td>TOTAL HEURES CHARG\u00c9</td><td>' + f(totalHeuresCharge) + '</td></tr>';

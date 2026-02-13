@@ -1819,7 +1819,7 @@
         }
 
         /* ── Main action buttons ── */
-        .ph-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+        .ph-actions { display: none; /* replaced by timeline CTA */ }
         .btn-main-action {
             display: none; padding: 12px 28px; font-size: 15px; font-weight: 600;
             border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
@@ -1979,6 +1979,65 @@
             position: absolute; top: 8px; right: 12px;
         }
         .save-indicator.saving { color: var(--stele-green); }
+
+        /* Status Timeline */
+        .status-timeline {
+            margin: 16px 0 4px; display: flex; align-items: center; gap: 0;
+            position: relative;
+        }
+        .timeline-step {
+            display: flex; align-items: center; gap: 6px; position: relative; flex: 0 0 auto;
+            padding-right: 16px;
+        }
+        .timeline-step:last-child { padding-right: 0; }
+        .timeline-step::after {
+            content: ''; position: absolute; right: -1px; top: 50%;
+            transform: translateY(-50%); width: 24px; height: 1px; background: #ddd;
+        }
+        .timeline-step:last-child::after { display: none; }
+        .timeline-step.completed::after { background: #4caf50; }
+        .timeline-circle {
+            width: 20px; height: 20px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+        }
+        .timeline-step.completed .timeline-circle {
+            background: #4caf50; color: #fff;
+        }
+        .timeline-step.active .timeline-circle {
+            background: var(--stele-green); color: #fff; box-shadow: 0 0 0 3px rgba(75,96,80,0.15);
+        }
+        .timeline-step.active.returned .timeline-circle {
+            background: #ff9800; box-shadow: 0 0 0 3px rgba(255,152,0,0.15);
+        }
+        .timeline-step.future .timeline-circle {
+            background: #f0f0f0; color: #bbb; border: 1px solid #ddd;
+        }
+        .timeline-label {
+            font-size: 12px; color: #666; white-space: nowrap;
+        }
+        .timeline-step.active .timeline-label {
+            font-weight: 700; color: var(--stele-black);
+        }
+        .timeline-step.completed .timeline-label {
+            color: #666;
+        }
+        .timeline-cta {
+            margin-left: auto; padding-left: 16px;
+        }
+        .timeline-cta button {
+            background: var(--stele-green); color: #fff; border: none; padding: 8px 20px;
+            border-radius: 6px; font-size: 13px; font-weight: 600; font-family: inherit;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .timeline-cta button:hover {
+            background: #3e4f42; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .timeline-cta button.btn-orange {
+            background: #ff9800;
+        }
+        .timeline-cta button.btn-orange:hover {
+            background: #f57c00;
+        }
 
         /* Modal Rentabilité */
         /* ── Rentabilité modal ── */
@@ -2212,6 +2271,7 @@
                     <div class="ph-total-label">Total estim&eacute;</div>
                     <div class="ph-total-amount" id="headerTotal">0,00 $</div>
                 </div>
+                <div class="status-timeline" id="statusTimeline"></div>
                 <div class="ph-actions" id="mainActions">
                     <button class="btn-main-action" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
                     <button class="btn-main-action btn-main-green" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
@@ -5332,7 +5392,7 @@
 
         var STATUS_LABELS = {
             'draft': 'Brouillon', 'pending_internal': 'En approbation', 'returned': 'Retourn\u00e9e',
-            'approved_internal': 'Approuv\u00e9e', 'sent_client': 'Envoy\u00e9e', 'accepted': 'Vendu',
+            'approved_internal': 'Pr\u00eate \u00e0 envoyer', 'sent_client': 'Envoy\u00e9e', 'accepted': 'Vendue',
             'invoiced': 'Factur\u00e9e',
             // Legacy
             'brouillon': 'Brouillon', 'soumis': 'Soumis', 'approuv\u00e9': 'Approuv\u00e9',
@@ -5351,6 +5411,94 @@
             } else {
                 badge.textContent = prefix + label;
             }
+        }
+
+        function updateStatusTimeline() {
+            var container = document.getElementById('statusTimeline');
+            if (!container || !currentSubmission) {
+                if (container) container.innerHTML = '';
+                return;
+            }
+
+            var status = currentSubmission.status;
+            // invoiced is treated same as accepted for timeline
+            if (status === 'invoiced') status = 'accepted';
+
+            // Define 6 timeline steps
+            var steps = [
+                { key: 'draft', label: 'Brouillon' },
+                { key: 'pending_internal', label: 'En approbation' },
+                { key: 'returned', label: 'Retourn\u00e9e' },
+                { key: 'approved_internal', label: 'Pr\u00eate \u00e0 envoyer' },
+                { key: 'sent_client', label: 'Envoy\u00e9e' },
+                { key: 'accepted', label: 'Vendue' }
+            ];
+
+            // Determine step state for each step
+            function getStepState(stepKey) {
+                if (stepKey === status) return 'active';
+
+                // Special: "returned" is only active when status is returned, otherwise always future
+                if (stepKey === 'returned') {
+                    return (status === 'returned') ? 'active' : 'future';
+                }
+
+                // Linear progression for other steps
+                switch (status) {
+                    case 'draft':
+                        return 'future';
+                    case 'pending_internal':
+                        return (stepKey === 'draft') ? 'completed' : 'future';
+                    case 'returned':
+                        return (stepKey === 'draft' || stepKey === 'pending_internal') ? 'completed' : 'future';
+                    case 'approved_internal':
+                        return (stepKey === 'draft' || stepKey === 'pending_internal') ? 'completed' : 'future';
+                    case 'sent_client':
+                        return (stepKey === 'draft' || stepKey === 'pending_internal' || stepKey === 'approved_internal') ? 'completed' : 'future';
+                    case 'accepted':
+                        return (stepKey === 'draft' || stepKey === 'pending_internal' || stepKey === 'approved_internal' || stepKey === 'sent_client') ? 'completed' : 'future';
+                    default:
+                        return 'future';
+                }
+            }
+
+            var html = '';
+            steps.forEach(function(step) {
+                var stepState = getStepState(step.key);
+                var classNames = 'timeline-step ' + stepState;
+                if (step.key === 'returned' && stepState === 'active') classNames += ' returned';
+
+                html += '<div class="' + classNames + '">';
+                html += '<div class="timeline-circle">';
+                if (stepState === 'completed') {
+                    html += '\u2713'; // checkmark
+                } else {
+                    html += '&nbsp;';
+                }
+                html += '</div>';
+                html += '<span class="timeline-label">' + escapeHtml(step.label) + '</span>';
+                html += '</div>';
+            });
+
+            // CTA button at the end
+            var cta = null;
+            if (status === 'draft' || status === 'returned') {
+                cta = { text: status === 'returned' ? 'Resoumettre' : 'Soumettre', action: 'openSubmitModal()', className: status === 'returned' ? 'btn-orange' : '' };
+            } else if (status === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {
+                cta = { text: 'Approuver', action: 'approveSubmission()', className: '' };
+            } else if (status === 'approved_internal') {
+                cta = { text: 'Envoyer au client', action: 'sendToClient()', className: '' };
+            } else if (status === 'sent_client') {
+                cta = { text: 'Confirmer la vente', action: 'offlineAcceptance()', className: '' };
+            }
+
+            if (cta) {
+                html += '<div class="timeline-cta">';
+                html += '<button onclick="' + cta.action + '" class="' + (cta.className || '') + '">' + escapeHtml(cta.text) + '</button>';
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
         }
 
         async function renderProjectList() {
@@ -6029,6 +6177,7 @@
 
             // Update header total
             updateHeaderTotal();
+            updateStatusTimeline();
         }
 
         // submitForApproval() redirigé vers le modal

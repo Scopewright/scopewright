@@ -5108,8 +5108,8 @@
                     html += '    <div class="plan-meta">' + date + ' • ' + size + (pages ? ' • ' + pages : '') + '</div>';
                     html += '  </div>';
                     html += '  <div class="plan-actions">';
-                    html += '    <button class="plan-action-btn" onclick="openPdfViewer(\'' + plan.id + '\')">Voir</button>';
-                    html += '    <button class="plan-action-btn" onclick="downloadPlan(\'' + plan.id + '\', \'' + plan.file_name + '\')">Télécharger</button>';
+                    html += '    <button class="plan-action-btn" id="btnView_' + plan.id + '" onclick="openPdfViewer(\'' + plan.id + '\')"><span class="btn-text">Voir</span></button>';
+                    html += '    <button class="plan-action-btn" id="btnDownload_' + plan.id + '" onclick="downloadPlan(\'' + plan.id + '\', \'' + plan.file_name + '\')"><span class="btn-text">Télécharger</span></button>';
                     html += '    <button class="plan-action-btn danger" onclick="deletePlan(\'' + plan.id + '\')">Supprimer</button>';
                     html += '  </div>';
                     html += '</div>';
@@ -5233,7 +5233,27 @@
             }
         }
 
+        function setPlanButtonLoading(planId, btnType, isLoading) {
+            var btn = document.getElementById('btn' + btnType + '_' + planId);
+            if (!btn) return;
+
+            if (isLoading) {
+                btn.disabled = true;
+                var textSpan = btn.querySelector('.btn-text');
+                if (textSpan) {
+                    textSpan.style.opacity = '0.6';
+                    var loadingText = btnType === 'View' ? 'Ouverture...' : 'Téléchargement...';
+                    btn.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">⏳</span> ' + loadingText;
+                }
+            } else {
+                btn.disabled = false;
+                var originalText = btnType === 'View' ? 'Voir' : 'Télécharger';
+                btn.innerHTML = '<span class="btn-text">' + originalText + '</span>';
+            }
+        }
+
         async function downloadPlan(planId, fileName) {
+            setPlanButtonLoading(planId, 'Download', true);
             try {
                 // Get plan record to get file_path
                 var planResp = await authenticatedFetch(
@@ -5270,6 +5290,8 @@
             } catch (err) {
                 console.error('Download error:', err);
                 alert('Erreur de téléchargement: ' + err.message);
+            } finally {
+                setPlanButtonLoading(planId, 'Download', false);
             }
         }
 
@@ -5328,6 +5350,7 @@
         var currentPlanRecord = null;
 
         async function openPdfViewer(planId) {
+            setPlanButtonLoading(planId, 'View', true);
             try {
                 // Get plan record
                 var planResp = await authenticatedFetch(
@@ -5379,6 +5402,8 @@
             } catch (err) {
                 console.error('PDF viewer error:', err);
                 alert('Erreur d\'ouverture du PDF: ' + err.message);
+            } finally {
+                setPlanButtonLoading(planId, 'View', false);
             }
         }
 

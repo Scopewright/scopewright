@@ -48,15 +48,16 @@
         }
     }
 
-    // Timeout de 15 secondes pour le chargement initial
+    // Timeout de 30 secondes pour le chargement initial
     appLoadTimeout = setTimeout(function() {
         if (!appReady) {
+            console.error('App load timeout - appReady never set to true');
             showOverlayError(
                 'Chargement lent',
-                'Le chargement prend plus de temps que prévu. Vérifiez votre connexion internet.'
+                'Le chargement prend plus de temps que prévu. Vérifiez votre connexion internet ou rafraîchissez la page.'
             );
         }
-    }, 15000);
+    }, 30000);
 
     // ═══════════════════════════════════════════════════════════════════════
     // AUTHENTICATION & CONSTANTS
@@ -2640,6 +2641,7 @@
         }
         .overlay-message {
             font-size: 14px; color: #666; margin-bottom: 24px;
+            white-space: pre-line;
         }
         .overlay-error-icon {
             font-size: 48px; margin-bottom: 16px;
@@ -8209,9 +8211,13 @@
 
             } catch (error) {
                 console.error('Application initialization error:', error);
+                var errorMsg = 'Une erreur est survenue lors du chargement de l\'application.';
+                if (error && error.message) {
+                    errorMsg += '\n\nDétails techniques: ' + error.message;
+                }
                 showOverlayError(
                     'Erreur de chargement',
-                    'Une erreur est survenue lors du chargement de l\'application. Vérifiez votre connexion et rafraîchissez la page.'
+                    errorMsg
                 );
             }
         });

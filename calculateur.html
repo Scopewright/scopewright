@@ -3148,7 +3148,7 @@
                     <button class="pdf-control-btn" onclick="pdfRotate()" title="Rotation 90\u00b0">&#8635;</button>
                     <div class="pdf-control-divider"></div>
                     <button class="pdf-action-btn" id="btnCapturePage" onclick="capturePdfPage()" title="Capturer cette page">&#128248; Capturer</button>
-                    <button class="pdf-action-btn" onclick="openPdfInNewWindow()" title="Ouvrir dans une nouvelle fen\u00eatre" style="margin-left:8px;">&#8599; Nouvelle fen\u00eatre</button>
+                    <button class="pdf-action-btn" onclick="openPdfInNewWindow()" title="Ouvrir dans une nouvelle fenêtre" style="margin-left:8px;">&#8599; Nouvelle fenêtre</button>
                 </div>
                 <button class="pdf-viewer-close" onclick="closePdfViewer()">&times;</button>
             </div>
@@ -5591,8 +5591,14 @@
 
                 var viewport = page.getViewport({ scale: pdfScale, rotation: pdfRotation });
 
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
+                // Update zoom info immediately for better UX
+                document.getElementById('pdfZoomInfo').textContent = Math.round(pdfScale * 100) + '%';
+
+                // Only update canvas dimensions if they changed (prevents flickering)
+                if (canvas.width !== viewport.width || canvas.height !== viewport.height) {
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                }
 
                 var renderContext = {
                     canvasContext: ctx,
@@ -5606,7 +5612,6 @@
 
                 // Update UI
                 document.getElementById('pdfPageInfo').textContent = pdfCurrentPage + ' / ' + pdfTotalPages;
-                document.getElementById('pdfZoomInfo').textContent = Math.round(pdfScale * 100) + '%';
 
                 // Update prev/next buttons
                 document.getElementById('btnPdfPrev').disabled = (pdfCurrentPage <= 1);

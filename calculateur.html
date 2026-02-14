@@ -5243,7 +5243,7 @@
                 if (textSpan) {
                     textSpan.style.opacity = '0.6';
                     var loadingText = btnType === 'View' ? 'Ouverture...' : 'Téléchargement...';
-                    btn.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">⏳</span> ' + loadingText;
+                    btn.innerHTML = '<span style="display:inline-block; animation: spin 1s linear infinite;">⟳</span> ' + loadingText;
                 }
             } else {
                 btn.disabled = false;

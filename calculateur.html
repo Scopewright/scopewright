@@ -5348,9 +5348,21 @@
         var pdfRotation = 0;
         var currentPdfUrl = null;
         var currentPlanRecord = null;
+        var currentRenderTask = null; // Track current render task for cancellation
 
         async function openPdfViewer(planId) {
             setPlanButtonLoading(planId, 'View', true);
+
+            // Cancel any render in progress from previous PDF
+            if (currentRenderTask) {
+                try {
+                    currentRenderTask.cancel();
+                } catch (e) {
+                    // Ignore
+                }
+                currentRenderTask = null;
+            }
+
             try {
                 // Get plan record
                 var planResp = await authenticatedFetch(
@@ -5408,6 +5420,16 @@
         }
 
         function closePdfViewer() {
+            // Cancel any render in progress
+            if (currentRenderTask) {
+                try {
+                    currentRenderTask.cancel();
+                } catch (e) {
+                    // Ignore
+                }
+                currentRenderTask = null;
+            }
+
             document.getElementById('pdfViewerOverlay').classList.remove('active');
             // Don't reset pdfDoc - keep it in memory for captures
             // pdfDoc = null;
@@ -5552,37 +5574,59 @@
         async function renderPdfPage() {
             if (!pdfDoc) return;
 
-            var page = await pdfDoc.getPage(pdfCurrentPage);
-            var canvas = document.getElementById('pdfCanvas');
-            var ctx = canvas.getContext('2d');
-
-            var viewport = page.getViewport({ scale: pdfScale, rotation: pdfRotation });
-
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-
-            var renderContext = {
-                canvasContext: ctx,
-                viewport: viewport
-            };
-
-            await page.render(renderContext).promise;
-
-            // Update UI
-            document.getElementById('pdfPageInfo').textContent = pdfCurrentPage + ' / ' + pdfTotalPages;
-            document.getElementById('pdfZoomInfo').textContent = Math.round(pdfScale * 100) + '%';
-
-            // Update prev/next buttons
-            document.getElementById('btnPdfPrev').disabled = (pdfCurrentPage <= 1);
-            document.getElementById('btnPdfNext').disabled = (pdfCurrentPage >= pdfTotalPages);
-
-            // Update active thumbnail
-            var thumbs = document.querySelectorAll('.pdf-thumb');
-            for (var i = 0; i < thumbs.length; i++) {
-                thumbs[i].classList.remove('active');
+            // Cancel previous render if still in progress
+            if (currentRenderTask) {
+                try {
+                    currentRenderTask.cancel();
+                } catch (e) {
+                    // Ignore cancel errors
+                }
+                currentRenderTask = null;
             }
-            var activeThumb = document.querySelector('.pdf-thumb[data-page="' + pdfCurrentPage + '"]');
-            if (activeThumb) activeThumb.classList.add('active');
+
+            try {
+                var page = await pdfDoc.getPage(pdfCurrentPage);
+                var canvas = document.getElementById('pdfCanvas');
+                var ctx = canvas.getContext('2d');
+
+                var viewport = page.getViewport({ scale: pdfScale, rotation: pdfRotation });
+
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                var renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+
+                // Store render task so we can cancel it if needed
+                currentRenderTask = page.render(renderContext);
+                await currentRenderTask.promise;
+                currentRenderTask = null;
+
+                // Update UI
+                document.getElementById('pdfPageInfo').textContent = pdfCurrentPage + ' / ' + pdfTotalPages;
+                document.getElementById('pdfZoomInfo').textContent = Math.round(pdfScale * 100) + '%';
+
+                // Update prev/next buttons
+                document.getElementById('btnPdfPrev').disabled = (pdfCurrentPage <= 1);
+                document.getElementById('btnPdfNext').disabled = (pdfCurrentPage >= pdfTotalPages);
+
+                // Update active thumbnail
+                var thumbs = document.querySelectorAll('.pdf-thumb');
+                for (var i = 0; i < thumbs.length; i++) {
+                    thumbs[i].classList.remove('active');
+                }
+                var activeThumb = document.querySelector('.pdf-thumb[data-page="' + pdfCurrentPage + '"]');
+                if (activeThumb) activeThumb.classList.add('active');
+            } catch (err) {
+                // Ignore render cancellation errors
+                if (err.name === 'RenderingCancelledException') {
+                    console.log('PDF render cancelled');
+                } else {
+                    console.error('PDF render error:', err);
+                }
+            }
         }
 
         async function renderPdfThumbnails() {

@@ -5608,6 +5608,19 @@
 '  else if (e.deltaY < 0 && currentPage > 1) { navigate(-1); scrollCooldown = true; setTimeout(function() { scrollCooldown = false; }, 300); }' +
 '}, { passive: true });' +
 
+/* Ctrl+drag pan (hand tool like Adobe) */
+'var isPanning = false, panStartX = 0, panStartY = 0, scrollStartX = 0, scrollStartY = 0;' +
+'var cc = document.getElementById("canvasContainer");' +
+'cc.addEventListener("mousedown", function(e) {' +
+'  if (e.ctrlKey && e.button === 0) { e.preventDefault(); isPanning = true; panStartX = e.clientX; panStartY = e.clientY; scrollStartX = cc.scrollLeft; scrollStartY = cc.scrollTop; cc.style.cursor = "grabbing"; }' +
+'});' +
+'window.addEventListener("mousemove", function(e) {' +
+'  if (!isPanning) return; cc.scrollLeft = scrollStartX - (e.clientX - panStartX); cc.scrollTop = scrollStartY - (e.clientY - panStartY);' +
+'});' +
+'window.addEventListener("mouseup", function() { if (isPanning) { isPanning = false; cc.style.cursor = ""; } });' +
+'document.addEventListener("keydown", function(e) { if (e.key === "Control") cc.style.cursor = "grab"; });' +
+'document.addEventListener("keyup", function(e) { if (e.key === "Control" && !isPanning) cc.style.cursor = ""; });' +
+
 /* Load rooms dropdown */
 'async function loadRooms() {' +
 '  try {' +

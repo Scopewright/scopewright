@@ -22,6 +22,10 @@
 !supabase/functions/
 !supabase/functions/translate/
 !supabase/functions/translate/index.ts
+!supabase/functions/ai-assistant/
+!supabase/functions/ai-assistant/index.ts
+!sql/
+!sql/*
 !landing-page/
 !landing-page/*
 !landing-page/.env.example

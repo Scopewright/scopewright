@@ -412,6 +412,1032 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // AI ASSISTANT — DRAWER & MESSAGING
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var aiConversation = [];      // { role, content } for API
+    var aiPendingImages = [];     // base64 images waiting to send
+    var aiCurrentScope = 'project';
+    var aiChatLoaded = false;     // whether we loaded from DB for this submission
+
+    function openAiDrawer() {
+        document.getElementById('aiOverlay').classList.add('active');
+        document.getElementById('aiDrawer').classList.add('active');
+        updateAiScope();
+        if (!aiChatLoaded && currentSubmission) {
+            aiChatLoaded = true;
+            loadAiChat(currentSubmission.id);
+        }
+        setTimeout(function() { document.getElementById('aiInput').focus(); }, 300);
+    }
+
+    function closeAiDrawer() {
+        document.getElementById('aiOverlay').classList.remove('active');
+        document.getElementById('aiDrawer').classList.remove('active');
+    }
+
+    function updateAiScope() {
+        var badge = document.getElementById('aiScopeBadge');
+        if (!badge) return;
+        badge.textContent = aiCurrentScope === 'room' ? 'Pièce' : aiCurrentScope === 'submission' ? 'Soumission' : 'Projet';
+    }
+
+    // ── Render un message dans le chat ──
+    function appendAiMessage(role, content, opts) {
+        opts = opts || {};
+        var container = document.getElementById('aiMessages');
+        var div = document.createElement('div');
+
+        if (role === 'action') {
+            div.className = 'ai-msg ai-msg-action';
+            div.innerHTML = '<div class="ai-action-label">Action propos\u00e9e</div>' + escapeHtml(content);
+            container.appendChild(div);
+        } else if (role === 'confirm') {
+            div.className = 'ai-msg ai-msg-confirm';
+            var confirmId = 'ai-confirm-' + Date.now();
+            div.id = confirmId;
+            div.innerHTML = '<div class="ai-confirm-text">' + renderAiMarkdown(content) + '</div>' +
+                '<div class="ai-confirm-actions">' +
+                '<button class="btn-ai-apply" onclick="aiApplyPending(\'' + confirmId + '\')">Appliquer</button>' +
+                '<button class="btn-ai-dismiss" onclick="aiDismissPending(\'' + confirmId + '\')">Ignorer</button>' +
+                '</div>';
+            container.appendChild(div);
+        } else {
+            div.className = 'ai-msg ai-msg-' + role;
+            if (role === 'user' && opts.images && opts.images.length > 0) {
+                var imgHtml = opts.images.map(function(src) {
+                    return '<img src="' + src + '" style="max-width:100%;border-radius:8px;margin-bottom:6px;">';
+                }).join('');
+                div.innerHTML = imgHtml + renderAiMarkdown(content);
+            } else {
+                div.innerHTML = renderAiMarkdown(content);
+            }
+            container.appendChild(div);
+        }
+
+        // Auto scroll
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ── Markdown minimal : gras, italique, listes, code, tableaux ──
+    function renderAiMarkdown(text) {
+        if (!text) return '';
+        // Escape HTML first
+        var s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // Code blocks
+        s = s.replace(/```([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px;">$1</pre>');
+        // Inline code
+        s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Bold
+        s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Italic
+        s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        // Tables (simple: | col | col |)
+        s = s.replace(/((?:\|.*\|\n?)+)/g, function(table) {
+            var rows = table.trim().split('\n').filter(function(r) { return r.trim() && !/^\|[\s\-:]+\|$/.test(r); });
+            if (rows.length === 0) return table;
+            var html = '<table>';
+            rows.forEach(function(row, i) {
+                var cells = row.split('|').filter(function(c) { return c.trim() !== ''; });
+                var tag = i === 0 ? 'th' : 'td';
+                html += '<tr>' + cells.map(function(c) { return '<' + tag + '>' + c.trim() + '</' + tag + '>'; }).join('') + '</tr>';
+            });
+            html += '</table>';
+            return html;
+        });
+        // Unordered lists
+        s = s.replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>');
+        s = s.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+        // Paragraphs
+        s = s.replace(/\n{2,}/g, '</p><p>');
+        s = s.replace(/\n/g, '<br>');
+        s = '<p>' + s + '</p>';
+        s = s.replace(/<p><\/p>/g, '');
+        return s;
+    }
+
+    function showAiTyping() { document.getElementById('aiTyping').classList.add('active'); }
+    function hideAiTyping() { document.getElementById('aiTyping').classList.remove('active'); }
+
+    function aiInputKeydown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendAiMessage();
+        }
+    }
+
+    function aiQuickAction(text) {
+        document.getElementById('aiInput').value = text;
+        sendAiMessage();
+    }
+
+    // ── Auto-resize textarea ──
+    (function() {
+        document.addEventListener('input', function(e) {
+            if (e.target.id === 'aiInput') {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+            }
+        });
+    })();
+
+    // ── Image paste & drag-drop ──
+    function setupAiImageHandlers() {
+        var input = document.getElementById('aiInput');
+        var dropZone = document.getElementById('aiDropZone');
+        var drawer = document.getElementById('aiDrawer');
+
+        if (input) {
+            input.addEventListener('paste', function(e) {
+                var items = (e.clipboardData || {}).items || [];
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        var file = items[i].getAsFile();
+                        aiProcessImage(file);
+                        break;
+                    }
+                }
+            });
+        }
+
+        if (drawer) {
+            drawer.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('active');
+            });
+            drawer.addEventListener('dragleave', function(e) {
+                if (!drawer.contains(e.relatedTarget)) dropZone.classList.remove('active');
+            });
+            drawer.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('active');
+                var files = e.dataTransfer.files;
+                for (var i = 0; i < files.length; i++) {
+                    if (files[i].type.indexOf('image') !== -1) {
+                        aiProcessImage(files[i]);
+                    }
+                }
+            });
+        }
+    }
+
+    function aiProcessImage(file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            // Compress via canvas
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var maxDim = 1200;
+                var w = img.width, h = img.height;
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                    else { w = Math.round(w * maxDim / h); h = maxDim; }
+                }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                aiPendingImages.push(dataUrl);
+                renderAiImagePreviews();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderAiImagePreviews() {
+        var container = document.getElementById('aiImgPreview');
+        container.innerHTML = '';
+        aiPendingImages.forEach(function(src, i) {
+            var div = document.createElement('div');
+            div.className = 'ai-img-thumb';
+            div.innerHTML = '<img src="' + src + '"><button class="ai-img-remove" onclick="aiRemoveImage(' + i + ')">&times;</button>';
+            container.appendChild(div);
+        });
+    }
+
+    function aiRemoveImage(index) {
+        aiPendingImages.splice(index, 1);
+        renderAiImagePreviews();
+    }
+
+    // ── Reset chat when switching submissions ──
+    function resetAiChat() {
+        aiConversation = [];
+        aiPendingImages = [];
+        aiChatLoaded = false;
+        var container = document.getElementById('aiMessages');
+        if (container) container.innerHTML = '';
+        var preview = document.getElementById('aiImgPreview');
+        if (preview) preview.innerHTML = '';
+    }
+
+    // ── Collect AI context from current calculator state ──
+    var aiClientFileCache = null;
+
+    function collectRoomsSummary() {
+        var rooms = [];
+        document.querySelectorAll('#calculatorView .furniture-group').forEach(function(group) {
+            var gid = group.id;
+            var nameEl = group.querySelector('.furniture-name-input');
+            var name = nameEl ? (nameEl.value.trim() || 'Sans nom') : 'Sans nom';
+            var rows = group.querySelectorAll('.calc-row');
+            var itemCount = 0;
+            var subtotal = 0;
+            rows.forEach(function(row) {
+                var sel = row.querySelector('.item-select');
+                if (sel && sel.value) { itemCount++; subtotal += getRowTotal(row); }
+            });
+            var descEl = document.getElementById(gid + '-clientDesc');
+            var installCb = document.getElementById(gid + '-install');
+            rooms.push({
+                groupId: gid,
+                roomId: roomMap[gid] || null,
+                name: name,
+                itemCount: itemCount,
+                subtotal: Math.round(subtotal * 100) / 100,
+                hasDescription: !!(descEl && descEl.value.trim()),
+                installationIncluded: installCb ? installCb.checked : true
+            });
+        });
+        return rooms;
+    }
+
+    function collectRoomDetail(groupId) {
+        var group = document.getElementById(groupId);
+        if (!group) return null;
+        var nameEl = group.querySelector('.furniture-name-input');
+        var name = nameEl ? (nameEl.value.trim() || 'Sans nom') : 'Sans nom';
+        var descEl = document.getElementById(groupId + '-clientDesc');
+        var installCb = document.getElementById(groupId + '-install');
+        var includeInstall = installCb ? installCb.checked : true;
+
+        var items = [];
+        var subtotal = 0;
+        group.querySelectorAll('.calc-row').forEach(function(row, idx) {
+            var sel = row.querySelector('.item-select');
+            var qtyInput = row.querySelector('.qty-input');
+            if (!sel || !sel.value) return;
+            var qty = parseFloat(qtyInput.value) || 0;
+            var selectedId = sel.value;
+            var tagInput = row.querySelector('.cell-tag input');
+            var tag = tagInput ? tagInput.value.trim() : '';
+            if (selectedId === '__AJOUT__') {
+                var descInput = row.querySelector('.ajout-description');
+                var priceInput = row.querySelector('.ajout-price');
+                var markupInput = row.querySelector('.ajout-markup');
+                var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
+                var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
+                var lt = p * qty * (1 + m / 100);
+                subtotal += lt;
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100 });
+            } else if (selectedId !== '__PROPOSER__') {
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                if (item) {
+                    var composed = computeComposedPrice(item, includeInstall);
+                    var effPrice = composed !== null ? composed : (item.price || 0);
+                    var lt2 = effPrice * qty;
+                    subtotal += lt2;
+                    items.push({
+                        index: idx, tag: tag || null, type: 'catalogue', catalogueId: item.id,
+                        description: item.description, itemType: item.type,
+                        unitPrice: Math.round(effPrice * 100) / 100, qty: qty,
+                        lineTotal: Math.round(lt2 * 100) / 100,
+                        laborMinutes: item.labor_minutes || {},
+                        materialCosts: item.material_costs || {}
+                    });
+                }
+            }
+        });
+
+        // Compute rentability inline (same logic as openRentab but returns data)
+        var rentab = computeRentabilityData('room', groupId);
+
+        return {
+            groupId: groupId,
+            roomId: roomMap[groupId] || null,
+            name: name,
+            installationIncluded: includeInstall,
+            clientDescription: descEl ? descEl.value.trim() : '',
+            items: items,
+            subtotal: Math.round(subtotal * 100) / 100,
+            rentability: rentab
+        };
+    }
+
+    function computeRentabilityData(scope, groupId) {
+        var rows;
+        if (scope === 'project') {
+            rows = document.querySelectorAll('.calc-row');
+        } else {
+            rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
+        }
+        if (!rows || rows.length === 0) return null;
+
+        var deptMinutes = {};
+        var totalMatCoutant = 0, totalMatMarkup = 0, totalMatWaste = 0;
+        var totalHeuresCharge = 0, totalSalaires = 0, totalFraisFixes = 0, totalProfitMO = 0;
+        var totalPrixVente = 0;
+
+        tauxHoraires.forEach(function(t) { deptMinutes[t.department] = 0; });
+
+        rows.forEach(function(row) {
+            var select = row.querySelector('.item-select');
+            var qtyInput = row.querySelector('.qty-input');
+            if (!select || !qtyInput) return;
+            var selectedId = select.value;
+            var qty = parseFloat(qtyInput.value) || 0;
+            if (!selectedId || selectedId === '__PROPOSER__') return;
+            if (selectedId === '__AJOUT__') {
+                var pi = row.querySelector('.ajout-price');
+                var mi = row.querySelector('.ajout-markup');
+                var p = parseFloat(pi ? pi.value : 0) || 0;
+                var m = parseFloat(mi ? mi.value : 0) || 0;
+                totalPrixVente += p * qty * (1 + m / 100);
+                return;
+            }
+            var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+            if (!item) return;
+            var installCb = document.getElementById(row.id + '-install');
+            var includeInstall = installCb ? installCb.checked : true;
+            var laborMinutes = item.labor_minutes || {};
+            var materialCosts = item.material_costs || {};
+
+            tauxHoraires.forEach(function(t) {
+                var dept = t.department;
+                var mins = (laborMinutes[dept] || 0) * qty;
+                if (!includeInstall && dept === 'Installation') return;
+                deptMinutes[dept] = (deptMinutes[dept] || 0) + mins;
+                var hours = mins / 60;
+                totalHeuresCharge += hours * (t.taux_horaire || 0);
+                totalSalaires += hours * (t.salaire || 0);
+                totalFraisFixes += hours * (t.frais_fixe || 0);
+                totalProfitMO += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
+            });
+
+            expenseCategories.forEach(function(c) {
+                var cost = (materialCosts[c.name] || 0) * qty;
+                totalMatCoutant += cost;
+                totalMatMarkup += cost * ((c.markup || 0) / 100);
+                totalMatWaste += cost * ((c.waste || 0) / 100);
+            });
+        });
+
+        totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
+        var profitNet = totalProfitMO + totalMatMarkup;
+        var margeReelle = totalPrixVente > 0 ? (profitNet / totalPrixVente * 100) : 0;
+
+        return {
+            prixVente: Math.round(totalPrixVente * 100) / 100,
+            coutMateriaux: Math.round(totalMatCoutant * 100) / 100,
+            perteMateriaux: Math.round(totalMatWaste * 100) / 100,
+            markupMateriaux: Math.round(totalMatMarkup * 100) / 100,
+            heuresCharge: Math.round(totalHeuresCharge * 100) / 100,
+            salaires: Math.round(totalSalaires * 100) / 100,
+            fraisFixes: Math.round(totalFraisFixes * 100) / 100,
+            profitMO: Math.round(totalProfitMO * 100) / 100,
+            profitNet: Math.round(profitNet * 100) / 100,
+            margeReelle: Math.round(margeReelle * 10) / 10,
+            margeVisee: 38,
+            heuresParDept: deptMinutes
+        };
+    }
+
+    function buildCatalogueSummary() {
+        if (!CATALOGUE_DATA || CATALOGUE_DATA.length === 0) return '';
+        var cats = {};
+        CATALOGUE_DATA.forEach(function(item) {
+            if (!item.in_calculator) return;
+            var cat = item.category || 'Autre';
+            if (!cats[cat]) cats[cat] = [];
+            cats[cat].push(item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)');
+        });
+        var lines = [];
+        Object.keys(cats).forEach(function(cat) {
+            lines.push('### ' + cat);
+            cats[cat].forEach(function(line) { lines.push('- ' + line); });
+        });
+        return lines.join('\n');
+    }
+
+    async function loadClientFile() {
+        if (aiClientFileCache) return aiClientFileCache;
+        if (!currentProject || !currentProject.client_name) return null;
+        try {
+            var clientName = currentProject.client_name.trim();
+            // Search contacts by name match
+            var parts = clientName.split(' ');
+            var firstName = parts[0] || '';
+            var lastName = parts.slice(1).join(' ') || '';
+            var query = SUPABASE_URL + '/rest/v1/contacts?select=*,contact_companies(role,companies(name,notes))';
+            if (lastName) {
+                query += '&first_name=ilike.' + encodeURIComponent(firstName + '%') + '&last_name=ilike.' + encodeURIComponent(lastName + '%');
+            } else {
+                query += '&or=(first_name.ilike.' + encodeURIComponent('%' + firstName + '%') + ',last_name.ilike.' + encodeURIComponent('%' + firstName + '%') + ')';
+            }
+            var r = await authenticatedFetch(query, {});
+            if (!r.ok) return null;
+            var contacts = await r.json();
+            if (contacts.length === 0) return null;
+            var c = contacts[0];
+            var companies = (c.contact_companies || []).map(function(cc) {
+                return cc.companies ? cc.companies.name : null;
+            }).filter(Boolean);
+            var companyNotes = (c.contact_companies || []).map(function(cc) {
+                return cc.companies && cc.companies.notes ? cc.companies.notes : null;
+            }).filter(Boolean);
+
+            // Load recent communications
+            var commR = await authenticatedFetch(SUPABASE_URL + '/rest/v1/communications?contact_id=eq.' + c.id + '&order=comm_date.desc&limit=5&select=comm_type,direction,subject,content,comm_date', {});
+            var comms = commR.ok ? await commR.json() : [];
+            var commStr = comms.map(function(cm) {
+                return (cm.direction === 'outgoing' ? '→' : '←') + ' ' + (cm.comm_type || '') + ': ' + (cm.subject || cm.content || '').substring(0, 100);
+            }).join('\n');
+
+            aiClientFileCache = {
+                name: c.first_name + ' ' + c.last_name,
+                email: c.email || '',
+                phone: c.phone || '',
+                company: companies.join(', '),
+                notes: c.notes || '',
+                preferences: c.preferred_contact || '',
+                companyNotes: companyNotes.join('; '),
+                history: commStr || 'Aucune communication récente'
+            };
+            return aiClientFileCache;
+        } catch (e) {
+            console.warn('[AI] Could not load client file:', e);
+            return null;
+        }
+    }
+
+    async function collectAiContext() {
+        var clientFile = await loadClientFile();
+
+        // Load benchmarks from app_config if not already cached
+        var benchmarks = null;
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.ai_benchmarks&select=value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0) benchmarks = rows[0].value;
+            }
+        } catch (e) { /* ignore */ }
+
+        return {
+            project: currentProject ? {
+                name: currentProject.name,
+                client: currentProject.client_name,
+                designer: currentProject.designer,
+                address: currentProject.client_address
+            } : null,
+            submission: currentSubmission ? {
+                id: currentSubmission.id,
+                number: currentSubmission.submission_number,
+                status: currentSubmission.status,
+                title: currentSubmission.title
+            } : null,
+            rooms: collectRoomsSummary(),
+            focusRoomDetail: aiCurrentScope === 'room' && aiFocusGroupId ? collectRoomDetail(aiFocusGroupId) : null,
+            tauxHoraires: tauxHoraires,
+            expenseCategories: expenseCategories,
+            grandTotal: calculerGrandTotal(),
+            catalogueSummary: buildCatalogueSummary(),
+            clientFile: clientFile,
+            benchmarks: benchmarks,
+            defaultMaterials: getDefaultMaterials(),
+            tagPrefixes: tagPrefixes,
+            aiReferenceImageUrls: collectAiReferenceImageUrls()
+        };
+    }
+
+    function collectAiReferenceImageUrls() {
+        var urls = [];
+        var groups = document.querySelectorAll('#calculatorView .furniture-group');
+        groups.forEach(function(group) {
+            var gid = group.id;
+            var nameEl = group.querySelector('.furniture-name-input');
+            var roomName = nameEl ? nameEl.value.trim() : 'Sans nom';
+            (groupImages[gid] || []).forEach(function(img) {
+                if (img.aiReference && (img.url || img.dataUrl)) {
+                    urls.push({ url: img.url || img.dataUrl, room: roomName });
+                }
+            });
+        });
+        return urls;
+    }
+
+    var aiFocusGroupId = null;
+
+    // ── Call AI Edge Function ──
+    async function callAiAssistant(messages, context) {
+        var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages, context: context })
+        });
+        if (!resp.ok) {
+            var errText = await resp.text().catch(function() { return ''; });
+            try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+            catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+        }
+        var data = await resp.json();
+        return data;
+    }
+
+    // ── Build API message content (text + images) ──
+    function buildUserContent(text, images) {
+        if (!images || images.length === 0) return text;
+        // Multi-modal: array of content blocks
+        var content = [];
+        images.forEach(function(dataUrl) {
+            var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+            if (match) {
+                content.push({
+                    type: 'image',
+                    source: { type: 'base64', media_type: match[1], data: match[2] }
+                });
+            }
+        });
+        if (text) content.push({ type: 'text', text: text });
+        return content;
+    }
+
+    // ── Main send function ──
+    var aiPendingToolCalls = null; // stores pending tool_use blocks for confirmation
+
+    async function sendAiMessage() {
+        var input = document.getElementById('aiInput');
+        var text = input.value.trim();
+        if (!text && aiPendingImages.length === 0) return;
+
+        var images = aiPendingImages.slice();
+        aiPendingImages = [];
+        renderAiImagePreviews();
+        input.value = '';
+        input.style.height = 'auto';
+
+        appendAiMessage('user', text || '(image)', { images: images });
+
+        // Build the user message for API (user images + AI reference images)
+        var userContent = buildUserContent(text, images);
+
+        // Include AI reference images from rooms (as URL sources)
+        var refImgs = collectAiReferenceImageUrls();
+        if (refImgs.length > 0) {
+            // Convert to array format if it's just text
+            if (typeof userContent === 'string') {
+                userContent = [{ type: 'text', text: userContent }];
+            }
+            refImgs.forEach(function(ref) {
+                if (ref.url && !ref.url.startsWith('data:')) {
+                    userContent.unshift({
+                        type: 'image',
+                        source: { type: 'url', url: ref.url }
+                    });
+                }
+            });
+            // Add context about which rooms the images are from
+            var refLabel = refImgs.map(function(r) { return r.room; }).join(', ');
+            userContent.push({ type: 'text', text: '[Images de référence des pièces: ' + refLabel + ']' });
+        }
+
+        aiConversation.push({ role: 'user', content: userContent });
+
+        // Save user message to DB
+        saveAiChatMessage('user', text, images);
+
+        showAiTyping();
+        document.getElementById('aiSendBtn').disabled = true;
+
+        try {
+            var context = await collectAiContext();
+            var data = await callAiAssistant(aiConversation, context);
+
+            // Process response blocks
+            var contentBlocks = data.content || [];
+            var textParts = [];
+            var toolCalls = [];
+
+            contentBlocks.forEach(function(block) {
+                if (block.type === 'text') textParts.push(block.text);
+                if (block.type === 'tool_use') toolCalls.push(block);
+            });
+
+            // Add assistant response to conversation
+            aiConversation.push({ role: 'assistant', content: contentBlocks });
+
+            if (toolCalls.length > 0) {
+                // Mode simulation: show text + confirm buttons, don't execute tools yet
+                var fullText = textParts.join('\n');
+                if (fullText) appendAiMessage('assistant', fullText);
+
+                // Store pending tool calls
+                aiPendingToolCalls = { tools: toolCalls, conversationSnapshot: aiConversation.length };
+                appendAiMessage('confirm', formatPendingActions(toolCalls));
+
+                saveAiChatMessage('assistant', fullText + '\n[Actions proposées - en attente de confirmation]', []);
+            } else {
+                // Pure text response
+                var fullText = textParts.join('\n');
+                appendAiMessage('assistant', fullText);
+                saveAiChatMessage('assistant', fullText, []);
+            }
+        } catch (err) {
+            appendAiMessage('assistant', 'Erreur : ' + err.message);
+        } finally {
+            hideAiTyping();
+            document.getElementById('aiSendBtn').disabled = false;
+            maybeAutoSummarize(); // async, fire-and-forget
+        }
+    }
+
+    function formatPendingActions(toolCalls) {
+        return toolCalls.map(function(tc) {
+            switch (tc.name) {
+                case 'write_description':
+                    return 'Écrire la description de **' + (tc.input.room_name || '?') + '**';
+                case 'add_catalogue_item':
+                    return 'Ajouter **' + (tc.input.catalogue_item_id || '?') + '** × ' + (tc.input.quantity || 1) + ' à **' + (tc.input.room_name || '?') + '**';
+                case 'update_item_quantity':
+                    return 'Modifier quantité ligne ' + tc.input.item_index + ' → ' + tc.input.new_quantity + ' dans **' + (tc.input.room_name || '?') + '**';
+                case 'analyze_rentability':
+                    return 'Analyser la rentabilité (' + (tc.input.scope || 'projet') + ')';
+                case 'suggest_items':
+                    return 'Rechercher articles : ' + (tc.input.query || '?');
+                case 'compare_versions':
+                    return 'Comparer versions ' + tc.input.version_a + ' et ' + tc.input.version_b;
+                default:
+                    return tc.name + ': ' + JSON.stringify(tc.input);
+            }
+        }).join('\n');
+    }
+
+    // ── Apply / dismiss pending tool actions ──
+    async function aiApplyPending(confirmId) {
+        var el = document.getElementById(confirmId);
+        if (!el || !aiPendingToolCalls) return;
+        el.querySelector('.ai-confirm-actions').innerHTML = '<span class="ai-confirm-applied">Application en cours...</span>';
+
+        try {
+            var toolResults = [];
+            for (var i = 0; i < aiPendingToolCalls.tools.length; i++) {
+                var tc = aiPendingToolCalls.tools[i];
+                var result = await executeAiTool(tc.name, tc.input);
+                toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
+                appendAiMessage('action', toolActionLabel(tc.name, tc.input));
+            }
+
+            // Continue conversation with tool results
+            aiConversation.push({ role: 'user', content: toolResults });
+            showAiTyping();
+
+            var freshContext = await collectAiContext();
+            var data = await callAiAssistant(aiConversation, freshContext);
+            var contentBlocks = data.content || [];
+            aiConversation.push({ role: 'assistant', content: contentBlocks });
+
+            var text = contentBlocks.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
+            if (text) {
+                appendAiMessage('assistant', text);
+                saveAiChatMessage('assistant', text, []);
+            }
+
+            el.querySelector('.ai-confirm-actions').innerHTML = '<span class="ai-confirm-applied">Appliqué \u2713</span>';
+        } catch (err) {
+            el.querySelector('.ai-confirm-actions').innerHTML = '<span style="color:#c62828;font-size:11px;">Erreur: ' + escapeHtml(err.message) + '</span>';
+        } finally {
+            aiPendingToolCalls = null;
+            hideAiTyping();
+        }
+    }
+
+    function aiDismissPending(confirmId) {
+        var el = document.getElementById(confirmId);
+        if (!el) return;
+        el.querySelector('.ai-confirm-actions').innerHTML = '<span style="font-size:11px;color:#999;">Ignoré</span>';
+        aiPendingToolCalls = null;
+    }
+
+    function toolActionLabel(name, input) {
+        switch (name) {
+            case 'write_description': return 'Description mise à jour : ' + (input.room_name || '');
+            case 'add_catalogue_item': return 'Article ajouté : ' + (input.catalogue_item_id || '') + ' × ' + (input.quantity || 1);
+            case 'update_item_quantity': return 'Quantité modifiée : ligne ' + input.item_index + ' → ' + input.new_quantity;
+            case 'analyze_rentability': return 'Analyse de rentabilité effectuée';
+            case 'suggest_items': return 'Recherche catalogue effectuée';
+            case 'compare_versions': return 'Comparaison de versions effectuée';
+            default: return name;
+        }
+    }
+
+    // ── Tool execution (client-side) ──
+    async function executeAiTool(name, input) {
+        switch (name) {
+            case 'analyze_rentability': {
+                if (input.scope === 'room' && input.room_name) {
+                    var gid = findGroupIdByName(input.room_name);
+                    if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                    return computeRentabilityData('room', gid);
+                }
+                return computeRentabilityData('project');
+            }
+            case 'write_description': {
+                var gid = findGroupIdByName(input.room_name);
+                if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                var textarea = document.getElementById(gid + '-clientDesc');
+                if (textarea) {
+                    textarea.value = input.description_html;
+                    saveClientDescription(gid);
+                    return { success: true, room: input.room_name };
+                }
+                return { error: 'Textarea introuvable' };
+            }
+            case 'add_catalogue_item': {
+                var gid = findGroupIdByName(input.room_name);
+                if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                var rowId = addRow(gid);
+                var select = document.querySelector('#' + rowId + ' .item-select');
+                if (select) {
+                    select.value = input.catalogue_item_id;
+                    updateRow(rowId);
+                    var qtyInput = document.getElementById(rowId + '-qty');
+                    if (qtyInput && input.quantity) {
+                        qtyInput.value = input.quantity;
+                        updateRow(rowId);
+                    }
+                }
+                updateGrandTotal();
+                return { success: true, rowId: rowId, room: input.room_name };
+            }
+            case 'update_item_quantity': {
+                var gid = findGroupIdByName(input.room_name);
+                if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                var rows = document.querySelectorAll('#' + gid + '-rows .calc-row');
+                var targetRow = rows[input.item_index];
+                if (!targetRow) return { error: 'Ligne ' + input.item_index + ' introuvable' };
+                var qtyInput = targetRow.querySelector('.qty-input');
+                if (qtyInput) {
+                    qtyInput.value = input.new_quantity;
+                    updateRow(targetRow.id);
+                }
+                updateGrandTotal();
+                return { success: true, room: input.room_name, index: input.item_index, newQty: input.new_quantity };
+            }
+            case 'suggest_items': {
+                var q = (input.query || '').toLowerCase();
+                var results = CATALOGUE_DATA.filter(function(item) {
+                    if (!item.in_calculator) return false;
+                    return (item.description || '').toLowerCase().indexOf(q) !== -1 ||
+                           (item.category || '').toLowerCase().indexOf(q) !== -1 ||
+                           (item.id || '').toLowerCase().indexOf(q) !== -1;
+                }).slice(0, 10).map(function(item) {
+                    return { id: item.id, description: item.description, category: item.category, type: item.type, price: item.price };
+                });
+                return { results: results };
+            }
+            case 'compare_versions': {
+                if (!currentSubmission) return { error: 'Pas de soumission courante' };
+                try {
+                    var rA = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + currentSubmission.id + '&version_number=eq.' + input.version_a + '&select=snapshot', {});
+                    var rB = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions?submission_id=eq.' + currentSubmission.id + '&version_number=eq.' + input.version_b + '&select=snapshot', {});
+                    if (!rA.ok || !rB.ok) return { error: 'Versions introuvables' };
+                    var dataA = await rA.json();
+                    var dataB = await rB.json();
+                    if (dataA.length === 0 || dataB.length === 0) return { error: 'Version(s) introuvable(s)' };
+                    var snapA = dataA[0].snapshot;
+                    var snapB = dataB[0].snapshot;
+                    return {
+                        versionA: input.version_a,
+                        versionB: input.version_b,
+                        totalA: snapA.total,
+                        totalB: snapB.total,
+                        roomCountA: (snapA.meubles || []).length,
+                        roomCountB: (snapB.meubles || []).length,
+                        roomsA: (snapA.meubles || []).map(function(m) { return { name: m.name, subtotal: m.subtotal, items: m.items.length }; }),
+                        roomsB: (snapB.meubles || []).map(function(m) { return { name: m.name, subtotal: m.subtotal, items: m.items.length }; })
+                    };
+                } catch (e) { return { error: e.message }; }
+            }
+            default:
+                return { error: 'Tool inconnu: ' + name };
+        }
+    }
+
+    function findGroupIdByName(name) {
+        if (!name) return null;
+        var lowerName = name.toLowerCase().trim();
+        var groups = document.querySelectorAll('#calculatorView .furniture-group');
+        for (var i = 0; i < groups.length; i++) {
+            var nameEl = groups[i].querySelector('.furniture-name-input');
+            if (nameEl && nameEl.value.toLowerCase().trim() === lowerName) return groups[i].id;
+        }
+        // Partial match fallback
+        for (var i = 0; i < groups.length; i++) {
+            var nameEl = groups[i].querySelector('.furniture-name-input');
+            if (nameEl && nameEl.value.toLowerCase().indexOf(lowerName) !== -1) return groups[i].id;
+        }
+        return null;
+    }
+
+    // ── Save / Load chat messages (Supabase) ──
+    async function saveAiChatMessage(role, content, images) {
+        if (!currentSubmission) return;
+        try {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    submission_id: currentSubmission.id,
+                    role: role,
+                    content: content || '',
+                    image_urls: (images || []).length > 0 ? ['(image attachée)'] : []
+                })
+            });
+        } catch (e) { console.warn('[AI] Failed to save chat message:', e); }
+    }
+
+    async function loadAiChat(submissionId) {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?submission_id=eq.' + submissionId + '&order=created_at.desc&limit=20&select=role,content,created_at', {});
+            if (!r.ok) return;
+            var msgs = await r.json();
+            if (msgs.length === 0) return;
+
+            // Reverse to chronological order
+            msgs.reverse();
+
+            // If there's a summary, show it first
+            var container = document.getElementById('aiMessages');
+            container.innerHTML = '';
+
+            msgs.forEach(function(msg) {
+                if (msg.role === 'summary') {
+                    var div = document.createElement('div');
+                    div.className = 'ai-msg ai-msg-action';
+                    div.innerHTML = '<div class="ai-action-label">Résumé de la conversation précédente</div>' + renderAiMarkdown(msg.content);
+                    container.appendChild(div);
+                } else {
+                    appendAiMessage(msg.role, msg.content);
+                }
+            });
+
+            // Rebuild aiConversation from loaded messages
+            aiConversation = [];
+            msgs.forEach(function(msg) {
+                if (msg.role === 'summary') {
+                    // Inject summary as a system-ish context at start
+                    aiConversation.push({ role: 'user', content: '[Résumé conversation précédente: ' + msg.content + ']' });
+                    aiConversation.push({ role: 'assistant', content: 'Compris, je continue avec ce contexte.' });
+                } else if (msg.role === 'user' || msg.role === 'assistant') {
+                    aiConversation.push({ role: msg.role, content: msg.content });
+                }
+            });
+        } catch (e) { console.warn('[AI] Failed to load chat:', e); }
+    }
+
+    // ── Auto-summarize when conversation gets long ──
+    async function maybeAutoSummarize() {
+        if (!currentSubmission) return;
+        // Count messages in DB
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?submission_id=eq.' + currentSubmission.id + '&select=id', {});
+            if (!r.ok) return;
+            var msgs = await r.json();
+            if (msgs.length < 25) return;
+
+            // Get the oldest messages to summarize (all except last 5)
+            var r2 = await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?submission_id=eq.' + currentSubmission.id + '&order=created_at.asc&limit=' + (msgs.length - 5) + '&select=id,role,content', {});
+            if (!r2.ok) return;
+            var oldMsgs = await r2.json();
+
+            // Build text to summarize
+            var textToSummarize = oldMsgs.map(function(m) { return m.role + ': ' + (m.content || '').substring(0, 300); }).join('\n');
+
+            // Call AI to generate summary
+            var summaryResp = await callAiAssistant([
+                { role: 'user', content: 'Résume cette conversation en 3-5 points clés. Sois concis et factuel. Ne commence pas par "Voici un résumé".\n\n' + textToSummarize }
+            ], { project: { name: currentProject?.name }, submission: { number: currentSubmission?.submission_number } });
+
+            var summaryText = (summaryResp.content || []).filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
+
+            if (summaryText) {
+                // Delete old messages
+                var idsToDelete = oldMsgs.map(function(m) { return m.id; });
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?id=in.(' + idsToDelete.join(',') + ')', { method: 'DELETE' });
+
+                // Insert summary
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({
+                        submission_id: currentSubmission.id,
+                        role: 'summary',
+                        content: summaryText
+                    })
+                });
+            }
+        } catch (e) { console.warn('[AI] Auto-summarize failed:', e); }
+    }
+
+    // Init image handlers after DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        setupAiImageHandlers();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MATÉRIAUX PAR DÉFAUT (JSONB dans submissions.default_materials)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Structure: { "catégorie": [{ material: "Merisier", scope: "Cuisine" }, ...] }
+    // Scope vide = appliqué à toutes les pièces
+
+    function toggleDefaultMaterials() {
+        var body = document.getElementById('dmBody');
+        var arrow = document.getElementById('dmArrow');
+        var isOpen = body.classList.toggle('open');
+        if (isOpen) { arrow.classList.add('open'); renderDefaultMaterials(); }
+        else { arrow.classList.remove('open'); }
+    }
+
+    function getDefaultMaterials() {
+        return (currentSubmission && currentSubmission.default_materials) || {};
+    }
+
+    function renderDefaultMaterials() {
+        var dm = getDefaultMaterials();
+        var body = document.getElementById('dmBody');
+        // Categories from expense_categories
+        var cats = expenseCategories.map(function(c) { return c.name; });
+        if (cats.length === 0) cats = ['Bois', 'Quincaillerie', 'Panneaux', 'Comptoir'];
+
+        var html = '';
+        cats.forEach(function(cat) {
+            var entries = dm[cat] || [];
+            html += '<div class="dm-category">';
+            html += '<div class="dm-category-label">' + escapeHtml(cat) + '</div>';
+            html += '<div class="dm-entries" id="dm-entries-' + cat.replace(/\s/g, '_') + '">';
+            entries.forEach(function(entry, idx) {
+                html += renderDmEntry(cat, idx, entry);
+            });
+            html += '</div>';
+            html += '<button class="dm-add-btn" onclick="addDefaultMaterial(\'' + escapeAttr(cat) + '\')">+ Ajouter</button>';
+            html += '</div>';
+        });
+        body.innerHTML = html;
+    }
+
+    function renderDmEntry(cat, idx, entry) {
+        var catKey = cat.replace(/\s/g, '_');
+        return '<div class="dm-entry" id="dm-' + catKey + '-' + idx + '">' +
+            '<input type="text" value="' + escapeAttr(entry.material || '') + '" placeholder="Mat\u00e9riau..." onblur="saveDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ',this.value,null)">' +
+            '<input type="text" class="dm-scope" value="' + escapeAttr(entry.scope || '') + '" placeholder="Toutes" style="max-width:80px;" title="Pi\u00e8ce(s) concern\u00e9e(s)" onblur="saveDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ',null,this.value)">' +
+            '<button class="dm-remove" onclick="removeDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ')">&times;</button>' +
+            '</div>';
+    }
+
+    function addDefaultMaterial(cat) {
+        var dm = getDefaultMaterials();
+        if (!dm[cat]) dm[cat] = [];
+        dm[cat].push({ material: '', scope: '' });
+        if (currentSubmission) currentSubmission.default_materials = dm;
+        saveDefaultMaterials(dm);
+        renderDefaultMaterials();
+    }
+
+    function saveDmEntry(cat, idx, material, scope) {
+        var dm = getDefaultMaterials();
+        if (!dm[cat] || !dm[cat][idx]) return;
+        if (material !== null) dm[cat][idx].material = material;
+        if (scope !== null) dm[cat][idx].scope = scope;
+        if (currentSubmission) currentSubmission.default_materials = dm;
+        saveDefaultMaterials(dm);
+    }
+
+    function removeDmEntry(cat, idx) {
+        var dm = getDefaultMaterials();
+        if (!dm[cat]) return;
+        dm[cat].splice(idx, 1);
+        if (dm[cat].length === 0) delete dm[cat];
+        if (currentSubmission) currentSubmission.default_materials = dm;
+        saveDefaultMaterials(dm);
+        renderDefaultMaterials();
+    }
+
+    var dmSaveTimer = null;
+    function saveDefaultMaterials(dm) {
+        clearTimeout(dmSaveTimer);
+        dmSaveTimer = setTimeout(function() {
+            if (!currentSubmission) return;
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ default_materials: dm })
+            }).then(function() { showSaveIndicator(); }).catch(function(e) { console.warn('[DM] Save failed:', e); });
+        }, 500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // PIÈCES & ARTICLES — CRUD SUPABASE
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -709,7 +1735,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 1fr 90px 90px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 8px 10px;
             background: transparent;
@@ -735,7 +1761,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 1fr 90px 90px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             align-items: center;
@@ -743,6 +1769,13 @@
             background: var(--stele-white);
             transition: background-color 0.15s ease;
         }
+        .cell-tag input {
+            width: 100%; padding: 4px 6px; font-size: 11px; font-family: monospace;
+            border: 1px solid #e0e0e0; border-radius: 4px; text-align: center;
+            text-transform: uppercase; font-weight: 600; color: var(--stele-green);
+        }
+        .cell-tag input:focus { border-color: var(--stele-green); outline: none; }
+        .cell-tag input::placeholder { color: #ccc; font-weight: 400; }
 
         .calc-row:nth-child(even) { background: #fafafa; }
         .calc-row:last-child { border-bottom: none; }
@@ -1136,6 +2169,12 @@
             font-size: 9px; cursor: pointer;
         }
         .image-quote-toggle input[type="checkbox"] { width: 11px; height: 11px; margin: 0; }
+        .image-ai-toggle {
+            position: absolute; bottom: 2px; right: 2px; display: flex; align-items: center; gap: 2px;
+            background: rgba(75,96,80,0.75); color: #fff; padding: 1px 4px; border-radius: 3px;
+            font-size: 9px; cursor: pointer;
+        }
+        .image-ai-toggle input[type="checkbox"] { width: 11px; height: 11px; margin: 0; }
 
         /* Exclusions */
         .exclusions-section {
@@ -2212,6 +3251,44 @@
             letter-spacing: 0.5px; margin-bottom: 6px;
         }
 
+        /* ── Matériaux par défaut section ── */
+        .default-materials-panel {
+            margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;
+        }
+        .default-materials-toggle {
+            display: flex; align-items: center; gap: 6px; cursor: pointer;
+            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+            letter-spacing: 0.5px; background: none; border: none; padding: 4px 0; width: 100%;
+        }
+        .default-materials-toggle:hover { color: var(--stele-green); }
+        .default-materials-toggle .dm-arrow { transition: transform 0.2s; font-size: 10px; }
+        .default-materials-toggle .dm-arrow.open { transform: rotate(90deg); }
+        .default-materials-body { display: none; padding-top: 8px; }
+        .default-materials-body.open { display: block; }
+        .dm-category { margin-bottom: 8px; }
+        .dm-category-label { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; }
+        .dm-entries { display: flex; flex-direction: column; gap: 4px; }
+        .dm-entry {
+            display: flex; gap: 6px; align-items: center; font-size: 12px;
+        }
+        .dm-entry input[type="text"] {
+            flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit;
+        }
+        .dm-entry input[type="text"]:focus { border-color: var(--stele-green); outline: none; }
+        .dm-entry .dm-scope {
+            font-size: 10px; color: #999; min-width: 60px;
+        }
+        .dm-entry .dm-remove {
+            background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; padding: 0 4px;
+        }
+        .dm-entry .dm-remove:hover { color: #c62828; }
+        .dm-add-btn {
+            font-size: 11px; color: var(--stele-green); background: none; border: none;
+            cursor: pointer; padding: 2px 0; margin-top: 2px;
+        }
+        .dm-add-btn:hover { text-decoration: underline; }
+
         /* ── Main action buttons ── */
         .ph-actions { display: none; /* replaced by timeline CTA */ }
         .btn-main-action {
@@ -2537,7 +3614,7 @@
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .main-content { padding: 24px 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 1fr 70px 70px 90px 80px 24px 100px 24px;
+                grid-template-columns: 24px 45px 1fr 70px 70px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -2612,6 +3689,159 @@
 
         @media (max-width: 600px) {
             .timeline-drawer { width: 100%; right: -100%; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           AI ASSISTANT DRAWER
+           ═══════════════════════════════════════════════════════════════ */
+        .ai-drawer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); z-index: 8700;
+        }
+        .ai-drawer-overlay.active { display: block; }
+        .ai-drawer {
+            position: fixed; top: 0; right: -460px; width: 440px; height: 100%;
+            background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            z-index: 8800; transition: right 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        .ai-drawer.active { right: 0; }
+        .ai-drawer-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 20px; border-bottom: 2px solid var(--stele-green);
+            background: #fafafa; flex-shrink: 0;
+        }
+        .ai-drawer-header h3 { font-size: 15px; font-weight: 700; margin: 0; color: var(--stele-black); flex: 1; }
+        .ai-scope-badge {
+            font-size: 10px; font-weight: 600; padding: 3px 8px;
+            border-radius: 10px; background: #e8f0e9; color: var(--stele-green);
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .ai-drawer-close {
+            background: none; border: none; font-size: 20px; cursor: pointer; color: #666; padding: 0 4px;
+        }
+        .ai-drawer-close:hover { color: var(--stele-black); }
+
+        .ai-messages {
+            flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .ai-messages:empty::after {
+            content: 'Posez une question sur votre projet, demandez une analyse de rentabilité, ou décrivez ce que vous voulez ajouter.';
+            color: #aaa; font-size: 13px; text-align: center; padding: 40px 20px;
+            font-style: italic; line-height: 1.5;
+        }
+        .ai-msg { max-width: 88%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.55; word-wrap: break-word; }
+        .ai-msg p { margin: 0 0 6px 0; }
+        .ai-msg p:last-child { margin-bottom: 0; }
+        .ai-msg ul, .ai-msg ol { margin: 4px 0; padding-left: 18px; }
+        .ai-msg li { margin-bottom: 2px; }
+        .ai-msg strong { font-weight: 700; }
+        .ai-msg code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+        .ai-msg table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+        .ai-msg th, .ai-msg td { padding: 4px 8px; border: 1px solid #ddd; text-align: left; }
+        .ai-msg th { background: #f5f5f5; font-weight: 600; }
+
+        .ai-msg-user { align-self: flex-end; background: #e8f0e9; color: var(--stele-black); border-bottom-right-radius: 4px; }
+        .ai-msg-assistant { align-self: flex-start; background: #f5f5f5; color: var(--stele-black); border-bottom-left-radius: 4px; }
+
+        .ai-msg-action {
+            align-self: center; background: #fff8e1; border: 1px solid #ffe082;
+            border-radius: 8px; padding: 8px 14px; font-size: 12px; color: #6d4c00;
+            max-width: 95%; text-align: center;
+        }
+        .ai-msg-action .ai-action-label { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; }
+
+        .ai-msg-confirm {
+            align-self: flex-start; background: #fff; border: 1.5px solid var(--stele-green);
+            border-radius: 10px; padding: 12px 14px; max-width: 92%;
+        }
+        .ai-msg-confirm .ai-confirm-text { font-size: 13px; color: #333; margin-bottom: 10px; line-height: 1.5; }
+        .ai-confirm-actions { display: flex; gap: 8px; }
+        .ai-confirm-actions button {
+            padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .btn-ai-apply { background: var(--stele-green); color: #fff; }
+        .btn-ai-apply:hover { background: #3d4f41; }
+        .btn-ai-dismiss { background: #f0f0f0; color: #666; }
+        .btn-ai-dismiss:hover { background: #e0e0e0; color: #333; }
+        .ai-confirm-applied { font-size: 11px; color: var(--stele-green); font-weight: 600; }
+
+        .ai-typing {
+            align-self: flex-start; padding: 10px 18px;
+            background: #f5f5f5; border-radius: 12px; border-bottom-left-radius: 4px;
+            display: none;
+        }
+        .ai-typing.active { display: flex; gap: 4px; align-items: center; }
+        .ai-typing-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: #aaa;
+            animation: aiTypingBounce 1.2s infinite;
+        }
+        .ai-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .ai-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes aiTypingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        .ai-quick-actions {
+            display: flex; gap: 6px; padding: 8px 16px; flex-wrap: wrap;
+            border-top: 1px solid #f0f0f0; flex-shrink: 0;
+        }
+        .ai-quick-btn {
+            padding: 5px 10px; border-radius: 14px; font-size: 11px;
+            background: #f5f5f5; border: 1px solid #e0e0e0; color: #555;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .ai-quick-btn:hover { background: #e8f0e9; border-color: var(--stele-green); color: var(--stele-green); }
+
+        .ai-input-area {
+            display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e0e0e0;
+            background: #fafafa; flex-shrink: 0; align-items: flex-end;
+        }
+        .ai-input-area textarea {
+            flex: 1; resize: none; border: 1px solid #ddd; border-radius: 10px;
+            padding: 10px 14px; font-size: 13px; font-family: inherit; line-height: 1.4;
+            max-height: 120px; min-height: 40px; outline: none;
+            transition: border-color 0.15s;
+        }
+        .ai-input-area textarea:focus { border-color: var(--stele-green); }
+        .ai-input-area textarea::placeholder { color: #aaa; }
+        .ai-send-btn {
+            width: 38px; height: 38px; border-radius: 50%; border: none;
+            background: var(--stele-green); color: #fff; font-size: 18px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; flex-shrink: 0;
+        }
+        .ai-send-btn:hover { background: #3d4f41; }
+        .ai-send-btn:disabled { background: #ccc; cursor: default; }
+
+        .ai-drop-zone {
+            display: none; position: absolute; inset: 0; background: rgba(75,96,80,0.08);
+            border: 2px dashed var(--stele-green); border-radius: 8px;
+            z-index: 10; align-items: center; justify-content: center;
+            font-size: 13px; color: var(--stele-green); font-weight: 600;
+        }
+        .ai-drop-zone.active { display: flex; }
+
+        .ai-img-preview {
+            display: flex; gap: 6px; padding: 4px 16px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .ai-img-preview:empty { display: none; }
+        .ai-img-thumb {
+            position: relative; width: 56px; height: 56px; border-radius: 6px;
+            overflow: hidden; border: 1px solid #ddd;
+        }
+        .ai-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .ai-img-thumb .ai-img-remove {
+            position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+            border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff;
+            border: none; font-size: 12px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; line-height: 1;
+        }
+
+        @media (max-width: 600px) {
+            .ai-drawer { width: 100%; right: -100%; }
         }
 
         /* Loading & Error Overlay */
@@ -2719,6 +3949,7 @@
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
                         <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
+                        <button class="btn-header-link" id="btnAiAssistant" onclick="openAiDrawer()">AI</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
                             <div class="kebab-dropdown" id="headerKebabDropdown">
@@ -2758,6 +3989,14 @@
                 <div class="header-sub-label">Soumissions du projet</div>
                 <div id="headerSubList"></div>
                 <button class="btn-add-sub" id="btnAddSubHeader" onclick="handleAddSubmissionFromCalc()">+ Nouvelle soumission</button>
+            </div>
+
+            <div class="default-materials-panel" id="defaultMaterialsPanel">
+                <button class="default-materials-toggle" onclick="toggleDefaultMaterials()">
+                    <span class="dm-arrow" id="dmArrow">&#9654;</span>
+                    Mat&eacute;riaux par d&eacute;faut
+                </button>
+                <div class="default-materials-body" id="dmBody"></div>
             </div>
 
             <h1 class="page-title">Calculateur</h1>
@@ -2857,6 +4096,34 @@
         </div>
         <div class="timeline-drawer-body" id="timelineBody">
             <div class="timeline-empty">Aucun historique</div>
+        </div>
+    </div>
+
+    <!-- AI Assistant Drawer -->
+    <div class="ai-drawer-overlay" id="aiOverlay" onclick="closeAiDrawer()"></div>
+    <div class="ai-drawer" id="aiDrawer">
+        <div class="ai-drawer-header">
+            <h3>Assistant Stele</h3>
+            <div class="ai-scope-badge" id="aiScopeBadge">Projet</div>
+            <button class="ai-drawer-close" onclick="closeAiDrawer()">&times;</button>
+        </div>
+        <div class="ai-messages" id="aiMessages"></div>
+        <div class="ai-typing" id="aiTyping">
+            <div class="ai-typing-dot"></div>
+            <div class="ai-typing-dot"></div>
+            <div class="ai-typing-dot"></div>
+        </div>
+        <div class="ai-quick-actions" id="aiQuickActions">
+            <button class="ai-quick-btn" onclick="aiQuickAction('Analyse la rentabilit\u00e9 du projet')">Rentabilit&eacute;</button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('R\u00e9sume cette soumission')">R&eacute;sum&eacute;</button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Optimise toutes les descriptions')">Descriptions</button>
+            <button class="ai-quick-btn" onclick="aiQuickAction('Sugg\u00e8re des articles pour am\u00e9liorer la marge')">Am&eacute;liorer marge</button>
+        </div>
+        <div class="ai-img-preview" id="aiImgPreview"></div>
+        <div class="ai-input-area" style="position:relative;">
+            <div class="ai-drop-zone" id="aiDropZone">D&eacute;posez une image ici</div>
+            <textarea id="aiInput" placeholder="Posez une question..." rows="1" onkeydown="aiInputKeydown(event)"></textarea>
+            <button class="ai-send-btn" id="aiSendBtn" onclick="sendAiMessage()" title="Envoyer">&uarr;</button>
         </div>
     </div>
 
@@ -3461,11 +4728,12 @@
                 </div>
                 <div class="calc-header">
                     <span></span>
+                    <span class="col-center">Tag</span>
                     <span>Article</span>
                     <span class="col-center">Code</span>
                     <span class="col-center">Type</span>
                     <span class="col-right">Prix unit.</span>
-                    <span class="col-center">Quantité</span>
+                    <span class="col-center">Quantit&eacute;</span>
                     <span class="col-center" title="Installation incluse">Inst.</span>
                     <span class="col-right">Total</span>
                     <span></span>
@@ -3556,6 +4824,9 @@
                 <div class="cell-add">
                     <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
                 </div>
+                <div class="cell-tag">
+                    <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
+                </div>
                 <div class="cell-select">
                     <select class="item-select" onchange="updateRow('${rowId}')">
                         ${buildSelectOptions()}
@@ -3639,16 +4910,26 @@
             } catch (e) { /* keep empty */ }
         }
 
+        var tagPrefixes = [
+            { prefix: 'C', label_fr: 'Caisson', label_en: 'Cabinet' },
+            { prefix: 'F', label_fr: 'Filler', label_en: 'Filler' },
+            { prefix: 'P', label_fr: 'Panneau', label_en: 'Panel' },
+            { prefix: 'T', label_fr: 'Tiroir', label_en: 'Drawer' },
+            { prefix: 'M', label_fr: 'Moulure', label_en: 'Moulding' },
+            { prefix: 'A', label_fr: 'Accessoire', label_en: 'Accessory' }
+        ];
+
         async function loadTauxAndExpenses() {
             try {
                 const r = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories)&select=key,value', {}
+                    SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories,tag_prefixes)&select=key,value', {}
                 );
                 if (r.ok) {
                     const rows = await r.json();
                     rows.forEach(function(row) {
                         if (row.key === 'taux_horaires') tauxHoraires = row.value || [];
                         if (row.key === 'expense_categories') expenseCategories = row.value || [];
+                        if (row.key === 'tag_prefixes') tagPrefixes = row.value || tagPrefixes;
                     });
                 }
             } catch (e) { /* keep defaults */ }
@@ -4222,9 +5503,21 @@
                 fields.markup = 0;
             }
 
+            // Include tag
+            var tagInput = document.getElementById(rowId + '-tag');
+            if (tagInput) fields.tag = tagInput.value.trim() || null;
+
             updateItem(itemMap[rowId], fields);
             showSaveIndicator();
         }, 500);
+
+        function saveRowTag(rowId) {
+            if (!itemMap[rowId]) return;
+            var tagInput = document.getElementById(rowId + '-tag');
+            var tag = tagInput ? tagInput.value.trim().toUpperCase() : null;
+            updateItem(itemMap[rowId], { tag: tag || null });
+            showSaveIndicator();
+        }
 
         function removeRow(rowId) {
             const row = document.getElementById(rowId);
@@ -4691,7 +5984,8 @@
                 var checkedAttr = img.showInQuote ? 'checked' : '';
                 var canRecrop = !img.isLegacy && img.originalUrl && isSubmissionCurrentlyEditable();
                 var recropAttr = canRecrop ? ` onclick="recropImage('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="Cliquer pour recadrer"` : ` ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"`;
-                item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}><button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label>`;
+                var aiChecked = img.aiReference ? 'checked' : '';
+                item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}><button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label><label class="image-ai-toggle" title="Envoyer comme r\u00e9f\u00e9rence \u00e0 l'AI"><input type="checkbox" ${aiChecked} onchange="toggleImageAiRef('${escapeAttr(groupId)}', ${index}, this.checked)"><span>AI</span></label>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
@@ -4790,6 +6084,29 @@
                         body: JSON.stringify({ tags: newTags })
                     });
                 } catch (e) { console.error('Update room_media tags error:', e); }
+                showSaveIndicator();
+            } else {
+                saveGroupImages(groupId);
+            }
+        }
+
+        async function toggleImageAiRef(groupId, index, checked) {
+            if (!groupImages[groupId] || !groupImages[groupId][index]) return;
+            var img = groupImages[groupId][index];
+            img.aiReference = checked;
+
+            if (!img.isLegacy && img.mediaId) {
+                var newTags = checked
+                    ? Array.from(new Set((img.tags || []).concat(['ai_reference'])))
+                    : (img.tags || []).filter(function(t) { return t !== 'ai_reference'; });
+                img.tags = newTags;
+                try {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + img.mediaId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ tags: newTags })
+                    });
+                } catch (e) { console.error('Update room_media AI tag error:', e); }
                 showSaveIndicator();
             } else {
                 saveGroupImages(groupId);
@@ -7189,6 +8506,7 @@
             groupImages = {};
             roomDescEN = {};
             roomDescHTML = {};
+            resetAiChat();
 
             // Remplir le header
             document.getElementById('projName').value = currentProject ? (currentProject.name || '') : '';
@@ -7246,7 +8564,8 @@
                                         tags: m.tags || ['presentation_soumission'],
                                         cropRatio: m.crop_ratio,
                                         isLegacy: false,
-                                        showInQuote: (m.tags || []).includes('presentation_soumission')
+                                        showInQuote: (m.tags || []).includes('presentation_soumission'),
+                                        aiReference: (m.tags || []).includes('ai_reference')
                                     });
                                 });
                             }
@@ -7285,6 +8604,12 @@
                                 select.value = item.catalogue_item_id;
                             }
 
+                            // Restore tag
+                            if (item.tag) {
+                                var tagInput = document.getElementById(rowId + '-tag');
+                                if (tagInput) tagInput.value = item.tag;
+                            }
+
                             updateRow(rowId);
                         });
                     }
@@ -7293,6 +8618,8 @@
 
             updateWorkflowButtons();
             loadSubmissionReviews(submissionId);
+            // Refresh default materials UI
+            if (document.getElementById('dmBody').classList.contains('open')) renderDefaultMaterials();
             var isEditable = isSubmissionCurrentlyEditable();
             setEditable(isEditable);
             showCalculator();

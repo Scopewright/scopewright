@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administration — Stele</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <!-- Auth guard -->
     <script>
@@ -590,6 +591,35 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Nomenclature des tags -->
+            <div class="section collapsed" id="sectionTags">
+                <div class="section-toggle" onclick="toggleSection('sectionTags')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Nomenclature des tags</div>
+                        <div class="section-desc">Pr&eacute;fixes utilis&eacute;s pour identifier les &eacute;l&eacute;ments sur les plans (C1, F2, P3, etc.)</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table" id="tagPrefixTable">
+                        <thead>
+                            <tr>
+                                <th style="width:15%">Pr&eacute;fixe</th>
+                                <th>Label fran&ccedil;ais</th>
+                                <th>Label anglais</th>
+                                <th style="width:10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tagPrefixBody"></tbody>
+                    </table>
+                    <div class="save-bar">
+                        <button class="btn-outline" onclick="addTagPrefix()" style="margin-right:8px;">+ Ajouter</button>
+                        <button class="btn-save" onclick="saveTagPrefixes()">Sauvegarder les tags</button>
+                        <span class="save-feedback" id="tagsFeedback"></span>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">stele — stele.ca</footer>
@@ -775,6 +805,15 @@
     var companyTypes = [];
     var contactRoles = [];
     var communicationTypes = [];
+    var tagPrefixes = [];
+    var DEFAULT_TAG_PREFIXES = [
+        { prefix: 'C', label_fr: 'Caisson', label_en: 'Cabinet', sort_order: 1 },
+        { prefix: 'F', label_fr: 'Filler', label_en: 'Filler', sort_order: 2 },
+        { prefix: 'P', label_fr: 'Panneau', label_en: 'Panel', sort_order: 3 },
+        { prefix: 'T', label_fr: 'Tiroir', label_en: 'Drawer', sort_order: 4 },
+        { prefix: 'M', label_fr: 'Moulure', label_en: 'Moulding', sort_order: 5 },
+        { prefix: 'A', label_fr: 'Accessoire', label_en: 'Accessory', sort_order: 6 }
+    ];
     var DEFAULT_COMPANY_TYPES = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var DEFAULT_CONTACT_ROLES = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var DEFAULT_COMM_TYPES = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
@@ -904,6 +943,7 @@
                     if (rows[i].key === 'company_types') companyTypes = rows[i].value;
                     if (rows[i].key === 'contact_roles') contactRoles = rows[i].value;
                     if (rows[i].key === 'communication_types') communicationTypes = rows[i].value;
+                    if (rows[i].key === 'tag_prefixes') tagPrefixes = rows[i].value;
                 }
             }
             await loadUserProfiles();
@@ -971,6 +1011,9 @@
         if (!Array.isArray(communicationTypes) || !communicationTypes.length) {
             communicationTypes = DEFAULT_COMM_TYPES.slice();
         }
+        if (!Array.isArray(tagPrefixes) || !tagPrefixes.length) {
+            tagPrefixes = JSON.parse(JSON.stringify(DEFAULT_TAG_PREFIXES));
+        }
     }
 
     function renderAll() {
@@ -984,6 +1027,7 @@
         renderCompanyTypesTable();
         renderContactRolesTable();
         renderCommTypesTable();
+        renderTagPrefixTable();
     }
 
     // ── Permissions table ──
@@ -1588,6 +1632,43 @@
         el.textContent = (isWarn ? '' : '\u2713 ') + msg;
         el.className = 'save-feedback visible' + (isWarn ? ' warn' : '');
         setTimeout(function() { el.className = 'save-feedback'; }, 4000);
+    }
+
+    // ── Tag Prefixes table ──
+
+    function renderTagPrefixTable() {
+        var body = document.getElementById('tagPrefixBody');
+        if (!body) return;
+        var html = '';
+        tagPrefixes.forEach(function(tp, i) {
+            html += '<tr>' +
+                '<td><input type="text" value="' + escapeAttr(tp.prefix || '') + '" maxlength="2" style="width:50px;text-align:center;text-transform:uppercase;font-weight:700;font-family:monospace;" onchange="tagPrefixes[' + i + '].prefix=this.value.toUpperCase()"></td>' +
+                '<td><input type="text" value="' + escapeAttr(tp.label_fr || '') + '" style="width:100%;" onchange="tagPrefixes[' + i + '].label_fr=this.value"></td>' +
+                '<td><input type="text" value="' + escapeAttr(tp.label_en || '') + '" style="width:100%;" onchange="tagPrefixes[' + i + '].label_en=this.value"></td>' +
+                '<td style="text-align:center;"><button class="btn-outline" style="color:#c62828;border-color:#c62828;padding:4px 8px;font-size:11px;" onclick="removeTagPrefix(' + i + ')">&times;</button></td>' +
+                '</tr>';
+        });
+        body.innerHTML = html;
+    }
+
+    function addTagPrefix() {
+        var next = tagPrefixes.length + 1;
+        tagPrefixes.push({ prefix: '', label_fr: '', label_en: '', sort_order: next });
+        renderTagPrefixTable();
+        // Focus the new prefix input
+        var inputs = document.querySelectorAll('#tagPrefixBody input[type="text"]');
+        if (inputs.length > 0) inputs[inputs.length - 3].focus();
+    }
+
+    function removeTagPrefix(index) {
+        tagPrefixes.splice(index, 1);
+        renderTagPrefixTable();
+    }
+
+    function saveTagPrefixes() {
+        // Update sort_order
+        tagPrefixes.forEach(function(tp, i) { tp.sort_order = i + 1; });
+        saveConfig('tag_prefixes', tagPrefixes, 'tagsFeedback');
     }
 
     function handleLogout() {

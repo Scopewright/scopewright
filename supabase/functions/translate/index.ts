@@ -33,6 +33,8 @@ RÈGLES STRICTES :
 
 const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-end custom cabinetry company. Translate French to English. Keep the same professional tone, be concise. If the text contains HTML tags, preserve ALL HTML tags and structure exactly — only translate the text content inside the tags.`;
 
+const TRANSLATE_EN_TO_FR_SYSTEM = `You are a professional translator for Scopewright, a premium estimation platform for high-end cabinetry and millwork shops. Translate English to French (Canadian French). Keep the same professional tone, be concise. Preserve any HTML tags exactly — only translate the text content.`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -68,13 +70,17 @@ serve(async (req) => {
     }
 
     const systemPrompt =
-      action === "optimize" ? OPTIMIZE_SYSTEM : TRANSLATE_SYSTEM;
+      action === "optimize" ? OPTIMIZE_SYSTEM :
+      action === "en_to_fr" ? TRANSLATE_EN_TO_FR_SYSTEM :
+      TRANSLATE_SYSTEM;
 
     // For single text: simpler prompt, no JSON wrapping needed
     if (nonEmpty.length === 1) {
       const userMsg =
         action === "optimize"
           ? `Optimise ce texte. Retourne UNIQUEMENT le texte optimisé, sans explication, sans markdown :\n\n${nonEmpty[0].text}`
+          : action === "en_to_fr"
+          ? `Translate this English text to French (Canadian French). Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -123,6 +129,8 @@ serve(async (req) => {
     const userMsg =
       action === "optimize"
         ? `Optimise chacun des textes suivants. Retourne les textes optimisés séparés par la ligne exacte "${delimiter}" (un par texte, même ordre). Pas de numérotation, pas de markdown, pas d'explication.\n\n${numbered}`
+        : action === "en_to_fr"
+        ? `Translate each of the following English texts to French (Canadian French). Return the translations separated by the exact line "${delimiter}" (one per text, same order). No numbering, no markdown, no explanation.\n\n${numbered}`
         : `Translate each of the following French texts to English. Return the translations separated by the exact line "${delimiter}" (one per text, same order). No numbering, no markdown, no explanation.\n\n${numbered}`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {

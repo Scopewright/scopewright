@@ -176,22 +176,19 @@ async function toggleLanguage() {
     // Translate to English
     try {
         const textsToTranslate = extractTextsToTranslate();
-        const textsArray = Object.values(textsToTranslate);
-        const keysArray = Object.keys(textsToTranslate);
+
+        // Convert to format expected by Edge Function: { key, text }[]
+        const textsArray = Object.entries(textsToTranslate).map(([key, text]) => ({
+            key,
+            text
+        }));
 
         // Call Edge Function
         const translatedTexts = await callEdgeFunction(textsArray, 'fr_to_en');
 
-        // Map results back to keys
-        const translationsMap = {};
-        keysArray.forEach((key, index) => {
-            const originalText = textsArray[index];
-            translationsMap[key] = translatedTexts[originalText] || originalText;
-        });
-
-        // Cache and apply
-        translationCache.en = translationsMap;
-        applyTranslations(translationsMap, 'en');
+        // translatedTexts is already a map { key: translatedText }
+        translationCache.en = translatedTexts;
+        applyTranslations(translatedTexts, 'en');
         currentLang = 'en';
 
     } catch (error) {
@@ -227,8 +224,9 @@ async function translateMagicDemo() {
     button.disabled = true;
 
     try {
-        const translations = await callEdgeFunction([text], 'fr_to_en');
-        const translated = translations[text] || text;
+        // Format expected by Edge Function: { key, text }[]
+        const translations = await callEdgeFunction([{ key: 'demo', text }], 'fr_to_en');
+        const translated = translations['demo'] || text;
 
         // Show result
         result.classList.remove('loading');

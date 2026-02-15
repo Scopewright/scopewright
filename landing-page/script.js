@@ -54,7 +54,8 @@ const translations = {
         'roles.sales.b2': 'Instant answers to pricing questions',
         'roles.sales.b3': 'Live edits during meetings',
         'roles.sales.b4': 'Clean, structured proposals',
-        'roles.closing': 'No magic button.<br>Just structured expertise, accelerated.',
+        'roles.closing1': 'No magic button.',
+        'roles.closing2': 'Just structured expertise, accelerated.',
 
         'value.title': 'Structure. Clarity. Control.',
         'value.body1': 'Built on 20 years of architectural millwork experience.',
@@ -151,7 +152,8 @@ const translations = {
         'roles.sales.b2': 'Réponses instantanées aux questions de prix',
         'roles.sales.b3': 'Modifications en direct pendant les rencontres',
         'roles.sales.b4': 'Soumissions propres et structurées',
-        'roles.closing': 'Pas de bouton magique.<br>Juste de l\'expertise structurée, accélérée.',
+        'roles.closing1': 'Pas de bouton magique.',
+        'roles.closing2': 'Juste de l\'expertise structurée, accélérée.',
 
         'value.title': 'Structure. Clart\u00e9. Contr\u00f4le.',
         'value.body1': 'B\u00e2ti sur 20 ans d\'exp\u00e9rience en menuiserie architecturale.',

@@ -379,12 +379,16 @@ section {
 }
 
 .roles-closing {
+    text-align: center;
+}
+
+.roles-closing p {
     font-size: 17px;
     font-weight: 500;
     color: var(--text);
     opacity: 0.7;
-    text-align: center;
-    line-height: 1.7;
+    line-height: 1.4;
+    margin: 0;
 }
 
 /* ── Value ── */

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Supabase - Scopewright Landing Page</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 40px 20px; background: #f5f5f5; color: #333;
+        }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; margin-bottom: 10px; color: #4b6050; }
+        .subtitle { font-size: 14px; color: #666; margin-bottom: 30px; }
+        .test-section { margin-bottom: 30px; padding: 20px; background: #fafafa; border-radius: 6px; border-left: 4px solid #ddd; }
+        .test-section.success { border-left-color: #4caf50; background: #f1f8f4; }
+        .test-section.error { border-left-color: #f44336; background: #fef5f5; }
+        .test-section.loading { border-left-color: #ff9800; background: #fff8f0; }
+        .test-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .test-result { font-size: 14px; color: #666; margin-top: 8px; font-family: monospace; background: #fff; padding: 10px; border-radius: 4px; }
+        .status-icon { font-size: 20px; }
+        button { padding: 12px 24px; background: #4b6050; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        button:hover { background: #3e4f42; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .info { padding: 16px; background: #e3f2fd; border-radius: 6px; font-size: 13px; line-height: 1.6; color: #1565c0; margin-bottom: 20px; }
+        .code { background: #fff; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px; overflow-x: auto; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Supabase Configuration</h1>
+        <p class="subtitle">Vérification de la configuration de la landing page Scopewright</p>
+
+        <div class="info">
+            ℹ️ Ce script teste la connexion à Supabase et vérifie que la table <strong>waitlist</strong> est correctement configurée.
+            Si les tests échouent, suivez les instructions dans <code>landing-page/setup.sql</code>.
+        </div>
+
+        <button id="runTests" onclick="runAllTests()">Lancer les tests</button>
+
+        <div id="results" style="margin-top: 30px;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MzQ4MzQsImV4cCI6MjA1MTUxMDgzNH0.y_DGde4qcN1nrJVxLRXKCCdT7bvTmR_2NhTf6vQjvhE';
+
+        async function runAllTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            document.getElementById('runTests').disabled = true;
+
+            // Test 1: Connection to Supabase
+            await testSupabaseConnection(resultsDiv);
+
+            // Test 2: Edge Function availability
+            await testEdgeFunction(resultsDiv);
+
+            // Test 3: Waitlist table exists
+            await testWaitlistTable(resultsDiv);
+
+            // Test 4: Insert permission (public anon)
+            await testInsertPermission(resultsDiv);
+
+            document.getElementById('runTests').disabled = false;
+        }
+
+        async function testSupabaseConnection(container) {
+            const section = createTestSection('Test 1: Connexion Supabase', 'loading');
+            container.appendChild(section);
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok || response.status === 404) {
+                    updateTestSection(section, 'success', 'Connexion réussie à Supabase ✓');
+                } else {
+                    updateTestSection(section, 'error', `Erreur de connexion: ${response.status}`);
+                }
+            } catch (error) {
+                updateTestSection(section, 'error', `Erreur réseau: ${error.message}`);
+            }
+        }
+
+        async function testEdgeFunction(container) {
+            const section = createTestSection('Test 2: Edge Function (translate)', 'loading');
+            container.appendChild(section);
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/translate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_KEY
+                    },
+                    body: JSON.stringify({
+                        texts: ['Test'],
+                        action: 'fr_to_en'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateTestSection(section, 'success', 'Edge Function accessible ✓\nRésultat: ' + JSON.stringify(data).substring(0, 100));
+                } else {
+                    updateTestSection(section, 'error', `Edge Function erreur: ${response.status}\n(Ceci est optionnel - la traduction peut être désactivée)`);
+                }
+            } catch (error) {
+                updateTestSection(section, 'error', `Erreur: ${error.message}\n(Ceci est optionnel)`);
+            }
+        }
+
+        async function testWaitlistTable(container) {
+            const section = createTestSection('Test 3: Table waitlist existe', 'loading');
+            container.appendChild(section);
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?limit=1`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    updateTestSection(section, 'success', 'Table waitlist existe et est accessible ✓');
+                } else if (response.status === 404) {
+                    updateTestSection(section, 'error',
+                        'Table waitlist n\'existe pas!\n\n' +
+                        'Action requise:\n' +
+                        '1. Ouvrir Supabase SQL Editor\n' +
+                        '2. Exécuter le script dans landing-page/setup.sql'
+                    );
+                } else {
+                    updateTestSection(section, 'error', `Erreur ${response.status}: ${await response.text()}`);
+                }
+            } catch (error) {
+                updateTestSection(section, 'error', `Erreur: ${error.message}`);
+            }
+        }
+
+        async function testInsertPermission(container) {
+            const section = createTestSection('Test 4: Permission INSERT (anon)', 'loading');
+            container.appendChild(section);
+
+            const testEmail = 'test-' + Date.now() + '@example.com';
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test User',
+                        email: testEmail,
+                        company: 'Test Co',
+                        message: 'Test automatique',
+                        lang: 'fr'
+                    })
+                });
+
+                if (response.ok || response.status === 201) {
+                    updateTestSection(section, 'success',
+                        'Permission INSERT fonctionne ✓\n\n' +
+                        'Test réussi: insertion d\'un utilisateur test.\n' +
+                        'Email: ' + testEmail
+                    );
+
+                    // Cleanup test data
+                    // Note: We can't delete as anon (admin only), but that's fine
+                } else {
+                    const errorText = await response.text();
+                    updateTestSection(section, 'error',
+                        `Permission INSERT échoue (${response.status})\n\n` +
+                        'Erreur: ' + errorText + '\n\n' +
+                        'Vérifiez les RLS policies dans setup.sql'
+                    );
+                }
+            } catch (error) {
+                updateTestSection(section, 'error', `Erreur: ${error.message}`);
+            }
+        }
+
+        function createTestSection(title, status) {
+            const section = document.createElement('div');
+            section.className = `test-section ${status}`;
+
+            const statusIcons = {
+                loading: '⏳',
+                success: '✅',
+                error: '❌'
+            };
+
+            section.innerHTML = `
+                <div class="test-title">
+                    <span class="status-icon">${statusIcons[status]}</span>
+                    <span>${title}</span>
+                </div>
+                <div class="test-result">En cours...</div>
+            `;
+            return section;
+        }
+
+        function updateTestSection(section, status, message) {
+            const statusIcons = {
+                loading: '⏳',
+                success: '✅',
+                error: '❌'
+            };
+
+            section.className = `test-section ${status}`;
+            section.querySelector('.status-icon').textContent = statusIcons[status];
+            section.querySelector('.test-result').textContent = message;
+        }
+    </script>
+</body>
+</html>

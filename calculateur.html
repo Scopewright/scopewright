@@ -5598,7 +5598,15 @@
 'function navigate(d) { currentPage += d; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; render(); }' +
 'function zoom(d) { scale += d; if (scale < 0.5) scale = 0.5; if (scale > 3.0) scale = 3.0; render(); }' +
 'function rotate() { rotation = (rotation + 90) % 360; render(); }' +
-'document.getElementById("canvasContainer").addEventListener("wheel", function(e) { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); }}, { passive: false });' +
+'var scrollCooldown = false;' +
+'document.getElementById("canvasContainer").addEventListener("wheel", function(e) {' +
+'  if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); return; }' +
+'  if (scrollCooldown) return;' +
+'  var threshold = 30;' +
+'  if (Math.abs(e.deltaY) < threshold) return;' +
+'  if (e.deltaY > 0 && currentPage < totalPages) { navigate(1); scrollCooldown = true; setTimeout(function() { scrollCooldown = false; }, 300); }' +
+'  else if (e.deltaY < 0 && currentPage > 1) { navigate(-1); scrollCooldown = true; setTimeout(function() { scrollCooldown = false; }, 300); }' +
+'}, { passive: true });' +
 
 /* Load rooms dropdown */
 'async function loadRooms() {' +

@@ -263,6 +263,13 @@ async function handleWaitlistSubmit(e) {
         return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showFeedback(feedback, 'Veuillez entrer une adresse courriel valide.', 'error');
+        return;
+    }
+
     // Show loading
     submitBtn.disabled = true;
     submitText.textContent = currentLang === 'fr' ? 'Envoi en cours...' : 'Submitting...';

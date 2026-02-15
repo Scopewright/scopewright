@@ -74,6 +74,68 @@ const translations = {
         'magic.line4': 'Scopewright reduces friction. It doesn\'t remove responsibility.',
         'magic.back': 'Back to reality',
         'magic.show': 'Show me how it really works'
+    },
+    fr: {
+        'nav.features': 'Fonctionnalit\u00e9s',
+        'nav.why': 'Pourquoi maintenant',
+        'nav.contact': 'Contact',
+        'nav.login': 'Connexion',
+        'nav.cta': 'Rejoindre la liste priv\u00e9e',
+
+        'hero.title': 'Arr\u00eatez d\'estimer comme en 2005.',
+        'hero.subtitle': 'Scopewright r\u00e9duit une estimation de 8 heures \u00e0 3. Z\u00e9ro erreur. Z\u00e9ro oubli. Z\u00e9ro friction.',
+        'hero.small': 'La premi\u00e8re plateforme d\'estimation intelligente con\u00e7ue exclusivement pour les ateliers d\'\u00e9b\u00e9nisterie et de menuiserie haut de gamme.',
+        'hero.cta': 'Rejoindre la liste priv\u00e9e',
+        'hero.magic': 'Bouton magique IA',
+        'hero.helper': 'L\'acc\u00e8s \u00e0 la b\u00eata priv\u00e9e est limit\u00e9 \u00e0 un petit nombre d\'ateliers s\u00e9lectionn\u00e9s.',
+
+        'problem.title': 'L\'estimation est votre goulot d\'\u00e9tranglement invisible.',
+        'problem.card1.title': 'Perte de temps',
+        'problem.card1.desc': '4 \u00e0 8 heures par soumission complexe.',
+        'problem.card2.title': 'Erreurs invisibles',
+        'problem.card2.desc': 'Quincaillerie oubli\u00e9e, port\u00e9e incoh\u00e9rente, erreurs de marge.',
+        'problem.card3.title': 'Croissance bloqu\u00e9e',
+        'problem.card3.desc': 'Plus de projets = plus de chaos.',
+
+        'value.title': 'Structure. Clart\u00e9. Contr\u00f4le.',
+        'value.body': 'Scopewright est b\u00e2ti sur 20 ans d\'exp\u00e9rience terrain en menuiserie architecturale. Ce n\'est pas un logiciel g\u00e9n\u00e9rique cr\u00e9\u00e9 par des gens de l\'ext\u00e9rieur. C\'est un syst\u00e8me d\'estimation con\u00e7u pour les ateliers de 5 \u00e0 15\u00a0M$ de revenus.',
+
+        'infra.layer1': 'Intelligence artificielle',
+        'infra.layer1.desc': 'Assistant, optimiseur, r\u00e9viseur',
+        'infra.layer2': 'Moteur d\'estimation',
+        'infra.layer2.desc': 'Catalogue, calculateur, workflow',
+        'infra.layer3': 'Infrastructure',
+        'infra.layer3.desc': 'Base de donn\u00e9es, stockage, permissions',
+
+        'comparison.before': 'Avant',
+        'comparison.after': 'Avec Scopewright',
+        'comparison.before.1': '8 heures',
+        'comparison.before.2': 'Feuilles Excel fragiles',
+        'comparison.before.3': 'Marges cach\u00e9es jusqu\'\u00e0 ce qu\'il soit trop tard',
+        'comparison.before.4': 'Processus manuel',
+        'comparison.after.1': '3 heures',
+        'comparison.after.2': 'Catalogue de prix structur\u00e9',
+        'comparison.after.3': 'Rentabilit\u00e9 en temps r\u00e9el',
+        'comparison.after.4': 'Assistant conversationnel (b\u00eata priv\u00e9e)',
+
+        'waitlist.title': 'Nous construisons la premi\u00e8re version.',
+        'waitlist.body': 'Nous s\u00e9lectionnons un nombre limit\u00e9 d\'ateliers pour un acc\u00e8s anticip\u00e9.',
+        'form.email': 'Courriel',
+        'form.shop': 'Nom de l\'atelier (optionnel)',
+        'form.submit': 'Rejoindre',
+        'form.success': 'Vous \u00eates sur la liste. Nous vous contacterons lorsque des places seront disponibles.',
+
+        'footer.tagline': 'Infrastructure d\'estimation pour ateliers de menuiserie haut de gamme.',
+        'footer.privacy': 'Confidentialit\u00e9',
+        'footer.contact': 'Contact',
+
+        'magic.title': 'Vous cherchez le bouton magique?',
+        'magic.line1': 'Il n\'existe pas.',
+        'magic.line2': 'Estimer, c\'est un jugement.',
+        'magic.line3': 'L\'IA assiste. Elle ne remplace pas.',
+        'magic.line4': 'Scopewright r\u00e9duit la friction. Il n\'\u00e9limine pas la responsabilit\u00e9.',
+        'magic.back': 'Retour \u00e0 la r\u00e9alit\u00e9',
+        'magic.show': 'Montrez-moi comment \u00e7a fonctionne vraiment'
     }
 };
 
@@ -123,73 +185,33 @@ function extractTextsToTranslate() {
 }
 
 // Apply translations to page
-function applyTranslations(translationsMap, lang) {
+function applyTranslations(langMap) {
     const elements = getTranslatableElements();
 
     elements.forEach(el => {
         const contentKey = el.getAttribute('data-i18n');
         const placeholderKey = el.getAttribute('data-i18n-placeholder');
 
-        if (contentKey) {
-            const text = lang === 'en' ? translations.en[contentKey] : translationsMap[contentKey];
-            if (text) {
-                el.innerHTML = text;
-            }
+        if (contentKey && langMap[contentKey]) {
+            el.textContent = langMap[contentKey];
         }
 
-        if (placeholderKey) {
-            const text = lang === 'en' ? translations.en[placeholderKey] : translationsMap[placeholderKey];
-            if (text) {
-                el.placeholder = text;
-            }
+        if (placeholderKey && langMap[placeholderKey]) {
+            el.placeholder = langMap[placeholderKey];
         }
     });
 }
 
 // Toggle language
-async function toggleLanguage() {
+function toggleLanguage() {
     const newLang = currentLang === 'en' ? 'fr' : 'en';
 
     // Update UI
     document.getElementById('langActive').textContent = newLang.toUpperCase();
     document.getElementById('langInactive').textContent = currentLang.toUpperCase();
 
-    if (newLang === 'en') {
-        // Switch back to English (no API call needed)
-        applyTranslations({}, 'en');
-        currentLang = 'en';
-        return;
-    }
-
-    // Check cache
-    if (translationCache.fr) {
-        applyTranslations(translationCache.fr, 'fr');
-        currentLang = 'fr';
-        return;
-    }
-
-    // Translate to French
-    try {
-        const textsToTranslate = extractTextsToTranslate();
-
-        // Convert to format expected by Edge Function: { key, text }[]
-        const textsArray = Object.entries(textsToTranslate).map(([key, text]) => ({
-            key,
-            text
-        }));
-
-        // Call Edge Function (en_to_fr)
-        const translatedTexts = await callEdgeFunction(textsArray, 'en_to_fr');
-
-        // translatedTexts is already a map { key: translatedText }
-        translationCache.fr = translatedTexts;
-        applyTranslations(translatedTexts, 'fr');
-        currentLang = 'fr';
-
-    } catch (error) {
-        console.error('Translation error:', error);
-        alert('Translation failed. Please try again.');
-    }
+    applyTranslations(translations[newLang], newLang);
+    currentLang = newLang;
 }
 
 // ── Magic Button & Overlay ──

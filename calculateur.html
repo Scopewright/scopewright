@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stele — Calculateur</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
@@ -5682,8 +5683,11 @@
 '    var meta = { type: "pdf_plan", plan_id: planRecord.id, page_number: currentPage, pdf_filename: planRecord.file_name, pdf_version: planRecord.version_number, captured_at: new Date().toISOString(), scale: 3.0 };' +
 '    var insResp = await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: Object.assign({}, headers, { "Content-Type": "application/json", "Prefer": "return=representation" }), body: JSON.stringify({ room_id: selectedRoomId, original_url: originalUrl, cropped_url: croppedUrl, crop_ratio: cropRatioLabel, crop_data: cropData, tags: ["presentation_soumission"], source_metadata: meta }) });' +
 '    if (!insResp.ok) throw new Error("Insert record: " + insResp.status);' +
+'    var inserted = await insResp.json();' +
+'    var newMediaId = Array.isArray(inserted) ? inserted[0].id : inserted.id;' +
 
 '    status.style.background = "#e8f5e9"; status.style.color = "#2e7d32"; status.textContent = "\\u2713 Capture r\\u00E9ussie!";' +
+'    if (window.opener) { window.opener.postMessage({ type: "PLAN_CAPTURE_DONE", roomId: selectedRoomId, croppedUrl: croppedUrl, originalUrl: originalUrl, cropRatio: cropRatioLabel, mediaId: newMediaId }, "*"); }' +
 '    setTimeout(cancelCrop, 1500);' +
 '  } catch (e) {' +
 '    console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "Erreur: " + e.message;' +
@@ -8355,6 +8359,35 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
+        // Listen for captures from standalone PDF viewer window
+        // ═══════════════════════════════════════════════════════════════════════
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.type === 'PLAN_CAPTURE_DONE') {
+                var roomId = e.data.roomId;
+                // Find groupDomId from roomMap (reverse lookup)
+                var groupId = null;
+                for (var key in roomMap) {
+                    if (roomMap[key] === roomId) { groupId = key; break; }
+                }
+                if (!groupId) return;
+
+                if (!groupImages[groupId]) groupImages[groupId] = [];
+                groupImages[groupId].push({
+                    name: (e.data.croppedUrl || '').split('/').pop() || 'capture.jpg',
+                    url: e.data.croppedUrl,
+                    originalUrl: e.data.originalUrl,
+                    mediaId: e.data.mediaId,
+                    tags: ['presentation_soumission'],
+                    cropRatio: e.data.cropRatio,
+                    isLegacy: false,
+                    showInQuote: true
+                });
+                renderGroupImagePreviews(groupId);
+                showSaveIndicator();
+            }
+        });
+
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 

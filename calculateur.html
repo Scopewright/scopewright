@@ -439,7 +439,33 @@
     function updateAiScope() {
         var badge = document.getElementById('aiScopeBadge');
         if (!badge) return;
-        badge.textContent = aiCurrentScope === 'room' ? 'Pièce' : aiCurrentScope === 'submission' ? 'Soumission' : 'Projet';
+        if (aiCurrentScope === 'room' && aiFocusGroupId) {
+            var nameInput = document.getElementById(aiFocusGroupId + '-name');
+            var roomName = nameInput ? nameInput.value.trim() : '';
+            badge.textContent = roomName ? roomName : 'Pièce';
+            badge.title = 'AI ciblée sur: ' + (roomName || 'pièce sélectionnée');
+        } else {
+            badge.textContent = 'Projet';
+            badge.title = 'AI analyse le projet entier';
+        }
+    }
+
+    function toggleAiFocus(groupId) {
+        // Deselect all focus buttons
+        document.querySelectorAll('.btn-ai-focus.active').forEach(function(btn) { btn.classList.remove('active'); });
+
+        if (aiFocusGroupId === groupId) {
+            // Toggle off — back to project scope
+            aiFocusGroupId = null;
+            aiCurrentScope = 'project';
+        } else {
+            // Focus on this room
+            aiFocusGroupId = groupId;
+            aiCurrentScope = 'room';
+            var btn = document.getElementById(groupId + '-aiFocus');
+            if (btn) btn.classList.add('active');
+        }
+        updateAiScope();
     }
 
     // ── Render un message dans le chat ──
@@ -627,6 +653,9 @@
         aiConversation = [];
         aiPendingImages = [];
         aiChatLoaded = false;
+        aiClientFileCache = null;
+        aiFocusGroupId = null;
+        aiCurrentScope = 'project';
         var container = document.getElementById('aiMessages');
         if (container) container.innerHTML = '';
         var preview = document.getElementById('aiImgPreview');
@@ -3726,6 +3755,13 @@
             font-family: inherit; transition: all 0.15s;
         }
         .btn-rentab:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
+        .btn-ai-focus {
+            background: none; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85);
+            padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap;
+            font-family: inherit; transition: all 0.15s;
+        }
+        .btn-ai-focus:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
+        .btn-ai-focus.active { background: rgba(255,255,255,0.25); border-color: #fff; color: #fff; }
         /* Print */
         @media print {
             .nav-bar { display: none; }
@@ -4843,6 +4879,7 @@
                         <span class="install-label">Installation</span>
                     </label>
                     <button class="btn-rentab" onclick="openRentab('group','${groupId}')">Rentabilit&eacute;</button>
+                    <button class="btn-ai-focus" id="${groupId}-aiFocus" onclick="toggleAiFocus('${groupId}')" title="Cibler l'AI sur cette pi&egrave;ce">AI</button>
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="client-description-section">

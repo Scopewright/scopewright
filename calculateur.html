@@ -5631,7 +5631,13 @@
 '}' +
 
 /* Capture modal */
-'function openCaptureModal() { document.getElementById("captureModal").classList.add("active"); }' +
+'function openCaptureModal() { document.getElementById("captureModal").classList.add("active"); refreshRooms(); }' +
+'async function refreshRooms() {' +
+'  var sel = document.getElementById("roomSelect"); var prev = sel.value;' +
+'  sel.innerHTML = "<option value=\\"\\">-- S\\u00E9lectionnez --</option>";' +
+'  await loadRooms();' +
+'  if (prev) sel.value = prev;' +
+'}' +
 'function closeCaptureModal() { document.getElementById("captureModal").classList.remove("active"); document.getElementById("captureStatus").style.display = "none"; }' +
 
 /* Step 1: confirmCapture — render page then open crop */

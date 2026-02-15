@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion — Scopewright</title>
+    <link rel="icon" type="image/svg+xml" href="landing-page/favicon.svg">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
             height: 100%;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #F5F0E8;
-            color: #3D3231;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: #F7F8FA;
+            color: #0B0F17;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -33,25 +35,25 @@
             top: 32px;
             left: 56px;
             font-size: 13px;
-            color: #3D3231;
+            color: #0B0F17;
             text-decoration: none;
-            opacity: 0.6;
+            opacity: 0.5;
             transition: opacity 0.2s;
         }
 
         .back-link:hover { opacity: 1; }
 
         .logo-text {
-            font-size: 32px;
-            font-weight: 400;
-            color: #3D3231;
-            letter-spacing: 0.5px;
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            letter-spacing: -0.02em;
             margin-bottom: 8px;
         }
 
         .subtitle {
             font-size: 15px;
-            color: #3D3231;
+            color: #0B0F17;
             opacity: 0.6;
             margin-bottom: 40px;
         }
@@ -63,79 +65,94 @@
 
         .form-label {
             display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: #3D3231;
+            font-size: 13px;
+            font-weight: 500;
+            color: #0B0F17;
             margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .form-input {
             width: 100%;
-            padding: 12px 14px;
+            padding: 14px 18px;
             font-size: 15px;
             font-family: inherit;
-            border: 1px solid rgba(61, 50, 49, 0.2);
-            border-radius: 2px;
-            background: rgba(255, 255, 255, 0.5);
-            color: #3D3231;
+            border: 1px solid #E1E4E8;
+            border-radius: 12px;
+            background: #FFFFFF;
+            color: #0B0F17;
             transition: border-color 0.2s;
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #3D3231;
+            border-color: #111827;
         }
 
         .login-btn {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
-            background: #3D3231;
-            color: #F5F0E8;
+            background: #111827;
+            color: #FFFFFF;
             border: none;
             padding: 12px 32px;
             font-size: 14px;
             font-weight: 500;
+            font-family: inherit;
             cursor: pointer;
-            letter-spacing: 0.3px;
-            transition: opacity 0.2s;
+            border-radius: 12px;
+            transition: background 0.2s;
             margin-top: 8px;
         }
 
-        .login-btn:hover { opacity: 0.85; }
+        .login-btn:hover { background: #000000; }
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .error-msg {
             display: none;
             margin-top: 16px;
-            padding: 10px 14px;
-            background: rgba(192, 57, 43, 0.1);
-            color: #c0392b;
+            padding: 12px 16px;
+            background: #FEF2F2;
+            color: #DC2626;
             font-size: 13px;
-            border-radius: 2px;
+            border-radius: 12px;
+            border: 1px solid #FECACA;
             max-width: 360px;
         }
 
         .right {
             flex: 1;
-            background: #F5F0E8;
+            background: #0B0F17;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .right img {
-            width: 380px;
-            height: auto;
-            object-fit: contain;
+        .right-content {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            padding: 48px;
+        }
+
+        .right-logo {
+            font-size: 24px;
+            font-weight: 600;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .right-tagline {
+            font-size: 15px;
+            line-height: 1.6;
+            max-width: 300px;
         }
 
         @media (max-width: 768px) {
             .container { flex-direction: column-reverse; }
-            .right { min-height: 160px; flex: none; }
-            .right img { width: 120px; }
+            .right { min-height: 120px; flex: none; }
+            .right-content { padding: 24px; }
             .left { flex: 1; padding: 36px 28px; }
             .back-link { top: 20px; left: 28px; }
         }
@@ -166,7 +183,10 @@
         </div>
 
         <div class="right">
-            <img src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png" alt="Scopewright logo">
+            <div class="right-content">
+                <div class="right-logo">scopewright</div>
+                <div class="right-tagline">Estimation infrastructure for<br>premium millwork shops.</div>
+            </div>
         </div>
     </div>
 

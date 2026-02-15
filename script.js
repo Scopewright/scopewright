@@ -5,7 +5,7 @@
 
 // ── Configuration ──
 const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xBKuloaTJl5ebWtZvmiHIw_s7Jyyl3t';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
 // ── State ──
 let currentLang = 'en';
@@ -84,6 +84,7 @@ async function callEdgeFunction(texts, action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
             'apikey': SUPABASE_KEY
         },
         body: JSON.stringify({ texts, action })

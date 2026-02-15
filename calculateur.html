@@ -2717,7 +2717,7 @@
                     <div class="ph-top-actions">
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
-                        <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
+                        <button class="btn-header-link" id="btnPlans" onclick="openPlansDirectly()">Plans</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
                             <div class="kebab-dropdown" id="headerKebabDropdown">
@@ -5059,6 +5059,85 @@
         // ═══════════════════════════════════════════════════════════════════════
         // Plans architecturaux
         // ═══════════════════════════════════════════════════════════════════════
+        async function openPlansDirectly() {
+            if (!currentSubmission) {
+                alert('Veuillez ouvrir une soumission d\'abord.');
+                return;
+            }
+
+            // Open window IMMEDIATELY (sync) to preserve user gesture context — avoids pop-up blocker
+            currentPlanRecord = currentPlanRecord || {};
+            var viewerHtml = createStandaloneViewer();
+            var blob = new Blob([viewerHtml], { type: 'text/html' });
+            var blobUrl = URL.createObjectURL(blob);
+            var newWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
+
+            if (!newWindow) {
+                alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
+                return;
+            }
+
+            try {
+                var response = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submission_plans?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc&limit=1',
+                    { headers: { 'Prefer': 'return=representation' } }
+                );
+
+                if (!response.ok) throw new Error('Erreur de chargement des plans');
+                var plans = await response.json();
+
+                if (plans.length === 0) {
+                    newWindow.close();
+                    alert('Aucun plan pour cette soumission.');
+                    return;
+                }
+
+                var plan = plans[0];
+
+                // Get signed URL
+                var signResp = await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/sign/submission-plans/' + plan.file_path,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ expiresIn: 3600 })
+                    }
+                );
+
+                if (!signResp.ok) throw new Error('Erreur de génération du lien');
+                var signData = await signResp.json();
+                var pdfUrl = SUPABASE_URL + '/storage/v1' + signData.signedURL;
+
+                currentPlanRecord = plan;
+                currentPdfUrl = pdfUrl;
+
+                // Send data to the already-open window
+                function trySendMessage() {
+                    newWindow.postMessage({
+                        type: 'INIT_PDF',
+                        pdfUrl: pdfUrl,
+                        planRecord: plan,
+                        submissionId: currentSubmission.id,
+                        supabaseUrl: SUPABASE_URL,
+                        accessToken: localStorage.getItem('sb_access_token')
+                    }, '*');
+                }
+
+                // Try immediately, and also on load in case page isn't ready yet
+                if (newWindow.document && newWindow.document.readyState === 'complete') {
+                    trySendMessage();
+                } else {
+                    newWindow.addEventListener('load', trySendMessage);
+                }
+
+            } catch (err) {
+                console.error('Error opening plan:', err);
+                newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +
+                    '<h2>Erreur</h2><p>' + err.message + '</p>' +
+                    '<p style="margin-top:20px;"><a href="#" onclick="window.close()" style="color:#6cf;">Fermer</a></p></div>';
+            }
+        }
+
         async function openPlansModal() {
             if (!currentSubmission) {
                 alert('Veuillez ouvrir une soumission d\'abord.');
@@ -5960,15 +6039,10 @@
 
         // ── Edge Function helper ──
         async function callEdgeFunction(texts, action) {
-            var token = localStorage.getItem('sb_access_token') || '';
             console.log('[AI] Calling edge function:', action, 'with', texts.length, 'texts');
-            var resp = await fetch(SUPABASE_URL + '/functions/v1/translate', {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token,
-                    'apikey': SUPABASE_KEY
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ texts: texts, action: action })
             });
             if (!resp.ok) {

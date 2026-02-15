@@ -251,38 +251,23 @@ body {
 }
 
 .mockup-bar {
-    height: 48px;
+    height: 12px;
     background: #FFFFFF;
     border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-}
-
-.mockup-dots {
-    display: flex;
-    gap: 8px;
-}
-
-.mockup-dots span {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #E1E4E8;
 }
 
 .mockup-content {
-    aspect-ratio: 16 / 10;
     background: #FAFBFC;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.mockup-placeholder {
-    font-size: 14px;
-    color: #999;
-    font-weight: 500;
+.mockup-content img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
 }
 
 /* ── Sections ── */

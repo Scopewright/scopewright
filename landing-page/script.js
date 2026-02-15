@@ -21,8 +21,8 @@ const translations = {
         'nav.cta': 'Join the private beta',
 
         'hero.title': 'Stop estimating like it\'s 2005.',
-        'hero.subtitle': 'Turn 8 hours into 3. Fewer mistakes. Less friction.',
-        'hero.small': 'Estimation infrastructure built specifically for high-end cabinetry and millwork shops.',
+        'hero.subtitle': 'Turn 8 hours into 3. With control.',
+        'hero.small': 'Built exclusively for professional cabinetry and millwork shops.',
         'hero.cta': 'Join the private beta',
         'hero.magic': 'AI Magic Button',
         'hero.helper': 'Early access is limited to selected professional shops.',
@@ -97,8 +97,8 @@ const translations = {
         'nav.cta': 'Rejoindre la b\u00eata priv\u00e9e',
 
         'hero.title': 'Arr\u00eatez d\'estimer comme en 2005.',
-        'hero.subtitle': '8 heures r\u00e9duites \u00e0 3. Moins d\'erreurs. Moins de friction.',
-        'hero.small': 'Infrastructure d\'estimation con\u00e7ue sp\u00e9cifiquement pour les ateliers d\'\u00e9b\u00e9nisterie et de menuiserie haut de gamme.',
+        'hero.subtitle': '8 heures réduites à 3. Avec contrôle.',
+        'hero.small': 'Conçu exclusivement pour les ateliers professionnels d\'ébénisterie et de menuiserie.',
         'hero.cta': 'Rejoindre la b\u00eata priv\u00e9e',
         'hero.magic': 'Bouton magique IA',
         'hero.helper': 'L\'acc\u00e8s anticip\u00e9 est limit\u00e9 aux ateliers professionnels s\u00e9lectionn\u00e9s.',

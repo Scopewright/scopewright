@@ -64,11 +64,12 @@ body {
 }
 
 .nav-logo {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-size: 23px;
+    font-weight: 650;
+    letter-spacing: -0.025em;
     line-height: 1;
     color: #0B1220;
+    padding: 0 4px;
     transition: opacity 0.2s;
 }
 
@@ -171,10 +172,15 @@ body {
 .btn-ghost {
     background: transparent;
     color: var(--text);
+    opacity: 0.7;
     border: 1px solid var(--border);
+    font-size: 13px;
+    padding: 7px 16px;
+    gap: 5px;
 }
 
 .btn-ghost:hover {
+    opacity: 1;
     border-color: var(--accent);
 }
 
@@ -207,21 +213,24 @@ body {
 }
 
 .hero-subtitle {
-    font-size: 20px;
+    font-size: 19px;
     line-height: 1.5;
     color: var(--text);
-    margin-bottom: 16px;
+    opacity: 0.85;
+    margin-bottom: 20px;
 }
 
 .hero-small {
     font-size: 15px;
     color: var(--text);
-    opacity: 0.6;
-    margin-bottom: 32px;
+    opacity: 0.5;
+    margin-bottom: 36px;
+    max-width: 420px;
 }
 
 .hero-cta {
     display: flex;
+    align-items: center;
     gap: 12px;
     margin-bottom: 16px;
 }

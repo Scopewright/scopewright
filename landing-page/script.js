@@ -67,11 +67,11 @@ const translations = {
         'footer.privacy': 'Privacy',
         'footer.contact': 'Contact',
 
-        'magic.title': 'Looking for the magic button?',
-        'magic.line1': 'It doesn\'t exist.',
-        'magic.line2': 'Estimating is judgment.',
-        'magic.line3': 'AI assists. It doesn\'t replace.',
-        'magic.line4': 'Scopewright reduces friction. It doesn\'t remove responsibility.',
+        'magic.title': 'Real AI. Not magic.',
+        'magic.line1': 'There is no "one-click estimate".',
+        'magic.line2': 'Anyone promising that is lying.',
+        'magic.line3': 'Scopewright\'s AI doesn\'t replace your judgment. It guides, reviews, and protects your margins.',
+        'magic.line4': 'It saves you time. It doesn\'t replace your expertise.',
         'magic.back': 'Back to reality',
         'magic.show': 'Show me how it really works'
     },
@@ -129,11 +129,11 @@ const translations = {
         'footer.privacy': 'Confidentialit\u00e9',
         'footer.contact': 'Contact',
 
-        'magic.title': 'Vous cherchez le bouton magique?',
-        'magic.line1': 'Il n\'existe pas.',
-        'magic.line2': 'Estimer, c\'est un jugement.',
-        'magic.line3': 'L\'IA assiste. Elle ne remplace pas.',
-        'magic.line4': 'Scopewright r\u00e9duit la friction. Il n\'\u00e9limine pas la responsabilit\u00e9.',
+        'magic.title': 'De la vraie IA. Pas de la magie.',
+        'magic.line1': 'Il n\'y a pas d\'estimation en un clic.',
+        'magic.line2': 'Quiconque promet \u00e7a vous ment.',
+        'magic.line3': 'L\'IA de Scopewright ne remplace pas votre jugement. Elle guide, r\u00e9vise et prot\u00e8ge vos marges.',
+        'magic.line4': 'Elle vous fait gagner du temps. Elle ne remplace pas votre expertise.',
         'magic.back': 'Retour \u00e0 la r\u00e9alit\u00e9',
         'magic.show': 'Montrez-moi comment \u00e7a fonctionne vraiment'
     }

@@ -5470,9 +5470,12 @@
         }
 
         function createStandaloneViewer() {
+            var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
             return '<!DOCTYPE html>' +
 '<html><head><meta charset="utf-8"><title>Plan - ' + (currentPlanRecord ? currentPlanRecord.file_name : 'PDF') + '</title>' +
 '<scr' + 'ipt src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></' + 'script>' +
+'<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">' +
+'<scr' + 'ipt src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></' + 'script>' +
 '<style>' +
 '* { margin: 0; padding: 0; box-sizing: border-box; }' +
 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #2b2b2b; color: #fff; overflow: hidden; }' +
@@ -5485,8 +5488,8 @@
 '.page-info { font-size: 13px; color: #999; }' +
 '.canvas-container { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }' +
 'canvas { box-shadow: 0 4px 24px rgba(0,0,0,0.5); background: #fff; }' +
-'.capture-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 1000; }' +
-'.capture-modal.active { display: flex; }' +
+'.overlay-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 1000; }' +
+'.overlay-modal.active { display: flex; }' +
 '.modal-content { background: #2b2b2b; border-radius: 8px; padding: 24px; max-width: 500px; width: 90%; border: 1px solid #444; }' +
 '.modal-title { font-size: 18px; margin-bottom: 16px; }' +
 '.form-group { margin-bottom: 16px; }' +
@@ -5494,32 +5497,68 @@
 '.form-input { width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 4px; color: #fff; font-family: inherit; font-size: 14px; }' +
 '.modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }' +
 '.status { margin-top: 12px; padding: 10px; border-radius: 4px; font-size: 13px; display: none; }' +
+'.crop-box { background: #2b2b2b; border-radius: 8px; border: 1px solid #444; width: 90vw; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }' +
+'.crop-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }' +
+'.crop-header .modal-title { margin-bottom: 0; }' +
+'.crop-container { position: relative; flex: 1; min-height: 300px; max-height: 60vh; background: #222; overflow: hidden; }' +
+'.crop-container img { display: block; max-width: 100%; }' +
+'.crop-controls { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #444; }' +
+'.crop-ratios { display: flex; gap: 6px; }' +
+'.ratio-btn { background: #3a3a3a; border: 1px solid #555; color: #fff; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }' +
+'.ratio-btn:hover { background: #4a4a4a; }' +
+'.ratio-btn.active { border-color: #4b6050; background: #4b6050; color: #fff; }' +
+'.crop-actions { display: flex; gap: 8px; }' +
 '</style></head><body>' +
 '<div class="viewer-header">' +
 '  <div class="viewer-title" id="title">Chargement...</div>' +
 '  <div class="controls">' +
-'    <button class="btn" id="btnPrev" onclick="navigate(-1)">◀</button>' +
+'    <button class="btn" id="btnPrev" onclick="navigate(-1)">\u25C0</button>' +
 '    <span class="page-info" id="pageInfo">1 / 1</span>' +
-'    <button class="btn" id="btnNext" onclick="navigate(1)">▶</button>' +
-'    <button class="btn" onclick="zoom(-0.25)">−</button>' +
+'    <button class="btn" id="btnNext" onclick="navigate(1)">\u25B6</button>' +
+'    <button class="btn" onclick="zoom(-0.25)">\u2212</button>' +
 '    <span class="page-info" id="zoomInfo">100%</span>' +
 '    <button class="btn" onclick="zoom(0.25)">+</button>' +
-'    <button class="btn" onclick="rotate()">↻</button>' +
-'    <button class="btn" onclick="openCaptureModal()">📸 Capturer</button>' +
+'    <button class="btn" onclick="rotate()">\u21BB</button>' +
+'    <button class="btn" onclick="openCaptureModal()">\uD83D\uDCF8 Capturer</button>' +
 '  </div>' +
 '</div>' +
 '<div class="canvas-container" id="canvasContainer"><canvas id="pdfCanvas"></canvas></div>' +
-'<div class="capture-modal" id="captureModal">' +
+/* Capture modal — room selection */
+'<div class="overlay-modal" id="captureModal">' +
 '  <div class="modal-content">' +
 '    <div class="modal-title">Capturer la page</div>' +
-'    <div class="form-group"><label class="form-label">Pièce / Meuble</label><select class="form-input" id="roomSelect"><option value="">-- Sélectionnez --</option></select></div>' +
-'    <div class="status" id="status"></div>' +
-'    <div class="modal-actions"><button class="btn" onclick="closeCaptureModal()">Annuler</button><button class="btn" onclick="confirmCapture()">Capturer</button></div>' +
+'    <div class="form-group"><label class="form-label">Pi\u00E8ce / Meuble</label><select class="form-input" id="roomSelect"><option value="">-- S\u00E9lectionnez --</option></select></div>' +
+'    <div class="status" id="captureStatus"></div>' +
+'    <div class="modal-actions"><button class="btn" onclick="closeCaptureModal()">Annuler</button><button class="btn" id="btnCapture" onclick="confirmCapture()">Capturer</button></div>' +
+'  </div>' +
+'</div>' +
+/* Crop modal */
+'<div class="overlay-modal" id="cropModal">' +
+'  <div class="crop-box">' +
+'    <div class="crop-header"><div class="modal-title">Recadrer l\\\'image</div><span id="cropDims" style="font-size:12px;color:#888;"></span></div>' +
+'    <div class="crop-container" id="cropContainer"><img id="cropImage" src=""></div>' +
+'    <div class="crop-controls">' +
+'      <div class="crop-ratios">' +
+'        <button class="ratio-btn active" onclick="setCropRatio(16/9,this)">16:9</button>' +
+'        <button class="ratio-btn" onclick="setCropRatio(9/16,this)">9:16</button>' +
+'        <button class="ratio-btn" onclick="setCropRatio(1,this)">1:1</button>' +
+'      </div>' +
+'      <div class="crop-actions">' +
+'        <button class="btn" onclick="cancelCrop()">Annuler</button>' +
+'        <button class="btn" id="btnCropConfirm" style="background:#4b6050;" onclick="confirmCrop()">Valider</button>' +
+'      </div>' +
+'    </div>' +
+'    <div class="status" id="cropStatus" style="margin:0 20px 16px;"></div>' +
 '  </div>' +
 '</div>' +
 '<scr' + 'ipt>' +
 'pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";' +
-'var pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.0, rotation = 0, planRecord = null, submissionId = null, supabaseUrl = null, accessToken = null;' +
+'var pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.0, rotation = 0;' +
+'var planRecord = null, submissionId = null, supabaseUrl = null, accessToken = null;' +
+'var ANON_KEY = "' + ANON_KEY + '";' +
+'var cropper = null, capturedBlob = null, selectedRoomId = null, cropRatioLabel = "16:9";' +
+
+/* INIT via postMessage */
 'window.addEventListener("message", async function(e) {' +
 '  if (e.data.type === "INIT_PDF") {' +
 '    planRecord = e.data.planRecord; submissionId = e.data.submissionId; supabaseUrl = e.data.supabaseUrl; accessToken = e.data.accessToken;' +
@@ -5528,6 +5567,8 @@
 '    pdfDoc = await loadingTask.promise; totalPages = pdfDoc.numPages; await render(); await loadRooms();' +
 '  }' +
 '});' +
+
+/* PDF rendering */
 'async function render() {' +
 '  if (!pdfDoc) return;' +
 '  var page = await pdfDoc.getPage(currentPage);' +
@@ -5543,31 +5584,110 @@
 'function zoom(d) { scale += d; if (scale < 0.5) scale = 0.5; if (scale > 3.0) scale = 3.0; render(); }' +
 'function rotate() { rotation = (rotation + 90) % 360; render(); }' +
 'document.getElementById("canvasContainer").addEventListener("wheel", function(e) { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); }}, { passive: false });' +
+
+/* Load rooms dropdown */
 'async function loadRooms() {' +
 '  try {' +
-'    var r = await fetch(supabaseUrl + "/rest/v1/project_rooms?submission_id=eq." + submissionId + "&select=id,name&order=sort_order.asc", { headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken } });' +
+'    var r = await fetch(supabaseUrl + "/rest/v1/project_rooms?submission_id=eq." + submissionId + "&select=id,name&order=sort_order.asc", { headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + accessToken } });' +
 '    var rooms = await r.json(); var sel = document.getElementById("roomSelect");' +
 '    rooms.forEach(function(rm) { var opt = document.createElement("option"); opt.value = rm.id; opt.textContent = rm.name; sel.appendChild(opt); });' +
 '  } catch (e) { console.error(e); }' +
 '}' +
+
+/* Capture modal */
 'function openCaptureModal() { document.getElementById("captureModal").classList.add("active"); }' +
-'function closeCaptureModal() { document.getElementById("captureModal").classList.remove("active"); document.getElementById("status").style.display = "none"; }' +
+'function closeCaptureModal() { document.getElementById("captureModal").classList.remove("active"); document.getElementById("captureStatus").style.display = "none"; }' +
+
+/* Step 1: confirmCapture — render page then open crop */
 'async function confirmCapture() {' +
-'  var roomId = document.getElementById("roomSelect").value; if (!roomId) { alert("Sélectionnez une pièce"); return; }' +
-'  var status = document.getElementById("status"); status.style.display = "block"; status.style.background = "#e3f2fd"; status.style.color = "#1565c0"; status.textContent = "Capture...";' +
+'  selectedRoomId = document.getElementById("roomSelect").value;' +
+'  if (!selectedRoomId) { alert("S\\u00E9lectionnez une pi\\u00E8ce"); return; }' +
+'  var status = document.getElementById("captureStatus"); var btn = document.getElementById("btnCapture");' +
+'  status.style.display = "block"; status.style.background = "#e3f2fd"; status.style.color = "#1565c0"; status.textContent = "Capture haute r\\u00E9solution...";' +
+'  btn.disabled = true;' +
 '  try {' +
-'    var page = await pdfDoc.getPage(currentPage); var viewport = page.getViewport({ scale: 3.0, rotation: rotation });' +
+'    var page = await pdfDoc.getPage(currentPage);' +
+'    var viewport = page.getViewport({ scale: 3.0, rotation: rotation });' +
 '    var canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height;' +
 '    await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;' +
-'    status.textContent = "Compression...";' +
-'    var blob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.85); });' +
-'    status.textContent = "Upload..."; var ts = Date.now(); var filename = "plan_p" + currentPage + "_" + ts + ".jpg"; var uploadPath = roomId + "/" + filename;' +
-'    var up = await fetch(supabaseUrl + "/storage/v1/object/room-media/" + uploadPath, { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken, "Content-Type": "image/jpeg" }, body: blob });' +
-'    if (!up.ok) throw new Error("Upload failed");' +
+'    capturedBlob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.9); });' +
+'    closeCaptureModal();' +
+'    openCropModal(capturedBlob);' +
+'  } catch (e) { console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "Erreur: " + e.message; }' +
+'  finally { btn.disabled = false; }' +
+'}' +
+
+/* Step 2: Crop modal */
+'function openCropModal(blob) {' +
+'  var url = URL.createObjectURL(blob);' +
+'  var imgEl = document.getElementById("cropImage");' +
+'  var testImg = new Image();' +
+'  testImg.onload = function() {' +
+'    document.getElementById("cropDims").textContent = testImg.width + " \\u00D7 " + testImg.height + " px";' +
+'    imgEl.src = url;' +
+'    document.getElementById("cropModal").classList.add("active");' +
+'    if (cropper) { cropper.destroy(); cropper = null; }' +
+'    cropper = new Cropper(imgEl, { aspectRatio: 16/9, viewMode: 1, autoCropArea: 0.9, responsive: true, background: false });' +
+'    cropRatioLabel = "16:9";' +
+'    document.querySelectorAll(".ratio-btn").forEach(function(b) { b.classList.remove("active"); });' +
+'    document.querySelector(".ratio-btn").classList.add("active");' +
+'  };' +
+'  testImg.src = url;' +
+'}' +
+
+'function setCropRatio(ratio, btn) {' +
+'  if (cropper) cropper.setAspectRatio(ratio);' +
+'  cropRatioLabel = ratio === 1 ? "1:1" : (ratio < 1 ? "9:16" : "16:9");' +
+'  document.querySelectorAll(".ratio-btn").forEach(function(b) { b.classList.remove("active"); });' +
+'  btn.classList.add("active");' +
+'}' +
+
+'function cancelCrop() {' +
+'  document.getElementById("cropModal").classList.remove("active");' +
+'  if (cropper) { cropper.destroy(); cropper = null; }' +
+'  document.getElementById("cropImage").src = "";' +
+'  document.getElementById("cropStatus").style.display = "none";' +
+'}' +
+
+/* Step 3: confirmCrop — upload original + cropped */
+'async function confirmCrop() {' +
+'  if (!cropper || !capturedBlob || !selectedRoomId) return;' +
+'  var confirmBtn = document.getElementById("btnCropConfirm");' +
+'  var status = document.getElementById("cropStatus");' +
+'  confirmBtn.disabled = true; confirmBtn.textContent = "Upload...";' +
+'  status.style.display = "block"; status.style.background = "#e3f2fd"; status.style.color = "#1565c0"; status.textContent = "Upload en cours...";' +
+'  try {' +
+'    var croppedCanvas = cropper.getCroppedCanvas({ maxWidth: 2048, maxHeight: 2048, imageSmoothingQuality: "high" });' +
+'    var cropData = cropper.getData(true);' +
+'    var croppedBlob = await new Promise(function(res) { croppedCanvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.88); });' +
+'    var ts = Date.now();' +
+'    var headers = { "apikey": ANON_KEY, "Authorization": "Bearer " + accessToken };' +
+
+/* Upload original to room-images */
+'    var origPath = "originals/" + selectedRoomId + "/" + ts + ".jpg";' +
+'    var origResp = await fetch(supabaseUrl + "/storage/v1/object/room-images/" + origPath, { method: "POST", headers: Object.assign({}, headers, { "Content-Type": "image/jpeg", "x-upsert": "true" }), body: capturedBlob });' +
+'    if (!origResp.ok) throw new Error("Upload original: " + origResp.status);' +
+'    var originalUrl = supabaseUrl + "/storage/v1/object/public/room-images/" + origPath;' +
+
+/* Upload cropped to room-images */
+'    status.textContent = "Upload recadrage...";' +
+'    var ratioFile = cropRatioLabel.replace(":", "x");' +
+'    var cropPath = "cropped/" + selectedRoomId + "/" + ts + "_" + ratioFile + ".jpg";' +
+'    var cropResp = await fetch(supabaseUrl + "/storage/v1/object/room-images/" + cropPath, { method: "POST", headers: Object.assign({}, headers, { "Content-Type": "image/jpeg", "x-upsert": "true" }), body: croppedBlob });' +
+'    if (!cropResp.ok) throw new Error("Upload crop: " + cropResp.status);' +
+'    var croppedUrl = supabaseUrl + "/storage/v1/object/public/room-images/" + cropPath;' +
+
+/* Insert room_media record (same schema as calculateur) */
+'    status.textContent = "Enregistrement...";' +
 '    var meta = { type: "pdf_plan", plan_id: planRecord.id, page_number: currentPage, pdf_filename: planRecord.file_name, pdf_version: planRecord.version_number, captured_at: new Date().toISOString(), scale: 3.0 };' +
-'    await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({ room_id: roomId, file_path: uploadPath, file_name: filename, file_size: blob.size, tags: [], source_metadata: meta }) });' +
-'    status.style.background = "#e8f5e9"; status.style.color = "#2e7d32"; status.textContent = "✓ Capture réussie!"; setTimeout(closeCaptureModal, 2000);' +
-'  } catch (e) { console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "✗ Erreur: " + e.message; }' +
+'    var insResp = await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: Object.assign({}, headers, { "Content-Type": "application/json", "Prefer": "return=representation" }), body: JSON.stringify({ room_id: selectedRoomId, original_url: originalUrl, cropped_url: croppedUrl, crop_ratio: cropRatioLabel, crop_data: cropData, tags: ["presentation_soumission"], source_metadata: meta }) });' +
+'    if (!insResp.ok) throw new Error("Insert record: " + insResp.status);' +
+
+'    status.style.background = "#e8f5e9"; status.style.color = "#2e7d32"; status.textContent = "\\u2713 Capture r\\u00E9ussie!";' +
+'    setTimeout(cancelCrop, 1500);' +
+'  } catch (e) {' +
+'    console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "Erreur: " + e.message;' +
+'  } finally { confirmBtn.disabled = false; confirmBtn.textContent = "Valider"; }' +
 '}' +
 '</' + 'script></body></html>';
         }

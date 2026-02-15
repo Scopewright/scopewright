@@ -250,12 +250,6 @@ body {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
-.mockup-bar {
-    height: 12px;
-    background: #FFFFFF;
-    border-bottom: 1px solid var(--border);
-}
-
 .mockup-content {
     background: #FAFBFC;
     display: flex;

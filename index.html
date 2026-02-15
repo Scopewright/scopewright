@@ -3,153 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scopewright</title>
-    <style>
-        /* ========== RESET ========== */
-        *, *::before, *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <title>Scopewright — Logiciel de gestion pour ébénistes</title>
+    <meta name="description" content="Le seul logiciel de gestion conçu par des ébénistes, pour des ébénistes. Scopewright transforme votre processus de soumission en avantage concurrentiel.">
 
-        /* ========== BASE ========== */
-        html, body {
-            height: 100%;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #F5F0E8;
-            color: #3D3231;
-        }
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://scopewright.com/">
+    <meta property="og:title" content="Scopewright — Logiciel de gestion pour ébénistes">
+    <meta property="og:description" content="Le seul logiciel de gestion conçu par des ébénistes, pour des ébénistes. Créez des soumissions professionnelles en quelques clics.">
+    <meta property="og:locale" content="fr_CA">
 
-        /* ========== LAYOUT PRINCIPAL 50/50 ========== */
-        .container {
-            display: flex;
-            min-height: 100vh;
-        }
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://scopewright.com/">
+    <meta name="twitter:title" content="Scopewright — Logiciel de gestion pour ébénistes">
+    <meta name="twitter:description" content="Transformez votre processus de soumission en avantage concurrentiel.">
 
-        /* ========== COLONNE GAUCHE — Contenu ========== */
-        .left {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 48px 56px;
-            gap: 12px;
-            position: relative;
-        }
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#4b6050">
 
-        /* Logo texte — juste au-dessus de la tagline */
-        .logo-text {
-            font-size: 32px;
-            font-weight: 400;
-            color: #3D3231;
-            letter-spacing: 0.5px;
-        }
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-        /* Tagline — juste sous le nom */
-        .tagline {
-            font-size: 18px;
-            font-weight: 700;
-            color: #3D3231;
-            line-height: 1.4;
-            margin-bottom: 28px;
-        }
+    <!-- Preconnect to Supabase for faster API calls -->
+    <link rel="preconnect" href="https://rplzbtjfnwahqodrhpny.supabase.co">
 
-        /* Bouton Login — petit, ancré en bas à gauche */
-        .login-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #3D3231;
-            color: #F5F0E8;
-            border: none;
-            padding: 8px 20px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            letter-spacing: 0.3px;
-            transition: opacity 0.2s ease;
-            width: fit-content;
-            position: absolute;
-            bottom: 32px;
-            left: 56px;
-        }
-
-        .login-btn:hover {
-            opacity: 0.85;
-        }
-
-        .login-btn .arrow {
-            font-size: 14px;
-            transition: transform 0.2s ease;
-        }
-
-        .login-btn:hover .arrow {
-            transform: translateX(3px);
-        }
-
-        /* ========== COLONNE DROITE — Logo image ========== */
-        .right {
-            flex: 1;
-            background: #F5F0E8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .right img {
-            width: 380px;
-            height: auto;
-            object-fit: contain;
-        }
-
-        /* ========== RESPONSIVE — Mobile ========== */
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column-reverse;
-            }
-
-            /* Logo passe en haut, hauteur réduite */
-            .right {
-                min-height: 200px;
-                flex: none;
-            }
-
-            .right img {
-                width: 140px;
-            }
-
-            /* Contenu texte en dessous */
-            .left {
-                flex: 1;
-                padding: 36px 28px;
-                min-height: 0;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div class="container">
-
-        <!-- Colonne gauche : logo texte, tagline, bouton -->
-        <div class="left">
-            <div class="logo-text">Scopewright</div>
-            <div class="tagline">Built for those who build.</div>
-            <a href="login.html" class="login-btn">
-                Login <span class="arrow">→</span>
-            </a>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-container">
+            <div class="nav-logo">scopewright</div>
+            <div class="nav-right">
+                <button class="lang-toggle" id="langToggle">
+                    <span class="lang-active" id="langActive">FR</span>
+                    <span class="lang-separator">/</span>
+                    <span class="lang-inactive" id="langInactive">EN</span>
+                </button>
+                <a href="#waitlist" class="nav-cta">Liste d'attente</a>
+            </div>
         </div>
+    </nav>
 
-        <!-- Colonne droite : logo image -->
-        <div class="right">
-            <img
-                src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/logo.png"
-                alt="Scopewright logo"
-            >
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge" data-i18n="hero.badge">
+                <span class="hero-badge-dot"></span>
+                Bientôt disponible
+            </div>
+            <h1 class="hero-title" data-i18n="hero.title">
+                Le logiciel de gestion<br>
+                conçu par des ébénistes,<br>
+                pour des ébénistes
+            </h1>
+            <p class="hero-subtitle" data-i18n="hero.subtitle">
+                Scopewright transforme votre processus de soumission en avantage concurrentiel.
+                Créez des soumissions professionnelles en quelques clics, pas en quelques heures.
+            </p>
+            <div class="hero-cta">
+                <a href="#waitlist" class="btn btn-primary" data-i18n="hero.cta">Rejoindre la liste d'attente</a>
+                <button class="btn btn-magic" id="magicBtn" title="Surprise...">
+                    <span class="magic-icon">✨</span>
+                    <span data-i18n="hero.magic">Magie</span>
+                </button>
+            </div>
         </div>
+    </section>
 
+    <!-- Problem Section -->
+    <section class="problem">
+        <div class="container">
+            <div class="section-label" data-i18n="problem.label">Le problème</div>
+            <h2 class="section-title" data-i18n="problem.title">
+                Les soumissions vous ralentissent.<br>
+                Elles ne devraient pas.
+            </h2>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">⏱️</div>
+                    <h3 data-i18n="problem.time.title">Des heures perdues</h3>
+                    <p data-i18n="problem.time.desc">Vous passez plus de temps à créer des soumissions qu'à construire. Entre Excel, Word et vos notes papier, chaque projet devient un casse-tête administratif.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">💸</div>
+                    <h3 data-i18n="problem.profit.title">Profits incertains</h3>
+                    <p data-i18n="problem.profit.desc">Sans vue d'ensemble sur vos coûts réels (temps + matériaux), vous laissez de l'argent sur la table ou vous sous-évaluez vos projets.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">🤝</div>
+                    <h3 data-i18n="problem.trust.title">Perception amateur</h3>
+                    <p data-i18n="problem.trust.desc">Des PDF génériques et des estimés brouillons ne reflètent pas la qualité de votre travail. Vos clients méritent mieux.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Value Section -->
+    <section class="value">
+        <div class="container">
+            <div class="section-label" data-i18n="value.label">La solution</div>
+            <h2 class="section-title" data-i18n="value.title">
+                Soumissions professionnelles.<br>
+                En quelques clics.
+            </h2>
+            <div class="value-grid">
+                <div class="value-feature">
+                    <div class="value-icon">📊</div>
+                    <h3 data-i18n="value.calculator.title">Calculateur intelligent</h3>
+                    <p data-i18n="value.calculator.desc">Catalogue de prix intégré avec temps de fabrication et coûts matériaux. Le système calcule automatiquement vos marges réelles.</p>
+                </div>
+                <div class="value-feature">
+                    <div class="value-icon">🎨</div>
+                    <h3 data-i18n="value.visual.title">Présentations visuelles</h3>
+                    <p data-i18n="value.visual.desc">Ajoutez photos, plans et rendus. Créez des soumissions qui vendent votre vision, pas juste des chiffres.</p>
+                </div>
+                <div class="value-feature">
+                    <div class="value-icon">🔄</div>
+                    <h3 data-i18n="value.workflow.title">Workflow complet</h3>
+                    <p data-i18n="value.workflow.desc">De l'estimé initial à la facture finale. Approbations internes, révisions client, versions — tout est centralisé.</p>
+                </div>
+                <div class="value-feature">
+                    <div class="value-icon">📱</div>
+                    <h3 data-i18n="value.client.title">Portail client</h3>
+                    <p data-i18n="value.client.desc">Vos clients consultent et approuvent leurs soumissions en ligne. Plus besoin d'envoyer 10 emails avec des pièces jointes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Infrastructure Section (3D CSS showcase) -->
+    <section class="infrastructure">
+        <div class="container">
+            <div class="section-label" data-i18n="infra.label">Infrastructure</div>
+            <h2 class="section-title" data-i18n="infra.title">
+                Construit sur du solide
+            </h2>
+            <p class="infra-intro" data-i18n="infra.intro">
+                Pas de gadgets. Pas de fonctionnalités superflues. Juste les outils dont vous avez besoin,
+                bâtis avec la même rigueur que vous mettez dans vos projets.
+            </p>
+            <div class="infra-stack">
+                <div class="stack-card" style="--delay: 0">
+                    <div class="stack-icon">☁️</div>
+                    <div class="stack-name">Supabase</div>
+                    <div class="stack-desc" data-i18n="infra.supabase">Base de données PostgreSQL sécurisée</div>
+                </div>
+                <div class="stack-card" style="--delay: 1">
+                    <div class="stack-icon">⚡</div>
+                    <div class="stack-name">Temps réel</div>
+                    <div class="stack-desc" data-i18n="infra.realtime">Synchronisation instantanée</div>
+                </div>
+                <div class="stack-card" style="--delay: 2">
+                    <div class="stack-icon">🔒</div>
+                    <div class="stack-name">Sécurité</div>
+                    <div class="stack-desc" data-i18n="infra.security">Chiffrement de bout en bout</div>
+                </div>
+                <div class="stack-card" style="--delay: 3">
+                    <div class="stack-icon">🚀</div>
+                    <div class="stack-name">Performance</div>
+                    <div class="stack-desc" data-i18n="infra.performance">CDN global, chargement instantané</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="comparison">
+        <div class="container">
+            <div class="section-label" data-i18n="comparison.label">Avant / Après</div>
+            <h2 class="section-title" data-i18n="comparison.title">
+                La différence Scopewright
+            </h2>
+            <div class="comparison-table">
+                <div class="comparison-header">
+                    <div class="comparison-col"></div>
+                    <div class="comparison-col" data-i18n="comparison.before">Avant</div>
+                    <div class="comparison-col comparison-col-highlight" data-i18n="comparison.after">Avec Scopewright</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label" data-i18n="comparison.time.label">Temps par soumission</div>
+                    <div class="comparison-value comparison-bad">3-5 heures</div>
+                    <div class="comparison-value comparison-good">15-30 minutes</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label" data-i18n="comparison.tools.label">Outils nécessaires</div>
+                    <div class="comparison-value comparison-bad">Excel + Word + Email</div>
+                    <div class="comparison-value comparison-good" data-i18n="comparison.tools.after">Un seul endroit</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label" data-i18n="comparison.revisions.label">Gestion des révisions</div>
+                    <div class="comparison-value comparison-bad" data-i18n="comparison.revisions.before">Manuelle, chaotique</div>
+                    <div class="comparison-value comparison-good" data-i18n="comparison.revisions.after">Automatique, versionnée</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label" data-i18n="comparison.margins.label">Visibilité sur les marges</div>
+                    <div class="comparison-value comparison-bad" data-i18n="comparison.margins.before">Approximative</div>
+                    <div class="comparison-value comparison-good" data-i18n="comparison.margins.after">Précise au dollar près</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label" data-i18n="comparison.presentation.label">Présentation client</div>
+                    <div class="comparison-value comparison-bad">PDF générique</div>
+                    <div class="comparison-value comparison-good" data-i18n="comparison.presentation.after">Portail web interactif</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Waitlist Section -->
+    <section class="waitlist" id="waitlist">
+        <div class="container">
+            <div class="waitlist-content">
+                <h2 class="section-title" data-i18n="waitlist.title">
+                    Rejoignez les pionniers
+                </h2>
+                <p class="waitlist-desc" data-i18n="waitlist.desc">
+                    Scopewright est actuellement en développement actif avec des ébénistes québécois.
+                    Inscrivez-vous pour un accès anticipé et aidez à façonner l'outil parfait pour votre métier.
+                </p>
+                <form class="waitlist-form" id="waitlistForm">
+                    <div class="form-group">
+                        <input type="text" id="formName" placeholder="Votre nom *" required data-i18n-placeholder="waitlist.form.name">
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="formEmail" placeholder="Votre courriel *" required data-i18n-placeholder="waitlist.form.email">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="formCompany" placeholder="Nom de votre entreprise" data-i18n-placeholder="waitlist.form.company">
+                    </div>
+                    <div class="form-group">
+                        <textarea id="formMessage" rows="3" placeholder="Parlez-nous de vos besoins (optionnel)" data-i18n-placeholder="waitlist.form.message"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                        <span id="submitText" data-i18n="waitlist.form.submit">Rejoindre la liste d'attente</span>
+                    </button>
+                    <div class="form-feedback" id="formFeedback"></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">scopewright</div>
+                <div class="footer-tagline" data-i18n="footer.tagline">
+                    Conçu à Montréal par des ébénistes, pour des ébénistes.
+                </div>
+                <div class="footer-links">
+                    <a href="mailto:hello@scopewright.com">hello@scopewright.com</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- AI Magic Overlay -->
+    <div class="magic-overlay" id="magicOverlay">
+        <div class="magic-content">
+            <button class="magic-close" id="magicClose">&times;</button>
+            <div class="magic-header">
+                <div class="magic-sparkle">✨</div>
+                <h2 data-i18n="magic.title">Magie de traduction AI</h2>
+            </div>
+            <p class="magic-desc" data-i18n="magic.desc">
+                Vous regardez une vraie démo de traduction par intelligence artificielle.
+                Chaque texte de cette page a été traduit en temps réel par Claude,
+                l'assistant AI qui alimente Scopewright.
+            </p>
+            <div class="magic-demo">
+                <div class="magic-label" data-i18n="magic.demo.label">Essayez :</div>
+                <input type="text" class="magic-input" id="magicInput" placeholder="Tapez quelque chose en français..." data-i18n-placeholder="magic.demo.placeholder">
+                <button class="btn btn-magic-demo" id="magicTranslate" data-i18n="magic.demo.button">Traduire en anglais</button>
+                <div class="magic-result" id="magicResult"></div>
+            </div>
+            <p class="magic-note" data-i18n="magic.note">
+                Cette même technologie traduit automatiquement vos soumissions pour vos clients anglophones.
+            </p>
+        </div>
     </div>
 
+    <script src="script.js"></script>
 </body>
 </html>

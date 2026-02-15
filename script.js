@@ -17,6 +17,7 @@ const translations = {
         'nav.features': 'Features',
         'nav.why': 'Why now',
         'nav.contact': 'Contact',
+        'nav.login': 'Log in',
         'nav.cta': 'Join the private list',
 
         'hero.title': 'Stop estimating like it\'s 2005.',

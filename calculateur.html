@@ -1349,8 +1349,10 @@
     // ═══════════════════════════════════════════════════════════════════════
     // MATÉRIAUX PAR DÉFAUT (JSONB dans submissions.default_materials)
     // ═══════════════════════════════════════════════════════════════════════
-    // Structure: { "catégorie": [{ material: "Merisier", scope: "Cuisine" }, ...] }
-    // Scope vide = appliqué à toutes les pièces
+    // Structure: [ { type: "Caisson", catalogue_item_id: "uuid", description: "Mélamine blanc ME1" }, ... ]
+
+    var DM_TYPES = ['Caisson', 'Façades et panneaux apparents', 'Tiroirs', 'Poignées', 'Éclairage', 'Autre'];
+    var dmActiveAC = null; // currently open autocomplete index
 
     function toggleDefaultMaterials() {
         var body = document.getElementById('dmBody');
@@ -1361,64 +1363,159 @@
     }
 
     function getDefaultMaterials() {
-        return (currentSubmission && currentSubmission.default_materials) || {};
+        var raw = (currentSubmission && currentSubmission.default_materials);
+        // Migrate old object format to new array format
+        if (raw && !Array.isArray(raw)) {
+            var arr = [];
+            Object.keys(raw).forEach(function(cat) {
+                (raw[cat] || []).forEach(function(entry) {
+                    if (entry.material) arr.push({ type: cat, catalogue_item_id: null, description: entry.material });
+                });
+            });
+            return arr;
+        }
+        return raw || [];
     }
 
     function renderDefaultMaterials() {
         var dm = getDefaultMaterials();
         var body = document.getElementById('dmBody');
-        // Categories from expense_categories
-        var cats = expenseCategories.map(function(c) { return c.name; });
-        if (cats.length === 0) cats = ['Bois', 'Quincaillerie', 'Panneaux', 'Comptoir'];
-
-        var html = '';
-        cats.forEach(function(cat) {
-            var entries = dm[cat] || [];
-            html += '<div class="dm-category">';
-            html += '<div class="dm-category-label">' + escapeHtml(cat) + '</div>';
-            html += '<div class="dm-entries" id="dm-entries-' + cat.replace(/\s/g, '_') + '">';
-            entries.forEach(function(entry, idx) {
-                html += renderDmEntry(cat, idx, entry);
-            });
-            html += '</div>';
-            html += '<button class="dm-add-btn" onclick="addDefaultMaterial(\'' + escapeAttr(cat) + '\')">+ Ajouter</button>';
-            html += '</div>';
+        var html = '<div class="dm-rows" id="dmRows">';
+        dm.forEach(function(entry, idx) {
+            html += renderDmRow(idx, entry);
         });
+        html += '</div>';
+        html += '<button class="dm-add-btn" onclick="addDefaultMaterial()">+ Ajouter un mat&eacute;riau par d&eacute;faut</button>';
         body.innerHTML = html;
     }
 
-    function renderDmEntry(cat, idx, entry) {
-        var catKey = cat.replace(/\s/g, '_');
-        return '<div class="dm-entry" id="dm-' + catKey + '-' + idx + '">' +
-            '<input type="text" value="' + escapeAttr(entry.material || '') + '" placeholder="Mat\u00e9riau..." onblur="saveDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ',this.value,null)">' +
-            '<input type="text" class="dm-scope" value="' + escapeAttr(entry.scope || '') + '" placeholder="Toutes" style="max-width:80px;" title="Pi\u00e8ce(s) concern\u00e9e(s)" onblur="saveDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ',null,this.value)">' +
-            '<button class="dm-remove" onclick="removeDmEntry(\'' + escapeAttr(cat) + '\',' + idx + ')">&times;</button>' +
+    function renderDmRow(idx, entry) {
+        var typeOptions = DM_TYPES.map(function(t) {
+            return '<option value="' + escapeAttr(t) + '"' + (entry.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+        }).join('');
+        return '<div class="dm-row" data-dm-idx="' + idx + '">' +
+            '<select onchange="updateDmType(' + idx + ',this.value)">' + typeOptions + '</select>' +
+            '<div class="dm-search-wrap">' +
+                '<input type="text" value="' + escapeAttr(entry.description || '') + '" placeholder="Rechercher dans le catalogue..." ' +
+                    'oninput="dmSearchCatalogue(' + idx + ',this)" ' +
+                    'onfocus="dmSearchCatalogue(' + idx + ',this)" ' +
+                    'onkeydown="dmSearchKeydown(event,' + idx + ')" ' +
+                    (entry.catalogue_item_id ? 'class="dm-resolved"' : '') + '>' +
+                '<div class="dm-autocomplete" id="dmAC-' + idx + '"></div>' +
+            '</div>' +
+            '<button class="dm-remove" onclick="removeDmEntry(' + idx + ')" title="Supprimer">&times;</button>' +
             '</div>';
     }
 
-    function addDefaultMaterial(cat) {
+    function addDefaultMaterial() {
         var dm = getDefaultMaterials();
-        if (!dm[cat]) dm[cat] = [];
-        dm[cat].push({ material: '', scope: '' });
+        dm.push({ type: DM_TYPES[0], catalogue_item_id: null, description: '' });
         if (currentSubmission) currentSubmission.default_materials = dm;
         saveDefaultMaterials(dm);
         renderDefaultMaterials();
+        // Focus the new search input
+        var rows = document.querySelectorAll('.dm-row');
+        if (rows.length > 0) {
+            var lastInput = rows[rows.length - 1].querySelector('.dm-search-wrap input');
+            if (lastInput) lastInput.focus();
+        }
     }
 
-    function saveDmEntry(cat, idx, material, scope) {
+    function updateDmType(idx, newType) {
         var dm = getDefaultMaterials();
-        if (!dm[cat] || !dm[cat][idx]) return;
-        if (material !== null) dm[cat][idx].material = material;
-        if (scope !== null) dm[cat][idx].scope = scope;
+        if (!dm[idx]) return;
+        dm[idx].type = newType;
         if (currentSubmission) currentSubmission.default_materials = dm;
         saveDefaultMaterials(dm);
     }
 
-    function removeDmEntry(cat, idx) {
+    function dmSearchCatalogue(idx, input) {
+        var query = input.value.trim().toLowerCase();
+        var acDiv = document.getElementById('dmAC-' + idx);
+        if (!acDiv) return;
+
+        // If query is empty and input is focused, show nothing
+        if (query.length < 2) {
+            acDiv.classList.remove('open');
+            acDiv.innerHTML = '';
+            dmActiveAC = null;
+            return;
+        }
+
+        // Search in CATALOGUE_DATA
+        var results = (CATALOGUE_DATA || []).filter(function(item) {
+            var desc = (item.description || '').toLowerCase();
+            var cat = (item.category || '').toLowerCase();
+            return desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
+        }).slice(0, 15);
+
+        if (results.length === 0) {
+            acDiv.innerHTML = '<div class="dm-ac-item" style="color:#999;cursor:default;">Aucun r&eacute;sultat</div>';
+            acDiv.classList.add('open');
+            dmActiveAC = idx;
+            return;
+        }
+
+        var html = '';
+        results.forEach(function(item, i) {
+            html += '<div class="dm-ac-item" data-idx="' + i + '" ' +
+                'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(item.description) + '\')">' +
+                '<span>' + escapeHtml(item.description) + '</span>' +
+                '<span class="dm-ac-cat">' + escapeHtml(item.category || '') + '</span>' +
+                '</div>';
+        });
+        acDiv.innerHTML = html;
+        acDiv.classList.add('open');
+        dmActiveAC = idx;
+    }
+
+    function dmSearchKeydown(e, idx) {
+        var acDiv = document.getElementById('dmAC-' + idx);
+        if (!acDiv || !acDiv.classList.contains('open')) return;
+        var items = acDiv.querySelectorAll('.dm-ac-item[data-idx]');
+        var activeIdx = -1;
+        items.forEach(function(el, i) { if (el.classList.contains('active')) activeIdx = i; });
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, items.length - 1);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].dispatchEvent(new Event('mousedown'));
+        } else if (e.key === 'Escape') {
+            acDiv.classList.remove('open');
+            dmActiveAC = null;
+        }
+    }
+
+    function dmSelectItem(idx, itemId, itemDesc) {
         var dm = getDefaultMaterials();
-        if (!dm[cat]) return;
-        dm[cat].splice(idx, 1);
-        if (dm[cat].length === 0) delete dm[cat];
+        if (!dm[idx]) return;
+        dm[idx].catalogue_item_id = itemId;
+        dm[idx].description = itemDesc;
+        if (currentSubmission) currentSubmission.default_materials = dm;
+        saveDefaultMaterials(dm);
+        // Update input visually
+        var row = document.querySelector('.dm-row[data-dm-idx="' + idx + '"]');
+        if (row) {
+            var input = row.querySelector('.dm-search-wrap input');
+            if (input) { input.value = itemDesc; input.classList.add('dm-resolved'); }
+            var ac = document.getElementById('dmAC-' + idx);
+            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
+        }
+        dmActiveAC = null;
+    }
+
+    function removeDmEntry(idx) {
+        var dm = getDefaultMaterials();
+        dm.splice(idx, 1);
         if (currentSubmission) currentSubmission.default_materials = dm;
         saveDefaultMaterials(dm);
         renderDefaultMaterials();
@@ -1436,6 +1533,15 @@
             }).then(function() { showSaveIndicator(); }).catch(function(e) { console.warn('[DM] Save failed:', e); });
         }, 500);
     }
+
+    // Close autocomplete when clicking outside
+    document.addEventListener('click', function(e) {
+        if (dmActiveAC !== null && !e.target.closest('.dm-search-wrap')) {
+            var ac = document.getElementById('dmAC-' + dmActiveAC);
+            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
+            dmActiveAC = null;
+        }
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
     // PIÈCES & ARTICLES — CRUD SUPABASE
@@ -3265,29 +3371,49 @@
         .default-materials-toggle .dm-arrow.open { transform: rotate(90deg); }
         .default-materials-body { display: none; padding-top: 8px; }
         .default-materials-body.open { display: block; }
-        .dm-category { margin-bottom: 8px; }
-        .dm-category-label { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; }
-        .dm-entries { display: flex; flex-direction: column; gap: 4px; }
-        .dm-entry {
+        .dm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .dm-row {
             display: flex; gap: 6px; align-items: center; font-size: 12px;
         }
-        .dm-entry input[type="text"] {
-            flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;
-            font-size: 12px; font-family: inherit;
+        .dm-row select {
+            width: 180px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit; background: #fff; flex-shrink: 0;
         }
-        .dm-entry input[type="text"]:focus { border-color: var(--stele-green); outline: none; }
-        .dm-entry .dm-scope {
-            font-size: 10px; color: #999; min-width: 60px;
+        .dm-row select:focus { border-color: var(--stele-green); outline: none; }
+        .dm-search-wrap {
+            flex: 1; position: relative;
         }
-        .dm-entry .dm-remove {
-            background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; padding: 0 4px;
+        .dm-search-wrap input {
+            width: 100%; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit; box-sizing: border-box;
         }
-        .dm-entry .dm-remove:hover { color: #c62828; }
+        .dm-search-wrap input:focus { border-color: var(--stele-green); outline: none; }
+        .dm-search-wrap input.dm-resolved {
+            background: #f0f7f1; border-color: var(--stele-green); color: #333;
+        }
+        .dm-autocomplete {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+            background: #fff; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px;
+            max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .dm-autocomplete.open { display: block; }
+        .dm-ac-item {
+            padding: 6px 10px; cursor: pointer; font-size: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .dm-ac-item:hover, .dm-ac-item.active { background: #f0f7f1; }
+        .dm-ac-item .dm-ac-cat { font-size: 10px; color: #999; }
+        .dm-row .dm-remove {
+            background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px;
+            padding: 0 4px; flex-shrink: 0; line-height: 1;
+        }
+        .dm-row .dm-remove:hover { color: #c62828; }
         .dm-add-btn {
-            font-size: 11px; color: var(--stele-green); background: none; border: none;
-            cursor: pointer; padding: 2px 0; margin-top: 2px;
+            font-size: 12px; color: var(--stele-green); background: none; border: 1px dashed #ccc;
+            cursor: pointer; padding: 6px 12px; border-radius: 4px; width: 100%;
         }
-        .dm-add-btn:hover { text-decoration: underline; }
+        .dm-add-btn:hover { border-color: var(--stele-green); background: #f0f7f1; }
 
         /* ── Main action buttons ── */
         .ph-actions { display: none; /* replaced by timeline CTA */ }

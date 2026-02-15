@@ -2717,7 +2717,7 @@
                     <div class="ph-top-actions">
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
-                        <button class="btn-header-link" id="btnPlans" onclick="openPlansDirectly()">Plans</button>
+                        <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
                             <div class="kebab-dropdown" id="headerKebabDropdown">
@@ -5059,85 +5059,6 @@
         // ═══════════════════════════════════════════════════════════════════════
         // Plans architecturaux
         // ═══════════════════════════════════════════════════════════════════════
-        async function openPlansDirectly() {
-            if (!currentSubmission) {
-                alert('Veuillez ouvrir une soumission d\'abord.');
-                return;
-            }
-
-            // Open window IMMEDIATELY (sync) to preserve user gesture context — avoids pop-up blocker
-            currentPlanRecord = currentPlanRecord || {};
-            var viewerHtml = createStandaloneViewer();
-            var blob = new Blob([viewerHtml], { type: 'text/html' });
-            var blobUrl = URL.createObjectURL(blob);
-            var newWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
-
-            if (!newWindow) {
-                alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
-                return;
-            }
-
-            try {
-                var response = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/submission_plans?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc&limit=1',
-                    { headers: { 'Prefer': 'return=representation' } }
-                );
-
-                if (!response.ok) throw new Error('Erreur de chargement des plans');
-                var plans = await response.json();
-
-                if (plans.length === 0) {
-                    newWindow.close();
-                    alert('Aucun plan pour cette soumission.');
-                    return;
-                }
-
-                var plan = plans[0];
-
-                // Get signed URL
-                var signResp = await authenticatedFetch(
-                    SUPABASE_URL + '/storage/v1/object/sign/submission-plans/' + plan.file_path,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ expiresIn: 3600 })
-                    }
-                );
-
-                if (!signResp.ok) throw new Error('Erreur de génération du lien');
-                var signData = await signResp.json();
-                var pdfUrl = SUPABASE_URL + '/storage/v1' + signData.signedURL;
-
-                currentPlanRecord = plan;
-                currentPdfUrl = pdfUrl;
-
-                // Send data to the already-open window
-                function trySendMessage() {
-                    newWindow.postMessage({
-                        type: 'INIT_PDF',
-                        pdfUrl: pdfUrl,
-                        planRecord: plan,
-                        submissionId: currentSubmission.id,
-                        supabaseUrl: SUPABASE_URL,
-                        accessToken: localStorage.getItem('sb_access_token')
-                    }, '*');
-                }
-
-                // Try immediately, and also on load in case page isn't ready yet
-                if (newWindow.document && newWindow.document.readyState === 'complete') {
-                    trySendMessage();
-                } else {
-                    newWindow.addEventListener('load', trySendMessage);
-                }
-
-            } catch (err) {
-                console.error('Error opening plan:', err);
-                newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +
-                    '<h2>Erreur</h2><p>' + err.message + '</p>' +
-                    '<p style="margin-top:20px;"><a href="#" onclick="window.close()" style="color:#6cf;">Fermer</a></p></div>';
-            }
-        }
-
         async function openPlansModal() {
             if (!currentSubmission) {
                 alert('Veuillez ouvrir une soumission d\'abord.');
@@ -5432,14 +5353,16 @@
         async function openPdfViewer(planId) {
             setPlanButtonLoading(planId, 'View', true);
 
-            // Cancel any render in progress from previous PDF
-            if (currentRenderTask) {
-                try {
-                    currentRenderTask.cancel();
-                } catch (e) {
-                    // Ignore
-                }
-                currentRenderTask = null;
+            // Open window IMMEDIATELY (sync) to preserve user gesture — avoids pop-up blocker
+            var viewerHtml = createStandaloneViewer();
+            var blob = new Blob([viewerHtml], { type: 'text/html' });
+            var blobUrl = URL.createObjectURL(blob);
+            var newWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
+
+            if (!newWindow) {
+                alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
+                setPlanButtonLoading(planId, 'View', false);
+                return;
             }
 
             try {
@@ -5470,29 +5393,28 @@
 
                 currentPdfUrl = SUPABASE_URL + '/storage/v1' + signData.signedURL;
 
-                // Load PDF
-                var loadingTask = pdfjsLib.getDocument(currentPdfUrl);
-                pdfDoc = await loadingTask.promise;
-                pdfTotalPages = pdfDoc.numPages;
-                pdfCurrentPage = 1;
-                pdfScale = 1.0;
-                pdfRotation = 0;
+                // Send data to the already-open window
+                function trySendMessage() {
+                    newWindow.postMessage({
+                        type: 'INIT_PDF',
+                        pdfUrl: currentPdfUrl,
+                        planRecord: currentPlanRecord,
+                        submissionId: currentSubmission.id,
+                        supabaseUrl: SUPABASE_URL,
+                        accessToken: localStorage.getItem('sb_access_token')
+                    }, '*');
+                }
 
-                // Update title
-                document.getElementById('pdfViewerTitle').textContent = currentPlanRecord.file_name;
-
-                // Show modal
-                document.getElementById('pdfViewerOverlay').classList.add('active');
-
-                // Render first page
-                await renderPdfPage();
-
-                // Generate thumbnails
-                await renderPdfThumbnails();
+                if (newWindow.document && newWindow.document.readyState === 'complete') {
+                    trySendMessage();
+                } else {
+                    newWindow.addEventListener('load', trySendMessage);
+                }
 
             } catch (err) {
                 console.error('PDF viewer error:', err);
-                alert('Erreur d\'ouverture du PDF: ' + err.message);
+                newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +
+                    '<h2>Erreur</h2><p>' + err.message + '</p></div>';
             } finally {
                 setPlanButtonLoading(planId, 'View', false);
             }

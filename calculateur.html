@@ -5606,7 +5606,7 @@
 '  if (Math.abs(e.deltaY) < threshold) return;' +
 '  if (e.deltaY > 0 && currentPage < totalPages) { navigate(1); scrollCooldown = true; setTimeout(function() { scrollCooldown = false; }, 300); }' +
 '  else if (e.deltaY < 0 && currentPage > 1) { navigate(-1); scrollCooldown = true; setTimeout(function() { scrollCooldown = false; }, 300); }' +
-'}, { passive: true });' +
+'}, { passive: false });' +
 
 /* Ctrl+drag pan (hand tool like Adobe) */
 'var isPanning = false, panStartX = 0, panStartY = 0, scrollStartX = 0, scrollStartY = 0;' +

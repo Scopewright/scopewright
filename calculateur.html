@@ -5669,7 +5669,7 @@
 '    imgEl.src = url;' +
 '    document.getElementById("cropModal").classList.add("active");' +
 '    if (cropper) { cropper.destroy(); cropper = null; }' +
-'    cropper = new Cropper(imgEl, { aspectRatio: 16/9, viewMode: 1, autoCropArea: 0.9, responsive: true, background: false, dragMode: "move", cropBoxMovable: false, cropBoxResizable: false, toggleDragModeOnDblclick: false });' +
+'    cropper = new Cropper(imgEl, { aspectRatio: 16/9, viewMode: 1, autoCropArea: 1, responsive: true, background: false, dragMode: "move", cropBoxMovable: false, cropBoxResizable: false, toggleDragModeOnDblclick: false });' +
 '    cropRatioLabel = "16:9";' +
 '    document.querySelectorAll(".ratio-btn").forEach(function(b) { b.classList.remove("active"); });' +
 '    document.querySelector(".ratio-btn").classList.add("active");' +

@@ -5544,7 +5544,7 @@
 'document.getElementById("canvasContainer").addEventListener("wheel", function(e) { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); }}, { passive: false });' +
 'async function loadRooms() {' +
 '  try {' +
-'    var r = await fetch(supabaseUrl + "/rest/v1/project_rooms?submission_id=eq." + submissionId + "&select=id,name&order=sort_order.asc", { headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken } });' +
+'    var r = await fetch(supabaseUrl + "/rest/v1/project_rooms?submission_id=eq." + submissionId + "&select=id,name&order=sort_order.asc", { headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken } });' +
 '    var rooms = await r.json(); var sel = document.getElementById("roomSelect");' +
 '    rooms.forEach(function(rm) { var opt = document.createElement("option"); opt.value = rm.id; opt.textContent = rm.name; sel.appendChild(opt); });' +
 '  } catch (e) { console.error(e); }' +
@@ -5561,10 +5561,10 @@
 '    status.textContent = "Compression...";' +
 '    var blob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.85); });' +
 '    status.textContent = "Upload..."; var ts = Date.now(); var filename = "plan_p" + currentPage + "_" + ts + ".jpg"; var uploadPath = roomId + "/" + filename;' +
-'    var up = await fetch(supabaseUrl + "/storage/v1/object/room-media/" + uploadPath, { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken, "Content-Type": "image/jpeg" }, body: blob });' +
+'    var up = await fetch(supabaseUrl + "/storage/v1/object/room-media/" + uploadPath, { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken, "Content-Type": "image/jpeg" }, body: blob });' +
 '    if (!up.ok) throw new Error("Upload failed");' +
 '    var meta = { type: "pdf_plan", plan_id: planRecord.id, page_number: currentPage, pdf_filename: planRecord.file_name, pdf_version: planRecord.version_number, captured_at: new Date().toISOString(), scale: 3.0 };' +
-'    await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjU2NzMsImV4cCI6MjA1MDE0MTY3M30.TUZ7aFlqZECugaPAZOqMpqEFaI-I4RQMV_9JI-KqS0k", "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({ room_id: roomId, file_path: uploadPath, file_name: filename, file_size: blob.size, tags: [], source_metadata: meta }) });' +
+'    await fetch(supabaseUrl + "/rest/v1/room_media", { method: "POST", headers: { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU", "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({ room_id: roomId, file_path: uploadPath, file_name: filename, file_size: blob.size, tags: [], source_metadata: meta }) });' +
 '    status.style.background = "#e8f5e9"; status.style.color = "#2e7d32"; status.textContent = "✓ Capture réussie!"; setTimeout(closeCaptureModal, 2000);' +
 '  } catch (e) { console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "✗ Erreur: " + e.message; }' +
 '}' +

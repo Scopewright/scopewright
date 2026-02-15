@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    SCOPEWRIGHT LANDING PAGE — JavaScript
-   Translation, Magic Button, Waitlist Form
+   Translation, Magic Button, Waitlist Form (Frontend Only)
    ═══════════════════════════════════════════════════════════════ */
 
 // ── Configuration ──
@@ -8,78 +8,71 @@ const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_xBKuloaTJl5ebWtZvmiHIw_s7Jyyl3t';
 
 // ── State ──
-let currentLang = 'fr';
+let currentLang = 'en';
 let translationCache = {};
 
 // ── Translations Object ──
 const translations = {
-    fr: {
-        'hero.badge': 'Bientôt disponible',
-        'hero.title': 'Le logiciel de gestion<br>conçu par des ébénistes,<br>pour des ébénistes',
-        'hero.subtitle': 'Scopewright transforme votre processus de soumission en avantage concurrentiel. Créez des soumissions professionnelles en quelques clics, pas en quelques heures.',
-        'hero.cta': 'Rejoindre la liste d\'attente',
-        'hero.magic': 'Magie',
+    en: {
+        'nav.features': 'Features',
+        'nav.why': 'Why now',
+        'nav.contact': 'Contact',
+        'nav.cta': 'Join the private list',
 
-        'problem.label': 'Le problème',
-        'problem.title': 'Les soumissions vous ralentissent.<br>Elles ne devraient pas.',
-        'problem.time.title': 'Des heures perdues',
-        'problem.time.desc': 'Vous passez plus de temps à créer des soumissions qu\'à construire. Entre Excel, Word et vos notes papier, chaque projet devient un casse-tête administratif.',
-        'problem.profit.title': 'Profits incertains',
-        'problem.profit.desc': 'Sans vue d\'ensemble sur vos coûts réels (temps + matériaux), vous laissez de l\'argent sur la table ou vous sous-évaluez vos projets.',
-        'problem.trust.title': 'Perception amateur',
-        'problem.trust.desc': 'Des PDF génériques et des estimés brouillons ne reflètent pas la qualité de votre travail. Vos clients méritent mieux.',
+        'hero.title': 'Stop estimating like it's 2005.',
+        'hero.subtitle': 'Scopewright cuts an 8-hour estimate down to 3. No errors. No missed items. No friction.',
+        'hero.small': 'The first intelligent estimation platform built exclusively for high-end cabinetry and millwork shops.',
+        'hero.cta': 'Join the private list',
+        'hero.magic': 'AI Magic Button',
+        'hero.helper': 'Private beta access is limited to a small number of selected shops.',
 
-        'value.label': 'La solution',
-        'value.title': 'Soumissions professionnelles.<br>En quelques clics.',
-        'value.calculator.title': 'Calculateur intelligent',
-        'value.calculator.desc': 'Catalogue de prix intégré avec temps de fabrication et coûts matériaux. Le système calcule automatiquement vos marges réelles.',
-        'value.visual.title': 'Présentations visuelles',
-        'value.visual.desc': 'Ajoutez photos, plans et rendus. Créez des soumissions qui vendent votre vision, pas juste des chiffres.',
-        'value.workflow.title': 'Workflow complet',
-        'value.workflow.desc': 'De l\'estimé initial à la facture finale. Approbations internes, révisions client, versions — tout est centralisé.',
-        'value.client.title': 'Portail client',
-        'value.client.desc': 'Vos clients consultent et approuvent leurs soumissions en ligne. Plus besoin d\'envoyer 10 emails avec des pièces jointes.',
+        'problem.title': 'Estimation is your invisible bottleneck.',
+        'problem.card1.title': 'Time drain',
+        'problem.card1.desc': '4–8 hours per complex bid.',
+        'problem.card2.title': 'Invisible errors',
+        'problem.card2.desc': 'Missed hardware, inconsistent scope, margin mistakes.',
+        'problem.card3.title': 'Growth blocked',
+        'problem.card3.desc': 'More projects = more chaos.',
 
-        'infra.label': 'Infrastructure',
-        'infra.title': 'Construit sur du solide',
-        'infra.intro': 'Pas de gadgets. Pas de fonctionnalités superflues. Juste les outils dont vous avez besoin, bâtis avec la même rigueur que vous mettez dans vos projets.',
-        'infra.supabase': 'Base de données PostgreSQL sécurisée',
-        'infra.realtime': 'Synchronisation instantanée',
-        'infra.security': 'Chiffrement de bout en bout',
-        'infra.performance': 'CDN global, chargement instantané',
+        'value.title': 'Structure. Clarity. Control.',
+        'value.body': 'Scopewright is built from 20 years of real-world architectural millwork experience. It's not generic software built by outsiders. It's an estimation system designed for shops doing $5–15M in revenue.',
 
-        'comparison.label': 'Avant / Après',
-        'comparison.title': 'La différence Scopewright',
-        'comparison.before': 'Avant',
-        'comparison.after': 'Avec Scopewright',
-        'comparison.time.label': 'Temps par soumission',
-        'comparison.tools.label': 'Outils nécessaires',
-        'comparison.tools.after': 'Un seul endroit',
-        'comparison.revisions.label': 'Gestion des révisions',
-        'comparison.revisions.before': 'Manuelle, chaotique',
-        'comparison.revisions.after': 'Automatique, versionnée',
-        'comparison.margins.label': 'Visibilité sur les marges',
-        'comparison.margins.before': 'Approximative',
-        'comparison.margins.after': 'Précise au dollar près',
-        'comparison.presentation.label': 'Présentation client',
-        'comparison.presentation.after': 'Portail web interactif',
+        'infra.layer1': 'Intelligence artificielle',
+        'infra.layer1.desc': 'Assistant, optimiseur, reviewer',
+        'infra.layer2': 'Moteur d\'estimation',
+        'infra.layer2.desc': 'Catalogue, calculateur, workflow',
+        'infra.layer3': 'Infrastructure',
+        'infra.layer3.desc': 'Base de données, stockage, permissions',
 
-        'waitlist.title': 'Rejoignez les pionniers',
-        'waitlist.desc': 'Scopewright est actuellement en développement actif avec des ébénistes québécois. Inscrivez-vous pour un accès anticipé et aidez à façonner l\'outil parfait pour votre métier.',
-        'waitlist.form.name': 'Votre nom *',
-        'waitlist.form.email': 'Votre courriel *',
-        'waitlist.form.company': 'Nom de votre entreprise',
-        'waitlist.form.message': 'Parlez-nous de vos besoins (optionnel)',
-        'waitlist.form.submit': 'Rejoindre la liste d\'attente',
+        'comparison.before': 'Before',
+        'comparison.after': 'With Scopewright',
+        'comparison.before.1': '8 hours',
+        'comparison.before.2': 'Fragile spreadsheets',
+        'comparison.before.3': 'Margins hidden until it's too late',
+        'comparison.before.4': 'Manual process',
+        'comparison.after.1': '3 hours',
+        'comparison.after.2': 'Structured price catalog',
+        'comparison.after.3': 'Real-time profitability',
+        'comparison.after.4': 'Conversational assistant (private beta)',
 
-        'footer.tagline': 'Conçu à Montréal par des ébénistes, pour des ébénistes.',
+        'waitlist.title': 'We're building the first release.',
+        'waitlist.body': 'We're selecting a limited number of shops for early access.',
+        'form.email': 'Email',
+        'form.shop': 'Shop name (optional)',
+        'form.submit': 'Join',
+        'form.success': 'You're on the list. We'll reach out when private beta spots open.',
 
-        'magic.title': 'Magie de traduction AI',
-        'magic.desc': 'Vous regardez une vraie démo de traduction par intelligence artificielle. Chaque texte de cette page a été traduit en temps réel par Claude, l\'assistant AI qui alimente Scopewright.',
-        'magic.demo.label': 'Essayez :',
-        'magic.demo.placeholder': 'Tapez quelque chose en français...',
-        'magic.demo.button': 'Traduire en anglais',
-        'magic.note': 'Cette même technologie traduit automatiquement vos soumissions pour vos clients anglophones.'
+        'footer.tagline': 'Estimation infrastructure for premium millwork shops.',
+        'footer.privacy': 'Privacy',
+        'footer.contact': 'Contact',
+
+        'magic.title': 'Looking for the magic button?',
+        'magic.line1': 'It doesn't exist.',
+        'magic.line2': 'Estimating is judgment.',
+        'magic.line3': 'AI assists. It doesn't replace.',
+        'magic.line4': 'Scopewright reduces friction. It doesn't remove responsibility.',
+        'magic.back': 'Back to reality',
+        'magic.show': 'Show me how it really works'
     }
 };
 
@@ -109,17 +102,17 @@ function getTranslatableElements() {
     return document.querySelectorAll('[data-i18n], [data-i18n-placeholder]');
 }
 
-// Extract all French texts to translate
+// Extract all English texts to translate to French
 function extractTextsToTranslate() {
-    const elements = getTranslatableElements();
     const textsMap = {};
+    const elements = getTranslatableElements();
 
     elements.forEach(el => {
         const key = el.getAttribute('data-i18n') || el.getAttribute('data-i18n-placeholder');
         if (key) {
-            const frText = translations.fr[key];
-            if (frText && !textsMap[key]) {
-                textsMap[key] = frText;
+            const enText = translations.en[key];
+            if (enText && !textsMap[key]) {
+                textsMap[key] = enText;
             }
         }
     });
@@ -136,14 +129,14 @@ function applyTranslations(translationsMap, lang) {
         const placeholderKey = el.getAttribute('data-i18n-placeholder');
 
         if (contentKey) {
-            const text = lang === 'fr' ? translations.fr[contentKey] : translationsMap[contentKey];
+            const text = lang === 'en' ? translations.en[contentKey] : translationsMap[contentKey];
             if (text) {
                 el.innerHTML = text;
             }
         }
 
         if (placeholderKey) {
-            const text = lang === 'fr' ? translations.fr[placeholderKey] : translationsMap[placeholderKey];
+            const text = lang === 'en' ? translations.en[placeholderKey] : translationsMap[placeholderKey];
             if (text) {
                 el.placeholder = text;
             }
@@ -153,27 +146,27 @@ function applyTranslations(translationsMap, lang) {
 
 // Toggle language
 async function toggleLanguage() {
-    const newLang = currentLang === 'fr' ? 'en' : 'fr';
+    const newLang = currentLang === 'en' ? 'fr' : 'en';
 
     // Update UI
     document.getElementById('langActive').textContent = newLang.toUpperCase();
     document.getElementById('langInactive').textContent = currentLang.toUpperCase();
 
-    if (newLang === 'fr') {
-        // Switch back to French (no API call needed)
-        applyTranslations({}, 'fr');
-        currentLang = 'fr';
-        return;
-    }
-
-    // Check cache
-    if (translationCache.en) {
-        applyTranslations(translationCache.en, 'en');
+    if (newLang === 'en') {
+        // Switch back to English (no API call needed)
+        applyTranslations({}, 'en');
         currentLang = 'en';
         return;
     }
 
-    // Translate to English
+    // Check cache
+    if (translationCache.fr) {
+        applyTranslations(translationCache.fr, 'fr');
+        currentLang = 'fr';
+        return;
+    }
+
+    // Translate to French
     try {
         const textsToTranslate = extractTextsToTranslate();
 
@@ -183,13 +176,13 @@ async function toggleLanguage() {
             text
         }));
 
-        // Call Edge Function
-        const translatedTexts = await callEdgeFunction(textsArray, 'fr_to_en');
+        // Call Edge Function (en_to_fr)
+        const translatedTexts = await callEdgeFunction(textsArray, 'en_to_fr');
 
         // translatedTexts is already a map { key: translatedText }
-        translationCache.en = translatedTexts;
-        applyTranslations(translatedTexts, 'en');
-        currentLang = 'en';
+        translationCache.fr = translatedTexts;
+        applyTranslations(translatedTexts, 'fr');
+        currentLang = 'fr';
 
     } catch (error) {
         console.error('Translation error:', error);
@@ -207,118 +200,54 @@ function closeMagicOverlay() {
     document.getElementById('magicOverlay').classList.remove('active');
 }
 
-async function translateMagicDemo() {
-    const input = document.getElementById('magicInput');
-    const result = document.getElementById('magicResult');
-    const button = document.getElementById('magicTranslate');
-    const text = input.value.trim();
-
-    if (!text) {
-        alert('Veuillez entrer du texte à traduire.');
-        return;
-    }
-
-    // Show loading
-    result.classList.add('visible', 'loading');
-    result.textContent = 'Traduction en cours...';
-    button.disabled = true;
-
-    try {
-        // Format expected by Edge Function: { key, text }[]
-        const translations = await callEdgeFunction([{ key: 'demo', text }], 'fr_to_en');
-        const translated = translations['demo'] || text;
-
-        // Show result
-        result.classList.remove('loading');
-        result.textContent = translated;
-
-    } catch (error) {
-        console.error('Translation error:', error);
-        result.classList.remove('loading');
-        result.textContent = 'Erreur de traduction. Veuillez réessayer.';
-    } finally {
-        button.disabled = false;
-    }
+function showHowItWorks() {
+    closeMagicOverlay();
+    document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ── Waitlist Form ──
+// ── Waitlist Form (Frontend Only) ──
 
 async function handleWaitlistSubmit(e) {
     e.preventDefault();
 
-    const name = document.getElementById('formName').value.trim();
     const email = document.getElementById('formEmail').value.trim();
-    const company = document.getElementById('formCompany').value.trim();
-    const message = document.getElementById('formMessage').value.trim();
+    const shop = document.getElementById('formShop').value.trim();
+    const revenue = document.getElementById('formRevenue').value;
+    const tool = document.getElementById('formTool').value;
 
-    const submitBtn = document.getElementById('submitBtn');
-    const submitText = document.getElementById('submitText');
     const feedback = document.getElementById('formFeedback');
 
     // Validate
-    if (!name || !email) {
-        showFeedback(feedback, 'Veuillez remplir tous les champs requis.', 'error');
+    if (!email) {
+        showFeedback(feedback, 'Please enter your email.', 'error');
         return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        showFeedback(feedback, 'Veuillez entrer une adresse courriel valide.', 'error');
+        showFeedback(feedback, 'Please enter a valid email.', 'error');
         return;
     }
 
-    // Show loading
-    submitBtn.disabled = true;
-    submitText.textContent = currentLang === 'fr' ? 'Envoi en cours...' : 'Submitting...';
+    // Simulate submission (frontend only)
+    console.log('Waitlist submission (frontend only):', {
+        email,
+        shop,
+        revenue,
+        tool,
+        timestamp: new Date().toISOString()
+    });
 
-    try {
-        // Save to Supabase (waitlist table)
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_KEY,
-                'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-                name,
-                email,
-                company,
-                message,
-                lang: currentLang,
-                created_at: new Date().toISOString()
-            })
-        });
+    // Show success message
+    const successMsg = currentLang === 'en'
+        ? translations.en['form.success']
+        : 'Vous êtes sur la liste. Nous vous contacterons quand des places seront disponibles.';
 
-        if (response.ok || response.status === 201) {
-            showFeedback(
-                feedback,
-                currentLang === 'fr'
-                    ? '✓ Merci ! Vous êtes maintenant sur la liste d\'attente.'
-                    : '✓ Thank you! You\'re now on the waitlist.',
-                'success'
-            );
-            document.getElementById('waitlistForm').reset();
-        } else {
-            throw new Error('Server error');
-        }
+    showFeedback(feedback, '✓ ' + successMsg, 'success');
 
-    } catch (error) {
-        console.error('Waitlist submission error:', error);
-        showFeedback(
-            feedback,
-            currentLang === 'fr'
-                ? 'Une erreur est survenue. Veuillez réessayer.'
-                : 'An error occurred. Please try again.',
-            'error'
-        );
-    } finally {
-        submitBtn.disabled = false;
-        submitText.textContent = currentLang === 'fr'
-            ? 'Rejoindre la liste d\'attente'
-            : 'Join the waitlist';
-    }
+    // Reset form
+    document.getElementById('waitlistForm').reset();
 }
 
 function showFeedback(element, message, type) {
@@ -338,14 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Magic button
     document.getElementById('magicBtn').addEventListener('click', openMagicOverlay);
     document.getElementById('magicClose').addEventListener('click', closeMagicOverlay);
+    document.getElementById('magicBack').addEventListener('click', closeMagicOverlay);
+    document.getElementById('magicShow').addEventListener('click', showHowItWorks);
+
+    // Close overlay on outside click
     document.getElementById('magicOverlay').addEventListener('click', (e) => {
         if (e.target.id === 'magicOverlay') closeMagicOverlay();
-    });
-
-    // Magic demo translate
-    document.getElementById('magicTranslate').addEventListener('click', translateMagicDemo);
-    document.getElementById('magicInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') translateMagicDemo();
     });
 
     // Waitlist form
@@ -361,14 +288,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-});
-
-// ── Scroll animations (optional enhancement) ──
-window.addEventListener('scroll', () => {
-    const nav = document.querySelector('.nav');
-    if (window.scrollY > 20) {
-        nav.style.boxShadow = '0 2px 12px rgba(0, 0, 0, 0.08)';
-    } else {
-        nav.style.boxShadow = 'none';
-    }
 });

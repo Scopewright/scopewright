@@ -2212,7 +2212,7 @@
         }
 
         /* ── Main action buttons ── */
-        .ph-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+        .ph-actions { display: none; /* replaced by timeline CTA */ }
         .btn-main-action {
             display: none; padding: 12px 28px; font-size: 15px; font-weight: 600;
             border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
@@ -2375,8 +2375,7 @@
 
         /* Status Timeline */
         .status-timeline {
-            margin: 16px 0 4px; display: none; /* Hidden - using main action buttons instead */
-            align-items: center; gap: 0;
+            margin: 16px 0 4px; display: flex; align-items: center; gap: 0;
             position: relative;
         }
         .timeline-step {

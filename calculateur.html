@@ -5509,7 +5509,20 @@
 '.ratio-btn:hover { background: #4a4a4a; }' +
 '.ratio-btn.active { border-color: #4b6050; background: #4b6050; color: #fff; }' +
 '.crop-actions { display: flex; gap: 8px; }' +
+'.loading-screen { position: fixed; inset: 0; background: #2b2b2b; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 900; transition: opacity .4s ease; }' +
+'.loading-screen.hidden { opacity: 0; pointer-events: none; }' +
+'.loader-ring { width: 48px; height: 48px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.08); border-top-color: rgba(255,255,255,0.6); animation: spin 0.9s linear infinite; }' +
+'@keyframes spin { to { transform: rotate(360deg); } }' +
+'.loader-text { margin-top: 20px; font-size: 14px; color: rgba(255,255,255,0.45); letter-spacing: 0.5px; }' +
+'.loader-bar { margin-top: 24px; width: 120px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; }' +
+'.loader-bar-inner { height: 100%; width: 40%; border-radius: 2px; background: rgba(255,255,255,0.3); animation: slide 1.2s ease-in-out infinite; }' +
+'@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }' +
 '</style></head><body>' +
+'<div class="loading-screen" id="loadingScreen">' +
+'  <div class="loader-ring"></div>' +
+'  <div class="loader-text">Chargement du plan...</div>' +
+'  <div class="loader-bar"><div class="loader-bar-inner"></div></div>' +
+'</div>' +
 '<div class="viewer-header">' +
 '  <div class="viewer-title" id="title">Chargement...</div>' +
 '  <div class="controls">' +
@@ -5566,6 +5579,7 @@
 '    document.getElementById("title").textContent = planRecord.file_name;' +
 '    var loadingTask = pdfjsLib.getDocument(e.data.pdfUrl);' +
 '    pdfDoc = await loadingTask.promise; totalPages = pdfDoc.numPages; await render(); await loadRooms();' +
+'    var ls = document.getElementById("loadingScreen"); ls.classList.add("hidden"); setTimeout(function() { ls.remove(); }, 500);' +
 '  }' +
 '});' +
 

@@ -1463,20 +1463,22 @@
         var acDiv = document.getElementById('dmAC-' + idx);
         if (!acDiv) return;
 
-        // If query is empty and input is focused, show nothing
-        if (query.length < 2) {
-            acDiv.classList.remove('open');
-            acDiv.innerHTML = '';
-            dmActiveAC = null;
-            return;
-        }
+        // Mark as unresolved when user edits
+        input.classList.remove('dm-resolved');
 
-        // Search in CATALOGUE_DATA
-        var results = (CATALOGUE_DATA || []).filter(function(item) {
-            var desc = (item.description || '').toLowerCase();
-            var cat = (item.category || '').toLowerCase();
-            return desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
-        }).slice(0, 15);
+        var items = CATALOGUE_DATA || [];
+        var results;
+        if (query.length < 2) {
+            // No query: show all items grouped by category (browseable)
+            results = items.slice(0, 50);
+        } else {
+            // Filter by query
+            results = items.filter(function(item) {
+                var desc = (item.description || '').toLowerCase();
+                var cat = (item.category || '').toLowerCase();
+                return desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
+            }).slice(0, 30);
+        }
 
         if (results.length === 0) {
             acDiv.innerHTML = '<div class="dm-ac-item" style="color:#999;cursor:default;">Aucun r&eacute;sultat</div>';
@@ -1485,13 +1487,25 @@
             return;
         }
 
+        // Group by category for display
+        var grouped = {};
+        results.forEach(function(item) {
+            var cat = item.category || 'Autre';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(item);
+        });
+
         var html = '';
-        results.forEach(function(item, i) {
-            html += '<div class="dm-ac-item" data-idx="' + i + '" ' +
-                'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(item.description) + '\')">' +
-                '<span>' + escapeHtml(item.description) + '</span>' +
-                '<span class="dm-ac-cat">' + escapeHtml(item.category || '') + '</span>' +
-                '</div>';
+        var globalIdx = 0;
+        Object.keys(grouped).forEach(function(cat) {
+            html += '<div style="padding:4px 10px;font-size:10px;font-weight:700;color:#888;background:#f9f9f9;text-transform:uppercase;letter-spacing:0.3px;position:sticky;top:0;">' + escapeHtml(cat) + '</div>';
+            grouped[cat].forEach(function(item) {
+                html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
+                    'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(item.description) + '\')">' +
+                    '<span>' + escapeHtml(item.description) + '</span>' +
+                    '</div>';
+                globalIdx++;
+            });
         });
         acDiv.innerHTML = html;
         acDiv.classList.add('open');
@@ -3423,7 +3437,7 @@
         .dm-autocomplete {
             position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
             background: #fff; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px;
-            max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-height: 280px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             display: none;
         }
         .dm-autocomplete.open { display: block; }
@@ -5915,7 +5929,7 @@
                     croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.88);
                 });
 
-                await uploadToStorage(cropState.originalBlob, croppedBlob, cropState.groupId, cropState.ratio, cropData, cropState.existingMediaId);
+                await uploadToStorage(cropState.originalBlob, croppedBlob, cropState.groupId, cropState.ratio, cropData, cropState.existingMediaId, cropState.sourceMetadata);
                 closeCropModal();
             } catch (err) {
                 console.error('Crop/upload error:', err);
@@ -5943,7 +5957,7 @@
         }
 
         // ── Upload vers Supabase Storage + insert room_media ──
-        async function uploadToStorage(originalBlob, croppedBlob, groupId, ratio, cropData, existingMediaId) {
+        async function uploadToStorage(originalBlob, croppedBlob, groupId, ratio, cropData, existingMediaId, sourceMetadata) {
             var roomId = roomMap[groupId];
             if (!roomId) throw new Error('Room non sauvegardée');
             var ts = Date.now();
@@ -5999,7 +6013,7 @@
                 var insResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                    body: JSON.stringify({
+                    body: JSON.stringify(Object.assign({
                         room_id: roomId,
                         original_url: originalUrl,
                         cropped_url: croppedUrl,
@@ -6007,7 +6021,7 @@
                         crop_data: cropData,
                         tags: ['presentation_soumission'],
                         sort_order: sortOrder
-                    })
+                    }, sourceMetadata ? { source_metadata: sourceMetadata } : {}))
                 });
                 if (!insResp.ok) throw new Error('Insert room_media échoué: ' + insResp.status);
                 var inserted = await insResp.json();
@@ -7414,6 +7428,16 @@
                 return;
             }
 
+            // Find the groupId from roomId (reverse lookup of roomMap)
+            var targetGroupId = null;
+            for (var gId in roomMap) {
+                if (roomMap[gId] === roomId) { targetGroupId = gId; break; }
+            }
+            if (!targetGroupId) {
+                alert('Erreur: Pièce introuvable dans le calculateur');
+                return;
+            }
+
             var status = document.getElementById('captureStatus');
             var btn = document.getElementById('btnConfirmCapture');
 
@@ -7425,52 +7449,26 @@
                 status.textContent = 'Capture en cours...';
 
                 // Render page at high resolution (scale=3 for ~300 DPI)
-                if (!pdfDoc) throw new Error('PDF non chargé');
-
                 var page = await pdfDoc.getPage(pdfCurrentPage);
                 var viewport = page.getViewport({ scale: 3.0, rotation: pdfRotation });
 
-                // Create temporary canvas for high-res render
                 var canvas = document.createElement('canvas');
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
                 var ctx = canvas.getContext('2d');
 
-                await page.render({
-                    canvasContext: ctx,
-                    viewport: viewport
-                }).promise;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
                 status.textContent = 'Compression de l\'image...';
 
-                // Convert to JPEG blob
                 var blob = await new Promise(function(resolve) {
                     canvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
                 });
 
-                status.textContent = 'Upload en cours...';
+                // Close the capture modal and open the crop modal
+                closeCaptureRoomModal();
 
-                // Generate unique filename
-                var timestamp = Date.now();
-                var filename = 'plan_p' + pdfCurrentPage + '_' + timestamp + '.jpg';
-
-                // Upload to room_media bucket
-                var uploadPath = roomId + '/' + filename;
-                var uploadResp = await authenticatedFetch(
-                    SUPABASE_URL + '/storage/v1/object/room-media/' + uploadPath,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'image/jpeg' },
-                        body: blob
-                    }
-                );
-
-                if (!uploadResp.ok) {
-                    var errText = await uploadResp.text();
-                    throw new Error('Erreur d\'upload: ' + errText);
-                }
-
-                // Create room_media record with source_metadata
+                // Store source metadata for the upload
                 var sourceMetadata = {
                     type: 'pdf_plan',
                     plan_id: currentPlanRecord.id,
@@ -7481,34 +7479,9 @@
                     scale: 3.0
                 };
 
-                var mediaResp = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/room_media',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
-                        },
-                        body: JSON.stringify({
-                            room_id: roomId,
-                            file_path: uploadPath,
-                            file_name: filename,
-                            file_size: blob.size,
-                            tags: [],
-                            source_metadata: sourceMetadata
-                        })
-                    }
-                );
-
-                if (!mediaResp.ok) throw new Error('Erreur de création de l\'enregistrement');
-
-                status.style.background = '#e8f5e9';
-                status.style.color = '#2e7d32';
-                status.textContent = '✓ Capture réussie!';
-
-                setTimeout(function() {
-                    closeCaptureRoomModal();
-                }, 1500);
+                // Open the main crop modal — reuses existing crop + upload flow
+                openCropModal(blob, targetGroupId);
+                cropState.sourceMetadata = sourceMetadata;
 
             } catch (err) {
                 console.error('Capture error:', err);

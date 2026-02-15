@@ -300,11 +300,23 @@ section {
     text-align: center;
 }
 
-/* ── Problem ── */
-.problem-grid {
+/* ── Section subtitle ── */
+.section-subtitle {
+    font-size: 17px;
+    color: var(--text);
+    opacity: 0.6;
+    text-align: center;
+    max-width: 520px;
+    margin: -32px auto 48px;
+    line-height: 1.6;
+}
+
+/* ── Roles ── */
+.roles-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 24px;
+    margin-bottom: 48px;
 }
 
 .card {
@@ -318,14 +330,61 @@ section {
 .card h3 {
     font-size: 18px;
     font-weight: 600;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     color: var(--accent);
 }
 
-.card p {
+.role-lead {
     font-size: 15px;
     color: var(--text);
     opacity: 0.7;
+    margin-bottom: 16px;
+}
+
+.role-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0 0;
+}
+
+.role-bullets li {
+    font-size: 14px;
+    color: var(--text);
+    opacity: 0.65;
+    padding: 4px 0 4px 16px;
+    position: relative;
+    line-height: 1.5;
+}
+
+.role-bullets li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 11px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text);
+    opacity: 0.35;
+}
+
+.role-micro {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.45;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+}
+
+.roles-closing {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
+    opacity: 0.7;
+    text-align: center;
+    line-height: 1.7;
 }
 
 /* ── Value ── */
@@ -719,7 +778,7 @@ section {
         font-size: 40px;
     }
 
-    .problem-grid {
+    .roles-grid {
         grid-template-columns: 1fr;
     }
 

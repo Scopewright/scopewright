@@ -9477,7 +9477,7 @@
                     '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                     '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
                     '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
-                    '<button class="sub-kebab" onclick="event.stopPropagation(); openSubmission(\'' + escapeAttr(sub.id) + '\')" title="Ouvrir">&middot;&middot;&middot;</button>' +
+                    '' +
                     '</div>';
             });
             list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';

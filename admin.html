@@ -1665,6 +1665,7 @@
     }
 
     function removeTagPrefix(index) {
+        if (!confirm('Retirer ce préfixe ?')) return;
         tagPrefixes.splice(index, 1);
         renderTagPrefixTable();
     }

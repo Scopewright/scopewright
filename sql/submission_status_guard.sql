@@ -3,13 +3,13 @@
 -- ═══════════════════════════════════════════════════════════════════════
 -- Exécuter dans Supabase SQL Editor
 
--- 1. Contrainte CHECK sur les statuts valides (sans 'invoiced')
+-- 1. Migrer les soumissions 'invoiced' existantes AVANT la contrainte
+UPDATE submissions SET status = 'accepted' WHERE status = 'invoiced';
+
+-- 2. Contrainte CHECK sur les statuts valides (sans 'invoiced')
 ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
 ALTER TABLE submissions ADD CONSTRAINT submissions_status_check
     CHECK (status IN ('draft', 'pending_internal', 'returned', 'approved_internal', 'sent_client', 'accepted'));
-
--- Migrer les soumissions 'invoiced' existantes vers 'accepted'
-UPDATE submissions SET status = 'accepted' WHERE status = 'invoiced';
 
 -- 2. Fonction trigger : valide les transitions de statut
 CREATE OR REPLACE FUNCTION check_submission_status_transition()

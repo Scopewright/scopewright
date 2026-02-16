@@ -2527,10 +2527,10 @@
                         var inp = rows[v].querySelector('.comp-supplier-wrap input');
                         if (inp) { inp.focus(); inp.style.borderColor = '#c62828'; }
                     }
-                    var status = document.getElementById('editStatus');
-                    status.textContent = 'Le fournisseur est requis pour chaque composante.';
-                    status.style.display = '';
-                    status.className = 'edit-status error';
+                    var valErr = document.getElementById('editStatus');
+                    valErr.textContent = 'Le fournisseur est requis pour chaque composante.';
+                    valErr.style.display = '';
+                    valErr.className = 'edit-status error';
                     return;
                 }
             }

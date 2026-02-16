@@ -1900,6 +1900,12 @@
             display: flex;
             align-items: center;
         }
+        .calc-header .sortable {
+            cursor: pointer; user-select: none; gap: 3px;
+        }
+        .calc-header .sortable:hover { color: var(--stele-green); }
+        .calc-header .sort-arrow { font-size: 9px; opacity: 0.4; }
+        .calc-header .sortable.sort-active .sort-arrow { opacity: 1; color: var(--stele-green); }
 
         .calc-header .col-center { justify-content: center; }
         .calc-header .col-right { justify-content: flex-end; }
@@ -5372,14 +5378,14 @@
                 </div>
                 <div class="calc-header">
                     <span></span>
-                    <span class="col-center">Tag</span>
-                    <span>Article</span>
+                    <span class="col-center sortable" onclick="sortGroupRows('${groupId}','tag')">Tag<span class="sort-arrow">&#9650;</span></span>
+                    <span class="sortable" onclick="sortGroupRows('${groupId}','article')">Article<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center">Code</span>
                     <span class="col-center">Type</span>
-                    <span class="col-right">Prix unit.</span>
-                    <span class="col-center">Quantit&eacute;</span>
+                    <span class="col-right sortable" onclick="sortGroupRows('${groupId}','price')">Prix unit.<span class="sort-arrow">&#9650;</span></span>
+                    <span class="col-center sortable" onclick="sortGroupRows('${groupId}','qty')">Quantit&eacute;<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center" title="Installation incluse">Inst.</span>
-                    <span class="col-right">Total</span>
+                    <span class="col-right sortable" onclick="sortGroupRows('${groupId}','total')">Total<span class="sort-arrow">&#9650;</span></span>
                     <span></span>
                 </div>
                 <div class="calc-rows" id="${groupId}-rows">
@@ -6239,14 +6245,18 @@
         function refreshTagFilterBar() {
             var bar = document.getElementById('tagFilterBar');
             if (!bar) return;
-            // Collect all unique tag prefixes in use
+            // Collect all unique tags and prefixes in use
             var usedPrefixes = {};
+            var usedTags = {};
             document.querySelectorAll('.calc-row').forEach(function(row) {
                 var tagInput = row.querySelector('.cell-tag input');
                 if (tagInput && tagInput.value.trim()) {
                     var tag = tagInput.value.trim().toUpperCase();
                     var prefix = tag.replace(/[0-9]/g, '');
-                    if (prefix) usedPrefixes[prefix] = true;
+                    if (prefix) {
+                        usedPrefixes[prefix] = true;
+                        usedTags[tag] = prefix;
+                    }
                 }
             });
             var prefixList = Object.keys(usedPrefixes).sort();
@@ -6255,36 +6265,138 @@
                 return;
             }
             bar.style.display = 'flex';
+            var isExactFilter = activeTagFilter && /[0-9]/.test(activeTagFilter);
+            var activePrefixFromExact = isExactFilter ? activeTagFilter.replace(/[0-9]/g, '') : null;
+
             // Rebuild chips
-            var html = '<span class="tag-filter-label">Filtrer par tag :</span>';
+            var html = '<span class="tag-filter-label">Filtrer :</span>';
             html += '<span class="tag-filter-chip chip-all' + (activeTagFilter === null ? ' active' : '') + '" onclick="filterByTag(null)">Tous</span>';
             prefixList.forEach(function(p) {
-                // Find label from tagPrefixes
                 var tp = (tagPrefixes || []).find(function(t) { return t.prefix === p; });
                 var label = tp ? p + ' ' + tp.label_fr : p;
-                html += '<span class="tag-filter-chip' + (activeTagFilter === p ? ' active' : '') + '" onclick="filterByTag(\'' + escapeAttr(p) + '\')">' + escapeHtml(label) + '</span>';
+                var isActivePrefix = activeTagFilter === p || activePrefixFromExact === p;
+                html += '<span class="tag-filter-chip' + (isActivePrefix ? ' active' : '') + '" onclick="filterByTag(\'' + escapeAttr(p) + '\')">' + escapeHtml(label) + '</span>';
             });
+
+            // Show granular tags for the active prefix
+            var activePrefix = activeTagFilter ? activeTagFilter.replace(/[0-9]/g, '') : null;
+            if (activePrefix && usedPrefixes[activePrefix]) {
+                var tagsForPrefix = Object.keys(usedTags).filter(function(t) { return usedTags[t] === activePrefix; }).sort(function(a, b) {
+                    return a.localeCompare(b, 'fr', { numeric: true });
+                });
+                if (tagsForPrefix.length > 1) {
+                    html += '<span style="color:#ccc;margin:0 2px;">|</span>';
+                    tagsForPrefix.forEach(function(tag) {
+                        html += '<span class="tag-filter-chip' + (activeTagFilter === tag ? ' active' : '') + '" onclick="filterByTag(\'' + escapeAttr(tag) + '\')" style="font-size:10px;padding:3px 8px;">' + escapeHtml(tag) + '</span>';
+                    });
+                }
+            }
             bar.innerHTML = html;
         }
 
-        function filterByTag(prefix) {
-            activeTagFilter = prefix;
+        function filterByTag(value) {
+            // value = null (all), "C" (prefix), or "C1" (exact tag)
+            activeTagFilter = value;
             document.querySelectorAll('.calc-row').forEach(function(row) {
-                if (prefix === null) {
+                if (value === null) {
                     row.classList.remove('tag-hidden');
                     return;
                 }
                 var tagInput = row.querySelector('.cell-tag input');
                 var tag = tagInput ? tagInput.value.trim().toUpperCase() : '';
                 var rowPrefix = tag.replace(/[0-9]/g, '');
-                if (rowPrefix === prefix || tag === '') {
-                    // Show matching rows + untagged rows
-                    row.classList.remove('tag-hidden');
+                // Check exact match (C1) or prefix match (C)
+                var isExact = /[0-9]/.test(value);
+                if (isExact) {
+                    row.classList.toggle('tag-hidden', tag !== value && tag !== '');
                 } else {
-                    row.classList.add('tag-hidden');
+                    row.classList.toggle('tag-hidden', rowPrefix !== value && tag !== '');
                 }
             });
             refreshTagFilterBar();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SORT ROWS IN GROUP
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var sortState = {}; // { groupId: { col: 'tag', dir: 'asc' } }
+
+        function sortGroupRows(groupId, col) {
+            var prev = sortState[groupId] || {};
+            var dir = (prev.col === col && prev.dir === 'asc') ? 'desc' : 'asc';
+            sortState[groupId] = { col: col, dir: dir };
+
+            var container = document.getElementById(groupId + '-rows');
+            if (!container) return;
+            var rows = Array.from(container.querySelectorAll('.calc-row'));
+            var addRowBtn = container.querySelector('.add-row-container');
+
+            rows.sort(function(a, b) {
+                var va = getRowSortValue(a, col);
+                var vb = getRowSortValue(b, col);
+                var cmp;
+                if (typeof va === 'number' && typeof vb === 'number') {
+                    cmp = va - vb;
+                } else {
+                    cmp = String(va).localeCompare(String(vb), 'fr', { numeric: true });
+                }
+                return dir === 'desc' ? -cmp : cmp;
+            });
+
+            // Re-append in sorted order
+            rows.forEach(function(row) { container.insertBefore(row, addRowBtn); });
+
+            // Update sort arrows in the header
+            var header = container.parentElement.querySelector('.calc-header');
+            if (header) {
+                header.querySelectorAll('.sortable').forEach(function(span) {
+                    span.classList.remove('sort-active');
+                    var arrow = span.querySelector('.sort-arrow');
+                    if (arrow) arrow.innerHTML = '&#9650;';
+                });
+                // Find the clicked column's span
+                var colMap = { tag: 1, article: 2, price: 5, qty: 6, total: 8 };
+                var idx = colMap[col];
+                if (idx !== undefined) {
+                    var target = header.querySelectorAll('span')[idx];
+                    if (target) {
+                        target.classList.add('sort-active');
+                        var arrow = target.querySelector('.sort-arrow');
+                        if (arrow) arrow.innerHTML = dir === 'asc' ? '&#9650;' : '&#9660;';
+                    }
+                }
+            }
+        }
+
+        function getRowSortValue(row, col) {
+            if (col === 'tag') {
+                var tagInput = row.querySelector('.cell-tag input');
+                return tagInput ? tagInput.value.trim().toUpperCase() : '';
+            }
+            if (col === 'article') {
+                var select = row.querySelector('.item-select');
+                if (!select) return '';
+                var opt = select.options[select.selectedIndex];
+                return opt ? opt.textContent.trim() : '';
+            }
+            if (col === 'price') {
+                var priceSpan = row.querySelector('[id$="-unit-price"]');
+                if (priceSpan) return parseFloat(priceSpan.textContent.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+                var ajoutPrice = row.querySelector('.ajout-price');
+                if (ajoutPrice) return parseFloat(ajoutPrice.value) || 0;
+                return 0;
+            }
+            if (col === 'qty') {
+                var qtyInput = row.querySelector('.qty-input');
+                return qtyInput ? (parseFloat(qtyInput.value) || 0) : 0;
+            }
+            if (col === 'total') {
+                var totalSpan = row.querySelector('[id$="-total"]');
+                if (totalSpan) return parseFloat(totalSpan.textContent.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+                return 0;
+            }
+            return '';
         }
 
         // ═══════════════════════════════════════════════════════════════════════

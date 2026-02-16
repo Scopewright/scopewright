@@ -828,14 +828,36 @@
         .comp-row {
             display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
         }
-        .comp-row input {
+        .comp-row input, .comp-row select {
             padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px;
             font-size: 13px; font-family: inherit;
         }
-        .comp-row input:focus { border-color: var(--stele-green); outline: none; }
-        .comp-supplier { flex: 2; min-width: 0; }
-        .comp-sku { flex: 1.5; min-width: 0; }
-        .comp-desc { flex: 3; min-width: 0; }
+        .comp-row input:focus, .comp-row select:focus { border-color: var(--stele-green); outline: none; }
+        .comp-supplier-wrap {
+            flex: 2; min-width: 0; position: relative;
+        }
+        .comp-supplier-wrap input {
+            width: 100%; box-sizing: border-box;
+        }
+        .comp-supplier-dd {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px;
+            max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .comp-supplier-dd.open { display: block; }
+        .comp-supplier-dd .comp-dd-item {
+            padding: 7px 10px; cursor: pointer; font-size: 13px;
+        }
+        .comp-supplier-dd .comp-dd-item:hover { background: #f0f0f0; }
+        .comp-supplier-dd .comp-dd-item.selected { background: #e8f0ea; font-weight: 600; }
+        .comp-supplier-dd .comp-dd-add {
+            padding: 7px 10px; cursor: pointer; font-size: 12px; color: var(--stele-green);
+            font-weight: 600; border-top: 1px solid #eee;
+        }
+        .comp-supplier-dd .comp-dd-add:hover { background: #f5f5f5; }
+        .comp-category { flex: 1.5; min-width: 0; }
+        .comp-sku { flex: 1.2; min-width: 0; }
+        .comp-desc { flex: 2.5; min-width: 0; }
         .comp-qty { width: 55px; flex: none; text-align: center; }
         .comp-cost { width: 80px; flex: none; text-align: right; }
         .comp-remove {
@@ -856,6 +878,34 @@
             border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 4px;
         }
         .btn-add-component:hover { border-color: var(--stele-green); color: var(--stele-green); }
+        /* Matériaux verrouillés par composantes */
+        .cp-table td.cp-locked-cell { position: relative; }
+        .cp-table td.cp-locked-cell input { background: #f0f0f0; color: #888; }
+        .cp-table td.cp-locked-cell::after {
+            content: 'auto'; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            font-size: 9px; color: #aaa; font-weight: 600; text-transform: uppercase; pointer-events: none;
+        }
+        /* Stele confirm dialog */
+        .stele-confirm-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 9999; justify-content: center; align-items: center;
+        }
+        .stele-confirm-overlay.active { display: flex; }
+        .stele-confirm-box {
+            background: #fff; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            max-width: 480px; width: 90%; overflow: hidden;
+        }
+        .stele-confirm-box h3 { padding: 18px 24px 0; font-size: 15px; font-weight: 700; color: var(--stele-black); margin: 0; }
+        .stele-confirm-box .scb-body { padding: 12px 24px 20px; font-size: 14px; color: #444; }
+        .stele-confirm-box .scb-amount { font-size: 22px; font-weight: 700; color: #c0392b; display: block; margin: 8px 0; }
+        .stele-confirm-box .scb-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 18px; }
+        .stele-confirm-box .scb-footer button {
+            padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #ccc;
+        }
+        .scb-btn-cancel { background: #f5f5f5; color: #333; }
+        .scb-btn-cancel:hover { background: #e8e8e8; }
+        .scb-btn-ok { background: var(--stele-green); color: #fff; border-color: var(--stele-green) !important; }
+        .scb-btn-ok:hover { opacity: 0.9; }
 
         /* ═══ Médias tagués ═══ */
         .cat-media-title {
@@ -1315,7 +1365,6 @@
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
                     <div class="cp-section-title">Composantes fournisseur</div>
-                    <datalist id="supplierDatalist"></datalist>
                     <div id="componentsList"></div>
                     <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
                 </div>
@@ -1357,6 +1406,18 @@
         </div>
     </div>
 
+    <!-- Stele confirm dialog -->
+    <div class="stele-confirm-overlay" id="steleConfirmOverlay">
+        <div class="stele-confirm-box">
+            <h3 id="steleConfirmTitle">Confirmation</h3>
+            <div class="scb-body" id="steleConfirmBody"></div>
+            <div class="scb-footer">
+                <button class="scb-btn-cancel" id="steleConfirmCancel">Annuler</button>
+                <button class="scb-btn-ok" id="steleConfirmOk">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
         // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
@@ -1370,6 +1431,28 @@
         // Données de base (chargées depuis app_config)
         let tauxHoraires = [];
         let expenseCategories = [];
+
+        // ── Stele Confirm Dialog ──
+        var _steleConfirmResolve = null;
+        function steleConfirm(bodyHtml, title, okLabel) {
+            return new Promise(function(resolve) {
+                _steleConfirmResolve = resolve;
+                document.getElementById('steleConfirmTitle').textContent = title || 'Confirmation';
+                document.getElementById('steleConfirmBody').innerHTML = bodyHtml;
+                document.getElementById('steleConfirmOk').textContent = okLabel || 'Confirmer';
+                document.getElementById('steleConfirmOverlay').classList.add('active');
+            });
+        }
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'steleConfirmCancel' || e.target.id === 'steleConfirmOverlay') {
+                document.getElementById('steleConfirmOverlay').classList.remove('active');
+                if (_steleConfirmResolve) { var fn = _steleConfirmResolve; _steleConfirmResolve = null; fn(false); }
+            }
+            if (e.target.id === 'steleConfirmOk') {
+                document.getElementById('steleConfirmOverlay').classList.remove('active');
+                if (_steleConfirmResolve) { var fn = _steleConfirmResolve; _steleConfirmResolve = null; fn(true); }
+            }
+        });
 
         // Utilitaires d'échappement HTML
         function escapeHtml(str) {
@@ -1684,9 +1767,9 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         // ═══ Composantes fournisseur ═══
-        let editComponents = [];          // { id, supplier_name, supplier_sku, description, qty_per_unit, unit_cost, notes, sort_order, isNew }
+        let editComponents = [];          // { id, supplier_name, supplier_sku, description, expense_category, qty_per_unit, unit_cost, notes, sort_order, isNew }
         let editComponentsToDelete = [];  // UUIDs à supprimer au save
-        let knownSuppliers = [];          // DISTINCT supplier_name pour autocomplete
+        let supplierCompanies = [];       // { id, name } from companies WHERE company_type='Fournisseur'
 
         // ═══ Médias tagués ═══
         let editMedia = [];           // { id, file_url, file_type, tags, isNew, file, previewUrl }
@@ -1794,7 +1877,7 @@
             // Composantes fournisseur
             var realItemId = (isNewItem && newItemData) ? null : item.id;
             loadComponents(realItemId);
-            loadKnownSuppliers();
+            loadSupplierCompanies();
 
             // Médias
             editMedia = [];
@@ -2073,32 +2156,13 @@
 
         // ═══ Composantes fournisseur ═══
 
-        async function loadKnownSuppliers() {
+        async function loadSupplierCompanies() {
             try {
-                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_item_components?select=supplier_name&supplier_name=not.is.null', {});
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?company_type=eq.Fournisseur&select=id,name&order=name', {});
                 if (resp.ok) {
-                    var rows = await resp.json();
-                    var seen = {};
-                    knownSuppliers = [];
-                    for (var i = 0; i < rows.length; i++) {
-                        var name = (rows[i].supplier_name || '').trim();
-                        if (name && !seen[name]) {
-                            seen[name] = true;
-                            knownSuppliers.push(name);
-                        }
-                    }
-                    knownSuppliers.sort();
-                    updateSupplierDatalist();
+                    supplierCompanies = await resp.json();
                 }
             } catch (e) { /* ignore */ }
-        }
-
-        function updateSupplierDatalist() {
-            var dl = document.getElementById('supplierDatalist');
-            if (!dl) return;
-            dl.innerHTML = knownSuppliers.map(function(s) {
-                return '<option value="' + escapeAttr(s) + '">';
-            }).join('');
         }
 
         async function loadComponents(itemId) {
@@ -2117,6 +2181,7 @@
                             supplier_name: r.supplier_name || '',
                             supplier_sku: r.supplier_sku || '',
                             description: r.description || '',
+                            expense_category: r.expense_category || '',
                             qty_per_unit: r.qty_per_unit != null ? r.qty_per_unit : 1,
                             unit_cost: r.unit_cost != null ? r.unit_cost : 0,
                             notes: r.notes || '',
@@ -2127,6 +2192,7 @@
                 }
             } catch (e) { /* ignore */ }
             renderComponents();
+            syncComponentsToMaterials();
         }
 
         function renderComponents() {
@@ -2135,7 +2201,8 @@
             var html = '';
             if (editComponents.length > 0) {
                 html += '<div class="comp-header">' +
-                    '<span class="comp-supplier">Fournisseur</span>' +
+                    '<span class="comp-supplier-wrap">Fournisseur</span>' +
+                    '<span class="comp-category">Cat&eacute;gorie</span>' +
                     '<span class="comp-sku">Code produit</span>' +
                     '<span class="comp-desc">Description</span>' +
                     '<span class="comp-qty">Qt&eacute;</span>' +
@@ -2143,18 +2210,189 @@
                     '<span style="width:28px;flex:none;"></span>' +
                     '</div>';
             }
+            // Build category options
+            var catOptions = '<option value="">—</option>';
+            for (var j = 0; j < expenseCategories.length; j++) {
+                catOptions += '<option value="' + escapeAttr(expenseCategories[j].name) + '">' + escapeHtml(expenseCategories[j].name) + '</option>';
+            }
             for (var i = 0; i < editComponents.length; i++) {
                 var c = editComponents[i];
+                // Category select with correct selected option
+                var catSelect = '<select class="comp-category" data-field="expense_category" onchange="onComponentCategoryChange(this)">';
+                catSelect += '<option value="">—</option>';
+                for (var k = 0; k < expenseCategories.length; k++) {
+                    var sel = (c.expense_category === expenseCategories[k].name) ? ' selected' : '';
+                    catSelect += '<option value="' + escapeAttr(expenseCategories[k].name) + '"' + sel + '>' + escapeHtml(expenseCategories[k].name) + '</option>';
+                }
+                catSelect += '</select>';
+
                 html += '<div class="comp-row" data-idx="' + i + '">' +
-                    '<input class="comp-supplier" list="supplierDatalist" placeholder="Fournisseur" value="' + escapeAttr(c.supplier_name) + '" data-field="supplier_name" oninput="updateComponentField(this)">' +
+                    '<div class="comp-supplier-wrap">' +
+                        '<input type="text" placeholder="Fournisseur" value="' + escapeAttr(c.supplier_name) + '" data-field="supplier_name" oninput="filterSupplierDropdown(this)" onfocus="openSupplierDropdown(this)" autocomplete="off">' +
+                        '<div class="comp-supplier-dd"></div>' +
+                    '</div>' +
+                    catSelect +
                     '<input class="comp-sku" placeholder="Code produit" value="' + escapeAttr(c.supplier_sku) + '" data-field="supplier_sku" oninput="updateComponentField(this)">' +
                     '<input class="comp-desc" placeholder="Description" value="' + escapeAttr(c.description) + '" data-field="description" oninput="updateComponentField(this)">' +
-                    '<input type="number" class="comp-qty" step="0.01" min="0" placeholder="1" value="' + (c.qty_per_unit || '') + '" data-field="qty_per_unit" oninput="updateComponentField(this)">' +
-                    '<input type="number" class="comp-cost" step="0.01" min="0" placeholder="0.00" value="' + (c.unit_cost || '') + '" data-field="unit_cost" oninput="updateComponentField(this)">' +
+                    '<input type="number" class="comp-qty" step="0.01" min="0" placeholder="1" value="' + (c.qty_per_unit || '') + '" data-field="qty_per_unit" oninput="updateComponentField(this); syncComponentsToMaterials()">' +
+                    '<input type="number" class="comp-cost" step="0.01" min="0" placeholder="0.00" value="' + (c.unit_cost || '') + '" data-field="unit_cost" oninput="updateComponentField(this); syncComponentsToMaterials()">' +
                     '<button type="button" class="comp-remove" onclick="removeComponent(' + i + ')">&times;</button>' +
                     '</div>';
             }
             container.innerHTML = html;
+        }
+
+        // ── Supplier combobox ──
+
+        function openSupplierDropdown(input) {
+            closeAllSupplierDropdowns();
+            var dd = input.parentNode.querySelector('.comp-supplier-dd');
+            populateSupplierDropdown(dd, input, '');
+            dd.classList.add('open');
+        }
+
+        function filterSupplierDropdown(input) {
+            updateComponentField(input);
+            var dd = input.parentNode.querySelector('.comp-supplier-dd');
+            var filter = input.value.toLowerCase().trim();
+            populateSupplierDropdown(dd, input, filter);
+            if (!dd.classList.contains('open')) dd.classList.add('open');
+        }
+
+        function populateSupplierDropdown(dd, input, filter) {
+            var idx = parseInt(input.closest('.comp-row').getAttribute('data-idx'));
+            var currentVal = editComponents[idx].supplier_name;
+            var html = '';
+            var count = 0;
+            for (var i = 0; i < supplierCompanies.length; i++) {
+                var name = supplierCompanies[i].name;
+                if (filter && name.toLowerCase().indexOf(filter) === -1) continue;
+                var sel = (name === currentVal) ? ' selected' : '';
+                html += '<div class="comp-dd-item' + sel + '" data-name="' + escapeAttr(name) + '" onclick="selectSupplier(this)">' + escapeHtml(name) + '</div>';
+                count++;
+            }
+            if (count === 0 && filter) {
+                html += '<div class="comp-dd-item" style="color:#999;font-style:italic;">Aucun r&eacute;sultat</div>';
+            }
+            html += '<div class="comp-dd-add" onclick="addNewSupplier(this)">+ Ajouter un fournisseur</div>';
+            dd.innerHTML = html;
+        }
+
+        function selectSupplier(el) {
+            var name = el.getAttribute('data-name');
+            var row = el.closest('.comp-row');
+            var input = row.querySelector('.comp-supplier-wrap input');
+            var idx = parseInt(row.getAttribute('data-idx'));
+            input.value = name;
+            editComponents[idx].supplier_name = name;
+            closeAllSupplierDropdowns();
+        }
+
+        async function addNewSupplier(el) {
+            var row = el.closest('.comp-row');
+            var input = row.querySelector('.comp-supplier-wrap input');
+            var idx = parseInt(row.getAttribute('data-idx'));
+            var name = prompt('Nom du nouveau fournisseur :');
+            if (!name || !name.trim()) return;
+            name = name.trim();
+            // Create company with type Fournisseur
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ name: name, company_type: 'Fournisseur', created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (resp.ok) {
+                    var rows = await resp.json();
+                    if (rows.length > 0) {
+                        supplierCompanies.push({ id: rows[0].id, name: name });
+                        supplierCompanies.sort(function(a, b) { return a.name.localeCompare(b.name); });
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            input.value = name;
+            editComponents[idx].supplier_name = name;
+            closeAllSupplierDropdowns();
+        }
+
+        function closeAllSupplierDropdowns() {
+            document.querySelectorAll('.comp-supplier-dd.open').forEach(function(dd) { dd.classList.remove('open'); });
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.comp-supplier-wrap')) {
+                closeAllSupplierDropdowns();
+            }
+        });
+
+        // ── Category change with warning ──
+
+        async function onComponentCategoryChange(select) {
+            var row = select.closest('.comp-row');
+            var idx = parseInt(row.getAttribute('data-idx'));
+            var newCat = select.value;
+            var oldCat = editComponents[idx].expense_category || '';
+
+            // Check if new category has a manual cost and no existing components in that category
+            if (newCat) {
+                var existingComponentsInCat = editComponents.filter(function(c, ci) {
+                    return ci !== idx && c.expense_category === newCat;
+                });
+                if (existingComponentsInCat.length === 0) {
+                    // No other components in this category — check for manual cost
+                    var matInput = document.querySelector('#cpMaterialsBody input[data-cat="' + newCat + '"]');
+                    if (matInput && parseFloat(matInput.value) > 0 && !matInput.disabled) {
+                        var currentCost = parseFloat(matInput.value);
+                        var confirmed = await steleConfirm(
+                            'La cat\u00e9gorie <strong>' + escapeHtml(newCat) + '</strong> a d\u00e9j\u00e0 un co\u00fbt manuel de' +
+                            '<span class="scb-amount">' + currentCost.toFixed(2) + ' $</span>' +
+                            'En ajoutant des composantes, ce montant sera remplac\u00e9 par le total calcul\u00e9 des composantes.',
+                            'Remplacer le co\u00fbt manuel ?',
+                            'Oui, remplacer par les composantes'
+                        );
+                        if (!confirmed) {
+                            select.value = oldCat;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            editComponents[idx].expense_category = newCat;
+            syncComponentsToMaterials();
+        }
+
+        // ── Sync components → material costs ──
+
+        function syncComponentsToMaterials() {
+            // Calculate totals per expense category from components
+            var catTotals = {};
+            for (var i = 0; i < editComponents.length; i++) {
+                var c = editComponents[i];
+                if (c.expense_category) {
+                    if (!catTotals[c.expense_category]) catTotals[c.expense_category] = 0;
+                    catTotals[c.expense_category] += (c.qty_per_unit || 0) * (c.unit_cost || 0);
+                }
+            }
+
+            // Update material cost inputs
+            var inputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+            for (var j = 0; j < inputs.length; j++) {
+                var catName = inputs[j].getAttribute('data-cat');
+                var td = inputs[j].parentNode;
+                if (catTotals[catName] !== undefined) {
+                    // Locked — calculated from components
+                    inputs[j].value = catTotals[catName].toFixed(2);
+                    inputs[j].disabled = true;
+                    td.classList.add('cp-locked-cell');
+                } else {
+                    // Unlocked — manual entry
+                    td.classList.remove('cp-locked-cell');
+                    if (canEditMaterials) inputs[j].disabled = false;
+                }
+            }
+            updateComposedPrice();
         }
 
         function updateComponentField(input) {
@@ -2170,14 +2408,15 @@
         function addComponent() {
             editComponents.push({
                 id: null, supplier_name: '', supplier_sku: '', description: '',
-                qty_per_unit: 1, unit_cost: 0, notes: '',
+                expense_category: '', qty_per_unit: 1, unit_cost: 0, notes: '',
                 sort_order: editComponents.length + 1, isNew: true
             });
             renderComponents();
+            syncComponentsToMaterials();
             var rows = document.querySelectorAll('#componentsList .comp-row');
             if (rows.length > 0) {
                 var lastRow = rows[rows.length - 1];
-                var firstInput = lastRow.querySelector('input');
+                var firstInput = lastRow.querySelector('.comp-supplier-wrap input');
                 if (firstInput) firstInput.focus();
             }
         }
@@ -2189,6 +2428,7 @@
             }
             editComponents.splice(index, 1);
             renderComponents();
+            syncComponentsToMaterials();
         }
 
         async function saveComponents(itemId) {
@@ -2209,6 +2449,7 @@
                     supplier_name: c.supplier_name || null,
                     supplier_sku: c.supplier_sku || null,
                     description: c.description || null,
+                    expense_category: c.expense_category || null,
                     qty_per_unit: c.qty_per_unit || 1,
                     unit_cost: c.unit_cost || 0,
                     notes: c.notes || null,

@@ -6,7 +6,7 @@
 
 CREATE TABLE catalogue_item_components (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    catalogue_item_id UUID NOT NULL REFERENCES catalogue_items(id) ON DELETE CASCADE,
+    catalogue_item_id TEXT NOT NULL REFERENCES catalogue_items(id) ON DELETE CASCADE,
     supplier_name TEXT,
     supplier_sku TEXT,
     description TEXT,

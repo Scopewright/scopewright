@@ -7552,6 +7552,14 @@
                     newWindow.addEventListener('load', trySendMessage);
                 }
 
+                // Auto-close plans modal when PDF viewer window is closed
+                var checkClosed = setInterval(function() {
+                    if (newWindow.closed) {
+                        clearInterval(checkClosed);
+                        closePlansModal();
+                    }
+                }, 500);
+
             } catch (err) {
                 console.error('PDF viewer error:', err);
                 newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +

@@ -1016,6 +1016,43 @@
 
         .cat-media-remove:hover { opacity: 1; }
 
+        /* ═══ Crop Modal (même pattern que calculateur.html) ═══ */
+        .crop-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.88); z-index: 3000;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .crop-overlay.active { display: flex; }
+        .crop-box {
+            background: #fff; border-radius: 8px; overflow: hidden;
+            width: 90vw; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;
+        }
+        .crop-header {
+            padding: 14px 20px; font-weight: 700; font-size: 15px;
+            border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;
+        }
+        .crop-container { position: relative; flex: 1; min-height: 300px; max-height: 60vh; background: #222; overflow: hidden; }
+        .crop-container img { display: block; max-width: 100%; }
+        .crop-controls {
+            padding: 12px 20px; display: flex; gap: 10px; align-items: center;
+            border-top: 1px solid #eee; justify-content: space-between;
+        }
+        .crop-controls .crop-ratios { display: flex; gap: 6px; }
+        .crop-controls .crop-ratio-btn {
+            padding: 6px 16px; border: 2px solid #ccc; border-radius: 4px;
+            background: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+        }
+        .crop-controls .crop-ratio-btn.active { border-color: var(--stele-green); background: var(--stele-green); color: #fff; }
+        .crop-controls .crop-actions { display: flex; gap: 8px; }
+        .crop-controls .crop-btn {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 13px; font-weight: 600;
+        }
+        .crop-btn-cancel { background: #eee; color: #555; }
+        .crop-btn-confirm { background: var(--stele-green); color: #fff; }
+        .crop-btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+        .crop-error { padding: 10px 20px; background: #fee; color: #c00; font-size: 13px; display: none; }
+
         .edit-toggle-row {
             display: flex;
             align-items: center;
@@ -1433,6 +1470,31 @@
         </div>
     </div>
 
+    <!-- Crop Modal (même pattern que calculateur.html) -->
+    <div class="crop-overlay" id="cropModal">
+        <div class="crop-box">
+            <div class="crop-header">
+                <span>Cadrer l'image</span>
+                <span id="cropDimensions" style="font-weight:400; font-size:12px; color:#888;"></span>
+            </div>
+            <div class="crop-error" id="cropError"></div>
+            <div class="crop-container" id="cropContainer">
+                <img id="cropImage" src="">
+            </div>
+            <div class="crop-controls">
+                <div class="crop-ratios">
+                    <button class="crop-ratio-btn active" id="cropRatio169" onclick="setCropRatio('16:9')">16:9</button>
+                    <button class="crop-ratio-btn" id="cropRatio916" onclick="setCropRatio('9:16')">9:16</button>
+                    <button class="crop-ratio-btn" id="cropRatio11" onclick="setCropRatio('1:1')">1:1</button>
+                </div>
+                <div class="crop-actions">
+                    <button class="crop-btn crop-btn-cancel" onclick="cancelCrop()">Annuler</button>
+                    <button class="crop-btn crop-btn-confirm" id="cropConfirmBtn" onclick="confirmCrop()">Valider</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════════════════════
         // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
@@ -1468,6 +1530,126 @@
                 if (_steleConfirmResolve) { var fn = _steleConfirmResolve; _steleConfirmResolve = null; fn(true); }
             }
         });
+
+        // ── Crop Modal (même pattern que calculateur.html) ──
+        var cropperLoaded = false;
+        var currentCropper = null;
+        var cropState = {}; // { originalBlob, ratio, _resolve }
+
+        function loadCropperLib() {
+            if (cropperLoaded) return Promise.resolve();
+            return new Promise(function(resolve, reject) {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css';
+                document.head.appendChild(link);
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js';
+                script.onload = function() { cropperLoaded = true; resolve(); };
+                script.onerror = function() { reject(new Error('Cropper.js failed to load')); };
+                document.head.appendChild(script);
+            });
+        }
+
+        function openCropModal(imageBlob) {
+            cropState.originalBlob = imageBlob;
+            cropState.ratio = '16:9';
+            var url = URL.createObjectURL(imageBlob);
+            var imgEl = document.getElementById('cropImage');
+            var modal = document.getElementById('cropModal');
+            var errEl = document.getElementById('cropError');
+            errEl.style.display = 'none';
+
+            var testImg = new Image();
+            testImg.onload = async function() {
+                document.getElementById('cropDimensions').textContent = testImg.width + ' \u00d7 ' + testImg.height + ' px';
+
+                if (testImg.width < 800 || testImg.height < 600) {
+                    errEl.textContent = 'Image trop petite (minimum 800\u00d7600). Celle-ci fait ' + testImg.width + '\u00d7' + testImg.height + '.';
+                    errEl.style.display = 'block';
+                    imgEl.src = url;
+                    modal.classList.add('active');
+                    document.getElementById('cropConfirmBtn').disabled = true;
+                    return;
+                }
+
+                document.getElementById('cropConfirmBtn').disabled = false;
+                imgEl.src = url;
+                modal.classList.add('active');
+
+                await loadCropperLib();
+                if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+                currentCropper = new Cropper(imgEl, {
+                    aspectRatio: 16 / 9,
+                    viewMode: 1,
+                    autoCropArea: 0.9,
+                    responsive: true,
+                    background: false
+                });
+
+                document.getElementById('cropRatio169').classList.add('active');
+                document.getElementById('cropRatio916').classList.remove('active');
+                document.getElementById('cropRatio11').classList.remove('active');
+            };
+            testImg.src = url;
+        }
+
+        function setCropRatio(ratio) {
+            cropState.ratio = ratio;
+            document.getElementById('cropRatio169').classList.toggle('active', ratio === '16:9');
+            document.getElementById('cropRatio916').classList.toggle('active', ratio === '9:16');
+            document.getElementById('cropRatio11').classList.toggle('active', ratio === '1:1');
+            var numRatio = ratio === '1:1' ? 1 : ratio === '9:16' ? 9 / 16 : 16 / 9;
+            if (currentCropper) {
+                currentCropper.setAspectRatio(numRatio);
+            }
+        }
+
+        async function confirmCrop() {
+            if (!currentCropper) return;
+            var confirmBtn = document.getElementById('cropConfirmBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Traitement...';
+
+            try {
+                var croppedCanvas = currentCropper.getCroppedCanvas({
+                    maxWidth: 2048,
+                    maxHeight: 2048,
+                    imageSmoothingQuality: 'high'
+                });
+                var cropData = currentCropper.getData(true);
+                var croppedBlob = await new Promise(function(resolve) {
+                    croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.88);
+                });
+
+                // Save values before closeCropModal resets cropState
+                var originalBlob = cropState.originalBlob;
+                var ratio = cropState.ratio || '16:9';
+                var resolve = cropState._resolve;
+                closeCropModal();
+                if (resolve) resolve({ croppedBlob: croppedBlob, originalBlob: originalBlob, ratio: ratio, cropData: cropData });
+            } catch (err) {
+                console.error('Crop error:', err);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Valider';
+            }
+        }
+
+        function cancelCrop() {
+            var resolve = cropState._resolve;
+            closeCropModal();
+            if (resolve) resolve(null);
+        }
+
+        function closeCropModal() {
+            var modal = document.getElementById('cropModal');
+            modal.classList.remove('active');
+            if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+            var imgEl = document.getElementById('cropImage');
+            if (imgEl.src && imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
+            imgEl.src = '';
+            cropState = {};
+        }
 
         // Utilitaires d'échappement HTML
         function escapeHtml(str) {
@@ -2066,35 +2248,49 @@
             });
         }
 
-        function handleEditMediaFiles(files) {
-            Array.from(files).forEach(function(file) {
+        async function handleEditMediaFiles(files) {
+            var fileList = Array.from(files);
+            for (var i = 0; i < fileList.length; i++) {
+                var file = fileList[i];
                 var isPdf = file.type === 'application/pdf';
                 var isImage = file.type.startsWith('image/');
-                if (!isPdf && !isImage) return;
-
-                var mediaEntry = {
-                    id: null,
-                    file_url: null,
-                    previewUrl: null,
-                    file_type: isPdf ? 'pdf' : 'image',
-                    tags: [],
-                    isNew: true,
-                    file: file
-                };
+                if (!isPdf && !isImage) continue;
 
                 if (isImage) {
-                    var reader = new FileReader();
-                    reader.onload = function(e) {
-                        mediaEntry.previewUrl = e.target.result;
-                        editMedia.push(mediaEntry);
-                        renderEditMedia();
-                    };
-                    reader.readAsDataURL(file);
+                    // Open crop modal, wait for result
+                    var result = await new Promise(function(resolve) {
+                        openCropModal(file);
+                        cropState._resolve = resolve;
+                    });
+                    if (!result) continue; // cancelled
+
+                    editMedia.push({
+                        id: null,
+                        file_url: null,
+                        previewUrl: URL.createObjectURL(result.croppedBlob),
+                        file_type: 'image',
+                        tags: [],
+                        isNew: true,
+                        file: result.croppedBlob,
+                        originalFile: result.originalBlob,
+                        cropRatio: result.ratio,
+                        cropData: result.cropData
+                    });
+                    renderEditMedia();
                 } else {
-                    editMedia.push(mediaEntry);
+                    // PDF: no crop
+                    editMedia.push({
+                        id: null,
+                        file_url: null,
+                        previewUrl: null,
+                        file_type: 'pdf',
+                        tags: [],
+                        isNew: true,
+                        file: file
+                    });
                     renderEditMedia();
                 }
-            });
+            }
         }
 
         // ═══ Prix composé — Rendu des tableaux minutes & matériaux ═══
@@ -2619,28 +2815,57 @@
                     var m = editMedia[mi2];
 
                     if (m.isNew && m.file) {
-                        var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
-                        var path = itemId + '/' + Date.now() + '_' + mi2 + '.' + ext;
+                        var ts = Date.now();
+                        var fileUrl;
+                        var originalUrl = null;
 
-                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
-                            method: 'POST',
-                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
-                            body: m.file
-                        });
-                        if (!uploadResp.ok) throw new Error('Erreur upload: ' + uploadResp.status);
+                        if (m.originalFile) {
+                            // Cropped image: upload original + cropped separately
+                            var origPath = 'originals/' + itemId + '/' + ts + '.jpg';
+                            var origResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + origPath, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                                body: m.originalFile
+                            });
+                            if (!origResp.ok) throw new Error('Erreur upload original: ' + origResp.status);
+                            originalUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + origPath;
 
-                        var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+                            var cropPath = itemId + '/' + ts + '_' + (m.cropRatio || '16x9').replace(':', 'x') + '.jpg';
+                            var cropResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + cropPath, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                                body: m.file
+                            });
+                            if (!cropResp.ok) throw new Error('Erreur upload crop: ' + cropResp.status);
+                            fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + cropPath;
+                        } else {
+                            // Non-cropped file (PDF): upload as before
+                            var ext = m.file.name ? m.file.name.split('.').pop().toLowerCase() : 'bin';
+                            var path = itemId + '/' + ts + '_' + mi2 + '.' + ext;
+                            var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                                method: 'POST',
+                                headers: { 'Content-Type': m.file.type || 'application/octet-stream', 'x-upsert': 'true' },
+                                body: m.file
+                            });
+                            if (!uploadResp.ok) throw new Error('Erreur upload: ' + uploadResp.status);
+                            fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+                        }
+
+                        var insertPayload = {
+                            catalogue_item_id: itemId,
+                            file_url: fileUrl,
+                            file_type: m.file_type,
+                            tags: m.tags,
+                            sort_order: mi2
+                        };
+                        if (originalUrl) insertPayload.original_url = originalUrl;
+                        if (m.cropRatio) insertPayload.crop_ratio = m.cropRatio;
+                        if (m.cropData) insertPayload.crop_data = m.cropData;
 
                         var insertResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                            body: JSON.stringify({
-                                catalogue_item_id: itemId,
-                                file_url: fileUrl,
-                                file_type: m.file_type,
-                                tags: m.tags,
-                                sort_order: mi2
-                            })
+                            body: JSON.stringify(insertPayload)
                         });
                         if (!insertResp.ok) throw new Error('Erreur insertion m\u00e9dia: ' + insertResp.status);
 
@@ -2649,6 +2874,7 @@
                         m.file_url = fileUrl;
                         m.isNew = false;
                         m.file = null;
+                        m.originalFile = null;
                         m.previewUrl = null;
                     } else if (m.id && !m.isNew) {
                         // Mettre à jour tags

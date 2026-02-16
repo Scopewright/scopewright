@@ -5073,9 +5073,9 @@
                 g.addEventListener('contextmenu', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (confirm('Supprimer ' + a.id + ' ?')) {
-                        deleteAnnotation(a.id);
-                    }
+                    steleConfirm('Supprimer le tag ' + a.id + ' de cette image ?', 'Supprimer annotation', 'Supprimer', true).then(function(ok) {
+                        if (ok) deleteAnnotation(a.id);
+                    });
                 });
 
                 svg.appendChild(g);

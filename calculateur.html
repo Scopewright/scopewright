@@ -1558,10 +1558,15 @@
 
     function removeDmEntry(idx) {
         var dm = getDefaultMaterials();
-        dm.splice(idx, 1);
-        if (currentSubmission) currentSubmission.default_materials = dm;
-        saveDefaultMaterials(dm);
-        renderDefaultMaterials();
+        var label = (dm[idx] && dm[idx].description) ? dm[idx].description : 'ce matériau';
+        steleConfirm('Supprimer « ' + label + ' » ?').then(function(ok) {
+            if (!ok) return;
+            var dm2 = getDefaultMaterials();
+            dm2.splice(idx, 1);
+            if (currentSubmission) currentSubmission.default_materials = dm2;
+            saveDefaultMaterials(dm2);
+            renderDefaultMaterials();
+        });
     }
 
     var dmSaveTimer = null;

@@ -824,6 +824,39 @@
             }
         }
 
+        /* ═══ Composantes fournisseur ═══ */
+        .comp-row {
+            display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
+        }
+        .comp-row input {
+            padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 13px; font-family: inherit;
+        }
+        .comp-row input:focus { border-color: var(--stele-green); outline: none; }
+        .comp-supplier { flex: 2; min-width: 0; }
+        .comp-sku { flex: 1.5; min-width: 0; }
+        .comp-desc { flex: 3; min-width: 0; }
+        .comp-qty { width: 55px; flex: none; text-align: center; }
+        .comp-cost { width: 80px; flex: none; text-align: right; }
+        .comp-remove {
+            flex: none; width: 28px; height: 28px; border: 1px solid #c62828;
+            background: #fff; color: #c62828; border-radius: 4px; cursor: pointer;
+            font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center;
+        }
+        .comp-remove:hover { background: #c62828; color: #fff; }
+        .comp-header {
+            display: flex; gap: 6px; margin-bottom: 4px; padding: 0 0 4px;
+            border-bottom: 1px solid #eee;
+        }
+        .comp-header span {
+            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .btn-add-component {
+            background: none; border: 1px dashed #bbb; color: #666; padding: 6px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 4px;
+        }
+        .btn-add-component:hover { border-color: var(--stele-green); color: var(--stele-green); }
+
         /* ═══ Médias tagués ═══ */
         .cat-media-title {
             font-size: 12px;
@@ -1279,6 +1312,14 @@
                     </div>
                 </div>
 
+                <!-- Composantes fournisseur -->
+                <div class="form-group" id="componentsGroup">
+                    <div class="cp-section-title">Composantes fournisseur</div>
+                    <datalist id="supplierDatalist"></datalist>
+                    <div id="componentsList"></div>
+                    <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
+                </div>
+
                 <div class="form-group">
                     <div class="cat-media-title">M&eacute;dias</div>
                     <div class="cat-dropzone" id="catDropzone">
@@ -1642,6 +1683,11 @@
         // ÉDITION DU CATALOGUE
         // ═══════════════════════════════════════════════════════════════════════
 
+        // ═══ Composantes fournisseur ═══
+        let editComponents = [];          // { id, supplier_name, supplier_sku, description, qty_per_unit, unit_cost, notes, sort_order, isNew }
+        let editComponentsToDelete = [];  // UUIDs à supprimer au save
+        let knownSuppliers = [];          // DISTINCT supplier_name pour autocomplete
+
         // ═══ Médias tagués ═══
         let editMedia = [];           // { id, file_url, file_type, tags, isNew, file, previewUrl }
         let editMediaToDelete = [];   // IDs à supprimer au save
@@ -1744,6 +1790,11 @@
 
             // Prix composé — tableaux minutes & matériaux
             renderComposedTables(item);
+
+            // Composantes fournisseur
+            var realItemId = (isNewItem && newItemData) ? null : item.id;
+            loadComponents(realItemId);
+            loadKnownSuppliers();
 
             // Médias
             editMedia = [];
@@ -2020,6 +2071,165 @@
             return data;
         }
 
+        // ═══ Composantes fournisseur ═══
+
+        async function loadKnownSuppliers() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_item_components?select=supplier_name&supplier_name=not.is.null', {});
+                if (resp.ok) {
+                    var rows = await resp.json();
+                    var seen = {};
+                    knownSuppliers = [];
+                    for (var i = 0; i < rows.length; i++) {
+                        var name = (rows[i].supplier_name || '').trim();
+                        if (name && !seen[name]) {
+                            seen[name] = true;
+                            knownSuppliers.push(name);
+                        }
+                    }
+                    knownSuppliers.sort();
+                    updateSupplierDatalist();
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateSupplierDatalist() {
+            var dl = document.getElementById('supplierDatalist');
+            if (!dl) return;
+            dl.innerHTML = knownSuppliers.map(function(s) {
+                return '<option value="' + escapeAttr(s) + '">';
+            }).join('');
+        }
+
+        async function loadComponents(itemId) {
+            editComponents = [];
+            editComponentsToDelete = [];
+            if (!itemId) { renderComponents(); return; }
+            try {
+                var resp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/catalogue_item_components?catalogue_item_id=eq.' + itemId + '&order=sort_order', {}
+                );
+                if (resp.ok) {
+                    var rows = await resp.json();
+                    editComponents = rows.map(function(r) {
+                        return {
+                            id: r.id,
+                            supplier_name: r.supplier_name || '',
+                            supplier_sku: r.supplier_sku || '',
+                            description: r.description || '',
+                            qty_per_unit: r.qty_per_unit != null ? r.qty_per_unit : 1,
+                            unit_cost: r.unit_cost != null ? r.unit_cost : 0,
+                            notes: r.notes || '',
+                            sort_order: r.sort_order || 0,
+                            isNew: false
+                        };
+                    });
+                }
+            } catch (e) { /* ignore */ }
+            renderComponents();
+        }
+
+        function renderComponents() {
+            var container = document.getElementById('componentsList');
+            if (!container) return;
+            var html = '';
+            if (editComponents.length > 0) {
+                html += '<div class="comp-header">' +
+                    '<span class="comp-supplier">Fournisseur</span>' +
+                    '<span class="comp-sku">Code produit</span>' +
+                    '<span class="comp-desc">Description</span>' +
+                    '<span class="comp-qty">Qt&eacute;</span>' +
+                    '<span class="comp-cost">Co&ucirc;t ($)</span>' +
+                    '<span style="width:28px;flex:none;"></span>' +
+                    '</div>';
+            }
+            for (var i = 0; i < editComponents.length; i++) {
+                var c = editComponents[i];
+                html += '<div class="comp-row" data-idx="' + i + '">' +
+                    '<input class="comp-supplier" list="supplierDatalist" placeholder="Fournisseur" value="' + escapeAttr(c.supplier_name) + '" data-field="supplier_name" oninput="updateComponentField(this)">' +
+                    '<input class="comp-sku" placeholder="Code produit" value="' + escapeAttr(c.supplier_sku) + '" data-field="supplier_sku" oninput="updateComponentField(this)">' +
+                    '<input class="comp-desc" placeholder="Description" value="' + escapeAttr(c.description) + '" data-field="description" oninput="updateComponentField(this)">' +
+                    '<input type="number" class="comp-qty" step="0.01" min="0" placeholder="1" value="' + (c.qty_per_unit || '') + '" data-field="qty_per_unit" oninput="updateComponentField(this)">' +
+                    '<input type="number" class="comp-cost" step="0.01" min="0" placeholder="0.00" value="' + (c.unit_cost || '') + '" data-field="unit_cost" oninput="updateComponentField(this)">' +
+                    '<button type="button" class="comp-remove" onclick="removeComponent(' + i + ')">&times;</button>' +
+                    '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function updateComponentField(input) {
+            var idx = parseInt(input.closest('.comp-row').getAttribute('data-idx'));
+            var field = input.getAttribute('data-field');
+            if (field === 'qty_per_unit' || field === 'unit_cost') {
+                editComponents[idx][field] = parseFloat(input.value) || 0;
+            } else {
+                editComponents[idx][field] = input.value;
+            }
+        }
+
+        function addComponent() {
+            editComponents.push({
+                id: null, supplier_name: '', supplier_sku: '', description: '',
+                qty_per_unit: 1, unit_cost: 0, notes: '',
+                sort_order: editComponents.length + 1, isNew: true
+            });
+            renderComponents();
+            var rows = document.querySelectorAll('#componentsList .comp-row');
+            if (rows.length > 0) {
+                var lastRow = rows[rows.length - 1];
+                var firstInput = lastRow.querySelector('input');
+                if (firstInput) firstInput.focus();
+            }
+        }
+
+        function removeComponent(index) {
+            var comp = editComponents[index];
+            if (comp.id && !comp.isNew) {
+                editComponentsToDelete.push(comp.id);
+            }
+            editComponents.splice(index, 1);
+            renderComponents();
+        }
+
+        async function saveComponents(itemId) {
+            // Delete removed components
+            if (editComponentsToDelete.length > 0) {
+                var ids = editComponentsToDelete.map(function(id) { return '"' + id + '"'; }).join(',');
+                await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/catalogue_item_components?id=in.(' + ids + ')',
+                    { method: 'DELETE', headers: { 'Prefer': 'return=minimal' } }
+                );
+            }
+            // Upsert components
+            for (var i = 0; i < editComponents.length; i++) {
+                var c = editComponents[i];
+                c.sort_order = i + 1;
+                var payload = {
+                    catalogue_item_id: itemId,
+                    supplier_name: c.supplier_name || null,
+                    supplier_sku: c.supplier_sku || null,
+                    description: c.description || null,
+                    qty_per_unit: c.qty_per_unit || 1,
+                    unit_cost: c.unit_cost || 0,
+                    notes: c.notes || null,
+                    sort_order: c.sort_order
+                };
+                if (c.isNew) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_item_components', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                } else if (c.id) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_item_components?id=eq.' + c.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+            }
+        }
+
         async function saveEditModal() {
             const btn = document.getElementById('btnEditSave');
             const status = document.getElementById('editStatus');
@@ -2158,6 +2368,9 @@
                     });
                     if (currentItem) currentItem.image_url = syncImageUrl;
                 }
+
+                // 4. Sauver les composantes fournisseur
+                await saveComponents(itemId);
 
                 // Re-générer les tables
                 generatePriceTables();

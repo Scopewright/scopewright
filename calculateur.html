@@ -8162,7 +8162,9 @@
                         showSaveIndicator();
                     } catch (err) {
                         console.error('Translation error:', err);
-                        alert('Erreur de traduction : ' + err.message);
+                        var tMsg = err.message || '';
+                        if (/overload/i.test(tMsg) || /529/.test(tMsg)) tMsg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
+                        steleAlert(tMsg, 'Erreur de traduction');
                         if (btn) { btn.disabled = false; btn.textContent = 'EN'; }
                         return; // stay on FR
                     }
@@ -8328,7 +8330,9 @@
                 renderPreview();
             } catch (err) {
                 console.error('Optimize error:', err);
-                alert('Erreur d\'optimisation : ' + err.message);
+                var msg = err.message || '';
+                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
+                steleAlert(msg, 'Erreur d\'optimisation');
             } finally {
                 btn.disabled = false;
                 btn.textContent = origText;
@@ -8370,7 +8374,9 @@
                 }
             } catch (err) {
                 console.error('Optimize error:', err);
-                alert('Erreur d\'optimisation : ' + err.message);
+                var oMsg = err.message || '';
+                if (/overload/i.test(oMsg) || /529/.test(oMsg)) oMsg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
+                steleAlert(oMsg, 'Erreur d\'optimisation');
             } finally {
                 btnEl.disabled = false;
                 btnEl.textContent = origText;

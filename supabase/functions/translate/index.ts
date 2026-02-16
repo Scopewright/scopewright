@@ -35,6 +35,23 @@ const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-en
 
 const TRANSLATE_EN_TO_FR_SYSTEM = `You are a professional translator for Scopewright, a premium estimation platform for high-end cabinetry and millwork shops. Translate English to French (Canadian French). Keep the same professional tone, be concise. Preserve any HTML tags exactly — only translate the text content.`;
 
+// Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch(url, options);
+    if (resp.status === 529 || resp.status === 429) {
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000); // 1s, 2s, 4s, 8s
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+    }
+    return resp;
+  }
+  // Should never reach here, but TypeScript needs it
+  throw new Error("Max retries exceeded");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -74,6 +91,12 @@ serve(async (req) => {
       action === "en_to_fr" ? TRANSLATE_EN_TO_FR_SYSTEM :
       TRANSLATE_SYSTEM;
 
+    const apiHeaders = {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    };
+
     // For single text: simpler prompt, no JSON wrapping needed
     if (nonEmpty.length === 1) {
       const userMsg =
@@ -83,13 +106,9 @@ serve(async (req) => {
           ? `Translate this English text to French (Canadian French). Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
+        headers: apiHeaders,
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 4096,
@@ -100,7 +119,6 @@ serve(async (req) => {
 
       const data = await resp.json();
 
-      // Debug: check for API errors
       if (data.error) {
         return new Response(
           JSON.stringify({ error: data.error.message || JSON.stringify(data.error), debug: data }),
@@ -133,13 +151,9 @@ serve(async (req) => {
         ? `Translate each of the following English texts to French (Canadian French). Return the translations separated by the exact line "${delimiter}" (one per text, same order). No numbering, no markdown, no explanation.\n\n${numbered}`
         : `Translate each of the following French texts to English. Return the translations separated by the exact line "${delimiter}" (one per text, same order). No numbering, no markdown, no explanation.\n\n${numbered}`;
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: apiHeaders,
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 8192,
@@ -149,6 +163,14 @@ serve(async (req) => {
     });
 
     const data = await resp.json();
+
+    if (data.error) {
+      return new Response(
+        JSON.stringify({ error: data.error.message || JSON.stringify(data.error) }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const content = data.content?.[0]?.text || "";
 
     // Split by delimiter

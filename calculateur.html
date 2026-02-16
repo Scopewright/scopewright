@@ -2975,6 +2975,83 @@
         .crop-error { padding: 10px 20px; background: #fee; color: #c00; font-size: 13px; display: none; }
         .crop-loading { padding: 20px; text-align: center; color: #888; font-size: 14px; }
 
+        /* ── Annotation Modal ── */
+        .annotation-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.88); z-index: 3500;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .annotation-overlay.active { display: flex; }
+        .annotation-box {
+            background: #fff; border-radius: 8px; overflow: hidden;
+            width: 95vw; max-width: 1200px; max-height: 92vh;
+            display: flex; flex-direction: column;
+        }
+        .annotation-header {
+            padding: 12px 20px; border-bottom: 1px solid #eee;
+            display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+        }
+        .annotation-header .annotation-title { font-weight: 700; font-size: 15px; margin-right: auto; }
+        .annotation-header select {
+            padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 13px; font-family: inherit;
+        }
+        .annotation-header .annotation-next {
+            font-size: 13px; font-weight: 600; color: var(--stele-green);
+            min-width: 90px;
+        }
+        .annotation-header .annotation-arrow-toggle {
+            display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer;
+        }
+        .annotation-header .annotation-arrow-toggle input { width: 14px; height: 14px; accent-color: var(--stele-green); }
+        .annotation-close {
+            background: none; border: none; font-size: 22px; cursor: pointer; color: #888;
+            padding: 0 4px; line-height: 1;
+        }
+        .annotation-close:hover { color: #333; }
+        .annotation-img-container {
+            flex: 1; position: relative; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            background: #1a1a1a; min-height: 300px;
+        }
+        .annotation-img-container img {
+            max-width: 100%; max-height: 75vh; display: block; user-select: none; -webkit-user-drag: none;
+        }
+        .annotation-img-container svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; overflow: visible;
+        }
+        .annotation-img-container svg .annot-label {
+            pointer-events: all; cursor: grab; user-select: none;
+        }
+        .annotation-img-container svg .annot-label:hover rect { stroke: #fff; stroke-width: 2; }
+        .annotation-img-container svg .annot-label.dragging { cursor: grabbing; opacity: 0.8; }
+        .annotation-img-container svg .annot-arrow {
+            stroke: var(--stele-green); stroke-width: 2; fill: none;
+            marker-end: url(#annotArrowHead);
+        }
+        .annotation-footer {
+            padding: 10px 20px; border-top: 1px solid #eee;
+            display: flex; align-items: center; gap: 12px; font-size: 12px; color: #888;
+        }
+        .annotation-footer .annotation-hint { flex: 1; }
+        .annotation-badge {
+            position: absolute; top: 2px; left: 2px;
+            background: var(--stele-green); color: #fff;
+            font-size: 9px; font-weight: 700; min-width: 16px; height: 16px;
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            padding: 0 3px; line-height: 1;
+        }
+        .annotation-btn {
+            position: absolute; top: 2px; left: 2px;
+            background: rgba(75,96,80,0.8); color: #fff; border: none;
+            width: 20px; height: 20px; border-radius: 3px; cursor: pointer;
+            font-size: 11px; display: flex; align-items: center; justify-content: center;
+            padding: 0; opacity: 0; transition: opacity 0.15s;
+        }
+        .image-preview-item:hover .annotation-btn { opacity: 1; }
+        .annotation-btn:hover { background: var(--stele-green); }
+
         /* ═══════════════════════════════════════════════════════════════
            VUE LISTE DE PROJETS
            ═══════════════════════════════════════════════════════════════ */
@@ -4548,6 +4625,34 @@
         <img id="lightboxImg" src="" alt="">
     </div>
 
+    <!-- Modal Annotation -->
+    <div class="annotation-overlay" id="annotationModal" onclick="if(event.target===this)closeAnnotationModal()">
+        <div class="annotation-box">
+            <div class="annotation-header">
+                <span class="annotation-title">Annoter l'image</span>
+                <select id="annotPrefixSelect" onchange="updateAnnotNext()"></select>
+                <span class="annotation-next" id="annotNext"></span>
+                <label class="annotation-arrow-toggle">
+                    <input type="checkbox" id="annotArrowMode"> Fl&egrave;che
+                </label>
+                <button class="annotation-close" onclick="closeAnnotationModal()">&times;</button>
+            </div>
+            <div class="annotation-img-container" id="annotImgContainer">
+                <img id="annotImage" src="" onclick="handleAnnotationClick(event)">
+                <svg id="annotSvg" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="annotArrowHead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="var(--stele-green)"/>
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+            <div class="annotation-footer">
+                <span class="annotation-hint">Cliquer sur l'image pour placer un tag. Glisser pour d&eacute;placer. Clic droit pour supprimer.</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Plans architecturaux -->
     <div class="modal-overlay" id="plansModal">
         <div class="modal" style="max-width: 700px;">
@@ -4681,6 +4786,322 @@
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.getElementById('lightbox').classList.contains('active')) closeLightbox();
+            if (e.key === 'Escape' && document.getElementById('annotationModal').classList.contains('active')) closeAnnotationModal();
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ANNOTATION — TAGS VISUELS SUR IMAGES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var annotState = {
+            groupId: null,
+            imageIndex: -1,
+            annotations: [],
+            selectedPrefix: 'C',
+            arrowMode: false,
+            awaitingArrowTarget: null, // annotation id waiting for arrow click
+            dragging: null, // { id, startX, startY, origX, origY }
+            mediaId: null
+        };
+        var annotSaveTimer = null;
+
+        function openAnnotationModal(groupId, index) {
+            var imgs = groupImages[groupId] || [];
+            var img = imgs[index];
+            if (!img || img.isLegacy) return;
+
+            annotState.groupId = groupId;
+            annotState.imageIndex = index;
+            annotState.mediaId = img.mediaId;
+            annotState.annotations = JSON.parse(JSON.stringify(img.annotations || []));
+            annotState.awaitingArrowTarget = null;
+            annotState.dragging = null;
+
+            // Set image
+            var imgEl = document.getElementById('annotImage');
+            imgEl.src = img.url || img.dataUrl;
+
+            // Populate prefix dropdown from tagPrefixes
+            var sel = document.getElementById('annotPrefixSelect');
+            sel.innerHTML = '';
+            (tagPrefixes || []).forEach(function(tp) {
+                var opt = document.createElement('option');
+                opt.value = tp.prefix;
+                opt.textContent = tp.prefix + ' — ' + tp.label_fr;
+                sel.appendChild(opt);
+            });
+            if (sel.options.length > 0) {
+                annotState.selectedPrefix = sel.options[0].value;
+            }
+
+            // Reset arrow mode
+            document.getElementById('annotArrowMode').checked = false;
+            annotState.arrowMode = false;
+
+            // Show modal
+            document.getElementById('annotationModal').classList.add('active');
+
+            // Wait for image to load then sync SVG size and render
+            imgEl.onload = function() {
+                syncAnnotSvgSize();
+                renderAnnotationSVG();
+                updateAnnotNext();
+            };
+            if (imgEl.complete) {
+                setTimeout(function() {
+                    syncAnnotSvgSize();
+                    renderAnnotationSVG();
+                    updateAnnotNext();
+                }, 50);
+            }
+        }
+
+        function closeAnnotationModal() {
+            saveAnnotationsNow();
+            document.getElementById('annotationModal').classList.remove('active');
+            document.getElementById('annotImage').src = '';
+            // Update in-memory groupImages
+            var imgs = groupImages[annotState.groupId] || [];
+            if (imgs[annotState.imageIndex]) {
+                imgs[annotState.imageIndex].annotations = annotState.annotations;
+            }
+            renderGroupImagePreviews(annotState.groupId);
+        }
+
+        function syncAnnotSvgSize() {
+            var imgEl = document.getElementById('annotImage');
+            var svg = document.getElementById('annotSvg');
+            var rect = imgEl.getBoundingClientRect();
+            svg.style.left = imgEl.offsetLeft + 'px';
+            svg.style.top = imgEl.offsetTop + 'px';
+            svg.style.width = rect.width + 'px';
+            svg.style.height = rect.height + 'px';
+            svg.setAttribute('viewBox', '0 0 ' + rect.width + ' ' + rect.height);
+        }
+
+        function updateAnnotNext() {
+            var prefix = document.getElementById('annotPrefixSelect').value;
+            annotState.selectedPrefix = prefix;
+            var next = getNextTagNumber(prefix);
+            document.getElementById('annotNext').textContent = 'Prochain: ' + prefix + next;
+        }
+
+        function getNextTagNumber(prefix) {
+            var used = {};
+            annotState.annotations.forEach(function(a) {
+                if (a.prefix === prefix) used[a.number] = true;
+            });
+            for (var i = 1; i <= 999; i++) {
+                if (!used[i]) return i;
+            }
+            return 999;
+        }
+
+        function handleAnnotationClick(e) {
+            if (annotState.dragging) return;
+            var imgEl = document.getElementById('annotImage');
+            var rect = imgEl.getBoundingClientRect();
+            var relX = (e.clientX - rect.left) / rect.width;
+            var relY = (e.clientY - rect.top) / rect.height;
+            relX = Math.max(0, Math.min(1, relX));
+            relY = Math.max(0, Math.min(1, relY));
+
+            // If awaiting arrow target placement
+            if (annotState.awaitingArrowTarget) {
+                var annot = annotState.annotations.find(function(a) { return a.id === annotState.awaitingArrowTarget; });
+                if (annot) {
+                    annot.hasArrow = true;
+                    annot.arrowX = relX;
+                    annot.arrowY = relY;
+                }
+                annotState.awaitingArrowTarget = null;
+                renderAnnotationSVG();
+                debounceSaveAnnotations();
+                return;
+            }
+
+            // Place new label
+            var prefix = annotState.selectedPrefix;
+            var num = getNextTagNumber(prefix);
+            var newAnnot = {
+                id: prefix + num,
+                prefix: prefix,
+                number: num,
+                x: relX,
+                y: relY,
+                hasArrow: false,
+                arrowX: null,
+                arrowY: null
+            };
+            annotState.annotations.push(newAnnot);
+
+            if (annotState.arrowMode) {
+                annotState.awaitingArrowTarget = newAnnot.id;
+            }
+
+            renderAnnotationSVG();
+            updateAnnotNext();
+            debounceSaveAnnotations();
+        }
+
+        function renderAnnotationSVG() {
+            var svg = document.getElementById('annotSvg');
+            var imgEl = document.getElementById('annotImage');
+            var rect = imgEl.getBoundingClientRect();
+            var w = rect.width;
+            var h = rect.height;
+
+            // Keep defs, clear the rest
+            var defs = svg.querySelector('defs');
+            svg.innerHTML = '';
+            svg.appendChild(defs);
+
+            annotState.annotations.forEach(function(a) {
+                var px = a.x * w;
+                var py = a.y * h;
+
+                // Draw arrow if present
+                if (a.hasArrow && a.arrowX != null && a.arrowY != null) {
+                    var ax = a.arrowX * w;
+                    var ay = a.arrowY * h;
+                    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', px);
+                    line.setAttribute('y1', py);
+                    line.setAttribute('x2', ax);
+                    line.setAttribute('y2', ay);
+                    line.setAttribute('class', 'annot-arrow');
+                    svg.appendChild(line);
+                }
+
+                // Draw label group
+                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'annot-label');
+                g.setAttribute('data-annot-id', a.id);
+
+                var text = a.id;
+                var tw = text.length * 8 + 10;
+                var th = 22;
+
+                var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                r.setAttribute('x', px - tw / 2);
+                r.setAttribute('y', py - th / 2);
+                r.setAttribute('width', tw);
+                r.setAttribute('height', th);
+                r.setAttribute('rx', 4);
+                r.setAttribute('fill', '#4b6050');
+                r.setAttribute('stroke', 'none');
+                g.appendChild(r);
+
+                var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                t.setAttribute('x', px);
+                t.setAttribute('y', py + 5);
+                t.setAttribute('text-anchor', 'middle');
+                t.setAttribute('fill', '#fff');
+                t.setAttribute('font-size', '13');
+                t.setAttribute('font-weight', '700');
+                t.setAttribute('font-family', 'inherit');
+                t.textContent = text;
+                g.appendChild(t);
+
+                // Drag events
+                g.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    if (e.button === 2) return; // right-click handled by contextmenu
+                    annotState.dragging = {
+                        id: a.id,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        origX: a.x,
+                        origY: a.y
+                    };
+                    g.classList.add('dragging');
+                });
+
+                // Right-click to delete
+                g.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (confirm('Supprimer ' + a.id + ' ?')) {
+                        deleteAnnotation(a.id);
+                    }
+                });
+
+                svg.appendChild(g);
+            });
+
+            // Awaiting arrow indicator
+            if (annotState.awaitingArrowTarget) {
+                var hint = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                hint.setAttribute('x', w / 2);
+                hint.setAttribute('y', 20);
+                hint.setAttribute('text-anchor', 'middle');
+                hint.setAttribute('fill', '#fff');
+                hint.setAttribute('font-size', '14');
+                hint.setAttribute('font-weight', '600');
+                hint.textContent = 'Cliquer pour placer la cible de la fl\u00e8che';
+                svg.appendChild(hint);
+            }
+        }
+
+        // Global mousemove/mouseup for drag
+        document.addEventListener('mousemove', function(e) {
+            if (!annotState.dragging) return;
+            var imgEl = document.getElementById('annotImage');
+            var rect = imgEl.getBoundingClientRect();
+            var dx = (e.clientX - annotState.dragging.startX) / rect.width;
+            var dy = (e.clientY - annotState.dragging.startY) / rect.height;
+            var annot = annotState.annotations.find(function(a) { return a.id === annotState.dragging.id; });
+            if (annot) {
+                annot.x = Math.max(0, Math.min(1, annotState.dragging.origX + dx));
+                annot.y = Math.max(0, Math.min(1, annotState.dragging.origY + dy));
+                renderAnnotationSVG();
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (annotState.dragging) {
+                annotState.dragging = null;
+                debounceSaveAnnotations();
+            }
+        });
+
+        // Sync SVG size on window resize
+        window.addEventListener('resize', function() {
+            if (document.getElementById('annotationModal').classList.contains('active')) {
+                syncAnnotSvgSize();
+                renderAnnotationSVG();
+            }
+        });
+
+        function deleteAnnotation(annotId) {
+            annotState.annotations = annotState.annotations.filter(function(a) { return a.id !== annotId; });
+            renderAnnotationSVG();
+            updateAnnotNext();
+            debounceSaveAnnotations();
+        }
+
+        function debounceSaveAnnotations() {
+            clearTimeout(annotSaveTimer);
+            annotSaveTimer = setTimeout(saveAnnotationsNow, 500);
+        }
+
+        function saveAnnotationsNow() {
+            clearTimeout(annotSaveTimer);
+            if (!annotState.mediaId) return;
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + annotState.mediaId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ annotations: annotState.annotations })
+            }).then(function() {
+                showSaveIndicator();
+            }).catch(function(e) {
+                console.warn('[Annot] Save failed:', e);
+            });
+        }
+
+        // Arrow mode toggle
+        document.getElementById('annotArrowMode').addEventListener('change', function() {
+            annotState.arrowMode = this.checked;
         });
 
         function formatPrice(amount) {
@@ -6036,7 +6457,8 @@
                     tags: ['presentation_soumission'],
                     cropRatio: ratio,
                     isLegacy: false,
-                    showInQuote: true // compat
+                    showInQuote: true,
+                    annotations: []
                 });
             }
 
@@ -6162,7 +6584,15 @@
                 var canRecrop = !img.isLegacy && img.originalUrl && isSubmissionCurrentlyEditable();
                 var recropAttr = canRecrop ? ` onclick="recropImage('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="Cliquer pour recadrer"` : ` ondblclick="openLightbox(this.src)" title="Double-cliquer pour agrandir"`;
                 var aiChecked = img.aiReference ? 'checked' : '';
-                item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}><button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label><label class="image-ai-toggle" title="Envoyer comme r\u00e9f\u00e9rence \u00e0 l'AI"><input type="checkbox" ${aiChecked} onchange="toggleImageAiRef('${escapeAttr(groupId)}', ${index}, this.checked)"><span>AI</span></label>`;
+                var annotCount = (img.annotations || []).length;
+                var canAnnot = !img.isLegacy && img.mediaId;
+                var annotEl = '';
+                if (canAnnot && annotCount > 0) {
+                    annotEl = `<span class="annotation-badge" onclick="event.stopPropagation();openAnnotationModal('${escapeAttr(groupId)}', ${index})" style="cursor:pointer;" title="${annotCount} tag(s) — cliquer pour annoter">${annotCount}</span>`;
+                } else if (canAnnot) {
+                    annotEl = `<button class="annotation-btn" onclick="event.stopPropagation();openAnnotationModal('${escapeAttr(groupId)}', ${index})" title="Annoter">&#9998;</button>`;
+                }
+                item.innerHTML = `<img src="${imgSrc}" alt="${escapeAttr(img.name)}"${recropAttr}>${annotEl}<button class="image-preview-remove" onclick="removeGroupImage('${escapeAttr(groupId)}', ${index})" title="Supprimer">&times;</button><label class="image-quote-toggle" title="Afficher dans la soumission client"><input type="checkbox" ${checkedAttr} onchange="toggleImageShowInQuote('${escapeAttr(groupId)}', ${index}, this.checked)"><span>Client</span></label><label class="image-ai-toggle" title="Envoyer comme r\u00e9f\u00e9rence \u00e0 l'AI"><input type="checkbox" ${aiChecked} onchange="toggleImageAiRef('${escapeAttr(groupId)}', ${index}, this.checked)"><span>AI</span></label>`;
                 container.appendChild(item);
             });
             if (countEl) countEl.textContent = imgs.length > 0 ? imgs.length + ' / ' + MAX_GROUP_IMAGES + ' image(s)' : '';
@@ -8701,7 +9131,8 @@
                                         cropRatio: m.crop_ratio,
                                         isLegacy: false,
                                         showInQuote: (m.tags || []).includes('presentation_soumission'),
-                                        aiReference: (m.tags || []).includes('ai_reference')
+                                        aiReference: (m.tags || []).includes('ai_reference'),
+                                        annotations: m.annotations || []
                                     });
                                 });
                             }
@@ -9885,7 +10316,8 @@
                     tags: ['presentation_soumission'],
                     cropRatio: e.data.cropRatio,
                     isLegacy: false,
-                    showInQuote: true
+                    showInQuote: true,
+                    annotations: []
                 });
                 renderGroupImagePreviews(groupId);
                 showSaveIndicator();

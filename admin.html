@@ -606,8 +606,7 @@
                         <thead>
                             <tr>
                                 <th style="width:15%">Pr&eacute;fixe</th>
-                                <th>Label fran&ccedil;ais</th>
-                                <th>Label anglais</th>
+                                <th>Label</th>
                                 <th style="width:10%"></th>
                             </tr>
                         </thead>
@@ -1648,7 +1647,6 @@
             html += '<tr>' +
                 '<td><input type="text" value="' + escapeAttr(tp.prefix || '') + '" maxlength="2" style="width:50px;text-align:center;text-transform:uppercase;font-weight:700;font-family:monospace;" onchange="tagPrefixes[' + i + '].prefix=this.value.toUpperCase()"></td>' +
                 '<td><input type="text" value="' + escapeAttr(tp.label_fr || '') + '" style="width:100%;" onchange="tagPrefixes[' + i + '].label_fr=this.value"></td>' +
-                '<td><input type="text" value="' + escapeAttr(tp.label_en || '') + '" style="width:100%;" onchange="tagPrefixes[' + i + '].label_en=this.value"></td>' +
                 '<td style="text-align:center;"><button class="btn-outline" style="color:#c62828;border-color:#c62828;padding:4px 8px;font-size:11px;" onclick="removeTagPrefix(' + i + ')">&times;</button></td>' +
                 '</tr>';
         });
@@ -1661,7 +1659,7 @@
         renderTagPrefixTable();
         // Focus the new prefix input
         var inputs = document.querySelectorAll('#tagPrefixBody input[type="text"]');
-        if (inputs.length > 0) inputs[inputs.length - 3].focus();
+        if (inputs.length > 0) inputs[inputs.length - 2].focus();
     }
 
     function removeTagPrefix(index) {

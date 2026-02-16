@@ -1,11 +1,34 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// Verify JWT via Supabase Auth (algorithm-agnostic, survives key rotations)
+async function verifyAuth(req: Request): Promise<Response | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const { error } = await supabase.auth.getUser();
+  if (error) {
+    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null; // Auth OK
+}
 
 const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique. Tu retournes du HTML formaté.
 
@@ -58,6 +81,10 @@ serve(async (req) => {
   }
 
   try {
+    // Verify JWT via Supabase Auth (not signature-based — survives key rotations)
+    const authErr = await verifyAuth(req);
+    if (authErr) return authErr;
+
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {
       return new Response(

@@ -282,8 +282,19 @@
         }
         .cp-table td:last-child {
             text-align: right;
-            font-family: 'SF Mono', 'Consolas', monospace;
-            color: #555;
+        }
+        .cp-table input[type="number"] {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: right;
+            font-family: inherit;
+        }
+        .cp-table input[type="number"]:focus {
+            outline: none;
+            border-color: var(--stele-green);
         }
         .cp-calculated {
             margin-top: 12px;
@@ -320,6 +331,22 @@
             margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid #f0f0f0;
+        }
+        .cat-dropzone {
+            border: 2px dashed var(--stele-gray);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .cat-dropzone:hover,
+        .cat-dropzone.dragover {
+            border-color: var(--stele-green);
+            color: var(--stele-green);
         }
         .cat-media-list {
             display: flex;
@@ -362,6 +389,40 @@
             color: #333;
             word-break: break-word;
         }
+        .cat-media-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .cat-tag {
+            display: inline-block;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid var(--stele-gray);
+            background: #fff;
+            color: #666;
+            transition: all 0.15s;
+            user-select: none;
+        }
+        .cat-tag.active {
+            background: var(--stele-green);
+            color: #fff;
+            border-color: var(--stele-green);
+        }
+        .cat-media-remove {
+            background: none;
+            border: none;
+            color: #c62828;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+            flex-shrink: 0;
+            opacity: 0.5;
+            transition: opacity 0.15s;
+        }
+        .cat-media-remove:hover { opacity: 1; }
 
         /* Toggles */
         .edit-toggle-row {
@@ -564,6 +625,10 @@
                 <!-- Médias -->
                 <div class="form-group" id="mediaGroup">
                     <div class="cat-media-title">M&eacute;dias</div>
+                    <div class="cat-dropzone" id="catDropzone">
+                        Cliquer ou glisser des images / PDFs ici
+                    </div>
+                    <input type="file" id="catMediaInput" accept="image/*,.pdf,application/pdf" multiple style="display:none;">
                     <div class="cat-media-list" id="catMediaList"></div>
                 </div>
 
@@ -575,6 +640,13 @@
                             <span class="slider"></span>
                         </label>
                         <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    </div>
+                    <div class="edit-toggle-row" style="margin-top: 12px;">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="modalHasSalesSheet">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Ce produit a une fiche de vente</span>
                     </div>
                 </div>
 
@@ -767,102 +839,245 @@
     // ═══ Modal ═══
 
     var currentItemId = null;
-    var tauxHoraires = {};
+    var tauxHoraires = [];
     var expenseCategories = [];
+    var editMedia = [];
+    var editMediaToDelete = [];
+    var mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
 
-    // Helper: render composed price
-    function renderComposedPrice(item) {
+    // ═══ Prix composé — Tableaux éditables ═══
+
+    function renderComposedTables(item) {
         var laborMinutes = item.labor_minutes || {};
         var materialCosts = item.material_costs || {};
 
-        // Minutes table
-        var minutesHtml = '';
-        Object.keys(laborMinutes).forEach(function(dept) {
-            var mins = laborMinutes[dept] || 0;
-            minutesHtml += '<tr><td>' + escapeHtml(dept) + '</td><td>' + mins + '</td></tr>';
-        });
-        document.getElementById('cpMinutesBody').innerHTML = minutesHtml || '<tr><td colspan="2" style="text-align:center; color:#999;">Aucune</td></tr>';
+        // Tableau des minutes
+        var mBody = document.getElementById('cpMinutesBody');
+        var mHtml = '';
+        for (var i = 0; i < tauxHoraires.length; i++) {
+            var dept = tauxHoraires[i].department;
+            var val = laborMinutes[dept] || '';
+            mHtml += '<tr><td>' + escapeHtml(dept) + '</td>' +
+                '<td><input type="number" step="0.1" placeholder="0" value="' + val + '"' +
+                ' data-dept="' + escapeAttr(dept) + '"' +
+                ' oninput="updateComposedPrice()"></td></tr>';
+        }
+        mBody.innerHTML = mHtml;
 
-        // Materials table
-        var materialsHtml = '';
-        Object.keys(materialCosts).forEach(function(cat) {
-            var cost = materialCosts[cat] || 0;
-            materialsHtml += '<tr><td>' + escapeHtml(cat) + '</td><td>' + cost.toFixed(2) + ' $</td></tr>';
-        });
-        document.getElementById('cpMaterialsBody').innerHTML = materialsHtml || '<tr><td colspan="2" style="text-align:center; color:#999;">Aucun</td></tr>';
+        // Tableau des matériaux
+        var cBody = document.getElementById('cpMaterialsBody');
+        var cHtml = '';
+        for (var j = 0; j < expenseCategories.length; j++) {
+            var cat = expenseCategories[j].name;
+            var cVal = materialCosts[cat] || '';
+            cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
+                '<td><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '"' +
+                ' data-cat="' + escapeAttr(cat) + '"' +
+                ' oninput="updateComposedPrice()"></td></tr>';
+        }
+        cBody.innerHTML = cHtml;
 
-        // Calculate total
-        var total = computeComposedPrice(laborMinutes, materialCosts);
-        document.getElementById('cpTotalValue').textContent = total.toFixed(2) + ' $';
+        updateComposedPrice();
+    }
 
-        // Breakdown (simplified for read-only view)
+    function updateComposedPrice() {
+        // Calcul main-d'œuvre
         var laborTotal = 0;
-        Object.keys(laborMinutes).forEach(function(dept) {
-            var rate = tauxHoraires[dept] || 0;
-            laborTotal += (laborMinutes[dept] || 0) / 60 * rate;
-        });
+        var mInputs = document.querySelectorAll('#cpMinutesBody input[type="number"]');
+        for (var i = 0; i < mInputs.length; i++) {
+            var minutes = parseFloat(mInputs[i].value) || 0;
+            var dept = mInputs[i].getAttribute('data-dept');
+            var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+            var tauxHoraire = taux ? (taux.taux_horaire || 0) : 0;
+            laborTotal += (minutes / 60) * tauxHoraire;
+        }
+
+        // Calcul matériaux
         var materialTotal = 0;
-        Object.keys(materialCosts).forEach(function(cat) {
-            var expense = expenseCategories.find(function(e) { return e.name === cat; });
-            var markup = expense ? (expense.markup || 0) : 0;
-            var waste = expense ? (expense.waste || 0) : 0;
-            var cost = materialCosts[cat] || 0;
-            materialTotal += cost * (1 + markup/100 + waste/100);
-        });
-        var breakdown = 'MO: ' + laborTotal.toFixed(2) + ' $ + Mat: ' + materialTotal.toFixed(2) + ' $';
-        document.getElementById('cpBreakdown').textContent = breakdown;
+        var cInputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+        for (var j = 0; j < cInputs.length; j++) {
+            var cost = parseFloat(cInputs[j].value) || 0;
+            var catName = cInputs[j].getAttribute('data-cat');
+            var expCat = expenseCategories.find(function(c) { return c.name === catName; });
+            var markup = expCat ? (expCat.markup || 0) : 0;
+            var waste = expCat ? (expCat.waste || 0) : 0;
+            materialTotal += cost * (1 + markup / 100 + waste / 100);
+        }
 
-        document.getElementById('modalPriceDisplay').textContent = total.toFixed(2) + ' $';
-        document.getElementById('modalPrice').value = total;
+        var total = laborTotal + materialTotal;
+        var totalEl = document.getElementById('cpTotalValue');
+        var breakdownEl = document.getElementById('cpBreakdown');
+        var priceDisplay = document.getElementById('modalPriceDisplay');
+        var priceField = document.getElementById('modalPrice');
+
+        if (total > 0) {
+            totalEl.textContent = total.toFixed(2) + ' $';
+            breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
+            priceField.value = total.toFixed(2);
+            priceDisplay.textContent = total.toFixed(2) + ' $';
+        } else {
+            totalEl.textContent = '\u2014';
+            breakdownEl.textContent = '';
+            priceField.value = '';
+            priceDisplay.textContent = 'Calculé automatiquement';
+        }
     }
 
-    function computeComposedPrice(laborMinutes, materialCosts) {
-        var total = 0;
-        // Labor
-        Object.keys(laborMinutes).forEach(function(dept) {
-            var rate = tauxHoraires[dept] || 0;
-            total += (laborMinutes[dept] || 0) / 60 * rate;
-        });
-        // Materials
-        Object.keys(materialCosts).forEach(function(cat) {
-            var expense = expenseCategories.find(function(e) { return e.name === cat; });
-            var markup = expense ? (expense.markup || 0) : 0;
-            var waste = expense ? (expense.waste || 0) : 0;
-            var cost = materialCosts[cat] || 0;
-            total += cost * (1 + markup/100 + waste/100);
-        });
-        return total;
+    function collectLaborMinutes() {
+        var data = {};
+        var inputs = document.querySelectorAll('#cpMinutesBody input[type="number"]');
+        for (var i = 0; i < inputs.length; i++) {
+            var val = parseFloat(inputs[i].value) || 0;
+            if (val > 0) {
+                data[inputs[i].getAttribute('data-dept')] = val;
+            }
+        }
+        return data;
     }
 
-    // Helper: render media
-    async function renderMedia(itemId) {
+    function collectMaterialCosts() {
+        var data = {};
+        var inputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+        for (var i = 0; i < inputs.length; i++) {
+            var val = parseFloat(inputs[i].value) || 0;
+            if (val > 0) {
+                data[inputs[i].getAttribute('data-cat')] = val;
+            }
+        }
+        return data;
+    }
+
+    // ═══ Médias — Render, Upload, Delete ═══
+
+    function renderEditMedia() {
+        var list = document.getElementById('catMediaList');
+        list.innerHTML = '';
+
+        editMedia.forEach(function(media, index) {
+            var item = document.createElement('div');
+            item.className = 'cat-media-item';
+
+            if (media.file_type === 'pdf') {
+                var pdfIcon = document.createElement('div');
+                pdfIcon.className = 'cat-pdf-icon';
+                pdfIcon.textContent = 'PDF';
+                item.appendChild(pdfIcon);
+            } else {
+                var img = document.createElement('img');
+                img.src = media.file_url || media.previewUrl || '';
+                img.alt = '';
+                item.appendChild(img);
+            }
+
+            var info = document.createElement('div');
+            info.className = 'cat-media-info';
+
+            var tags = document.createElement('div');
+            tags.className = 'cat-media-tags';
+
+            mediaTagsList.forEach(function(tag) {
+                var chip = document.createElement('span');
+                chip.className = 'cat-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
+                chip.textContent = tag.replace(/_/g, ' ');
+                chip.onclick = function() {
+                    var idx = media.tags.indexOf(tag);
+                    if (idx !== -1) {
+                        media.tags.splice(idx, 1);
+                    } else {
+                        media.tags.push(tag);
+                    }
+                    chip.classList.toggle('active');
+                };
+                tags.appendChild(chip);
+            });
+
+            info.appendChild(tags);
+            item.appendChild(info);
+
+            var removeBtn = document.createElement('button');
+            removeBtn.className = 'cat-media-remove';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = 'Supprimer';
+            removeBtn.onclick = function() {
+                if (media.id && !media.isNew) {
+                    steleConfirm('Supprimer ce média ?').then(function(ok) {
+                        if (!ok) return;
+                        editMediaToDelete.push({ id: media.id, file_url: media.file_url });
+                        editMedia.splice(index, 1);
+                        renderEditMedia();
+                    });
+                    return;
+                }
+                editMedia.splice(index, 1);
+                renderEditMedia();
+            };
+            item.appendChild(removeBtn);
+
+            list.appendChild(item);
+        });
+    }
+
+    function handleMediaFiles(files) {
+        Array.from(files).forEach(function(file) {
+            var isPdf = file.type === 'application/pdf';
+            var isImage = file.type.startsWith('image/');
+            if (!isPdf && !isImage) return;
+
+            var mediaEntry = {
+                id: null,
+                file_url: null,
+                previewUrl: null,
+                file_type: isPdf ? 'pdf' : 'image',
+                tags: [],
+                isNew: true,
+                file: file
+            };
+
+            if (isImage) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    mediaEntry.previewUrl = e.target.result;
+                    editMedia.push(mediaEntry);
+                    renderEditMedia();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                editMedia.push(mediaEntry);
+                renderEditMedia();
+            }
+        });
+    }
+
+    async function loadMediaTags() {
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/room_media?catalogue_item_id=eq.' + encodeURIComponent(itemId) + '&order=created_at',
+                SUPABASE_URL + '/rest/v1/app_config?key=eq.media_tags&select=value', {}
+            );
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0 && Array.isArray(rows[0].value)) {
+                    mediaTagsList = rows[0].value;
+                }
+            }
+        } catch (e) { /* keep defaults */ }
+    }
+
+    async function loadMedia(itemId) {
+        editMedia = [];
+        editMediaToDelete = [];
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/item_media?catalogue_item_id=eq.' + encodeURIComponent(itemId) + '&order=sort_order&select=id,file_url,file_type,tags',
                 {}
             );
-            if (!r.ok) {
-                document.getElementById('catMediaList').innerHTML = '<div style="text-align:center; color:#999; padding:10px;">Erreur chargement médias</div>';
-                return;
-            }
-            var media = await r.json();
-            var html = '';
-            if (media.length === 0) {
-                html = '<div style="text-align:center; color:#999; padding:10px;">Aucun média</div>';
-            } else {
-                media.forEach(function(m) {
-                    var isPdf = m.url && m.url.toLowerCase().endsWith('.pdf');
-                    var thumb = isPdf
-                        ? '<div class="cat-pdf-icon">PDF</div>'
-                        : '<img src="' + escapeAttr(m.url) + '" alt="">';
-                    var name = m.url ? m.url.split('/').pop() : 'media';
-                    html += '<div class="cat-media-item">' + thumb + '<div class="cat-media-info"><div class="cat-media-name">' + escapeHtml(name) + '</div></div></div>';
+            if (r.ok) {
+                var existing = await r.json();
+                editMedia = existing.map(function(m) {
+                    return { id: m.id, file_url: m.file_url, file_type: m.file_type || 'image', tags: m.tags || [], isNew: false };
                 });
             }
-            document.getElementById('catMediaList').innerHTML = html;
-        } catch (e) {
-            document.getElementById('catMediaList').innerHTML = '<div style="text-align:center; color:#999; padding:10px;">Erreur réseau</div>';
-        }
+        } catch (e) { /* ignore */ }
+        renderEditMedia();
     }
 
     function openModal(itemId) {
@@ -875,7 +1090,7 @@
         document.getElementById('modalCode').value = item.id;
 
         // Populate proposed by
-        document.getElementById('modalProposedBy').textContent = 'Propos\u00e9 par : ' + (item.proposed_by || '—');
+        document.getElementById('modalProposedBy').textContent = 'Propos\u00e9 par : ' + (item.proposed_by || '\u2014');
 
         // Populate category dropdown
         var catSel = document.getElementById('modalCategory');
@@ -895,14 +1110,15 @@
         // Populate instruction
         document.getElementById('modalInstruction').value = item.instruction || '';
 
-        // Populate toggle
+        // Populate toggles
         document.getElementById('modalInCalculator').checked = item.in_calculator !== false;
+        document.getElementById('modalHasSalesSheet').checked = item.has_sales_sheet === true;
 
-        // Render composed price
-        renderComposedPrice(item);
+        // Render composed price (editable inputs)
+        renderComposedTables(item);
 
-        // Render media
-        renderMedia(itemId);
+        // Load & render media from item_media
+        loadMedia(itemId);
 
         // Reset status
         var st = document.getElementById('modalStatus');
@@ -915,6 +1131,8 @@
     function closeModal() {
         document.getElementById('examineModal').classList.remove('active');
         currentItemId = null;
+        editMedia = [];
+        editMediaToDelete = [];
     }
 
     // Click outside to close
@@ -947,8 +1165,12 @@
         var price = priceVal !== '' ? parseFloat(priceVal) : null;
         var instruction = document.getElementById('modalInstruction').value.trim();
         var inCalculator = document.getElementById('modalInCalculator').checked;
+        var hasSalesSheet = document.getElementById('modalHasSalesSheet').checked;
+        var laborMinutes = collectLaborMinutes();
+        var materialCosts = collectMaterialCosts();
 
         try {
+            // 1. Save catalogue item
             var r = await authenticatedFetch(
                 SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(currentItemId),
                 {
@@ -961,11 +1183,17 @@
                         type: type,
                         price: price,
                         instruction: instruction || null,
-                        in_calculator: inCalculator
+                        in_calculator: inCalculator,
+                        has_sales_sheet: hasSalesSheet,
+                        labor_minutes: laborMinutes,
+                        material_costs: materialCosts
                     })
                 }
             );
             if (!r.ok) { showModalStatus('error', 'Erreur approbation: ' + r.status); return; }
+
+            // 2. Save media changes
+            await saveMediaChanges(currentItemId);
 
             showModalStatus('success', '\u2713 Article ' + currentItemId + ' approuv\u00e9 avec succ\u00e8s.');
             var approvedId = currentItemId;
@@ -975,7 +1203,85 @@
                 showMsg('success', '\u2713 Article ' + approvedId + ' approuv\u00e9.');
             }, 1500);
         } catch (e) {
-            showModalStatus('error', 'Erreur r\u00e9seau.');
+            showModalStatus('error', 'Erreur: ' + (e.message || 'réseau'));
+        }
+    }
+
+    async function saveMediaChanges(itemId) {
+        // 1. Delete removed media
+        for (var i = 0; i < editMediaToDelete.length; i++) {
+            var del = editMediaToDelete[i];
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + del.id, {
+                method: 'DELETE',
+                headers: { 'Prefer': 'return=minimal' }
+            });
+            if (del.file_url && del.file_url.indexOf('/fiche-images/') !== -1) {
+                var storagePath = del.file_url.split('/fiche-images/')[1];
+                if (storagePath) {
+                    await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + storagePath, {
+                        method: 'DELETE'
+                    }).catch(function() {});
+                }
+            }
+        }
+        editMediaToDelete = [];
+
+        // 2. Upload new media + update tags on existing
+        for (var j = 0; j < editMedia.length; j++) {
+            var m = editMedia[j];
+
+            if (m.isNew && m.file) {
+                var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
+                var path = itemId + '/' + Date.now() + '_' + j + '.' + ext;
+
+                var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
+                    body: m.file
+                });
+                if (!uploadResp.ok) throw new Error('Erreur upload: ' + uploadResp.status);
+
+                var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+
+                var insertResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({
+                        catalogue_item_id: itemId,
+                        file_url: fileUrl,
+                        file_type: m.file_type,
+                        tags: m.tags,
+                        sort_order: j
+                    })
+                });
+                if (!insertResp.ok) throw new Error('Erreur insertion média: ' + insertResp.status);
+
+                var insertedData = await insertResp.json();
+                m.id = insertedData[0].id;
+                m.file_url = fileUrl;
+                m.isNew = false;
+                m.file = null;
+                m.previewUrl = null;
+            } else if (m.id && !m.isNew) {
+                // Update tags
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?id=eq.' + m.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ tags: m.tags, sort_order: j })
+                });
+            }
+        }
+
+        // 3. Auto-sync image_url from first media tagged "catalogue"
+        var catalogueMedia = editMedia.find(function(m) { return m.tags.indexOf('catalogue') !== -1 && m.file_type === 'image'; });
+        var syncImageUrl = catalogueMedia ? catalogueMedia.file_url : null;
+        var currentItem = pendingItems.find(function(it) { return it.id === itemId; });
+        if (currentItem && currentItem.image_url !== syncImageUrl) {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ image_url: syncImageUrl })
+            });
         }
     }
 
@@ -1112,12 +1418,38 @@
         } catch (e) { /* keep defaults */ }
     }
 
+    // ═══ Dropzone events ═══
+
+    (function() {
+        var dropzone = document.getElementById('catDropzone');
+        var fileInput = document.getElementById('catMediaInput');
+
+        dropzone.addEventListener('click', function() { fileInput.click(); });
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) handleMediaFiles(fileInput.files);
+            fileInput.value = '';
+        });
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', function() {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleMediaFiles(e.dataTransfer.files);
+        });
+    })();
+
     // ═══ Init ═══
 
     (async function() {
         if (!(await checkPageAccess())) return;
         await loadCategories();
         await loadPricingConfig();
+        await loadMediaTags();
         loadPending();
         loadPendingSubmissions();
     })();

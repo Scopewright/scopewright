@@ -1152,7 +1152,18 @@
         .modal-header {
             padding: 20px 24px;
             border-bottom: 1px solid var(--stele-gray);
+            display: flex; align-items: center; justify-content: space-between;
         }
+        .modal-nav {
+            display: flex; gap: 2px;
+        }
+        .modal-nav button {
+            width: 32px; height: 32px; border-radius: 6px; border: 1px solid #ddd;
+            background: #f8f8f8; cursor: pointer; font-size: 16px; color: #555;
+            display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+        }
+        .modal-nav button:hover:not(:disabled) { background: #eee; color: var(--stele-black); }
+        .modal-nav button:disabled { opacity: 0.3; cursor: default; }
 
         .modal-title {
             font-size: 18px;
@@ -1302,6 +1313,10 @@
         <div class="modal modal-edit">
             <div class="modal-header">
                 <h3 class="modal-title">Modifier l'article</h3>
+                <div class="modal-nav">
+                    <button id="btnPrevItem" onclick="navigateItem(-1)" title="Article pr&eacute;c&eacute;dent">&#8249;</button>
+                    <button id="btnNextItem" onclick="navigateItem(1)" title="Article suivant">&#8250;</button>
+                </div>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editItemId">
@@ -1503,6 +1518,7 @@
 
         // Générer les tableaux de prix dynamiquement
         function generatePriceTables() {
+            buildNavList();
             // Grouper par catégorie (en conservant l'ordre d'apparition)
             const grouped = {};
             const categoryOrder = [];
@@ -1839,6 +1855,33 @@
             openEditModal(newCode);
         }
 
+        // ── Navigation entre articles ──
+        let navItemList = [];  // liste ordonnée des IDs navigables
+
+        function buildNavList() {
+            navItemList = CATALOGUE_DATA
+                .sort(function(a, b) { return (a.category || '').localeCompare(b.category || '') || (a.sort_order || 0) - (b.sort_order || 0); })
+                .map(function(item) { return item.id; });
+        }
+
+        function updateNavButtons(itemId) {
+            var idx = navItemList.indexOf(itemId);
+            var btnPrev = document.getElementById('btnPrevItem');
+            var btnNext = document.getElementById('btnNextItem');
+            if (btnPrev) btnPrev.disabled = (idx <= 0 || isNewItem);
+            if (btnNext) btnNext.disabled = (idx < 0 || idx >= navItemList.length - 1 || isNewItem);
+        }
+
+        function navigateItem(direction) {
+            var currentId = document.getElementById('editItemId').value;
+            var idx = navItemList.indexOf(currentId);
+            var newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= navItemList.length) return;
+            isNewItem = false;
+            newItemData = null;
+            openEditModal(navItemList[newIdx]);
+        }
+
         async function openEditModal(itemId) {
             // Pour un nouvel item, utiliser newItemData au lieu de chercher dans CATALOGUE_DATA
             const item = (isNewItem && newItemData) ? newItemData : CATALOGUE_DATA.find(i => i.id === itemId);
@@ -1900,7 +1943,12 @@
             status.className = 'edit-status';
             status.style.display = 'none';
 
+            // Navigation
+            if (navItemList.length === 0) buildNavList();
+            updateNavButtons(item.id);
+
             document.getElementById('editModal').classList.add('active');
+            document.querySelector('.modal-body').scrollTop = 0;
         }
 
         function toggleSalesSheetBtn() {
@@ -2472,6 +2520,22 @@
         }
 
         async function saveEditModal() {
+            // Validate: components must have a supplier name
+            for (var v = 0; v < editComponents.length; v++) {
+                if (!editComponents[v].supplier_name || !editComponents[v].supplier_name.trim()) {
+                    var rows = document.querySelectorAll('#componentsList .comp-row');
+                    if (rows[v]) {
+                        var inp = rows[v].querySelector('.comp-supplier-wrap input');
+                        if (inp) { inp.focus(); inp.style.borderColor = '#c62828'; }
+                    }
+                    var status = document.getElementById('editStatus');
+                    status.textContent = 'Le fournisseur est requis pour chaque composante.';
+                    status.style.display = '';
+                    status.className = 'edit-status error';
+                    return;
+                }
+            }
+
             const btn = document.getElementById('btnEditSave');
             const status = document.getElementById('editStatus');
             btn.disabled = true;

@@ -317,6 +317,29 @@
             .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
             .role-perm-grid { grid-template-columns: 1fr; }
         }
+        /* Stele dialog */
+        .stele-dialog-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 9999; justify-content: center; align-items: center;
+        }
+        .stele-dialog-overlay.active { display: flex; }
+        .stele-dialog {
+            background: #fff; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            max-width: 440px; width: 90%; overflow: hidden;
+        }
+        .stele-dialog-header { padding: 18px 24px 0; }
+        .stele-dialog-header h3 { font-size: 15px; font-weight: 700; color: var(--stele-black); margin: 0; }
+        .stele-dialog-body { padding: 12px 24px 20px; }
+        .stele-dialog-body p { font-size: 14px; color: #444; margin: 0; }
+        .stele-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 18px; }
+        .stele-dialog-footer button {
+            padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid #ccc; transition: background 0.15s;
+        }
+        .stele-dialog-btn-cancel { background: #f5f5f5; color: #333; }
+        .stele-dialog-btn-cancel:hover { background: #e8e8e8; }
+        .stele-dialog-btn-ok { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
+        .stele-dialog-btn-ok:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
@@ -667,6 +690,18 @@
         </div>
     </div>
 
+    <!-- Stele dialog -->
+    <div class="stele-dialog-overlay" id="steleDialogOverlay">
+        <div class="stele-dialog">
+            <div class="stele-dialog-header"><h3 id="steleDialogTitle"></h3></div>
+            <div class="stele-dialog-body"><p id="steleDialogMessage"></p></div>
+            <div class="stele-dialog-footer">
+                <button class="stele-dialog-btn-cancel" id="steleDialogCancel" onclick="steleDialogResolve(null)">Annuler</button>
+                <button class="stele-dialog-btn-ok" id="steleDialogOk" onclick="steleDialogResolve(true)">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     /*
      * Pour activer la sauvegarde partagee dans Supabase, executez ce SQL
@@ -683,6 +718,21 @@
      *
      * Sans cette table, les donnees sont sauvegardees localement (navigateur uniquement).
      */
+
+    // ── Stele Dialog ──
+    var _steleDialogResolve = null;
+    function steleDialogResolve(val) {
+        document.getElementById('steleDialogOverlay').classList.remove('active');
+        if (_steleDialogResolve) { var fn = _steleDialogResolve; _steleDialogResolve = null; fn(val); }
+    }
+    function steleConfirm(msg, title) {
+        return new Promise(function(resolve) {
+            _steleDialogResolve = resolve;
+            document.getElementById('steleDialogTitle').textContent = title || 'Confirmation';
+            document.getElementById('steleDialogMessage').textContent = msg;
+            document.getElementById('steleDialogOverlay').classList.add('active');
+        });
+    }
 
     var SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
@@ -1149,8 +1199,8 @@
         if (inputs.length) inputs[inputs.length - 1].focus();
     }
 
-    function removeUserRow(btn) {
-        if (!confirm('Retirer cet utilisateur ?')) return;
+    async function removeUserRow(btn) {
+        if (!await steleConfirm('Retirer cet utilisateur ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -1186,8 +1236,8 @@
         if (inputs.length) inputs[inputs.length - 1].focus();
     }
 
-    function removeCategoryRow(btn) {
-        if (!confirm('Retirer cette cat\u00e9gorie ?')) return;
+    async function removeCategoryRow(btn) {
+        if (!await steleConfirm('Retirer cette catégorie ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -1231,8 +1281,8 @@
         if (inputs.length) inputs[inputs.length - 1].focus();
     }
 
-    function removeTagRow(btn) {
-        if (!confirm('Retirer ce tag ?')) return;
+    async function removeTagRow(btn) {
+        if (!await steleConfirm('Retirer ce tag ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -1322,8 +1372,8 @@
         if (inputs.length) inputs[inputs.length - 1].focus();
     }
 
-    function removeExpenseRow(btn) {
-        if (!confirm('Retirer cette cat\u00e9gorie de d\u00e9pense ?')) return;
+    async function removeExpenseRow(btn) {
+        if (!await steleConfirm('Retirer cette catégorie de dépense ?')) return;
         var row = btn.parentNode.parentNode;
         row.parentNode.removeChild(row);
     }
@@ -1460,8 +1510,8 @@
 
     // ── Shared helpers for simple list sections ──
 
-    function removeGenericRow(btn) {
-        if (!confirm('Retirer cet \u00e9l\u00e9ment ?')) return;
+    async function removeGenericRow(btn) {
+        if (!await steleConfirm('Retirer cet élément ?')) return;
         btn.closest('tr').remove();
     }
     function collectSimpleList(tbodyId) {
@@ -1662,8 +1712,8 @@
         if (inputs.length > 0) inputs[inputs.length - 2].focus();
     }
 
-    function removeTagPrefix(index) {
-        if (!confirm('Retirer ce préfixe ?')) return;
+    async function removeTagPrefix(index) {
+        if (!await steleConfirm('Retirer ce préfixe ?')) return;
         tagPrefixes.splice(index, 1);
         renderTagPrefixTable();
     }
@@ -1737,7 +1787,7 @@
     }
 
     async function deleteRole(roleId) {
-        if (!confirm('Voulez-vous vraiment supprimer ce r\u00f4le ?')) return;
+        if (!await steleConfirm('Voulez-vous vraiment supprimer ce rôle ?')) return;
 
         try {
             var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/roles?id=eq.' + roleId, {

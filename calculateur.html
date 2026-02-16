@@ -2122,6 +2122,48 @@
             text-align: right;
         }
 
+        /* ── Tag filter bar ── */
+        .tag-filter-bar {
+            display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+            background: #f5f5f5; border-radius: 6px; margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .tag-filter-bar .tag-filter-label {
+            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+            letter-spacing: 0.3px; margin-right: 4px;
+        }
+        .tag-filter-chip {
+            padding: 4px 10px; border: 1px solid #ddd; border-radius: 12px;
+            font-size: 11px; font-weight: 600; cursor: pointer; background: #fff;
+            color: #555; transition: all 0.15s; font-family: monospace;
+        }
+        .tag-filter-chip:hover { border-color: var(--stele-green); color: var(--stele-green); }
+        .tag-filter-chip.active {
+            background: var(--stele-green); color: #fff; border-color: var(--stele-green);
+        }
+        .tag-filter-chip.chip-all {
+            font-family: inherit; font-weight: 500;
+        }
+        .calc-row.tag-hidden { display: none !important; }
+
+        /* ── Rentab tag breakdown ── */
+        .rentab-tag-section { margin-top: 16px; }
+        .rentab-tag-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px; margin-top: 10px;
+        }
+        .rentab-tag-card {
+            border: 1px solid #eee; border-radius: 6px; padding: 12px;
+            background: #fafafa;
+        }
+        .rentab-tag-card-title {
+            font-size: 13px; font-weight: 700; color: var(--stele-green);
+            margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px;
+        }
+        .rentab-tag-card table { width: 100%; font-size: 12px; }
+        .rentab-tag-card td { padding: 2px 0; }
+        .rentab-tag-card td:last-child { text-align: right; font-family: monospace; }
+        .rentab-tag-card .tag-card-total { font-weight: 700; border-top: 1px solid #ddd; padding-top: 4px; }
+
         /* Sections meuble */
         .furniture-group {
             margin-bottom: 28px;
@@ -4256,6 +4298,10 @@
             <p class="page-subtitle">Calculez des estimations budg&eacute;taires &agrave; partir du catalogue de prix.</p>
 
             <div class="calculator-container">
+            <div class="tag-filter-bar" id="tagFilterBar" style="display:none;">
+                <span class="tag-filter-label">Filtrer par tag :</span>
+                <span class="tag-filter-chip chip-all active" onclick="filterByTag(null)">Tous</span>
+            </div>
             <div id="furnitureGroups">
                 <!-- Le premier meuble est cr&eacute;&eacute; par JS au chargement -->
             </div>
@@ -6115,6 +6161,7 @@
             var tag = tagInput ? tagInput.value.trim().toUpperCase() : null;
             updateItem(itemMap[rowId], { tag: tag || null });
             showSaveIndicator();
+            refreshTagFilterBar();
         }
 
         function removeRow(rowId) {
@@ -6181,6 +6228,63 @@
             if (!el) return;
             var total = calculerGrandTotal();
             el.textContent = total.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // TAG FILTER — SHOW/HIDE ROWS BY TAG PREFIX
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var activeTagFilter = null; // null = show all
+
+        function refreshTagFilterBar() {
+            var bar = document.getElementById('tagFilterBar');
+            if (!bar) return;
+            // Collect all unique tag prefixes in use
+            var usedPrefixes = {};
+            document.querySelectorAll('.calc-row').forEach(function(row) {
+                var tagInput = row.querySelector('.cell-tag input');
+                if (tagInput && tagInput.value.trim()) {
+                    var tag = tagInput.value.trim().toUpperCase();
+                    var prefix = tag.replace(/[0-9]/g, '');
+                    if (prefix) usedPrefixes[prefix] = true;
+                }
+            });
+            var prefixList = Object.keys(usedPrefixes).sort();
+            if (prefixList.length === 0) {
+                bar.style.display = 'none';
+                return;
+            }
+            bar.style.display = 'flex';
+            // Rebuild chips
+            var html = '<span class="tag-filter-label">Filtrer par tag :</span>';
+            html += '<span class="tag-filter-chip chip-all' + (activeTagFilter === null ? ' active' : '') + '" onclick="filterByTag(null)">Tous</span>';
+            prefixList.forEach(function(p) {
+                // Find label from tagPrefixes
+                var tp = (tagPrefixes || []).find(function(t) { return t.prefix === p; });
+                var label = tp ? p + ' ' + tp.label_fr : p;
+                html += '<span class="tag-filter-chip' + (activeTagFilter === p ? ' active' : '') + '" onclick="filterByTag(\'' + escapeAttr(p) + '\')">' + escapeHtml(label) + '</span>';
+            });
+            bar.innerHTML = html;
+        }
+
+        function filterByTag(prefix) {
+            activeTagFilter = prefix;
+            document.querySelectorAll('.calc-row').forEach(function(row) {
+                if (prefix === null) {
+                    row.classList.remove('tag-hidden');
+                    return;
+                }
+                var tagInput = row.querySelector('.cell-tag input');
+                var tag = tagInput ? tagInput.value.trim().toUpperCase() : '';
+                var rowPrefix = tag.replace(/[0-9]/g, '');
+                if (rowPrefix === prefix || tag === '') {
+                    // Show matching rows + untagged rows
+                    row.classList.remove('tag-hidden');
+                } else {
+                    row.classList.add('tag-hidden');
+                }
+            });
+            refreshTagFilterBar();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -9185,8 +9289,10 @@
 
             updateWorkflowButtons();
             loadSubmissionReviews(submissionId);
-            // Refresh default materials UI
+            // Refresh default materials UI + tag filter
             if (document.getElementById('dmBody').classList.contains('open')) renderDefaultMaterials();
+            activeTagFilter = null;
+            refreshTagFilterBar();
             var isEditable = isSubmissionCurrentlyEditable();
             setEditable(isEditable);
             showCalculator();
@@ -10079,20 +10185,34 @@
             // Init matériaux
             expenseCategories.forEach(function(c) { matCoutant[c.name] = 0; });
 
+            // Per-tag accumulator
+            var tagData = {}; // { "C": { label, prixVente, heures, matCout, profit, count }, ... }
+
             rows.forEach(function(row) {
                 var select = row.querySelector('.item-select');
                 var qtyInput = row.querySelector('.qty-input');
                 if (!select || !qtyInput) return;
                 var selectedId = select.value;
                 var qty = parseFloat(qtyInput.value) || 0;
+
+                // Get tag for this row
+                var tagInput = row.querySelector('.cell-tag input');
+                var tag = tagInput ? tagInput.value.trim().toUpperCase() : '';
+                var tagPrefix = tag ? tag.replace(/[0-9]/g, '') : '';
+
                 if (!selectedId || selectedId === '__AJOUT__' || selectedId === '__PROPOSER__') {
-                    // Ajout personnalisé — ajouter au prix de vente
                     if (selectedId === '__AJOUT__') {
                         var priceInput = row.querySelector('.ajout-price');
                         var markupInput = row.querySelector('.ajout-markup');
                         var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
                         var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                        totalPrixVente += p * qty * (1 + m / 100);
+                        var ajoutTotal = p * qty * (1 + m / 100);
+                        totalPrixVente += ajoutTotal;
+                        if (tagPrefix) {
+                            if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };
+                            tagData[tagPrefix].prixVente += ajoutTotal;
+                            tagData[tagPrefix].count++;
+                        }
                     }
                     return;
                 }
@@ -10103,6 +10223,8 @@
                 var includeInstall = installCb ? installCb.checked : true;
                 var laborMinutes = item.labor_minutes || {};
                 var materialCosts = item.material_costs || {};
+
+                var rowHeures = 0, rowMatCout = 0, rowProfit = 0, rowPrixVente = 0;
 
                 // Départements
                 tauxHoraires.forEach(function(t) {
@@ -10115,6 +10237,9 @@
                     totalSalaires += hours * (t.salaire || 0);
                     totalFraisFixes += hours * (t.frais_fixe || 0);
                     totalProfitMO += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
+                    rowHeures += hours;
+                    rowPrixVente += hours * (t.taux_horaire || 0);
+                    rowProfit += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
                 });
 
                 // Matériaux
@@ -10124,7 +10249,20 @@
                     totalMatCoutant += cost;
                     totalMatMarkup += cost * ((c.markup || 0) / 100);
                     totalMatWaste += cost * ((c.waste || 0) / 100);
+                    rowMatCout += cost;
+                    rowPrixVente += cost + cost * ((c.markup || 0) / 100) + cost * ((c.waste || 0) / 100);
+                    rowProfit += cost * ((c.markup || 0) / 100);
                 });
+
+                // Accumulate per-tag
+                if (tagPrefix) {
+                    if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };
+                    tagData[tagPrefix].prixVente += rowPrixVente;
+                    tagData[tagPrefix].heures += rowHeures;
+                    tagData[tagPrefix].matCout += rowMatCout;
+                    tagData[tagPrefix].profit += rowProfit;
+                    tagData[tagPrefix].count++;
+                }
             });
 
             totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
@@ -10222,6 +10360,32 @@
             html += '<tr class="total"><td>Total</td><td></td><td>' + f(totalMatCoutant) + '</td></tr>';
             html += '</table>';
             html += '</div>';
+
+            // ── Ventilation par tag ──
+            var tagPrefixKeys = Object.keys(tagData).sort();
+            if (tagPrefixKeys.length > 0) {
+                html += '<div class="rentab-section rentab-tag-section">';
+                html += '<div class="rentab-section-title">Ventilation par tag</div>';
+                html += '<div class="rentab-tag-grid">';
+                tagPrefixKeys.forEach(function(prefix) {
+                    var td = tagData[prefix];
+                    var tp = (tagPrefixes || []).find(function(t) { return t.prefix === prefix; });
+                    var label = tp ? prefix + ' — ' + tp.label_fr : prefix;
+                    var marge = td.prixVente > 0 ? (td.profit / td.prixVente * 100) : 0;
+                    html += '<div class="rentab-tag-card">';
+                    html += '<div class="rentab-tag-card-title">' + escapeHtml(label) + ' (' + td.count + ' ligne' + (td.count > 1 ? 's' : '') + ')</div>';
+                    html += '<table>';
+                    html += '<tr><td>Prix de vente</td><td>' + f(td.prixVente) + '</td></tr>';
+                    html += '<tr><td>Heures</td><td>' + fNum(td.heures) + ' h</td></tr>';
+                    html += '<tr><td>Mat\u00e9riaux (co\u00fbt)</td><td>' + f(td.matCout) + '</td></tr>';
+                    html += '<tr class="tag-card-total"><td>Profit</td><td>' + f(td.profit) + '</td></tr>';
+                    html += '<tr><td>Marge</td><td>' + fPct(marge) + '</td></tr>';
+                    html += '</table>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                html += '</div>';
+            }
 
             document.getElementById('rentabBody').innerHTML = html;
             document.getElementById('rentabModal').classList.add('active');

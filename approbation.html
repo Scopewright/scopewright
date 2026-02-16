@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Approbations — Stele</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <!-- Auth guard -->
     <script>
@@ -980,21 +981,21 @@
 
     async function rejectFromModal() {
         if (!currentItemId) return;
-        if (!(await steleConfirm('Rejeter et supprimer l\u2019article ' + currentItemId + ' ?', 'Rejeter', 'Rejeter', true))) return;
+        if (!(await steleConfirm('Rejeter l\u2019article ' + currentItemId + ' ?\n\nL\u2019article restera dans les soumissions existantes mais ne sera pas ajout\u00e9 au catalogue.', 'Rejeter', 'Rejeter', true))) return;
 
         try {
             var r = await authenticatedFetch(
                 SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(currentItemId),
-                { method: 'DELETE' }
+                { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'rejected' }) }
             );
-            if (!r.ok) { showModalStatus('error', 'Erreur suppression: ' + r.status); return; }
+            if (!r.ok) { showModalStatus('error', 'Erreur rejet: ' + r.status); return; }
 
             showModalStatus('success', 'Article ' + currentItemId + ' rejet\u00e9.');
             var rejectedId = currentItemId;
             setTimeout(function() {
                 removeItemFromList(rejectedId);
                 closeModal();
-                showMsg('success', 'Article ' + rejectedId + ' rejet\u00e9.');
+                showMsg('success', 'Article ' + rejectedId + ' rejet\u00e9 (conserv\u00e9 pour les soumissions existantes).');
             }, 1500);
         } catch (e) {
             showModalStatus('error', 'Erreur r\u00e9seau.');

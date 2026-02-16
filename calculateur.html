@@ -459,11 +459,12 @@
             aiFocusGroupId = null;
             aiCurrentScope = 'project';
         } else {
-            // Focus on this room
+            // Focus on this room and open the AI drawer
             aiFocusGroupId = groupId;
             aiCurrentScope = 'room';
             var btn = document.getElementById(groupId + '-aiFocus');
             if (btn) btn.classList.add('active');
+            openAiDrawer();
         }
         updateAiScope();
     }

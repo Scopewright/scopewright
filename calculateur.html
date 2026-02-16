@@ -300,6 +300,12 @@
     }
 
     async function updateSubmission(submissionId, fields) {
+        // Guard: transition vers 'accepted' uniquement depuis 'sent_client'
+        if (fields.status === 'accepted') {
+            if (!currentSubmission || currentSubmission.status !== 'sent_client') {
+                throw new Error('Transition invalide: seul le statut "sent_client" peut mener à "accepted".');
+            }
+        }
         fields.updated_at = new Date().toISOString();
         const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + submissionId, {
             method: 'PATCH',
@@ -314,6 +320,32 @@
             method: 'DELETE'
         });
         return r.ok;
+    }
+
+    // Vérifie si une soumission a déjà été acceptée (online ou offline)
+    async function wasAlreadyAccepted(submissionId) {
+        try {
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/submission_reviews?submission_id=eq.' + submissionId +
+                '&action=in.(offline_accepted,accepted)&limit=1&select=id',
+                {}
+            );
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0) return true;
+            }
+            // Vérifier aussi via public_quote_tokens (acceptation en ligne)
+            var r2 = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/public_quote_tokens?submission_id=eq.' + submissionId +
+                '&accepted_at=not.is.null&limit=1&select=id',
+                {}
+            );
+            if (r2.ok) {
+                var rows2 = await r2.json();
+                if (rows2.length > 0) return true;
+            }
+        } catch (e) { /* fail open — le trigger BD protégera */ }
+        return false;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -372,7 +404,6 @@
             'sent': 'Envoy\u00e9 au client',
             'bypass': 'Bypass approbation',
             'offline_accepted': 'Vente confirmée (hors-ligne)',
-            'invoiced': 'Marquée facturée',
             'duplicated': 'Soumission dupliquée',
             'unlocked': 'DÉVERROUILLÉ'
         };
@@ -3484,7 +3515,6 @@
         .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
         .status-sent_client { background: #ede7f6; color: #4527a0; }
         .status-accepted { background: #e8f5e9; color: #1b5e20; }
-        .status-invoiced { background: #fce4ec; color: #880e4f; }
         /* Legacy */
         .status-brouillon { background: #f0f0f0; color: #666; }
         .status-soumis { background: #e3f2fd; color: #1565c0; }
@@ -3651,8 +3681,6 @@
         .timeline-dot-offline_accepted { background: #2e7d32; }
         .timeline-action-offline_accepted { color: #2e7d32; font-weight: 700; }
         .timeline-comment-offline_accepted { background: #e8f5e9; border-left: 3px solid #2e7d32; padding: 6px 10px; border-radius: 4px; }
-        .timeline-dot-invoiced { background: #4527a0; }
-        .timeline-action-invoiced { color: #4527a0; font-weight: 700; }
         .timeline-dot-duplicated { background: #546e7a; }
         .timeline-action-duplicated { color: #546e7a; font-weight: 700; }
         .timeline-dot-unlocked { background: #c62828; }
@@ -3669,7 +3697,6 @@
         .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
         .status-sent_client { background: #e3f2fd; color: #1565c0; }
         .status-accepted { background: #e8f5e9; color: #1b5e20; }
-        .status-invoiced { background: #ede7f6; color: #4527a0; }
 
         .project-card-delete {
             position: absolute; top: 8px; right: 8px; background: none; border: none;
@@ -4286,7 +4313,6 @@
                     <button class="btn-main-action btn-main-purple" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
                     <button class="btn-main-action btn-main-red" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
                     <button class="btn-main-action btn-main-green" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer la vente</button>
-                    <button class="btn-main-action btn-main-purple" id="btnWfInvoiced" onclick="markInvoiced()">Marquer factur&eacute;e</button>
                 </div>
                 <input type="hidden" id="subTitle" value="">
                 <span id="subNumber" style="display:none;"></span>
@@ -8621,7 +8647,7 @@
         async function loadAcceptanceProof(submissionId) {
             if (!currentSubmission) return null;
             var s = currentSubmission.status;
-            if (s !== 'accepted' && s !== 'invoiced') return null;
+            if (s !== 'accepted') return null;
 
             try {
                 // Essayer acceptation en ligne (public_quote_tokens)
@@ -9059,7 +9085,6 @@
         var STATUS_LABELS = {
             'draft': 'Brouillon', 'pending_internal': 'En approbation', 'returned': 'Retourn\u00e9e',
             'approved_internal': 'Pr\u00eate \u00e0 envoyer', 'sent_client': 'Envoy\u00e9e', 'accepted': 'Vendue',
-            'invoiced': 'Factur\u00e9e',
             // Legacy
             'brouillon': 'Brouillon', 'soumis': 'Soumis', 'approuv\u00e9': 'Approuv\u00e9',
             'envoy\u00e9': 'Envoy\u00e9', 'sign\u00e9': 'Sign\u00e9'
@@ -9087,8 +9112,6 @@
             }
 
             var status = currentSubmission.status;
-            // invoiced is treated same as accepted for timeline
-            if (status === 'invoiced') status = 'accepted';
 
             // Define 6 timeline steps
             var steps = [
@@ -9810,7 +9833,6 @@
             var btnSendClient = document.getElementById('btnWfSendClient');
             var btnBypass = document.getElementById('btnWfBypass');
             var btnAcceptOffline = document.getElementById('btnWfAcceptOffline');
-            var btnInvoiced = document.getElementById('btnWfInvoiced');
 
             // Hide all main action buttons
             btnSubmit.style.display = 'none';
@@ -9819,7 +9841,6 @@
             if (btnSendClient) { btnSendClient.style.display = 'none'; btnSendClient.textContent = 'Envoyer au client'; btnSendClient.onclick = function() { sendToClient(); }; }
             if (btnBypass) btnBypass.style.display = 'none';
             if (btnAcceptOffline) btnAcceptOffline.style.display = 'none';
-            if (btnInvoiced) btnInvoiced.style.display = 'none';
 
             if (!currentSubmission) return;
 
@@ -9844,10 +9865,26 @@
                     btnSendClient.textContent = 'Copier le lien';
                     btnSendClient.onclick = function() { copyQuoteLink(); };
                 }
-                if (btnAcceptOffline) btnAcceptOffline.style.display = 'inline-block';
-            }
-            if (s === 'accepted') {
-                if (btnInvoiced) btnInvoiced.style.display = 'inline-block';
+                // Vérifier si déjà acceptée (unlock → re-cycle)
+                if (btnAcceptOffline) {
+                    wasAlreadyAccepted(currentSubmission.id).then(function(already) {
+                        if (already) {
+                            btnAcceptOffline.style.display = 'inline-block';
+                            btnAcceptOffline.textContent = 'Déjà vendue';
+                            btnAcceptOffline.disabled = true;
+                            btnAcceptOffline.title = 'Cette soumission a déjà été acceptée une fois. Contactez un administrateur.';
+                            btnAcceptOffline.onclick = function() {
+                                steleAlert('Cette soumission a déjà été acceptée une fois. Contactez un administrateur.');
+                            };
+                        } else {
+                            btnAcceptOffline.style.display = 'inline-block';
+                            btnAcceptOffline.textContent = 'Confirmer la vente';
+                            btnAcceptOffline.disabled = false;
+                            btnAcceptOffline.title = '';
+                            btnAcceptOffline.onclick = function() { offlineAcceptance(); };
+                        }
+                    });
+                }
             }
 
             // Kebab: Déverrouiller — visible pour statuts verrouillés si permission
@@ -9855,7 +9892,7 @@
             if (kebabUnlock) {
                 kebabUnlock.style.display = 'none';
                 if (canUnlockSubmission) {
-                    var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted','invoiced'];
+                    var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted'];
                     if (lockedStatuses.includes(s)) kebabUnlock.style.display = '';
                 }
             }
@@ -10122,10 +10159,15 @@
         // ACCEPTATION HORS-LIGNE (Chemin B)
         // ═══════════════════════════════════════════════════════════════════════
 
-        function offlineAcceptance() {
+        async function offlineAcceptance() {
             if (!currentSubmission) return;
             if (currentSubmission.status !== 'sent_client') {
                 steleAlert('Seules les soumissions envoyées au client peuvent être confirmées.');
+                return;
+            }
+            // Guard: double acceptation
+            if (await wasAlreadyAccepted(currentSubmission.id)) {
+                steleAlert('Cette soumission a déjà été acceptée une fois. Contactez un administrateur.');
                 return;
             }
             // Reset modal
@@ -10181,6 +10223,16 @@
             var btn = document.getElementById('btnOfflineConfirm');
             btn.disabled = true;
             btn.textContent = 'Traitement en cours...';
+            showOfflineAcceptStatus('Vérification...', false);
+
+            // Double acceptance guard
+            if (await wasAlreadyAccepted(currentSubmission.id)) {
+                showOfflineAcceptStatus('Cette soumission a déjà été acceptée une fois. Impossible de ré-accepter.', true);
+                btn.disabled = false;
+                btn.textContent = 'Confirmer la vente';
+                return;
+            }
+
             showOfflineAcceptStatus('Enregistrement...', false);
 
             try {
@@ -10235,40 +10287,6 @@
                 showOfflineAcceptStatus('Erreur: ' + e.message, true);
                 btn.disabled = false;
                 btn.textContent = 'Confirmer la vente';
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // MARQUER FACTURÉE
-        // ═══════════════════════════════════════════════════════════════════════
-
-        async function markInvoiced() {
-            if (!currentSubmission) return;
-            if (currentSubmission.status !== 'accepted') {
-                steleAlert('Seules les soumissions vendues peuvent être marquées facturées.');
-                return;
-            }
-
-            var ok = await steleConfirm(
-                'Marquer cette soumission comme facturée? Cette action indique que la facturation a été effectuée.',
-                'Marquer facturée',
-                'Confirmer'
-            );
-            if (!ok) return;
-
-            try {
-                await updateSubmission(currentSubmission.id, { status: 'invoiced' });
-                await createSubmissionReview(currentSubmission.id, 'invoiced', 'Soumission marquée comme facturée');
-
-                currentSubmission.status = 'invoiced';
-                updateStatusBadge('invoiced');
-                updateWorkflowButtons();
-                setEditable(false);
-                loadSubmissionReviews(currentSubmission.id);
-
-            } catch (e) {
-                console.error('Erreur marquage facturée:', e);
-                steleAlert('Erreur: ' + e.message);
             }
         }
 

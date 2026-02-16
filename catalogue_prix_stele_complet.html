@@ -2159,7 +2159,8 @@
                 return;
             }
 
-            if (!confirm('Supprimer l\u2019article ' + itemId + ' ?\nCette action est irr\u00e9versible.')) return;
+            var ok = await steleConfirm('Supprimer l\u2019article <strong>' + escapeHtml(itemId) + '</strong> ?<br>Cette action est irr\u00e9versible.', 'Supprimer l\u2019article', 'Supprimer');
+            if (!ok) return;
 
             try {
                 const resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId), {
@@ -2234,9 +2235,10 @@
                 removeBtn.className = 'cat-media-remove';
                 removeBtn.innerHTML = '&times;';
                 removeBtn.title = 'Supprimer';
-                removeBtn.onclick = function() {
+                removeBtn.onclick = async function() {
                     if (media.id && !media.isNew) {
-                        if (!confirm('Supprimer ce média ? Cette action sera définitive après sauvegarde.')) return;
+                        var ok = await steleConfirm('Supprimer ce média ? Cette action sera définitive après sauvegarde.', 'Supprimer le média', 'Supprimer');
+                        if (!ok) return;
                         editMediaToDelete.push({ id: media.id, file_url: media.file_url });
                     }
                     editMedia.splice(index, 1);

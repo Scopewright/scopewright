@@ -5001,9 +5001,14 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">R&ocirc;le</label>
-                    <input type="text" class="form-input" id="addContactRole" list="contactRoleOptions"
-                           placeholder="Ex: Client, Entrepreneur, Designer..." autocomplete="off">
-                    <datalist id="contactRoleOptions"></datalist>
+                    <select class="form-input" id="addContactRole" onchange="toggleCustomRole()">
+                        <option value="Entrepreneur">Entrepreneur</option>
+                        <option value="Client">Client</option>
+                        <option value="Designer">Designer</option>
+                        <option value="Architecte">Architecte</option>
+                        <option value="Autre">Autre...</option>
+                    </select>
+                    <input type="text" class="form-input" id="addContactRoleCustom" placeholder="R&ocirc;le personnalis&eacute;..." style="display:none; margin-top:6px;">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rechercher un contact</label>
@@ -9623,8 +9628,7 @@
             document.getElementById('projInstallation').checked = true;
             renderProjectInfoBloc();
 
-            // Charger les rôles contacts + contacts projet pour les badges header
-            loadContactRoles();
+            // Charger les contacts projet pour les badges header
             loadProjectContacts().then(function() { renderContactBadges(); });
 
             // Vider le calculateur
@@ -10497,14 +10501,10 @@
                 '</div>';
             }
 
-            // Placeholder cards for missing configured roles
-            for (var j = 0; j < configContactRoles.length; j++) {
-                if (!usedRoles[configContactRoles[j]]) {
-                    html += '<div class="contact-card-placeholder" onclick="openAddContactModal(\'' + escapeAttr(configContactRoles[j]) + '\')">' +
-                        '<span>+ Ajouter un ' + escapeHtml(configContactRoles[j].toLowerCase()) + '</span>' +
-                    '</div>';
-                }
-            }
+            // Single placeholder card at the end
+            html += '<div class="contact-card-placeholder" onclick="openAddContactModal()">' +
+                '<span>+ Ajouter un contact</span>' +
+            '</div>';
 
             grid.innerHTML = html;
         }
@@ -10539,12 +10539,32 @@
             document.getElementById('contactComboInput').value = '';
             document.getElementById('addContactStatus').textContent = '';
             document.getElementById('btnConfirmAddContact').disabled = true;
-            var roleInput = document.getElementById('addContactRole');
-            roleInput.value = preselectedRole || 'Client';
+            var roleSelect = document.getElementById('addContactRole');
+            var customInput = document.getElementById('addContactRoleCustom');
+            customInput.style.display = 'none';
+            customInput.value = '';
+            roleSelect.value = preselectedRole || 'Entrepreneur';
+            if (preselectedRole && !Array.from(roleSelect.options).some(function(o) { return o.value === preselectedRole; })) {
+                roleSelect.value = 'Autre';
+                customInput.style.display = 'block';
+                customInput.value = preselectedRole;
+            }
             document.getElementById('addContactOverlay').classList.add('active');
             loadAllContactsForCombo();
             loadAllCompaniesForCombo();
             setTimeout(function() { document.getElementById('contactComboInput').focus(); }, 100);
+        }
+
+        function toggleCustomRole() {
+            var sel = document.getElementById('addContactRole');
+            var custom = document.getElementById('addContactRoleCustom');
+            if (sel.value === 'Autre') {
+                custom.style.display = 'block';
+                custom.focus();
+            } else {
+                custom.style.display = 'none';
+                custom.value = '';
+            }
         }
 
         function closeAddContactModal() {
@@ -10707,8 +10727,9 @@
 
         async function confirmAddContact() {
             if (!selectedComboContactId || !currentProject) return;
-            var role = document.getElementById('addContactRole').value;
-            if (!role.trim()) { document.getElementById('addContactStatus').textContent = 'Veuillez sp\u00e9cifier un r\u00f4le.'; document.getElementById('addContactStatus').style.color = '#c62828'; return; }
+            var roleVal = document.getElementById('addContactRole').value;
+            var role = roleVal === 'Autre' ? document.getElementById('addContactRoleCustom').value.trim() : roleVal;
+            if (!role) { document.getElementById('addContactStatus').textContent = 'Veuillez sp\u00e9cifier un r\u00f4le.'; document.getElementById('addContactStatus').style.color = '#c62828'; return; }
             try {
                 var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_contacts', {
                     method: 'POST',

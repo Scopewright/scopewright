@@ -322,7 +322,12 @@
             headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify(fields)
         });
-        return r.ok;
+        if (!r.ok) {
+            var errText = '';
+            try { errText = await r.text(); } catch(e) {}
+            throw new Error('Échec mise à jour soumission (' + r.status + '): ' + errText);
+        }
+        return true;
     }
 
     async function deleteSubmission(submissionId) {
@@ -7191,7 +7196,7 @@
             if (!currentSubmission) return;
             var el = document.getElementById('exclusionsText');
             if (!el) return;
-            updateSubmission(currentSubmission.id, { exclusions: el.value });
+            updateSubmission(currentSubmission.id, { exclusions: el.value }).catch(function(e) { console.error('Save exclusions:', e); });
             showSaveIndicator();
         }
 
@@ -10085,7 +10090,7 @@
             if (!currentSubmission) return;
             var title = document.getElementById('subTitle').value.trim();
             currentSubmission.title = title;
-            updateSubmission(currentSubmission.id, { title: title });
+            updateSubmission(currentSubmission.id, { title: title }).catch(function(e) { console.error('Save title:', e); });
             showSaveIndicator();
         }
 
@@ -11600,12 +11605,20 @@
                 });
                 if (!rpcResp.ok) throw new Error('Erreur journalisation acceptation: ' + rpcResp.status);
 
-                // 2. Mettre à jour la soumission
+                // 2. Mettre à jour la soumission (statut + date seulement)
                 await updateSubmission(currentSubmission.id, {
                     status: 'accepted',
-                    accepted_at: new Date(acceptDate).toISOString(),
-                    accepted_by_name: clientName
+                    accepted_at: new Date(acceptDate).toISOString()
                 });
+
+                // 2b. Best-effort: accepted_by_name (colonne optionnelle)
+                try {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ accepted_by_name: clientName })
+                    });
+                } catch (e) { /* colonne peut ne pas exister */ }
 
                 // 3. Entrée timeline
                 var methodLabels = { courriel: 'Courriel', telephone: 'Téléphone', papier: 'Papier', autre: 'Autre' };

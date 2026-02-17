@@ -3200,6 +3200,11 @@
         .pv-page-title .pv-designer { font-size: 14px; color: #999; margin-top: 4px; }
         .pv-page-title .pv-client-address { font-size: 14px; color: #999; margin-top: 2px; }
 
+        /* Installation non incluse — indicators */
+        .pv-install-banner { position: absolute; bottom: 28px; left: 0; right: 0; text-align: center; font-size: 12px; color: #999; letter-spacing: 0.3px; }
+        .pv-install-room-note { font-size: 11px; color: #999; font-style: italic; margin-top: -30px; margin-bottom: 20px; padding-left: 20px; }
+        .pv-install-total-note { font-size: 13px; color: #999; margin-bottom: 16px; letter-spacing: 0.3px; }
+
         /* Room page — landscape layout */
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
@@ -8705,6 +8710,19 @@
                 }
             }
 
+            // ── Pre-scan installation status ──
+            var pvGroups = document.querySelectorAll('#calculatorView .furniture-group');
+            var installExcludedIds = {};
+            var totalGroups = 0;
+            pvGroups.forEach(function(g) {
+                totalGroups++;
+                var cb = document.getElementById(g.id + '-install');
+                if (cb && !cb.checked) installExcludedIds[g.id] = true;
+            });
+            var excludedCount = Object.keys(installExcludedIds).length;
+            var allInstallExcluded = totalGroups > 0 && excludedCount === totalGroups;
+            var someInstallExcluded = excludedCount > 0 && !allInstallExcluded;
+
             // ── Page 1: Title ──
             var subNum = currentSubmission ? currentSubmission.submission_number : '';
             var subDate = '';
@@ -8727,6 +8745,7 @@
                 html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
                 if (currentProject.designer) html += '<div class="pv-designer">' + t('designer') + ' : ' + escapeHtml(currentProject.designer) + '</div>';
             }
+            if (allInstallExcluded) html += '<div class="pv-install-banner">' + (currentLang === 'en' ? 'Installation not included' : 'Installation non incluse') + '</div>';
             html += '</div>';
 
             // ── Room pages (one per room) — text left, images right ──
@@ -8754,6 +8773,9 @@
 
                 html += '<div class="pv-page" data-group-id="' + escapeAttr(groupId) + '">';
                 html += '<div class="pv-page-room-header"><span class="pv-page-room-name">' + escapeHtml(roomName) + '</span><span class="pv-page-room-subtotal">' + formatPrice(subtotal) + '</span></div>';
+                if (someInstallExcluded && installExcludedIds[groupId]) {
+                    html += '<div class="pv-install-room-note">' + (currentLang === 'en' ? '* Installation not included for this section' : '* Installation non incluse pour cette section') + '</div>';
+                }
                 html += '<div class="pv-page-room-body">';
 
                 // Left column: description
@@ -8837,6 +8859,9 @@
 
             // ── Total page (last) ──
             html += '<div class="pv-page pv-page-total">';
+            if (allInstallExcluded) {
+                html += '<div class="pv-install-total-note">' + (currentLang === 'en' ? 'Installation not included' : 'Installation non incluse') + '</div>';
+            }
             html += '<div class="pv-total-box">';
             html += '<div class="total-label">' + t('total') + '</div>';
             html += '<div class="total-amount">' + formatPrice(grandTotal) + '</div>';

@@ -613,11 +613,16 @@ var coverImageUrl = '';
             }
         } catch (e) { /* fallback to dark bg */ }
 
-        await renderQuote();
-        initSignaturePad();
+        try {
+            await renderQuote();
+            initSignaturePad();
+        } catch (renderErr) {
+            console.error('Render error:', renderErr);
+            showError('Erreur d\u2019affichage', 'Impossible d\u2019afficher la soumission : ' + renderErr.message);
+        }
     } catch (err) {
         console.error('Fetch error:', err);
-        showError('Erreur de connexion', 'Impossible de joindre le serveur. Vérifiez votre connexion internet.');
+        showError('Erreur de connexion', 'Impossible de joindre le serveur. V\u00e9rifiez votre connexion internet.');
     }
 })();
 
@@ -626,9 +631,6 @@ var coverImageUrl = '';
 // ═══════════════════════════════════════════════════════════════════════
 
 async function renderQuote() {
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('quoteContent').style.display = 'block';
-
     var sub = quoteData.submission;
     var proj = quoteData.project;
     var rooms = quoteData.rooms || [];
@@ -645,7 +647,8 @@ async function renderQuote() {
                 var bodyMatch = snapHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
                 if (bodyMatch) {
                     document.getElementById('quotePages').innerHTML = bodyMatch[1];
-                    // Still need acceptance UI, so continue with that part only
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('quoteContent').style.display = 'block';
                     renderAcceptanceSection(sub, token);
                     return;
                 }
@@ -838,6 +841,8 @@ async function renderQuote() {
 
     // ── Inject all pages ──
     document.getElementById('quotePages').innerHTML = html;
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('quoteContent').style.display = 'block';
 
     // ── Acceptance UI ──
     renderAcceptanceSection(sub, token);
@@ -1120,6 +1125,7 @@ document.addEventListener('fullscreenchange', function() {
 
 function showError(title, message) {
     document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('quoteContent').style.display = 'none';
     document.getElementById('errorState').style.display = 'flex';
     document.getElementById('errorTitle').textContent = title;
     document.getElementById('errorMessage').textContent = message;

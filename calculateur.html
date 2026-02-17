@@ -10213,14 +10213,14 @@
 
         async function loadAllContactsForCombo() {
             try {
-                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?select=id,first_name,last_name,email,phone,addresses,contact_companies(companies(id,name))&order=last_name', {});
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?select=id,first_name,last_name,email,phone,contact_companies(companies(id,name))&order=last_name', {});
                 if (r.ok) allContactsCache = await r.json();
             } catch (e) { console.warn('Error loading contacts for combo:', e); }
         }
 
         async function loadAllCompaniesForCombo() {
             try {
-                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?select=id,name,addresses,contact_companies(contacts(id,first_name,last_name))&order=name', {});
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?select=id,name,contact_companies(contacts(id,first_name,last_name))&order=name', {});
                 if (r.ok) allCompaniesCache = await r.json();
             } catch (e) { console.warn('Error loading companies for combo:', e); }
         }

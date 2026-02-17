@@ -3806,8 +3806,17 @@
         .header-sub-panel .sub-line .sub-kebab:hover { color: #333; background: #e0e0e0; }
         .header-sub-panel .header-sub-label {
             font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 6px;
+            letter-spacing: 0.5px; margin-bottom: 6px; cursor: pointer; user-select: none;
+            display: flex; align-items: center; gap: 6px;
         }
+        .header-sub-panel .header-sub-label:hover { color: #555; }
+        .header-sub-label .sub-chevron { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+        .header-sub-label .sub-chevron.open { transform: rotate(90deg); }
+        .header-sub-body {
+            overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease;
+            max-height: 500px; opacity: 1;
+        }
+        .header-sub-body.collapsed { max-height: 0; opacity: 0; }
 
         /* ── Matériaux par défaut section ── */
         .default-materials-panel {
@@ -4799,9 +4808,11 @@
             </div>
 
             <div class="header-sub-panel" id="headerSubPanel">
-                <div class="header-sub-label">Soumissions du projet</div>
-                <div id="headerSubList"></div>
-                <button class="btn-add-sub" id="btnAddSubHeader" onclick="handleAddSubmissionFromCalc()">+ Nouvelle soumission</button>
+                <div class="header-sub-label" onclick="toggleSubPanel()"><span class="sub-chevron open" id="subPanelChevron">&#9654;</span> Soumissions du projet</div>
+                <div class="header-sub-body" id="headerSubBody">
+                    <div id="headerSubList"></div>
+                    <button class="btn-add-sub" id="btnAddSubHeader" onclick="handleAddSubmissionFromCalc()">+ Nouvelle soumission</button>
+                </div>
             </div>
 
             <div class="default-materials-panel" id="defaultMaterialsPanel">
@@ -10918,6 +10929,7 @@
             });
             list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';
             panel.style.display = 'block';
+            restoreSubPanelState();
 
             list.querySelectorAll('.sub-line').forEach(function(el) {
                 el.addEventListener('click', function() {
@@ -10926,6 +10938,25 @@
                     openSubmission(subId);
                 });
             });
+        }
+
+        function toggleSubPanel() {
+            var body = document.getElementById('headerSubBody');
+            var chevron = document.getElementById('subPanelChevron');
+            var collapsed = !body.classList.contains('collapsed');
+            body.classList.toggle('collapsed', collapsed);
+            chevron.classList.toggle('open', !collapsed);
+            localStorage.setItem('subPanelCollapsed', collapsed ? '1' : '');
+        }
+
+        // Restore collapse state on panel show
+        function restoreSubPanelState() {
+            if (localStorage.getItem('subPanelCollapsed') === '1') {
+                var body = document.getElementById('headerSubBody');
+                var chevron = document.getElementById('subPanelChevron');
+                if (body) body.classList.add('collapsed');
+                if (chevron) chevron.classList.remove('open');
+            }
         }
 
         async function handleAddSubmissionFromCalc() {

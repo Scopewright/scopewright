@@ -723,7 +723,7 @@ async function renderQuote() {
     html += '</div>';
     html += '<div class="pv-cover-right">';
     if (coverImageUrl) {
-        html += '<img src="' + escapeAttr(coverImageUrl) + '" alt="">';
+        html += '<img src="' + escapeHtml(coverImageUrl) + '" alt="">';
         html += '<div class="pv-cover-overlay"></div>';
     }
     html += '</div>';

@@ -10133,10 +10133,21 @@
             var parts = [];
             if (currentProject.client_name) parts.push(escapeHtml(currentProject.client_name));
 
+            // Read from new columns, fallback to local cache, fallback to legacy
+            var addr = currentProject.project_address || currentProject._address || '';
+            var city = currentProject.project_city || currentProject._city || '';
+            var postal = currentProject.project_postal_code || currentProject._postal || '';
+            if (!addr && !city && !postal && currentProject.client_address) {
+                var parsed = currentProject.client_address.split(',').map(function(s) { return s.trim(); });
+                addr = parsed[0] || '';
+                city = parsed[1] || '';
+                postal = parsed[2] || '';
+            }
+
             var addrParts = [];
-            if (currentProject.project_address) addrParts.push(escapeHtml(currentProject.project_address));
-            if (currentProject.project_city) addrParts.push(escapeHtml(currentProject.project_city));
-            if (currentProject.project_postal_code) addrParts.push(escapeHtml(currentProject.project_postal_code));
+            if (addr) addrParts.push(escapeHtml(addr));
+            if (city) addrParts.push(escapeHtml(city));
+            if (postal) addrParts.push(escapeHtml(postal));
 
             if (addrParts.length > 0) parts.push('<span>' + addrParts.join(', ') + '</span>');
 
@@ -10152,9 +10163,20 @@
         async function openEditInfoModal() {
             if (!currentProject) return;
             document.getElementById('editInfoModal').classList.add('active');
-            document.getElementById('infoProjectAddress').value = currentProject.project_address || '';
-            document.getElementById('infoProjectCity').value = currentProject.project_city || '';
-            document.getElementById('infoProjectPostalCode').value = currentProject.project_postal_code || '';
+            // Read from new columns, fallback to legacy client_address, fallback to local cache
+            var addr = currentProject.project_address || currentProject._address || '';
+            var city = currentProject.project_city || currentProject._city || '';
+            var postal = currentProject.project_postal_code || currentProject._postal || '';
+            // If new columns empty but legacy client_address has data, parse it
+            if (!addr && !city && !postal && currentProject.client_address) {
+                var parts = currentProject.client_address.split(',').map(function(s) { return s.trim(); });
+                addr = parts[0] || '';
+                city = parts[1] || '';
+                postal = parts[2] || '';
+            }
+            document.getElementById('infoProjectAddress').value = addr;
+            document.getElementById('infoProjectCity').value = city;
+            document.getElementById('infoProjectPostalCode').value = postal;
             document.getElementById('addrSuggestPanel').style.display = 'none';
 
             // Init client combobox
@@ -10192,6 +10214,10 @@
             var postal = document.getElementById('infoProjectPostalCode').value.trim();
             var clientName = document.getElementById('infoClientCombo').value.trim();
 
+            // Build full address for client_address fallback
+            var fullAddr = [address, city, postal].filter(Boolean).join(', ');
+
+            // Try with new columns first, fallback to legacy columns
             var updateObj = {
                 client_name: clientName,
                 project_address: address,
@@ -10207,13 +10233,44 @@
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                     body: JSON.stringify(updateObj)
                 });
-                if (r.ok) {
-                    var rows = await r.json();
-                    if (rows.length > 0) currentProject = rows[0];
-                    renderProjectInfoBloc();
-                    closeEditInfoModal();
+                if (!r.ok) {
+                    // New columns probably don't exist yet — fallback to legacy columns
+                    var fallbackObj = {
+                        client_name: clientName,
+                        client_address: fullAddr
+                    };
+                    var r2 = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(fallbackObj)
+                    });
+                    if (r2.ok) {
+                        var rows2 = await r2.json();
+                        if (rows2.length > 0) {
+                            currentProject = rows2[0];
+                            // Store parsed values locally for display
+                            currentProject._address = address;
+                            currentProject._city = city;
+                            currentProject._postal = postal;
+                        }
+                        renderProjectInfoBloc();
+                        closeEditInfoModal();
+                        console.warn('Saved with legacy columns. Run sql/project_info_columns.sql to enable full support.');
+                    } else {
+                        var errText = await r2.text();
+                        console.error('Save project info fallback failed:', errText);
+                        alert('Erreur lors de la sauvegarde : ' + errText);
+                    }
+                    return;
                 }
-            } catch (e) { console.warn('Error saving project info:', e); }
+                var rows = await r.json();
+                if (rows.length > 0) currentProject = rows[0];
+                renderProjectInfoBloc();
+                closeEditInfoModal();
+            } catch (e) {
+                console.error('Error saving project info:', e);
+                alert('Erreur lors de la sauvegarde des infos projet.');
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -10802,7 +10859,8 @@
         async function promptContactAddressForProject(contactId) {
             if (!currentProject || !contactId) return;
             // Already has a project address? Skip.
-            if (currentProject.project_address) return;
+            var hasAddr = currentProject.project_address || currentProject._address || currentProject.client_address;
+            if (hasAddr) return;
             // Fetch the contact's address
             try {
                 var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?id=eq.' + contactId + '&select=first_name,last_name,address', {});
@@ -10816,35 +10874,36 @@
                     'Adresse du projet', 'Utiliser', false
                 );
                 if (useIt) {
-                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                        body: JSON.stringify({ project_address: c.address })
-                    }).then(async function(resp) {
-                        if (resp.ok) {
-                            var updated = await resp.json();
-                            if (updated.length > 0) currentProject = updated[0];
-                            renderProjectInfoBloc();
-                        }
-                    });
+                    await saveProjectAddress(c.address);
                 } else {
-                    // Ask for address manually
                     var addr = await stelePrompt('Quelle est l\'adresse du projet ?', 'Adresse du projet', 'Enregistrer');
                     if (addr && addr.trim()) {
-                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                            body: JSON.stringify({ project_address: addr.trim() })
-                        }).then(async function(resp) {
-                            if (resp.ok) {
-                                var updated = await resp.json();
-                                if (updated.length > 0) currentProject = updated[0];
-                                renderProjectInfoBloc();
-                            }
-                        });
+                        await saveProjectAddress(addr.trim());
                     }
                 }
             } catch (e) { console.warn('Error prompting contact address:', e); }
+        }
+
+        async function saveProjectAddress(address) {
+            // Try new column first, fallback to legacy
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify({ project_address: address })
+            });
+            if (!r.ok) {
+                r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ client_address: address })
+                });
+            }
+            if (r.ok) {
+                var updated = await r.json();
+                if (updated.length > 0) currentProject = updated[0];
+                if (!currentProject.project_address) currentProject._address = address;
+                renderProjectInfoBloc();
+            }
         }
 
         // Close combos on click outside

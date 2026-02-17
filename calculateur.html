@@ -10894,7 +10894,7 @@
                     var errText = await r.text();
                     var statusEl = document.getElementById('addContactStatus');
                     if (errText.indexOf('unique') !== -1 || errText.indexOf('duplicate') !== -1) {
-                        statusEl.textContent = 'Ce contact est d\u00e9j\u00e0 li\u00e9 \u00e0 ce projet.';
+                        statusEl.textContent = 'Ce contact a d\u00e9j\u00e0 ce r\u00f4le dans ce projet.';
                     } else {
                         statusEl.textContent = 'Erreur lors de l\'ajout.';
                     }

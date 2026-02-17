@@ -1926,7 +1926,6 @@
         .main-content {
             margin-top: 56px;
             padding: 40px 60px 60px;
-            max-width: 1200px;
         }
 
         .page-title {
@@ -3174,7 +3173,7 @@
 
         .project-list-view { display: none; }
         .project-list-view.active { display: block; }
-        .calculator-view { display: none; }
+        .calculator-view { display: none; max-width: 1200px; }
         .calculator-view.active { display: block; }
 
         /* ═══════════════════════════════════════════════════════════════
@@ -3750,7 +3749,7 @@
         .drawer-field-value { font-size: 14px; color: #222; }
 
         /* ── Pipeline — Full-width with side padding ── */
-        .project-list-view { max-width: none; padding-left: 48px; padding-right: 48px; }
+        .project-list-view { margin-left: -60px; margin-right: -60px; padding-left: 48px; padding-right: 48px; }
 
         /* ── Pipeline — Auto-switch to cards on mobile ── */
         @media (max-width: 767px) {
@@ -4204,6 +4203,7 @@
         @media (max-width: 900px) {
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .main-content { padding: 24px 16px; }
+            .project-list-view { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
             .calc-header, .calc-row {
                 grid-template-columns: 24px 45px 1fr 70px 70px 90px 80px 24px 100px 24px;
                 gap: 4px;

@@ -1154,6 +1154,16 @@
         await Promise.all([loadContacts(), loadCompanies()]);
         renderContacts();
         renderCompanies();
+
+        // Hash detection: open contact or company modal from deep link
+        var hash = window.location.hash;
+        if (hash.startsWith('#contact-')) {
+            var contactId = hash.substring(9);
+            setTimeout(function() { openContactModal(contactId); }, 400);
+        } else if (hash.startsWith('#company-')) {
+            var companyId = hash.substring(9);
+            setTimeout(function() { switchTab('companies'); openCompanyModal(companyId); }, 400);
+        }
     })();
     </script>
 </body>

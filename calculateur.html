@@ -143,6 +143,15 @@
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
 
+    // Project contacts state
+    var projectContacts = [];
+    var allContactsCache = [];
+    var selectedComboContactId = null;
+    var configContactRoles = ['Client', 'Entrepreneur', 'Designer', 'Architecte', 'Ingénieur'];
+    var allCompaniesCache = [];
+    var selectedClientType = null;
+    var selectedClientId = null;
+
     // ═══════════════════════════════════════════════════════════════════════
     // DIALOGUES CUSTOM (remplace alert/confirm/prompt natifs)
     // ═══════════════════════════════════════════════════════════════════════
@@ -4223,6 +4232,156 @@
             cursor: pointer; font-family: inherit;
         }
         .btn-overlay:hover { opacity: 0.9; }
+
+        /* ═══════════════════════════════════════════════════════════════
+           PROJECT INFO BLOC
+           ═══════════════════════════════════════════════════════════════ */
+        .ph-info-bloc {
+            display: flex; align-items: center; gap: 8px; margin: 2px 0 0; padding: 0;
+        }
+        .ph-info-text { font-size: 13px; color: #666; line-height: 1.4; }
+        .ph-info-text span { color: #999; }
+        .ph-info-empty { font-size: 13px; color: #bbb; font-style: italic; }
+        .btn-edit-info {
+            background: none; border: none; cursor: pointer; color: #bbb;
+            font-size: 14px; padding: 2px 6px; transition: color 0.15s; flex-shrink: 0;
+        }
+        .btn-edit-info:hover { color: var(--stele-green); }
+        .info-modal-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+        @media (max-width: 500px) { .info-modal-row { grid-template-columns: 1fr; } }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CONTACT BADGES STRIP (in project header)
+           ═══════════════════════════════════════════════════════════════ */
+        .ph-contacts-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .ph-contact-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 12px;
+            background: #f5f5f5; border: 1px solid #e0e0e0;
+            font-size: 12px; font-weight: 500; color: #666;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .ph-contact-badge:hover { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.06); color: #333; }
+        .ph-contact-badge-role { color: #999; font-weight: 400; font-size: 11px; }
+        .ph-contacts-more {
+            display: inline-flex; align-items: center; padding: 3px 8px;
+            border-radius: 12px; font-size: 12px; font-weight: 500;
+            color: var(--stele-green); cursor: pointer; transition: all 0.15s;
+        }
+        .ph-contacts-more:hover { background: #f5f5f5; }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CONTACTS MODAL
+           ═══════════════════════════════════════════════════════════════ */
+        .contacts-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); z-index: 9000;
+            justify-content: center; align-items: flex-start; padding: 40px 20px;
+        }
+        .contacts-overlay.active { display: flex; }
+        .contacts-modal {
+            background: #fff; border-radius: 16px; max-width: 900px; width: 100%;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .contacts-modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 24px 32px; border-bottom: 1px solid #f0f0f0;
+        }
+        .contacts-modal-header h2 { font-size: 20px; font-weight: 700; color: var(--stele-black); margin: 0; }
+        .contacts-modal-close {
+            background: none; border: none; font-size: 24px; cursor: pointer;
+            color: #999; padding: 4px 8px; transition: color 0.15s;
+        }
+        .contacts-modal-close:hover { color: var(--stele-black); }
+        .contacts-modal-body { padding: 28px 32px; }
+        .contact-cards-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+        }
+        .contact-card {
+            background: #fff; border: 1px solid #e8e8e8; border-radius: 16px;
+            padding: 20px; transition: box-shadow 0.15s; position: relative;
+        }
+        .contact-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+        .contact-card-role {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--stele-green); margin-bottom: 8px;
+        }
+        .contact-card-name { font-size: 16px; font-weight: 700; color: var(--stele-black); margin-bottom: 2px; }
+        .contact-card-name-link {
+            color: var(--stele-black); text-decoration: none; transition: color 0.15s;
+        }
+        .contact-card-name-link:hover { color: var(--stele-green); text-decoration: underline; }
+        .contact-card-company { font-size: 13px; color: #888; margin-bottom: 12px; }
+        .contact-card-company-link {
+            color: #888; text-decoration: none; transition: color 0.15s;
+        }
+        .contact-card-company-link:hover { color: var(--stele-green); text-decoration: underline; }
+        .contact-card-details { font-size: 13px; color: #555; line-height: 1.6; }
+        .contact-card-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .contact-card-btn {
+            background: #f8f8f8; border: 1px solid #e8e8e8; border-radius: 8px;
+            padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+            font-family: inherit; color: #555; transition: all 0.15s;
+        }
+        .contact-card-btn:hover { background: #f0f0f0; border-color: #ccc; color: var(--stele-black); }
+        .contact-card-remove {
+            position: absolute; top: 8px; right: 8px; background: none;
+            border: none; cursor: pointer; color: #ccc; font-size: 16px;
+            padding: 4px; transition: color 0.15s;
+        }
+        .contact-card-remove:hover { color: #c62828; }
+        .contact-card-placeholder {
+            background: #fafafa; border: 2px dashed #e0e0e0; border-radius: 16px;
+            padding: 20px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.15s; min-height: 120px;
+        }
+        .contact-card-placeholder:hover { border-color: var(--stele-green); background: #f5f8f5; }
+        .contact-card-placeholder span { font-size: 14px; color: #999; font-weight: 500; }
+        .btn-add-contact {
+            background: var(--stele-green); color: #fff; border: none;
+            border-radius: 12px; padding: 10px 20px; font-size: 14px;
+            font-weight: 600; cursor: pointer; font-family: inherit;
+            margin-top: 20px; transition: opacity 0.15s;
+        }
+        .btn-add-contact:hover { opacity: 0.9; }
+        @media (max-width: 600px) {
+            .contact-cards-grid { grid-template-columns: 1fr; }
+            .contacts-modal-body { padding: 16px; }
+            .contacts-modal-header { padding: 16px; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           ADD CONTACT SUB-MODAL + COMBOBOX
+           ═══════════════════════════════════════════════════════════════ */
+        .add-contact-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 9500;
+            justify-content: center; align-items: center;
+        }
+        .add-contact-overlay.active { display: flex; }
+        .contact-combo-wrap { position: relative; width: 100%; }
+        .contact-combo-wrap input {
+            width: 100%; padding: 10px 12px; font-size: 14px;
+            font-family: inherit; border: 1px solid var(--stele-gray);
+            border-radius: 4px; box-sizing: border-box;
+        }
+        .contact-combo-dd {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid #ddd; border-radius: 0 0 6px 6px;
+            max-height: 220px; overflow-y: auto; z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .contact-combo-dd.open { display: block; }
+        .contact-combo-item {
+            padding: 8px 12px; cursor: pointer; font-size: 13px; transition: background 0.1s;
+        }
+        .contact-combo-item:hover { background: #f0f0f0; }
+        .contact-combo-item small { color: #999; }
+        .combo-section-header {
+            padding: 6px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #999; background: #fafafa; border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -4290,6 +4449,7 @@
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
                         <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
                         <button class="btn-header-link" id="btnAiAssistant" onclick="openAiDrawer()">AI</button>
+                        <button class="btn-header-link" id="btnContacts" onclick="openContactsModal()">Contacts</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
                             <div class="kebab-dropdown" id="headerKebabDropdown">
@@ -4303,6 +4463,11 @@
                 </div>
                 <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
                 <span class="save-indicator" id="saveIndicator"></span>
+                <div class="ph-info-bloc" id="projInfoBloc">
+                    <div id="projInfoText" class="ph-info-empty">Ajouter les infos du projet</div>
+                    <button class="btn-edit-info" onclick="openEditInfoModal()" title="Modifier les informations du projet">&#9998;</button>
+                </div>
+                <div class="ph-contacts-strip" id="projContactsStrip"></div>
                 <div class="ph-status-row">
                     <span class="status-badge" id="subStatusBadge"></span>
                 </div>
@@ -4764,6 +4929,95 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closePlansModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Project Info Modal -->
+    <div class="modal-overlay" id="editInfoModal">
+        <div class="modal" style="max-width:520px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Informations du projet</h3>
+                <button class="modal-close" onclick="closeEditInfoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Client</label>
+                    <div class="contact-combo-wrap" id="clientComboWrap">
+                        <input type="text" id="infoClientCombo" placeholder="Rechercher un contact ou une entreprise..."
+                               autocomplete="off" oninput="filterClientCombo(this)" onfocus="openClientCombo()">
+                        <div class="contact-combo-dd" id="clientComboDd"></div>
+                    </div>
+                    <div id="clientComboSelected" style="font-size:12px; color:var(--stele-green); margin-top:4px;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adresse du projet</label>
+                    <input type="text" class="form-input" id="infoProjectAddress" placeholder="Adresse">
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Ville</label>
+                        <input type="text" class="form-input" id="infoProjectCity" placeholder="Ville">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Code postal</label>
+                        <input type="text" class="form-input" id="infoProjectPostalCode" placeholder="H0H 0H0">
+                    </div>
+                </div>
+                <div id="addrSuggestPanel" style="display:none;"></div>
+                <div class="form-group">
+                    <label class="form-label">Designer</label>
+                    <input type="text" class="form-input" id="infoDesigner" placeholder="Nom du designer">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeEditInfoModal()">Annuler</button>
+                <button class="btn-generate" onclick="saveProjectInfo()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contacts Modal -->
+    <div class="contacts-overlay" id="contactsModal" onclick="if(event.target===this)closeContactsModal()">
+        <div class="contacts-modal">
+            <div class="contacts-modal-header">
+                <h2>Contacts du projet</h2>
+                <button class="contacts-modal-close" onclick="closeContactsModal()">&times;</button>
+            </div>
+            <div class="contacts-modal-body">
+                <div class="contact-cards-grid" id="contactCardsGrid"></div>
+                <button class="btn-add-contact" onclick="openAddContactModal()">+ Ajouter un contact</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Contact Sub-Modal -->
+    <div class="add-contact-overlay" id="addContactOverlay" onclick="if(event.target===this)closeAddContactModal()">
+        <div class="modal" style="max-width:460px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Ajouter un contact</h3>
+                <button class="modal-close" onclick="closeAddContactModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">R&ocirc;le</label>
+                    <input type="text" class="form-input" id="addContactRole" list="contactRoleOptions"
+                           placeholder="Ex: Client, Entrepreneur, Designer..." autocomplete="off">
+                    <datalist id="contactRoleOptions"></datalist>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rechercher un contact</label>
+                    <div class="contact-combo-wrap" id="contactComboWrap">
+                        <input type="text" id="contactComboInput" placeholder="Taper un nom..." autocomplete="off"
+                               oninput="filterContactCombo(this)" onfocus="openContactCombo()">
+                        <div class="contact-combo-dd" id="contactComboDd"></div>
+                    </div>
+                </div>
+                <div id="addContactStatus" style="font-size:13px; margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeAddContactModal()">Annuler</button>
+                <button class="btn-generate" id="btnConfirmAddContact" onclick="confirmAddContact()" disabled>Ajouter</button>
             </div>
         </div>
     </div>
@@ -9367,6 +9621,11 @@
             updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
+            renderProjectInfoBloc();
+
+            // Charger les rôles contacts + contacts projet pour les badges header
+            loadContactRoles();
+            loadProjectContacts().then(function() { renderContactBadges(); });
 
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
@@ -9846,6 +10105,648 @@
                 btn.disabled = false;
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PROJECT INFO BLOC
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function renderProjectInfoBloc() {
+            var el = document.getElementById('projInfoText');
+            if (!el || !currentProject) { if (el) { el.className = 'ph-info-empty'; el.textContent = ''; } return; }
+
+            var parts = [];
+            if (currentProject.client_name) parts.push(escapeHtml(currentProject.client_name));
+
+            var addrParts = [];
+            if (currentProject.project_address) addrParts.push(escapeHtml(currentProject.project_address));
+            if (currentProject.project_city) addrParts.push(escapeHtml(currentProject.project_city));
+            if (currentProject.project_postal_code) addrParts.push(escapeHtml(currentProject.project_postal_code));
+
+            if (addrParts.length > 0) parts.push('<span>' + addrParts.join(', ') + '</span>');
+
+            if (parts.length === 0) {
+                el.className = 'ph-info-empty';
+                el.textContent = 'Ajouter les infos du projet';
+            } else {
+                el.className = 'ph-info-text';
+                el.innerHTML = parts.join(' \u2014 ');
+            }
+        }
+
+        async function openEditInfoModal() {
+            if (!currentProject) return;
+            document.getElementById('editInfoModal').classList.add('active');
+            document.getElementById('infoProjectAddress').value = currentProject.project_address || '';
+            document.getElementById('infoProjectCity').value = currentProject.project_city || '';
+            document.getElementById('infoProjectPostalCode').value = currentProject.project_postal_code || '';
+            document.getElementById('infoDesigner').value = currentProject.designer || '';
+            document.getElementById('addrSuggestPanel').style.display = 'none';
+
+            // Init client combobox
+            selectedClientType = null;
+            selectedClientId = null;
+            var comboInput = document.getElementById('infoClientCombo');
+            var selDiv = document.getElementById('clientComboSelected');
+            comboInput.value = currentProject.client_name || '';
+            selDiv.textContent = '';
+
+            // Pre-select existing client link
+            if (currentProject.client_contact_id) {
+                selectedClientType = 'contact';
+                selectedClientId = currentProject.client_contact_id;
+                selDiv.textContent = '\u2713 Contact li\u00e9';
+            } else if (currentProject.client_company_id) {
+                selectedClientType = 'company';
+                selectedClientId = currentProject.client_company_id;
+                selDiv.textContent = '\u2713 Entreprise li\u00e9e';
+            }
+
+            await loadAllContactsForCombo();
+            await loadAllCompaniesForCombo();
+        }
+
+        function closeEditInfoModal() {
+            document.getElementById('editInfoModal').classList.remove('active');
+            closeClientCombo();
+        }
+
+        async function saveProjectInfo() {
+            if (!currentProject) return;
+            var address = document.getElementById('infoProjectAddress').value.trim();
+            var city = document.getElementById('infoProjectCity').value.trim();
+            var postal = document.getElementById('infoProjectPostalCode').value.trim();
+            var designer = document.getElementById('infoDesigner').value.trim();
+            var clientName = document.getElementById('infoClientCombo').value.trim();
+
+            var updateObj = {
+                client_name: clientName,
+                project_address: address,
+                project_city: city,
+                project_postal_code: postal,
+                designer: designer,
+                client_contact_id: selectedClientType === 'contact' ? selectedClientId : null,
+                client_company_id: selectedClientType === 'company' ? selectedClientId : null
+            };
+
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify(updateObj)
+                });
+                if (r.ok) {
+                    var rows = await r.json();
+                    if (rows.length > 0) currentProject = rows[0];
+                    renderProjectInfoBloc();
+                    closeEditInfoModal();
+                }
+            } catch (e) { console.warn('Error saving project info:', e); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CLIENT COMBOBOX (in edit info modal)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function loadAllContactsForCombo() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?select=id,first_name,last_name,email,phone,addresses,contact_companies(companies(id,name))&order=last_name', {});
+                if (r.ok) allContactsCache = await r.json();
+            } catch (e) { console.warn('Error loading contacts for combo:', e); }
+        }
+
+        async function loadAllCompaniesForCombo() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?select=id,name,addresses,contact_companies(contacts(id,first_name,last_name))&order=name', {});
+                if (r.ok) allCompaniesCache = await r.json();
+            } catch (e) { console.warn('Error loading companies for combo:', e); }
+        }
+
+        function openClientCombo() {
+            var dd = document.getElementById('clientComboDd');
+            populateClientCombo(dd, '');
+            dd.classList.add('open');
+        }
+
+        function filterClientCombo(input) {
+            var dd = document.getElementById('clientComboDd');
+            populateClientCombo(dd, input.value);
+            dd.classList.add('open');
+        }
+
+        function populateClientCombo(dd, filter) {
+            var html = '';
+            var f = (filter || '').toLowerCase();
+
+            // Contacts section
+            var contacts = allContactsCache.filter(function(c) {
+                var name = ((c.first_name || '') + ' ' + (c.last_name || '')).toLowerCase();
+                return !f || name.indexOf(f) !== -1 || (c.email || '').toLowerCase().indexOf(f) !== -1;
+            });
+            if (contacts.length > 0) {
+                html += '<div class="combo-section-header">Contacts</div>';
+                for (var i = 0; i < Math.min(contacts.length, 10); i++) {
+                    var c = contacts[i];
+                    var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                    html += '<div class="contact-combo-item" onclick="selectClient(this)" data-type="contact" data-id="' + escapeAttr(c.id) + '" data-name="' + escapeAttr(name) + '">' +
+                        escapeHtml(name) + (c.email ? ' <small>' + escapeHtml(c.email) + '</small>' : '') + '</div>';
+                }
+            }
+
+            // Companies section
+            var companies = allCompaniesCache.filter(function(co) {
+                return !f || (co.name || '').toLowerCase().indexOf(f) !== -1;
+            });
+            if (companies.length > 0) {
+                html += '<div class="combo-section-header">Entreprises</div>';
+                for (var j = 0; j < Math.min(companies.length, 10); j++) {
+                    var co = companies[j];
+                    html += '<div class="contact-combo-item" onclick="selectClient(this)" data-type="company" data-id="' + escapeAttr(co.id) + '" data-name="' + escapeAttr(co.name) + '">' +
+                        escapeHtml(co.name) + '</div>';
+                }
+            }
+
+            // Create new options
+            html += '<div class="combo-section-header">Cr\u00e9er</div>';
+            html += '<div class="contact-combo-item" onclick="createNewClientContact()" style="color:var(--stele-green);">+ Nouveau contact</div>';
+            html += '<div class="contact-combo-item" onclick="createNewClientCompany()" style="color:var(--stele-green);">+ Nouvelle entreprise</div>';
+
+            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun r\u00e9sultat</div>';
+        }
+
+        function selectClient(el) {
+            var type = el.getAttribute('data-type');
+            var id = el.getAttribute('data-id');
+            var name = el.getAttribute('data-name');
+            selectedClientType = type;
+            selectedClientId = id;
+            document.getElementById('infoClientCombo').value = name;
+            document.getElementById('clientComboSelected').textContent = '\u2713 ' + (type === 'contact' ? 'Contact' : 'Entreprise') + ' li\u00e9(e)';
+            closeClientCombo();
+            promptClientAddress();
+        }
+
+        function closeClientCombo() {
+            var dd = document.getElementById('clientComboDd');
+            if (dd) dd.classList.remove('open');
+        }
+
+        function promptClientAddress() {
+            var panel = document.getElementById('addrSuggestPanel');
+            if (!panel) return;
+            var addresses = [];
+            if (selectedClientType === 'contact') {
+                var c = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+                if (c && Array.isArray(c.addresses)) addresses = c.addresses;
+            } else if (selectedClientType === 'company') {
+                var co = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+                if (co && Array.isArray(co.addresses)) addresses = co.addresses;
+            }
+            if (addresses.length === 0) { panel.style.display = 'none'; return; }
+            var html = '<div style="margin-top:8px; padding:8px 12px; background:#f9f9f9; border-radius:6px; border:1px solid #eee;">';
+            html += '<div style="font-size:12px; font-weight:600; color:#666; margin-bottom:6px;">Utiliser une adresse existante ?</div>';
+            for (var i = 0; i < addresses.length; i++) {
+                var a = addresses[i];
+                var parts = [a.line1, a.city, a.postal_code].filter(Boolean).join(', ');
+                html += '<div style="padding:4px 0; cursor:pointer; color:var(--stele-green); font-size:13px;" onclick="applyClientAddress(' + i + ')">' +
+                    (a.label ? '<strong>' + escapeHtml(a.label) + ':</strong> ' : '') + escapeHtml(parts) + '</div>';
+            }
+            html += '</div>';
+            panel.innerHTML = html;
+            panel.style.display = 'block';
+        }
+
+        function applyClientAddress(idx) {
+            var addresses = [];
+            if (selectedClientType === 'contact') {
+                var c = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+                if (c && Array.isArray(c.addresses)) addresses = c.addresses;
+            } else if (selectedClientType === 'company') {
+                var co = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+                if (co && Array.isArray(co.addresses)) addresses = co.addresses;
+            }
+            if (!addresses[idx]) return;
+            var a = addresses[idx];
+            document.getElementById('infoProjectAddress').value = a.line1 || '';
+            document.getElementById('infoProjectCity').value = a.city || '';
+            document.getElementById('infoProjectPostalCode').value = a.postal_code || '';
+            document.getElementById('addrSuggestPanel').style.display = 'none';
+        }
+
+        async function createNewClientContact() {
+            closeClientCombo();
+            var firstName = await stelePrompt('Pr\u00e9nom du nouveau contact :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!firstName || !firstName.trim()) return;
+            var lastName = await stelePrompt('Nom de famille :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!lastName || !lastName.trim()) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        allContactsCache.push(res[0]);
+                        selectedClientType = 'contact';
+                        selectedClientId = res[0].id;
+                        document.getElementById('infoClientCombo').value = firstName.trim() + ' ' + lastName.trim();
+                        document.getElementById('clientComboSelected').textContent = '\u2713 Contact cr\u00e9\u00e9 et li\u00e9';
+                    }
+                }
+            } catch (e) { console.warn('Error creating contact:', e); }
+        }
+
+        async function createNewClientCompany() {
+            closeClientCombo();
+            var name = await stelePrompt('Nom de l\'entreprise :', 'Nouvelle entreprise', 'Cr\u00e9er');
+            if (!name || !name.trim()) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ name: name.trim(), created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        allCompaniesCache.push(res[0]);
+                        selectedClientType = 'company';
+                        selectedClientId = res[0].id;
+                        document.getElementById('infoClientCombo').value = name.trim();
+                        document.getElementById('clientComboSelected').textContent = '\u2713 Entreprise cr\u00e9\u00e9e et li\u00e9e';
+                    }
+                }
+            } catch (e) { console.warn('Error creating company:', e); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CONTACTS MODAL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function openContactsModal() {
+            if (!currentProject) { steleAlert('Veuillez ouvrir un projet d\'abord.'); return; }
+            document.getElementById('contactsModal').classList.add('active');
+            await loadProjectContacts();
+            renderContactCards();
+        }
+
+        function closeContactsModal() {
+            document.getElementById('contactsModal').classList.remove('active');
+        }
+
+        async function loadProjectContacts() {
+            if (!currentProject) { projectContacts = []; return; }
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/project_contacts?project_id=eq.' + currentProject.id +
+                    '&select=*,contacts(id,first_name,last_name,email,phone,contact_companies(companies(id,name)))' +
+                    '&order=sort_order', {}
+                );
+                if (r.ok) {
+                    projectContacts = await r.json();
+                } else {
+                    projectContacts = [];
+                }
+            } catch (e) {
+                console.warn('Error loading project contacts:', e);
+                projectContacts = [];
+            }
+        }
+
+        async function loadContactRoles() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.contact_roles&select=value', {});
+                if (r.ok) {
+                    var rows = await r.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value)) configContactRoles = rows[0].value;
+                }
+            } catch (e) { /* keep defaults */ }
+            var dl = document.getElementById('contactRoleOptions');
+            if (dl) {
+                dl.innerHTML = '';
+                for (var i = 0; i < configContactRoles.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = configContactRoles[i];
+                    dl.appendChild(opt);
+                }
+            }
+        }
+
+        function renderContactBadges() {
+            var strip = document.getElementById('projContactsStrip');
+            if (!strip) return;
+            if (!projectContacts || projectContacts.length === 0) {
+                strip.innerHTML = '<span class="ph-contact-badge" onclick="openContactsModal()" style="border-style:dashed;">+ Contacts</span>';
+                return;
+            }
+            var MAX_BADGES = 4;
+            var html = '';
+            var shown = Math.min(projectContacts.length, MAX_BADGES);
+            for (var i = 0; i < shown; i++) {
+                var pc = projectContacts[i];
+                var c = pc.contacts;
+                if (!c) continue;
+                var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : ''; }).filter(Boolean);
+                var displayName = companies.length > 0 ? name + ' \u00b7 ' + companies[0] : name;
+                html += '<span class="ph-contact-badge" onclick="openContactsModal()" title="' + escapeAttr(name) + '">' +
+                    '<span class="ph-contact-badge-role">' + escapeHtml(pc.role) + '</span> ' +
+                    escapeHtml(displayName) +
+                '</span>';
+            }
+            if (projectContacts.length > MAX_BADGES) {
+                html += '<span class="ph-contacts-more" onclick="openContactsModal()">+' + (projectContacts.length - MAX_BADGES) + '</span>';
+            }
+            strip.innerHTML = html;
+        }
+
+        function renderContactCards() {
+            var grid = document.getElementById('contactCardsGrid');
+            var html = '';
+            var usedRoles = {};
+
+            for (var i = 0; i < projectContacts.length; i++) {
+                var pc = projectContacts[i];
+                var c = pc.contacts;
+                if (!c) continue;
+                usedRoles[pc.role] = true;
+
+                var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                var companiesData = (c.contact_companies || []).map(function(cc) {
+                    return cc.companies ? { id: cc.companies.id, name: cc.companies.name } : null;
+                }).filter(Boolean);
+                var companyLinks = companiesData.map(function(co) {
+                    return '<a href="clients.html#company-' + escapeAttr(co.id) + '" target="_blank" class="contact-card-company-link">' + escapeHtml(co.name) + '</a>';
+                }).join(', ');
+
+                html += '<div class="contact-card">' +
+                    '<button class="contact-card-remove" onclick="removeProjectContact(\'' + escapeAttr(pc.id) + '\')" title="Retirer">&times;</button>' +
+                    '<div class="contact-card-role">' + escapeHtml(pc.role) + '</div>' +
+                    '<div class="contact-card-name"><a href="clients.html#contact-' + escapeAttr(c.id) + '" target="_blank" class="contact-card-name-link">' + escapeHtml(fullName) + '</a></div>' +
+                    (companyLinks ? '<div class="contact-card-company">' + companyLinks + '</div>' : '') +
+                    '<div class="contact-card-details">' +
+                        (c.phone ? '&#128222; ' + escapeHtml(c.phone) + '<br>' : '') +
+                        (c.email ? '&#9993; ' + escapeHtml(c.email) : '') +
+                    '</div>' +
+                    '<div class="contact-card-actions">' +
+                        (c.phone ? '<button class="contact-card-btn" onclick="window.open(\'tel:' + escapeAttr(c.phone) + '\')">Appeler</button>' : '') +
+                        (c.email ? '<button class="contact-card-btn" onclick="window.open(\'mailto:' + escapeAttr(c.email) + '\')">Courriel</button>' : '') +
+                        '<button class="contact-card-btn" onclick="copyContactInfo(\'' + escapeAttr(c.id) + '\')">Copier</button>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Placeholder cards for missing configured roles
+            for (var j = 0; j < configContactRoles.length; j++) {
+                if (!usedRoles[configContactRoles[j]]) {
+                    html += '<div class="contact-card-placeholder" onclick="openAddContactModal(\'' + escapeAttr(configContactRoles[j]) + '\')">' +
+                        '<span>+ Ajouter un ' + escapeHtml(configContactRoles[j].toLowerCase()) + '</span>' +
+                    '</div>';
+                }
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function copyContactInfo(contactId) {
+            var pc = projectContacts.find(function(p) { return p.contacts && p.contacts.id === contactId; });
+            if (!pc || !pc.contacts) return;
+            var c = pc.contacts;
+            var text = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+            if (c.phone) text += '\n' + c.phone;
+            if (c.email) text += '\n' + c.email;
+            navigator.clipboard.writeText(text.trim());
+        }
+
+        async function removeProjectContact(pcId) {
+            var ok = await steleConfirm('Retirer ce contact du projet ?', 'Retirer', 'Retirer', true);
+            if (!ok) return;
+            try {
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_contacts?id=eq.' + pcId, { method: 'DELETE' });
+                await loadProjectContacts();
+                renderContactCards();
+                renderContactBadges();
+            } catch (e) { console.warn('Error removing project contact:', e); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ADD CONTACT SUB-MODAL + COMBOBOX
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openAddContactModal(preselectedRole) {
+            selectedComboContactId = null;
+            document.getElementById('contactComboInput').value = '';
+            document.getElementById('addContactStatus').textContent = '';
+            document.getElementById('btnConfirmAddContact').disabled = true;
+            var roleInput = document.getElementById('addContactRole');
+            roleInput.value = preselectedRole || 'Client';
+            document.getElementById('addContactOverlay').classList.add('active');
+            loadAllContactsForCombo();
+            loadAllCompaniesForCombo();
+            setTimeout(function() { document.getElementById('contactComboInput').focus(); }, 100);
+        }
+
+        function closeAddContactModal() {
+            document.getElementById('addContactOverlay').classList.remove('active');
+            var dd = document.getElementById('contactComboDd');
+            if (dd) dd.classList.remove('open');
+        }
+
+        function openContactCombo() {
+            var dd = document.getElementById('contactComboDd');
+            populateContactCombo(dd, '');
+            dd.classList.add('open');
+        }
+
+        function filterContactCombo(input) {
+            var dd = document.getElementById('contactComboDd');
+            populateContactCombo(dd, input.value);
+            dd.classList.add('open');
+        }
+
+        function populateContactCombo(dd, filter) {
+            var html = '';
+            var f = (filter || '').toLowerCase();
+
+            // Contacts section
+            var filtered = allContactsCache.filter(function(c) {
+                var name = ((c.first_name || '') + ' ' + (c.last_name || '')).toLowerCase();
+                return !f || name.indexOf(f) !== -1 || (c.email || '').toLowerCase().indexOf(f) !== -1;
+            });
+            if (filtered.length > 0) {
+                html += '<div class="combo-section-header">Contacts</div>';
+                for (var i = 0; i < Math.min(filtered.length, 10); i++) {
+                    var c = filtered[i];
+                    var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                    html += '<div class="contact-combo-item" onclick="selectComboContact(this)" data-id="' + escapeAttr(c.id) + '">' +
+                        escapeHtml(name) + (c.email ? ' <small>' + escapeHtml(c.email) + '</small>' : '') + '</div>';
+                }
+            }
+
+            // Companies section
+            var coFiltered = allCompaniesCache.filter(function(co) {
+                return !f || (co.name || '').toLowerCase().indexOf(f) !== -1;
+            });
+            if (coFiltered.length > 0) {
+                html += '<div class="combo-section-header">Entreprises</div>';
+                for (var j = 0; j < Math.min(coFiltered.length, 10); j++) {
+                    var co = coFiltered[j];
+                    html += '<div class="contact-combo-item" onclick="selectComboCompany(this)" data-id="' + escapeAttr(co.id) + '" data-name="' + escapeAttr(co.name) + '">' +
+                        escapeHtml(co.name) + '</div>';
+                }
+            }
+
+            // Create new
+            html += '<div class="combo-section-header">Cr\u00e9er</div>';
+            html += '<div class="contact-combo-item" onclick="createNewContactFromCombo()" style="color:var(--stele-green);">+ Nouveau contact</div>';
+
+            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun r\u00e9sultat</div>';
+        }
+
+        function selectComboContact(el) {
+            var id = el.getAttribute('data-id');
+            selectedComboContactId = id;
+            var c = allContactsCache.find(function(x) { return x.id === id; });
+            var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() : '';
+            document.getElementById('contactComboInput').value = name;
+            document.getElementById('addContactStatus').textContent = '\u2713 ' + name;
+            document.getElementById('addContactStatus').style.color = 'var(--stele-green)';
+            document.getElementById('btnConfirmAddContact').disabled = false;
+            document.getElementById('contactComboDd').classList.remove('open');
+        }
+
+        async function selectComboCompany(el) {
+            var coId = el.getAttribute('data-id');
+            var coName = el.getAttribute('data-name');
+            var co = allCompaniesCache.find(function(x) { return x.id === coId; });
+            var linkedContacts = (co && co.contact_companies) ? co.contact_companies.map(function(cc) { return cc.contacts; }).filter(Boolean) : [];
+
+            if (linkedContacts.length === 0) {
+                // No contacts linked, offer to create one
+                document.getElementById('contactComboDd').classList.remove('open');
+                var ok = await steleConfirm('L\'entreprise "' + coName + '" n\'a aucun contact li\u00e9. Cr\u00e9er un contact ?', 'Cr\u00e9er un contact', 'Cr\u00e9er');
+                if (ok) {
+                    var firstName = await stelePrompt('Pr\u00e9nom :', 'Nouveau contact', 'Cr\u00e9er');
+                    if (!firstName || !firstName.trim()) return;
+                    var lastName = await stelePrompt('Nom :', 'Nouveau contact', 'Cr\u00e9er');
+                    if (!lastName || !lastName.trim()) return;
+                    try {
+                        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), created_by: localStorage.getItem('sb_user_id') })
+                        });
+                        if (r.ok) {
+                            var res = await r.json();
+                            if (res.length > 0) {
+                                // Link contact to company
+                                await authenticatedFetch(SUPABASE_URL + '/rest/v1/contact_companies', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                    body: JSON.stringify({ contact_id: res[0].id, company_id: coId })
+                                });
+                                allContactsCache.push(res[0]);
+                                selectedComboContactId = res[0].id;
+                                var fullName = firstName.trim() + ' ' + lastName.trim();
+                                document.getElementById('contactComboInput').value = fullName;
+                                document.getElementById('addContactStatus').textContent = '\u2713 ' + fullName + ' (' + coName + ')';
+                                document.getElementById('addContactStatus').style.color = 'var(--stele-green)';
+                                document.getElementById('btnConfirmAddContact').disabled = false;
+                            }
+                        }
+                    } catch (e) { console.warn('Error creating contact:', e); }
+                }
+            } else if (linkedContacts.length === 1) {
+                // Auto-select the single linked contact
+                selectedComboContactId = linkedContacts[0].id;
+                var n = ((linkedContacts[0].first_name || '') + ' ' + (linkedContacts[0].last_name || '')).trim();
+                document.getElementById('contactComboInput').value = n;
+                document.getElementById('addContactStatus').textContent = '\u2713 ' + n + ' (' + coName + ')';
+                document.getElementById('addContactStatus').style.color = 'var(--stele-green)';
+                document.getElementById('btnConfirmAddContact').disabled = false;
+                document.getElementById('contactComboDd').classList.remove('open');
+            } else {
+                // Show linked contacts as sub-items
+                var dd = document.getElementById('contactComboDd');
+                var html = '<div class="combo-section-header">Contacts de ' + escapeHtml(coName) + '</div>';
+                linkedContacts.forEach(function(lc) {
+                    var lcName = ((lc.first_name || '') + ' ' + (lc.last_name || '')).trim();
+                    html += '<div class="contact-combo-item" onclick="selectComboContact(this)" data-id="' + escapeAttr(lc.id) + '">' + escapeHtml(lcName) + '</div>';
+                });
+                dd.innerHTML = html;
+            }
+        }
+
+        async function createNewContactFromCombo() {
+            document.getElementById('contactComboDd').classList.remove('open');
+            var firstName = await stelePrompt('Pr\u00e9nom du nouveau contact :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!firstName || !firstName.trim()) return;
+            var lastName = await stelePrompt('Nom de famille :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!lastName || !lastName.trim()) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        allContactsCache.push(res[0]);
+                        selectedComboContactId = res[0].id;
+                        var fullName = firstName.trim() + ' ' + lastName.trim();
+                        document.getElementById('contactComboInput').value = fullName;
+                        document.getElementById('addContactStatus').textContent = '\u2713 ' + fullName + ' cr\u00e9\u00e9';
+                        document.getElementById('addContactStatus').style.color = 'var(--stele-green)';
+                        document.getElementById('btnConfirmAddContact').disabled = false;
+                    }
+                }
+            } catch (e) { console.warn('Error creating contact:', e); }
+        }
+
+        async function confirmAddContact() {
+            if (!selectedComboContactId || !currentProject) return;
+            var role = document.getElementById('addContactRole').value;
+            if (!role.trim()) { document.getElementById('addContactStatus').textContent = 'Veuillez sp\u00e9cifier un r\u00f4le.'; document.getElementById('addContactStatus').style.color = '#c62828'; return; }
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({
+                        project_id: currentProject.id,
+                        contact_id: selectedComboContactId,
+                        role: role.trim()
+                    })
+                });
+                if (r.ok) {
+                    closeAddContactModal();
+                    await loadProjectContacts();
+                    renderContactCards();
+                    renderContactBadges();
+                } else {
+                    var errText = await r.text();
+                    var statusEl = document.getElementById('addContactStatus');
+                    if (errText.indexOf('unique') !== -1 || errText.indexOf('duplicate') !== -1) {
+                        statusEl.textContent = 'Ce contact est d\u00e9j\u00e0 li\u00e9 \u00e0 ce projet.';
+                    } else {
+                        statusEl.textContent = 'Erreur lors de l\'ajout.';
+                    }
+                    statusEl.style.color = '#c62828';
+                }
+            } catch (e) { console.warn('Error adding project contact:', e); }
+        }
+
+        // Close combos on click outside
+        document.addEventListener('click', function(e) {
+            var clientWrap = document.getElementById('clientComboWrap');
+            if (clientWrap && !clientWrap.contains(e.target)) closeClientCombo();
+            var contactWrap = document.getElementById('contactComboWrap');
+            if (contactWrap && !contactWrap.contains(e.target)) {
+                var dd = document.getElementById('contactComboDd');
+                if (dd) dd.classList.remove('open');
+            }
+        });
 
         // ═══════════════════════════════════════════════════════════════════════
         // WORKFLOW : SOUMETTRE / APPROUVER / RETOURNER

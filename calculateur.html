@@ -4309,7 +4309,7 @@
         }
         .contact-card-name { font-size: 16px; font-weight: 700; color: var(--stele-black); margin-bottom: 2px; }
         .contact-card-name-link {
-            color: var(--stele-black); text-decoration: none; transition: color 0.15s;
+            color: var(--stele-black); text-decoration: none; transition: color 0.15s; cursor: pointer;
         }
         .contact-card-name-link:hover { color: var(--stele-green); text-decoration: underline; }
         .contact-card-company { font-size: 13px; color: #888; margin-bottom: 12px; }
@@ -5023,6 +5023,21 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeAddContactModal()">Annuler</button>
                 <button class="btn-generate" id="btnConfirmAddContact" onclick="confirmAddContact()" disabled>Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Detail Modal -->
+    <div class="modal-overlay" id="contactDetailModal" onclick="if(event.target===this)closeContactDetail()">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="contactDetailTitle">Contact</h3>
+                <button class="modal-close" onclick="closeContactDetail()">&times;</button>
+            </div>
+            <div class="modal-body" id="contactDetailBody"></div>
+            <div class="modal-footer">
+                <a id="contactDetailCrmLink" href="#" target="_blank" style="font-size:13px; color:var(--stele-green); text-decoration:none;">Ouvrir dans le CRM &rarr;</a>
+                <button class="btn-cancel" onclick="closeContactDetail()">Fermer</button>
             </div>
         </div>
     </div>
@@ -10404,7 +10419,7 @@
             try {
                 var r = await authenticatedFetch(
                     SUPABASE_URL + '/rest/v1/project_contacts?project_id=eq.' + currentProject.id +
-                    '&select=*,contacts(id,first_name,last_name,email,phone,contact_companies(companies(id,name)))' +
+                    '&select=*,contacts(id,first_name,last_name,email,phone,address,notes,contact_companies(companies(id,name)))' +
                     '&order=sort_order', {}
                 );
                 if (r.ok) {
@@ -10480,15 +10495,13 @@
                 var companiesData = (c.contact_companies || []).map(function(cc) {
                     return cc.companies ? { id: cc.companies.id, name: cc.companies.name } : null;
                 }).filter(Boolean);
-                var companyLinks = companiesData.map(function(co) {
-                    return '<a href="clients.html#company-' + escapeAttr(co.id) + '" target="_blank" class="contact-card-company-link">' + escapeHtml(co.name) + '</a>';
-                }).join(', ');
+                var companyStr = companiesData.map(function(co) { return escapeHtml(co.name); }).join(', ');
 
                 html += '<div class="contact-card">' +
                     '<button class="contact-card-remove" onclick="removeProjectContact(\'' + escapeAttr(pc.id) + '\')" title="Retirer">&times;</button>' +
                     '<div class="contact-card-role">' + escapeHtml(pc.role) + '</div>' +
-                    '<div class="contact-card-name"><a href="clients.html#contact-' + escapeAttr(c.id) + '" target="_blank" class="contact-card-name-link">' + escapeHtml(fullName) + '</a></div>' +
-                    (companyLinks ? '<div class="contact-card-company">' + companyLinks + '</div>' : '') +
+                    '<div class="contact-card-name"><span class="contact-card-name-link" onclick="openContactDetail(\'' + escapeAttr(c.id) + '\')">' + escapeHtml(fullName) + '</span></div>' +
+                    (companyStr ? '<div class="contact-card-company">' + companyStr + '</div>' : '') +
                     '<div class="contact-card-details">' +
                         (c.phone ? '&#128222; ' + escapeHtml(c.phone) + '<br>' : '') +
                         (c.email ? '&#9993; ' + escapeHtml(c.email) : '') +
@@ -10517,6 +10530,37 @@
             if (c.phone) text += '\n' + c.phone;
             if (c.email) text += '\n' + c.email;
             navigator.clipboard.writeText(text.trim());
+        }
+
+        function openContactDetail(contactId) {
+            var pc = projectContacts.find(function(p) { return p.contacts && p.contacts.id === contactId; });
+            if (!pc || !pc.contacts) return;
+            var c = pc.contacts;
+            var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+            var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : ''; }).filter(Boolean);
+
+            document.getElementById('contactDetailTitle').textContent = fullName;
+            document.getElementById('contactDetailCrmLink').href = 'clients.html#contact-' + contactId;
+
+            var html = '';
+            if (pc.role) html += '<div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--stele-green); margin-bottom:12px;">' + escapeHtml(pc.role) + '</div>';
+            if (companies.length > 0) html += '<div style="font-size:14px; color:#666; margin-bottom:12px;">' + escapeHtml(companies.join(', ')) + '</div>';
+
+            if (c.phone) html += '<div style="font-size:14px; margin-bottom:8px;">&#128222; <a href="tel:' + escapeAttr(c.phone) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(c.phone) + '</a></div>';
+            if (c.email) html += '<div style="font-size:14px; margin-bottom:8px;">&#9993; <a href="mailto:' + escapeAttr(c.email) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(c.email) + '</a></div>';
+            if (c.address) html += '<div style="font-size:14px; margin-bottom:8px; color:#666;">&#128205; ' + escapeHtml(c.address) + '</div>';
+            if (c.notes) html += '<div style="font-size:13px; margin-top:12px; padding:10px; background:#f8f8f8; border-radius:8px; color:#555; line-height:1.5;">' + escapeHtml(c.notes) + '</div>';
+
+            if (!c.phone && !c.email && !c.address && !c.notes) {
+                html += '<div style="font-size:13px; color:#999; font-style:italic;">Aucun d\u00e9tail suppl\u00e9mentaire.</div>';
+            }
+
+            document.getElementById('contactDetailBody').innerHTML = html;
+            document.getElementById('contactDetailModal').classList.add('active');
+        }
+
+        function closeContactDetail() {
+            document.getElementById('contactDetailModal').classList.remove('active');
         }
 
         async function removeProjectContact(pcId) {

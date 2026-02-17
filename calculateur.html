@@ -7398,6 +7398,8 @@
                         approved_total: grandTotal
                     });
                     currentSubmission.status = 'approved_internal';
+                    // Figer le HTML de la soumission
+                    await uploadSnapshot(currentSubmission.id);
                     updateStatusBadge('approved_internal');
                     showSendStatus('Soumission approuv\u00e9e!', false);
                 } else {
@@ -8958,6 +8960,138 @@
             return null;
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // SNAPSHOT — Fige le HTML de la soumission à l'approbation/envoi
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var SNAPSHOT_CSS = ':root{--stele-black:#0A0203;--stele-green:#4b6050;--stele-gray:#C8C8C8}\n' +
+            '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}\n' +
+            'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:#fff;color:var(--stele-black);line-height:1.5}\n' +
+            '.pv-content{display:flex;flex-direction:column;gap:40px;max-width:1200px;margin:0 auto;padding:40px 0}\n' +
+            '.pv-page{background:#fff;padding:36px 48px;aspect-ratio:11/8.5;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:4px}\n' +
+            '.pv-page-title{flex-direction:row;padding:0;align-items:stretch}\n' +
+            '.pv-cover-left{flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 52px;background:#F7F8FA;text-align:left;position:relative}\n' +
+            '.pv-cover-left .pv-logo{height:56px;margin-bottom:40px;align-self:flex-start}\n' +
+            '.pv-cover-left .pv-project-name{font-size:26px;font-weight:600;color:var(--stele-black);line-height:1.25;margin-bottom:8px}\n' +
+            '.pv-cover-left .pv-client-name{font-size:17px;font-weight:400;color:#444;margin-bottom:4px}\n' +
+            '.pv-cover-left .pv-client-address{font-size:14px;color:#888;margin-bottom:0;line-height:1.5}\n' +
+            '.pv-cover-left .pv-cover-divider{width:40px;height:2px;background:var(--stele-green);margin:24px 0}\n' +
+            '.pv-cover-left .pv-sub-number{font-size:14px;font-weight:600;color:var(--stele-green);margin-bottom:4px;letter-spacing:0.02em}\n' +
+            '.pv-cover-left .pv-sub-date{font-size:13px;color:#999}\n' +
+            '.pv-cover-right{flex:1;background:#0B0F17;overflow:hidden;position:relative}\n' +
+            '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block}\n' +
+            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,23,42,0.15) 0%,rgba(15,23,42,0.35) 100%)}\n' +
+            '.pv-install-banner{position:absolute;bottom:20px;left:0;right:50%;text-align:center;font-size:11px;color:#999;letter-spacing:0.3px}\n' +
+            '.pv-install-room-note{font-size:11px;color:#999;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +
+            '.pv-install-total-note{font-size:13px;color:#999;margin-bottom:16px;letter-spacing:0.3px}\n' +
+            '.pv-page-room-header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--stele-green);color:#fff;border-radius:4px;margin-bottom:38px;flex-shrink:0}\n' +
+            '.pv-page-room-name{font-size:17px;font-weight:600;letter-spacing:0.3px}\n' +
+            '.pv-page-room-subtotal{font-size:17px;font-weight:700}\n' +
+            '.pv-page-room-body{flex:1;display:flex;gap:38px;overflow:hidden;min-height:0}\n' +
+            '.pv-page-room-text{flex:1;display:flex;flex-direction:column;overflow:hidden;justify-content:center}\n' +
+            '.pv-page-room-media{flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:center;max-height:100%}\n' +
+            '.pv-page-room-media.imgs-1{grid-template-columns:1fr}\n' +
+            '.pv-page-room-media.imgs-2{grid-template-columns:1fr;gap:38px}\n' +
+            '.pv-page-room-media.imgs-3{gap:8px}\n' +
+            '.pv-page-room-media.imgs-3 .pv-img-wrap:first-child{grid-column:1/-1}\n' +
+            '.pv-page-room-media .pv-img-wrap{overflow:hidden;min-height:0;border-radius:4px}\n' +
+            '.pv-page-room-media .pv-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}\n' +
+            '.pv-page-room-desc{width:100%;border:none;border-radius:4px;padding:10px 12px;font-size:13px;line-height:1.5;color:#444;font-family:inherit;flex:1;min-height:60px;background:transparent}\n' +
+            '.pv-page-room-desc p{margin:0 0 6px 0}\n' +
+            '.pv-page-room-desc ul{margin:4px 0 8px 0;padding-left:20px}\n' +
+            '.pv-page-room-desc li{margin-bottom:2px}\n' +
+            '.pv-page-room-desc strong{font-weight:700}\n' +
+            '.pv-page-clauses-header{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--stele-green);font-weight:700;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid var(--stele-green)}\n' +
+            '.pv-page-clauses-body{flex:1;overflow:hidden}\n' +
+            '.pv-page-clause{margin-bottom:8px;padding:6px 14px;border-left:3px solid var(--stele-green);background:#fafafa;border-radius:0 3px 3px 0}\n' +
+            '.pv-page-clause-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px}\n' +
+            '.pv-page-clause-text{width:100%;border:none;border-radius:3px;padding:2px 4px;font-size:12px;line-height:1.3;color:#555;font-family:inherit;resize:none;background:transparent}\n' +
+            '.pv-page-clause-actions{display:none}\n' +
+            '.pv-page-total{justify-content:center;align-items:center;text-align:center}\n' +
+            '.pv-total-box{padding:36px 56px;background:var(--stele-black);color:#fff;border-radius:6px}\n' +
+            '.pv-total-box .total-label{font-size:16px;font-weight:300;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;opacity:0.8}\n' +
+            '.pv-total-box .total-amount{font-size:42px;font-weight:700}\n' +
+            '.pv-total-box .total-taxes{font-size:13px;opacity:0.6;margin-top:6px}\n' +
+            '.pv-page-footer-text{margin-top:32px;font-size:12px;color:#aaa;letter-spacing:0.5px}\n' +
+            '.pv-page-steps{padding:32px 48px}\n' +
+            '.pv-steps-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--stele-green);font-weight:700;margin-bottom:20px;padding-bottom:6px;border-bottom:2px solid var(--stele-green)}\n' +
+            '.pv-steps-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:10px 48px;grid-auto-flow:column}\n' +
+            '.pv-step{display:flex;gap:16px;align-items:flex-start}\n' +
+            '.pv-step-circle{width:64px;height:64px;min-width:64px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin-top:2px}\n' +
+            '.pv-step-content{flex:1;min-width:0}\n' +
+            '.pv-step-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--stele-black);margin-bottom:4px}\n' +
+            '.pv-step-desc{font-size:11px;line-height:1.45;color:#555}\n' +
+            '@media print{.pv-page{box-shadow:none;page-break-after:always;border-radius:0}}';
+
+        function generateSnapshotHtml(pagesHtml) {
+            return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n' +
+                '<meta charset="UTF-8">\n' +
+                '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+                '<title>Soumission #' + escapeHtml((currentSubmission ? currentSubmission.submission_number : '') + '') + '</title>\n' +
+                '<style>\n' + SNAPSHOT_CSS + '\n</style>\n' +
+                '</head>\n<body>\n' +
+                '<div class="pv-content">\n' + pagesHtml + '\n</div>\n' +
+                '</body>\n</html>';
+        }
+
+        async function uploadSnapshot(submissionId) {
+            if (!submissionId) return;
+            try {
+                // Render preview to get HTML
+                await loadCoverImage();
+                await renderPreview();
+                var container = document.getElementById('pvContent');
+                if (!container) return;
+                var pagesHtml = container.innerHTML;
+
+                // Remove interactive elements from snapshot
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = pagesHtml;
+                // Remove edit buttons, delete buttons, dropzones, optimize buttons
+                tempDiv.querySelectorAll('.pv-img-delete, .pv-img-badge-client, .pv-page-clause-actions, .pv-clause-dropzone, .pv-optimize-btn, button').forEach(function(el) { el.remove(); });
+                // Make contenteditable divs static
+                tempDiv.querySelectorAll('[contenteditable]').forEach(function(el) { el.removeAttribute('contenteditable'); });
+                // Make textareas into divs
+                tempDiv.querySelectorAll('textarea').forEach(function(ta) {
+                    var div = document.createElement('div');
+                    div.className = ta.className;
+                    div.textContent = ta.value;
+                    ta.parentNode.replaceChild(div, ta);
+                });
+                var cleanHtml = tempDiv.innerHTML;
+
+                var snapshotHtml = generateSnapshotHtml(cleanHtml);
+                var blob = new Blob([snapshotHtml], { type: 'text/html' });
+
+                // Upload to Storage
+                var filePath = submissionId + '.html';
+                var r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/submission-snapshots/' + filePath, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'text/html', 'x-upsert': 'true' },
+                    body: blob
+                });
+                if (!r.ok) {
+                    // Try POST if PUT fails
+                    r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/submission-snapshots/' + filePath, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/html', 'x-upsert': 'true' },
+                        body: blob
+                    });
+                }
+                if (r.ok) {
+                    console.log('Snapshot saved for submission', submissionId);
+                } else {
+                    console.warn('Snapshot upload failed:', await r.text());
+                }
+            } catch (e) {
+                console.warn('Error creating snapshot:', e);
+            }
+        }
+
+        function getSnapshotUrl(submissionId) {
+            return SUPABASE_URL + '/storage/v1/object/public/submission-snapshots/' + submissionId + '.html';
+        }
+
         async function loadCoverImage() {
             if (coverImageUrl !== null) return; // already loaded
             try {
@@ -8970,6 +9104,8 @@
             } catch (e) { coverImageUrl = ''; }
         }
 
+        var _snapshotRendered = false; // flag to prevent snapshot re-render loop from uploadSnapshot
+
         async function renderPreview() {
             await loadCoverImage();
             var container = document.getElementById('pvContent');
@@ -8979,6 +9115,27 @@
             if (subLabel && currentSubmission) {
                 subLabel.textContent = t('soumission') + ' #' + (currentSubmission.submission_number || '');
             }
+
+            // For approved+ submissions in client view, try to load snapshot
+            var s = currentSubmission ? currentSubmission.status : 'draft';
+            var isLocked = s !== 'draft' && s !== 'returned' && s !== 'pending_internal';
+            if (isLocked && clientViewMode && !_snapshotRendered) {
+                try {
+                    var snapUrl = getSnapshotUrl(currentSubmission.id);
+                    var snapResp = await fetch(snapUrl, { method: 'GET' });
+                    if (snapResp.ok) {
+                        var snapHtml = await snapResp.text();
+                        // Extract body content from snapshot
+                        var bodyMatch = snapHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                        if (bodyMatch) {
+                            container.innerHTML = bodyMatch[1];
+                            _snapshotRendered = true;
+                            return;
+                        }
+                    }
+                } catch (e) { /* snapshot not available, render live */ }
+            }
+            _snapshotRendered = false;
 
             var html = '';
             var editable = currentSubmission && (currentSubmission.status === 'draft' || currentSubmission.status === 'returned');
@@ -11078,6 +11235,8 @@
                 await createSubmissionReview(currentSubmission.id, 'sent', 'Lien client g\u00e9n\u00e9r\u00e9');
 
                 currentSubmission.status = 'sent_client';
+                // Regénérer le snapshot (au cas où données ont changé depuis approbation)
+                await uploadSnapshot(currentSubmission.id);
                 updateStatusBadge('sent_client');
                 updateWorkflowButtons();
                 setEditable(false);
@@ -11141,6 +11300,8 @@
                     approved_total: total
                 });
                 currentSubmission.status = 'approved_internal';
+                // Figer le HTML de la soumission
+                await uploadSnapshot(currentSubmission.id);
                 updateStatusBadge('approved_internal');
                 updateWorkflowButtons();
                 setEditable(false);
@@ -11272,9 +11433,12 @@
                 // 5. Entrée timeline
                 await createSubmissionReview(currentSubmission.id, 'bypass', 'BYPASS: ' + reason);
 
-                // 6. Mettre à jour l'UI
+                // 6. Figer le HTML de la soumission
                 currentSubmission.status = 'sent_client';
                 currentSubmission.bypass_approval = true;
+                await uploadSnapshot(currentSubmission.id);
+
+                // 7. Mettre à jour l'UI
                 updateStatusBadge('sent_client');
                 updateWorkflowButtons();
                 setEditable(false);

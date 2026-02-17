@@ -634,6 +634,25 @@ async function renderQuote() {
     var rooms = quoteData.rooms || [];
     var token = quoteData.token;
 
+    // Try to load snapshot for approved/sent submissions
+    var isLocked = sub.status && sub.status !== 'draft' && sub.status !== 'returned' && sub.status !== 'pending_internal';
+    if (isLocked && sub.id) {
+        try {
+            var snapUrl = SUPABASE_URL + '/storage/v1/object/public/submission-snapshots/' + sub.id + '.html';
+            var snapResp = await fetch(snapUrl);
+            if (snapResp.ok) {
+                var snapHtml = await snapResp.text();
+                var bodyMatch = snapHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch) {
+                    document.getElementById('quotePages').innerHTML = bodyMatch[1];
+                    // Still need acceptance UI, so continue with that part only
+                    renderAcceptanceSection(sub, token);
+                    return;
+                }
+            }
+        } catch (e) { /* snapshot not available, render live */ }
+    }
+
     // Load room_media for all rooms (new Storage-based images)
     var roomMediaMap = {};
     try {
@@ -822,7 +841,12 @@ async function renderQuote() {
     // ── Inject all pages ──
     document.getElementById('quotePages').innerHTML = html;
 
-    // ── Acceptance state ──
+    // ── Acceptance UI ──
+    renderAcceptanceSection(sub, token);
+}
+
+function renderAcceptanceSection(sub, token) {
+    var proj = quoteData ? quoteData.project : {};
     if (token.accepted_at || sub.accepted_at) {
         document.getElementById('acceptanceSection').style.display = 'none';
         document.getElementById('acceptedBanner').style.display = 'block';

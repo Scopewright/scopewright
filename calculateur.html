@@ -4965,10 +4965,6 @@
                     </div>
                 </div>
                 <div id="addrSuggestPanel" style="display:none;"></div>
-                <div class="form-group">
-                    <label class="form-label">Designer</label>
-                    <input type="text" class="form-input" id="infoDesigner" placeholder="Nom du designer">
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeEditInfoModal()">Annuler</button>
@@ -5002,6 +4998,7 @@
                 <div class="form-group">
                     <label class="form-label">R&ocirc;le</label>
                     <select class="form-input" id="addContactRole" onchange="toggleCustomRole()">
+                        <option value="Propri&eacute;taire">Propri&eacute;taire</option>
                         <option value="Entrepreneur">Entrepreneur</option>
                         <option value="Client">Client</option>
                         <option value="Designer">Designer</option>
@@ -10158,7 +10155,6 @@
             document.getElementById('infoProjectAddress').value = currentProject.project_address || '';
             document.getElementById('infoProjectCity').value = currentProject.project_city || '';
             document.getElementById('infoProjectPostalCode').value = currentProject.project_postal_code || '';
-            document.getElementById('infoDesigner').value = currentProject.designer || '';
             document.getElementById('addrSuggestPanel').style.display = 'none';
 
             // Init client combobox
@@ -10194,7 +10190,6 @@
             var address = document.getElementById('infoProjectAddress').value.trim();
             var city = document.getElementById('infoProjectCity').value.trim();
             var postal = document.getElementById('infoProjectPostalCode').value.trim();
-            var designer = document.getElementById('infoDesigner').value.trim();
             var clientName = document.getElementById('infoClientCombo').value.trim();
 
             var updateObj = {
@@ -10202,7 +10197,6 @@
                 project_address: address,
                 project_city: city,
                 project_postal_code: postal,
-                designer: designer,
                 client_contact_id: selectedClientType === 'contact' ? selectedClientId : null,
                 client_company_id: selectedClientType === 'company' ? selectedClientId : null
             };
@@ -10789,6 +10783,9 @@
                     await loadProjectContacts();
                     renderContactCards();
                     renderContactBadges();
+
+                    // Propose to use contact's address as project address
+                    await promptContactAddressForProject(selectedComboContactId);
                 } else {
                     var errText = await r.text();
                     var statusEl = document.getElementById('addContactStatus');
@@ -10800,6 +10797,54 @@
                     statusEl.style.color = '#c62828';
                 }
             } catch (e) { console.warn('Error adding project contact:', e); }
+        }
+
+        async function promptContactAddressForProject(contactId) {
+            if (!currentProject || !contactId) return;
+            // Already has a project address? Skip.
+            if (currentProject.project_address) return;
+            // Fetch the contact's address
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?id=eq.' + contactId + '&select=first_name,last_name,address', {});
+                if (!r.ok) return;
+                var rows = await r.json();
+                if (rows.length === 0 || !rows[0].address) return;
+                var c = rows[0];
+                var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                var useIt = await steleConfirm(
+                    'L\'adresse de ' + name + ' est :\n' + c.address + '\n\nUtiliser comme adresse du projet ?',
+                    'Adresse du projet', 'Utiliser', false
+                );
+                if (useIt) {
+                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify({ project_address: c.address })
+                    }).then(async function(resp) {
+                        if (resp.ok) {
+                            var updated = await resp.json();
+                            if (updated.length > 0) currentProject = updated[0];
+                            renderProjectInfoBloc();
+                        }
+                    });
+                } else {
+                    // Ask for address manually
+                    var addr = await stelePrompt('Quelle est l\'adresse du projet ?', 'Adresse du projet', 'Enregistrer');
+                    if (addr && addr.trim()) {
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + currentProject.id, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify({ project_address: addr.trim() })
+                        }).then(async function(resp) {
+                            if (resp.ok) {
+                                var updated = await resp.json();
+                                if (updated.length > 0) currentProject = updated[0];
+                                renderProjectInfoBloc();
+                            }
+                        });
+                    }
+                }
+            } catch (e) { console.warn('Error prompting contact address:', e); }
         }
 
         // Close combos on click outside

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stele — Calculateur</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
@@ -142,6 +143,15 @@
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
+
+    // Project contacts state
+    var projectContacts = [];
+    var allContactsCache = [];
+    var selectedComboContactId = null;
+    var configContactRoles = ['Client', 'Entrepreneur', 'Designer', 'Architecte', 'Ingénieur'];
+    var allCompaniesCache = [];
+    var selectedClientType = null;
+    var selectedClientId = null;
 
     // ═══════════════════════════════════════════════════════════════════════
     // DIALOGUES CUSTOM (remplace alert/confirm/prompt natifs)
@@ -3625,18 +3635,7 @@
         }
         .dm-add-btn:hover { border-color: var(--stele-green); background: #f0f7f1; }
 
-        /* ── Main action buttons ── */
-        .ph-actions { display: none; /* replaced by timeline CTA */ }
-        .btn-main-action {
-            display: none; padding: 12px 28px; font-size: 15px; font-weight: 600;
-            border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
-            transition: opacity 0.15s; background: #1565c0; color: #fff;
-        }
-        .btn-main-action:hover { opacity: 0.85; }
-        .btn-main-green { background: var(--stele-green); color: #fff; }
-        .btn-main-orange { background: #e65100; color: #fff; }
-        .btn-main-purple { background: #4527a0; color: #fff; }
-        .btn-main-red { background: #c0392b; color: #fff; }
+        /* ── Main action buttons (legacy compat) ── */
 
         /* ── Kebab menu ── */
         .kebab-menu { position: relative; }
@@ -3647,7 +3646,7 @@
             color: #666; transition: all 0.15s; font-family: inherit;
         }
         .btn-kebab:hover { background: #eee; border-color: #ccc; }
-        .btn-kebab.active { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
+        .btn-kebab.active { background: #0F1C2D; color: #fff; border-color: #0F1C2D; }
         .kebab-dropdown {
             display: none; position: absolute; top: 100%; right: 0; margin-top: 4px;
             background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
@@ -3696,12 +3695,12 @@
             padding: 5px 12px; font-size: 11px; font-weight: 700;
             border-radius: 12px; text-transform: uppercase; letter-spacing: 0.3px;
         }
-        .status-draft { background: #f0f0f0; color: #666; }
-        .status-pending_internal { background: #fff3e0; color: #e65100; }
-        .status-returned { background: #fce4ec; color: #c62828; }
-        .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
-        .status-sent_client { background: #e3f2fd; color: #1565c0; }
-        .status-accepted { background: #e8f5e9; color: #1b5e20; }
+        .status-draft { background: #F1F5F9; color: #64748B; }
+        .status-pending_internal { background: #FFF7ED; color: #C2410C; }
+        .status-returned { background: #FEF2F2; color: #DC2626; }
+        .status-approved_internal { background: #F0FDF4; color: #16A34A; }
+        .status-sent_client { background: #EFF6FF; color: #2563EB; }
+        .status-accepted { background: #F0FDF4; color: #15803D; }
 
         .project-card-delete {
             position: absolute; top: 8px; right: 8px; background: none; border: none;
@@ -3746,43 +3745,82 @@
            ═══════════════════════════════════════════════════════════════ */
 
         .project-header {
-            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 20px 24px; margin-bottom: 16px; position: relative;
-            display: flex; flex-direction: column; gap: 4px;
+            --ph-navy: #0F1C2D; --ph-text: #0F172A; --ph-text-sec: #64748B;
+            --ph-muted: #94A3B8; --ph-bg: #F8FAFC; --ph-border: #E2E8F0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #fff; border-radius: 16px;
+            border: 1px solid var(--ph-border);
+            max-width: 1120px; margin: 0 auto 16px; padding: 32px 40px 24px;
+            position: relative;
         }
-        .ph-top-bar {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 8px;
-        }
-        .ph-top-actions { display: flex; align-items: center; gap: 8px; }
         .btn-back-projects {
-            background: none; border: none; color: var(--stele-green);
-            cursor: pointer; font-size: 14px; font-family: inherit;
-            padding: 6px 0; white-space: nowrap;
+            background: none; border: none; color: var(--ph-text-sec);
+            cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500;
+            padding: 0 0 16px; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+            transition: color 0.18s;
         }
-        .btn-back-projects:hover { text-decoration: underline; }
-        .btn-header-link {
-            background: none; border: none; color: #555; font-size: 13px;
-            font-family: inherit; cursor: pointer; padding: 4px 8px;
-            transition: color 0.15s;
+        .btn-back-projects:hover { color: var(--ph-text); }
+        .ph-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: start; }
+        .ph-left { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+        .ph-right { display: flex; flex-direction: column; align-items: flex-end; gap: 24px; }
+        .ph-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .ph-nav-item {
+            background: none; border: none; font-family: inherit;
+            font-size: 13px; font-weight: 500; color: var(--ph-text-sec);
+            cursor: pointer; padding: 6px 12px; border-radius: 8px;
+            transition: all 0.18s; white-space: nowrap;
         }
-        .btn-header-link:hover { color: var(--stele-green); }
+        .ph-nav-item:hover { background: var(--ph-bg); color: var(--ph-text); }
+        .ph-nav-item.active { background: var(--ph-bg); color: var(--ph-navy); font-weight: 600; }
         .ph-project-name {
-            font-size: 26px; font-weight: 700; border: none; outline: none;
-            background: transparent; font-family: inherit; color: var(--stele-black);
+            font-size: 32px; font-weight: 600; line-height: 1.2; border: none; outline: none;
+            background: transparent; font-family: inherit; color: var(--ph-text);
             padding: 0; width: 100%;
         }
-        .ph-project-name:hover { background: #fafafa; }
-        .ph-project-name:focus { background: #fff; box-shadow: 0 0 0 2px rgba(75,96,80,0.15); border-radius: 4px; }
-        .ph-status-row { margin: 4px 0; }
-        .ph-total-section { margin: 12px 0 4px; }
-        .ph-total-label { font-size: 12px; color: #888; margin-bottom: 2px; }
-        .ph-total-amount { font-size: 28px; font-weight: 700; color: var(--stele-black); }
-        .save-indicator {
-            font-size: 11px; color: #999; white-space: nowrap;
-            position: absolute; top: 8px; right: 12px;
+        .ph-project-name::placeholder { color: var(--ph-muted); }
+        .ph-project-name:hover { background: var(--ph-bg); border-radius: 6px; }
+        .ph-project-name:focus { background: #fff; box-shadow: 0 0 0 2px rgba(15,28,45,0.1); border-radius: 6px; }
+        .ph-meta-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+        .ph-status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            height: 28px; padding: 0 12px; border-radius: 999px;
+            font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em;
         }
-        .save-indicator.saving { color: var(--stele-green); }
+        .ph-status-badge.status-draft { background: #F1F5F9; color: var(--ph-text-sec); }
+        .ph-status-badge.status-pending_internal { background: #FFF7ED; color: #C2410C; }
+        .ph-status-badge.status-returned { background: #FEF2F2; color: #DC2626; }
+        .ph-status-badge.status-approved_internal { background: #F0FDF4; color: #16A34A; }
+        .ph-status-badge.status-sent_client { background: #EFF6FF; color: #2563EB; }
+        .ph-status-badge.status-accepted { background: #F0FDF4; color: #15803D; }
+        .ph-total-section { margin-top: 16px; }
+        .ph-total-label { font-size: 13px; color: var(--ph-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
+        .ph-total-amount { font-size: 36px; font-weight: 600; color: var(--ph-text); margin-top: 4px; letter-spacing: -0.02em; }
+        .ph-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        .ph-main-btn {
+            display: none; height: 44px; padding: 0 20px; border-radius: 10px;
+            font-size: 14px; font-weight: 500; font-family: inherit;
+            border: none; cursor: pointer; transition: all 0.18s;
+            background: var(--ph-navy); color: #fff;
+            box-shadow: 0 4px 12px rgba(15,28,45,0.15);
+        }
+        .ph-main-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(15,28,45,0.2); }
+        .ph-btn-green { background: #16A34A; }
+        .ph-btn-orange { background: #EA580C; }
+        .ph-btn-purple { background: #7C3AED; }
+        .ph-btn-red { background: #DC2626; }
+        .save-indicator {
+            font-size: 11px; color: var(--ph-muted); white-space: nowrap;
+            position: absolute; top: 12px; right: 16px;
+        }
+        .save-indicator.saving { color: var(--ph-navy); }
+        @media (max-width: 768px) {
+            .project-header { padding: 20px 16px 16px; }
+            .ph-grid { grid-template-columns: 1fr; gap: 16px; }
+            .ph-right { align-items: flex-start; }
+            .ph-project-name { font-size: 24px; }
+            .ph-total-amount { font-size: 28px; }
+        }
 
         /* Status Timeline */
         .status-timeline {
@@ -3829,12 +3867,12 @@
             margin-left: auto; padding-left: 16px;
         }
         .timeline-cta button {
-            background: var(--stele-green); color: #fff; border: none; padding: 8px 20px;
-            border-radius: 6px; font-size: 13px; font-weight: 600; font-family: inherit;
-            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+            background: #0F1C2D; color: #fff; border: none; padding: 8px 20px;
+            border-radius: 10px; font-size: 13px; font-weight: 500; font-family: 'Inter', inherit;
+            cursor: pointer; transition: all 0.18s; white-space: nowrap;
         }
         .timeline-cta button:hover {
-            background: #3e4f42; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,28,45,0.2);
         }
         .timeline-cta button.btn-orange {
             background: #ff9800;
@@ -4223,6 +4261,180 @@
             cursor: pointer; font-family: inherit;
         }
         .btn-overlay:hover { opacity: 0.9; }
+
+        /* ═══════════════════════════════════════════════════════════════
+           PROJECT INFO BLOC
+           ═══════════════════════════════════════════════════════════════ */
+        .ph-info-line {
+            display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 0;
+        }
+        .ph-info-text { font-size: 14px; color: var(--ph-text-sec, #64748B); line-height: 1.5; }
+        .ph-info-text span { color: var(--ph-muted, #94A3B8); }
+        .ph-info-empty { font-size: 14px; color: var(--ph-muted, #94A3B8); font-style: italic; }
+        .btn-edit-info {
+            background: none; border: none; cursor: pointer; color: var(--ph-muted, #94A3B8);
+            font-size: 14px; padding: 2px 6px; transition: all 0.18s; flex-shrink: 0;
+            opacity: 0.4;
+        }
+        .btn-edit-info:hover { opacity: 0.8; color: var(--ph-text, #0F172A); }
+        .info-modal-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+        @media (max-width: 500px) { .info-modal-row { grid-template-columns: 1fr; } }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CONTACT BADGES STRIP (in project header)
+           ═══════════════════════════════════════════════════════════════ */
+        .ph-contacts-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .ph-contact-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 999px;
+            background: var(--ph-bg, #F8FAFC); border: 1px solid var(--ph-border, #E2E8F0);
+            font-size: 12px; font-weight: 500; color: var(--ph-text-sec, #64748B);
+            cursor: pointer; transition: all 0.18s; white-space: nowrap;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+        .ph-contact-badge:hover { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); color: var(--ph-text, #0F172A); }
+        .ph-contact-badge-role { color: var(--ph-muted, #94A3B8); font-weight: 400; font-size: 11px; }
+        .ph-contacts-more {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 12px; font-weight: 500;
+            color: var(--ph-navy, #0F1C2D); cursor: pointer; transition: all 0.18s;
+        }
+        .ph-contacts-more:hover { background: var(--ph-bg, #F8FAFC); }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CONTACTS MODAL
+           ═══════════════════════════════════════════════════════════════ */
+        .contacts-overlay {
+            --ph-navy: #0F1C2D; --ph-text: #0F172A; --ph-text-sec: #64748B;
+            --ph-muted: #94A3B8; --ph-bg: #F8FAFC; --ph-border: #E2E8F0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9000; justify-content: center; align-items: flex-start; padding: 40px 20px;
+        }
+        .contacts-overlay.active { display: flex; }
+        .contacts-modal {
+            background: #fff; border-radius: 16px; width: 960px; max-width: 100%;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 40px 80px rgba(15,23,42,0.12), 0 2px 8px rgba(15,23,42,0.04);
+            padding: 0;
+        }
+        .contacts-modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 32px 40px 24px; border-bottom: 1px solid var(--ph-border);
+        }
+        .contacts-modal-header h2 { font-size: 22px; font-weight: 600; color: var(--ph-text); margin: 0; }
+        .contacts-modal-close {
+            background: none; border: none; font-size: 24px; cursor: pointer;
+            color: var(--ph-muted); padding: 4px 8px; transition: color 0.18s;
+        }
+        .contacts-modal-close:hover { color: var(--ph-text); }
+        .contacts-modal-body { padding: 24px 40px 32px; }
+        .contact-cards-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;
+        }
+        .contact-card {
+            background: var(--ph-bg); border: 1px solid var(--ph-border); border-radius: 14px;
+            padding: 20px; transition: all 0.18s; position: relative;
+        }
+        .contact-card:hover { background: #fff; box-shadow: 0 10px 30px rgba(15,23,42,0.06); border-color: transparent; }
+        .contact-card-role {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--ph-navy); margin-bottom: 8px;
+        }
+        .contact-card-name { font-size: 16px; font-weight: 600; color: var(--ph-text); margin-bottom: 2px; }
+        .contact-card-name-link {
+            color: var(--ph-text); text-decoration: none; transition: color 0.18s;
+        }
+        .contact-card-name-link:hover { color: var(--ph-navy); text-decoration: underline; }
+        .contact-card-company { font-size: 13px; color: var(--ph-text-sec); margin-bottom: 12px; }
+        .contact-card-company-link {
+            color: var(--ph-text-sec); text-decoration: none; transition: color 0.18s;
+        }
+        .contact-card-company-link:hover { color: var(--ph-navy); text-decoration: underline; }
+        .contact-card-details { font-size: 13px; color: var(--ph-text-sec); line-height: 1.6; }
+        .contact-card-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .contact-card-btn {
+            background: #fff; border: 1px solid var(--ph-border); border-radius: 8px;
+            padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer;
+            font-family: inherit; color: var(--ph-text-sec); transition: all 0.18s;
+        }
+        .contact-card-btn:hover { background: var(--ph-bg); border-color: var(--ph-muted); color: var(--ph-text); }
+        .contact-card-remove {
+            position: absolute; top: 10px; right: 10px; background: none;
+            border: none; cursor: pointer; color: var(--ph-muted); font-size: 16px;
+            padding: 4px; transition: color 0.18s;
+        }
+        .contact-card-remove:hover { color: #DC2626; }
+        .contact-card-placeholder {
+            background: transparent; border: 1px dashed #CBD5E1; border-radius: 14px;
+            padding: 20px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.18s; min-height: 120px;
+        }
+        .contact-card-placeholder:hover { border-color: var(--ph-muted); background: var(--ph-bg); }
+        .contact-card-placeholder span { font-size: 14px; color: var(--ph-muted); font-weight: 500; }
+        .btn-add-contact {
+            background: var(--ph-navy); color: #fff; border: none;
+            border-radius: 10px; padding: 10px 20px; font-size: 14px;
+            font-weight: 500; cursor: pointer; font-family: inherit;
+            margin-top: 20px; transition: all 0.18s;
+            box-shadow: 0 4px 12px rgba(15,28,45,0.15);
+        }
+        .btn-add-contact:hover { opacity: 0.9; transform: translateY(-1px); }
+        @media (max-width: 700px) {
+            .contact-cards-grid { grid-template-columns: 1fr; }
+            .contacts-modal-body { padding: 16px; }
+            .contacts-modal-header { padding: 20px 16px 16px; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           ADD CONTACT SUB-MODAL + COMBOBOX
+           ═══════════════════════════════════════════════════════════════ */
+        .add-contact-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 9500; justify-content: center; align-items: center;
+        }
+        .add-contact-overlay.active { display: flex; }
+        .contact-combo-wrap { position: relative; width: 100%; }
+        .contact-combo-wrap input {
+            width: 100%; padding: 10px 12px; font-size: 14px;
+            font-family: inherit; border: 1px solid var(--stele-gray);
+            border-radius: 4px; box-sizing: border-box;
+        }
+        .contact-combo-wrap input:focus { outline: none; border-color: var(--stele-green); }
+        .contact-combo-dd {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid #ddd; border-top: none;
+            border-radius: 0 0 8px 8px; max-height: 240px; overflow-y: auto;
+            z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        .contact-combo-dd.open { display: block; }
+        .combo-item {
+            padding: 10px 14px; cursor: pointer; font-size: 13px;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .combo-item:hover { background: #f5f5f5; }
+        .combo-item.selected { background: #e8f0ea; font-weight: 600; }
+        .combo-item-name { font-weight: 600; color: var(--stele-black); }
+        .combo-item-meta { font-size: 11px; color: #999; }
+        .combo-add {
+            padding: 10px 14px; cursor: pointer; font-size: 13px;
+            color: var(--stele-green); font-weight: 600; border-top: 1px solid #eee;
+        }
+        .combo-add:hover { background: #f5f8f5; }
+        .combo-section-header { padding: 6px 14px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid #eee; background: #fafafa; }
+        .combo-section-header:first-child { border-top: none; }
+        .addr-suggest { background: #f0f4f1; border: 1px solid #d5ddd7; border-radius: 6px; padding: 10px 14px; margin-top: 8px; font-size: 13px; }
+        .addr-suggest-title { font-weight: 600; margin-bottom: 6px; color: var(--stele-green); }
+        .addr-suggest-item { padding: 4px 0; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .addr-suggest-item:hover { text-decoration: underline; }
+        .addr-suggest-skip { display: inline-block; padding: 4px 0; font-size: 12px; color: #888; cursor: pointer; margin-top: 6px; }
+        .addr-suggest-skip:hover { color: var(--stele-green); }
+
     </style>
 </head>
 <body>
@@ -4283,44 +4495,54 @@
         <div class="calculator-view" id="calculatorView">
 
             <div class="project-header" id="projectHeader">
-                <div class="ph-top-bar">
-                    <button class="btn-back-projects" id="btnBackProjects" onclick="backToProjectList()">&larr; Projets</button>
-                    <div class="ph-top-actions">
-                        <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
-                        <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
-                        <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
-                        <button class="btn-header-link" id="btnAiAssistant" onclick="openAiDrawer()">AI</button>
-                        <div class="kebab-menu" id="headerKebab">
-                            <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
-                            <div class="kebab-dropdown" id="headerKebabDropdown">
-                                <button id="kebabDuplicate" onclick="duplicateSubmission(); closeHeaderKebab()"><span class="kebab-icon">&#9633;</span> Dupliquer</button>
-                                <button id="kebabVersions" onclick="openVersionDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9776;</span> Versions</button>
-                                <button id="kebabTimeline" onclick="openTimelineDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9201;</span> Historique</button>
-                                <button id="kebabUnlock" onclick="unlockSubmission(); closeHeaderKebab()" style="display:none;"><span class="kebab-icon">&#128275;</span> D&eacute;verrouiller</button>
+                <button class="btn-back-projects" id="btnBackProjects" onclick="backToProjectList()">&larr; Projets</button>
+                <div class="ph-grid">
+                    <div class="ph-left">
+                        <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
+                        <div class="ph-info-line" id="projInfoBloc">
+                            <span id="projInfoText" class="ph-info-empty">Ajouter les infos du projet</span>
+                            <button class="btn-edit-info" onclick="openEditInfoModal()" title="Modifier">&#9998;</button>
+                        </div>
+                        <div class="ph-contacts-strip" id="projContactsStrip"></div>
+                        <div class="ph-meta-row">
+                            <span class="ph-status-badge" id="subStatusBadge"></span>
+                            <span id="subNumber" style="font-size:13px; color:#94A3B8;"></span>
+                        </div>
+                        <div class="ph-total-section">
+                            <div class="ph-total-label">Total estim&eacute;</div>
+                            <div class="ph-total-amount" id="headerTotal">0,00 $</div>
+                        </div>
+                    </div>
+                    <div class="ph-right">
+                        <nav class="ph-nav">
+                            <button class="ph-nav-item" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
+                            <button class="ph-nav-item" onclick="openRentab('project')">Rentabilit&eacute;</button>
+                            <button class="ph-nav-item" id="btnPlans" onclick="openPlansModal()">Plans</button>
+                            <button class="ph-nav-item" id="btnAiAssistant" onclick="openAiDrawer()">AI</button>
+                            <button class="ph-nav-item" id="btnContacts" onclick="openContactsModal()">Contacts</button>
+                            <div class="kebab-menu" id="headerKebab">
+                                <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>
+                                <div class="kebab-dropdown" id="headerKebabDropdown">
+                                    <button id="kebabDuplicate" onclick="duplicateSubmission(); closeHeaderKebab()"><span class="kebab-icon">&#9633;</span> Dupliquer</button>
+                                    <button id="kebabVersions" onclick="openVersionDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9776;</span> Versions</button>
+                                    <button id="kebabTimeline" onclick="openTimelineDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9201;</span> Historique</button>
+                                    <button id="kebabUnlock" onclick="unlockSubmission(); closeHeaderKebab()" style="display:none;"><span class="kebab-icon">&#128275;</span> D&eacute;verrouiller</button>
+                                </div>
                             </div>
+                        </nav>
+                        <div class="ph-actions" id="mainActions">
+                            <button class="ph-main-btn" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
+                            <button class="ph-main-btn ph-btn-green" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
+                            <button class="ph-main-btn ph-btn-orange" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
+                            <button class="ph-main-btn ph-btn-purple" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
+                            <button class="ph-main-btn ph-btn-red" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
+                            <button class="ph-main-btn ph-btn-green" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer la vente</button>
                         </div>
                     </div>
                 </div>
-                <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
-                <span class="save-indicator" id="saveIndicator"></span>
-                <div class="ph-status-row">
-                    <span class="status-badge" id="subStatusBadge"></span>
-                </div>
-                <div class="ph-total-section">
-                    <div class="ph-total-label">Total estim&eacute;</div>
-                    <div class="ph-total-amount" id="headerTotal">0,00 $</div>
-                </div>
                 <div class="status-timeline" id="statusTimeline"></div>
-                <div class="ph-actions" id="mainActions">
-                    <button class="btn-main-action" id="btnWfSubmit" onclick="openSubmitModal()">Soumettre</button>
-                    <button class="btn-main-action btn-main-green" id="btnWfApprove" onclick="approveSubmission()">Approuver</button>
-                    <button class="btn-main-action btn-main-orange" id="btnWfReturn" onclick="returnSubmission()">Retourner</button>
-                    <button class="btn-main-action btn-main-purple" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
-                    <button class="btn-main-action btn-main-red" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
-                    <button class="btn-main-action btn-main-green" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer la vente</button>
-                </div>
+                <span class="save-indicator" id="saveIndicator"></span>
                 <input type="hidden" id="subTitle" value="">
-                <span id="subNumber" style="display:none;"></span>
                 <label style="display:none;"><input type="checkbox" id="projInstallation" checked onchange="toggleProjectInstallation()"></label>
             </div>
 
@@ -4764,6 +4986,95 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closePlansModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Project Info -->
+    <div class="modal-overlay" id="editInfoModal" onclick="if(event.target===this)closeEditInfoModal()">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Informations du projet</h3>
+                <button class="modal-close" onclick="closeEditInfoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Client</label>
+                    <div class="contact-combo-wrap" id="clientComboWrap">
+                        <input type="text" id="infoClientCombo" placeholder="Rechercher un contact ou une entreprise..."
+                               autocomplete="off" oninput="filterClientCombo(this)" onfocus="openClientCombo()">
+                        <div class="contact-combo-dd" id="clientComboDd"></div>
+                    </div>
+                    <div id="clientComboSelected" style="font-size:12px; color:var(--stele-green); margin-top:4px;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adresse du projet</label>
+                    <input type="text" class="form-input" id="infoProjectAddress" placeholder="Ex: 123 rue Principale">
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Ville</label>
+                        <input type="text" class="form-input" id="infoProjectCity" placeholder="Ex: Montr&eacute;al">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Code postal</label>
+                        <input type="text" class="form-input" id="infoProjectPostalCode" placeholder="Ex: H2X 1Y4">
+                    </div>
+                </div>
+                <div id="addrSuggestPanel" style="display:none;"></div>
+                <div class="form-group">
+                    <label class="form-label">Designer</label>
+                    <input type="text" class="form-input" id="infoDesigner" placeholder="Ex: Marie Dupont">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeEditInfoModal()">Annuler</button>
+                <button class="btn-generate" onclick="saveProjectInfo()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contacts Modal -->
+    <div class="contacts-overlay" id="contactsModal" onclick="if(event.target===this)closeContactsModal()">
+        <div class="contacts-modal">
+            <div class="contacts-modal-header">
+                <h2>Contacts du projet</h2>
+                <button class="contacts-modal-close" onclick="closeContactsModal()">&times;</button>
+            </div>
+            <div class="contacts-modal-body">
+                <div class="contact-cards-grid" id="contactCardsGrid"></div>
+                <button class="btn-add-contact" onclick="openAddContactModal()">+ Ajouter un contact</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Contact Sub-Modal -->
+    <div class="add-contact-overlay" id="addContactOverlay" onclick="if(event.target===this)closeAddContactModal()">
+        <div class="modal" style="max-width:460px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Ajouter un contact</h3>
+                <button class="modal-close" onclick="closeAddContactModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">R&ocirc;le</label>
+                    <input type="text" class="form-input" id="addContactRole" list="contactRoleOptions"
+                           placeholder="Ex: Client, Entrepreneur, Designer..." autocomplete="off">
+                    <datalist id="contactRoleOptions"></datalist>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rechercher un contact</label>
+                    <div class="contact-combo-wrap" id="contactComboWrap">
+                        <input type="text" id="contactComboInput" placeholder="Taper un nom..." autocomplete="off"
+                               oninput="filterContactCombo(this)" onfocus="openContactCombo()">
+                        <div class="contact-combo-dd" id="contactComboDd"></div>
+                    </div>
+                </div>
+                <div id="addContactStatus" style="font-size:13px; margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeAddContactModal()">Annuler</button>
+                <button class="btn-generate" id="btnConfirmAddContact" onclick="confirmAddContact()" disabled>Ajouter</button>
             </div>
         </div>
     </div>
@@ -8948,6 +9259,675 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // PROJECT INFO BLOC
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function renderProjectInfoBloc() {
+            var el = document.getElementById('projInfoText');
+            if (!el || !currentProject) { if (el) { el.className = 'ph-info-empty'; el.textContent = ''; } return; }
+
+            var parts = [];
+            if (currentProject.client_name) parts.push(escapeHtml(currentProject.client_name));
+
+            var addrParts = [];
+            if (currentProject.project_address) addrParts.push(escapeHtml(currentProject.project_address));
+            if (currentProject.project_city) addrParts.push(escapeHtml(currentProject.project_city));
+            if (currentProject.project_postal_code) addrParts.push(escapeHtml(currentProject.project_postal_code));
+
+            if (addrParts.length > 0) parts.push('<span>' + addrParts.join(', ') + '</span>');
+
+            if (parts.length === 0) {
+                el.className = 'ph-info-empty';
+                el.textContent = 'Ajouter les infos du projet';
+            } else {
+                el.className = 'ph-info-text';
+                el.innerHTML = parts.join(' \u2014 ');
+            }
+        }
+
+        async function openEditInfoModal() {
+            if (!currentProject) return;
+            await Promise.all([loadAllContactsForCombo(), loadAllCompaniesForCombo()]);
+            selectedClientType = currentProject.client_contact_id ? 'contact' : (currentProject.client_company_id ? 'company' : null);
+            selectedClientId = currentProject.client_contact_id || currentProject.client_company_id || null;
+            var clientName = '';
+            if (selectedClientType === 'contact' && selectedClientId) {
+                var c = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+                if (c) clientName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+            } else if (selectedClientType === 'company' && selectedClientId) {
+                var co = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+                if (co) clientName = co.name || '';
+            }
+            document.getElementById('infoClientCombo').value = clientName || currentProject.client_name || '';
+            document.getElementById('clientComboSelected').textContent = selectedClientType ? (selectedClientType === 'contact' ? 'Contact' : 'Entreprise') + ' : ' + clientName : '';
+            document.getElementById('infoProjectAddress').value = currentProject.project_address || '';
+            document.getElementById('infoProjectCity').value = currentProject.project_city || '';
+            document.getElementById('infoProjectPostalCode').value = currentProject.project_postal_code || '';
+            document.getElementById('infoDesigner').value = currentProject.designer || '';
+            document.getElementById('addrSuggestPanel').style.display = 'none';
+            document.getElementById('addrSuggestPanel').innerHTML = '';
+            document.getElementById('editInfoModal').classList.add('active');
+        }
+
+        function closeEditInfoModal() {
+            document.getElementById('editInfoModal').classList.remove('active');
+            closeClientCombo();
+        }
+
+        async function saveProjectInfo() {
+            if (!currentProject) return;
+            var clientName = document.getElementById('infoClientCombo').value.trim() || null;
+            var fields = {
+                client_name: clientName,
+                client_contact_id: selectedClientType === 'contact' ? selectedClientId : null,
+                client_company_id: selectedClientType === 'company' ? selectedClientId : null,
+                project_address: document.getElementById('infoProjectAddress').value.trim() || null,
+                project_city: document.getElementById('infoProjectCity').value.trim() || null,
+                project_postal_code: document.getElementById('infoProjectPostalCode').value.trim() || null,
+                designer: document.getElementById('infoDesigner').value.trim() || null
+            };
+            Object.assign(currentProject, fields);
+            renderProjectInfoBloc();
+            closeEditInfoModal();
+            showSaveIndicator();
+            await updateProject(currentProject.id, fields);
+            // Propose to add new address to client's CRM file
+            if (selectedClientId && fields.project_address) {
+                var clientEntity = null;
+                if (selectedClientType === 'contact') {
+                    clientEntity = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+                } else {
+                    clientEntity = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+                }
+                if (clientEntity) {
+                    var existingAddresses = clientEntity.addresses || [];
+                    var alreadyExists = existingAddresses.some(function(a) {
+                        return a.line1 === fields.project_address && a.city === (fields.project_city || '');
+                    });
+                    if (!alreadyExists) {
+                        var ok = await steleConfirm(
+                            'Voulez-vous aussi ajouter cette adresse \u00e0 la fiche du client ?',
+                            'Ajouter l\u2019adresse',
+                            'Oui, ajouter'
+                        );
+                        if (ok) {
+                            var newAddr = {
+                                label: currentProject.name || 'Projet',
+                                line1: fields.project_address || '',
+                                line2: '',
+                                city: fields.project_city || '',
+                                postal_code: fields.project_postal_code || '',
+                                is_primary: existingAddresses.length === 0
+                            };
+                            var updatedAddresses = existingAddresses.concat([newAddr]);
+                            var table = selectedClientType === 'contact' ? 'contacts' : 'companies';
+                            await authenticatedFetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + selectedClientId, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                body: JSON.stringify({ addresses: updatedAddresses })
+                            });
+                            clientEntity.addresses = updatedAddresses;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CLIENT COMBOBOX (contacts + entreprises)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function loadAllCompaniesForCombo() {
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/companies?order=name&select=id,name,company_type,addresses,contact_companies(contact_id,contacts(id,first_name,last_name))', {}
+                );
+                if (r.ok) allCompaniesCache = await r.json();
+            } catch (e) { allCompaniesCache = []; }
+        }
+
+        function openClientCombo() {
+            var dd = document.getElementById('clientComboDd');
+            populateClientCombo(dd, '');
+            dd.classList.add('open');
+        }
+
+        function filterClientCombo(input) {
+            var dd = document.getElementById('clientComboDd');
+            populateClientCombo(dd, input.value.toLowerCase().trim());
+            if (!dd.classList.contains('open')) dd.classList.add('open');
+        }
+
+        function populateClientCombo(dd, filter) {
+            var html = '';
+            var contactCount = 0;
+            var companyCount = 0;
+
+            var contactHtml = '';
+            for (var i = 0; i < allContactsCache.length; i++) {
+                var c = allContactsCache[i];
+                var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).toLowerCase();
+                var emailLower = (c.email || '').toLowerCase();
+                if (filter && fullName.indexOf(filter) === -1 && emailLower.indexOf(filter) === -1) continue;
+                var sel = (selectedClientType === 'contact' && c.id === selectedClientId) ? ' selected' : '';
+                contactHtml += '<div class="combo-item' + sel + '" data-type="contact" data-id="' + c.id + '" onclick="selectClient(this)">' +
+                    '<span class="combo-item-name">' + escapeHtml((c.first_name || '') + ' ' + (c.last_name || '')) + '</span>' +
+                    '<span class="combo-item-meta">' + escapeHtml(c.email || c.phone || '') + '</span>' +
+                '</div>';
+                contactCount++;
+            }
+
+            var companyHtml = '';
+            for (var j = 0; j < allCompaniesCache.length; j++) {
+                var co = allCompaniesCache[j];
+                var coNameLower = (co.name || '').toLowerCase();
+                if (filter && coNameLower.indexOf(filter) === -1) continue;
+                var selCo = (selectedClientType === 'company' && co.id === selectedClientId) ? ' selected' : '';
+                companyHtml += '<div class="combo-item' + selCo + '" data-type="company" data-id="' + co.id + '" onclick="selectClient(this)">' +
+                    '<span class="combo-item-name">' + escapeHtml(co.name || '') + '</span>' +
+                    '<span class="combo-item-meta">' + escapeHtml(co.company_type || '') + '</span>' +
+                '</div>';
+                companyCount++;
+            }
+
+            if (contactCount > 0) html += '<div class="combo-section-header">Contacts</div>' + contactHtml;
+            if (companyCount > 0) html += '<div class="combo-section-header">Entreprises</div>' + companyHtml;
+            if (contactCount === 0 && companyCount === 0 && filter) {
+                html += '<div class="combo-item" style="color:#999;font-style:italic;cursor:default;">Aucun r\u00e9sultat</div>';
+            }
+            html += '<div class="combo-add" onclick="createNewClientContact()">+ Nouveau contact</div>';
+            html += '<div class="combo-add" onclick="createNewClientCompany()">+ Nouvelle entreprise</div>';
+            dd.innerHTML = html;
+        }
+
+        function selectClient(el) {
+            selectedClientType = el.getAttribute('data-type');
+            selectedClientId = el.getAttribute('data-id');
+            var nameEl = el.querySelector('.combo-item-name');
+            var name = nameEl ? nameEl.textContent : '';
+            document.getElementById('infoClientCombo').value = name;
+            document.getElementById('clientComboSelected').textContent = (selectedClientType === 'contact' ? 'Contact' : 'Entreprise') + ' : ' + name;
+            closeClientCombo();
+            promptClientAddress();
+        }
+
+        function closeClientCombo() {
+            var dd = document.getElementById('clientComboDd');
+            if (dd) dd.classList.remove('open');
+        }
+
+        function promptClientAddress() {
+            var panel = document.getElementById('addrSuggestPanel');
+            if (!panel || !selectedClientId) { if (panel) panel.style.display = 'none'; return; }
+            var entity = null;
+            if (selectedClientType === 'contact') {
+                entity = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+            } else {
+                entity = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+            }
+            var addresses = (entity && entity.addresses) || [];
+            if (addresses.length === 0) { panel.style.display = 'none'; return; }
+
+            var html = '<div class="addr-suggest"><div class="addr-suggest-title">Utiliser une adresse du client ?</div>';
+            for (var i = 0; i < addresses.length; i++) {
+                var a = addresses[i];
+                var addrText = [a.line1, a.line2, a.city, a.postal_code].filter(Boolean).join(', ');
+                var label = a.label ? escapeHtml(a.label) + ' \u2014 ' : '';
+                html += '<div class="addr-suggest-item" onclick="applyClientAddress(' + i + ')">' +
+                    '<span>' + label + escapeHtml(addrText) + '</span>' +
+                '</div>';
+            }
+            html += '<div class="addr-suggest-skip" onclick="document.getElementById(\'addrSuggestPanel\').style.display=\'none\'">Non, nouvelle adresse</div>';
+            html += '</div>';
+            panel.innerHTML = html;
+            panel.style.display = '';
+        }
+
+        function applyClientAddress(idx) {
+            var entity = null;
+            if (selectedClientType === 'contact') {
+                entity = allContactsCache.find(function(x) { return x.id === selectedClientId; });
+            } else {
+                entity = allCompaniesCache.find(function(x) { return x.id === selectedClientId; });
+            }
+            var addresses = (entity && entity.addresses) || [];
+            var a = addresses[idx];
+            if (!a) return;
+            document.getElementById('infoProjectAddress').value = a.line1 || '';
+            document.getElementById('infoProjectCity').value = a.city || '';
+            document.getElementById('infoProjectPostalCode').value = a.postal_code || '';
+            document.getElementById('addrSuggestPanel').style.display = 'none';
+        }
+
+        async function createNewClientContact() {
+            closeClientCombo();
+            var firstName = await stelePrompt('Pr\u00e9nom du nouveau contact :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!firstName || !firstName.trim()) return;
+            var lastName = await stelePrompt('Nom de famille :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!lastName || !lastName.trim()) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        allContactsCache.push(res[0]);
+                        selectedClientType = 'contact';
+                        selectedClientId = res[0].id;
+                        document.getElementById('infoClientCombo').value = res[0].first_name + ' ' + res[0].last_name;
+                        document.getElementById('clientComboSelected').textContent = 'Contact : ' + res[0].first_name + ' ' + res[0].last_name;
+                    }
+                }
+            } catch (e) { console.warn('Error creating contact:', e); }
+        }
+
+        async function createNewClientCompany() {
+            closeClientCombo();
+            var name = await stelePrompt('Nom de l\'entreprise :', 'Nouvelle entreprise', 'Cr\u00e9er');
+            if (!name || !name.trim()) return;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ name: name.trim(), created_by: localStorage.getItem('sb_user_id') })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        allCompaniesCache.push(res[0]);
+                        selectedClientType = 'company';
+                        selectedClientId = res[0].id;
+                        document.getElementById('infoClientCombo').value = res[0].name;
+                        document.getElementById('clientComboSelected').textContent = 'Entreprise : ' + res[0].name;
+                    }
+                }
+            } catch (e) { console.warn('Error creating company:', e); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CONTACTS MODAL
+        // ═══════════════════════════════════════════════════════════════════════
+
+        async function openContactsModal() {
+            if (!currentProject) { steleAlert('Veuillez ouvrir un projet d\'abord.'); return; }
+            document.getElementById('contactsModal').classList.add('active');
+            await loadProjectContacts();
+            renderContactCards();
+        }
+
+        function closeContactsModal() {
+            document.getElementById('contactsModal').classList.remove('active');
+        }
+
+        async function loadProjectContacts() {
+            if (!currentProject) { projectContacts = []; return; }
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/project_contacts?project_id=eq.' + currentProject.id +
+                    '&select=*,contacts(id,first_name,last_name,email,phone,contact_companies(companies(id,name)))' +
+                    '&order=sort_order', {}
+                );
+                if (r.ok) {
+                    projectContacts = await r.json();
+                } else {
+                    projectContacts = [];
+                }
+            } catch (e) {
+                console.warn('Error loading project contacts:', e);
+                projectContacts = [];
+            }
+        }
+
+        async function loadContactRoles() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.contact_roles&select=value', {});
+                if (r.ok) {
+                    var rows = await r.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value)) configContactRoles = rows[0].value;
+                }
+            } catch (e) { /* keep defaults */ }
+            // Populate datalist
+            var dl = document.getElementById('contactRoleOptions');
+            if (dl) {
+                dl.innerHTML = '';
+                for (var i = 0; i < configContactRoles.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = configContactRoles[i];
+                    dl.appendChild(opt);
+                }
+            }
+        }
+
+        function renderContactBadges() {
+            var strip = document.getElementById('projContactsStrip');
+            if (!strip) return;
+            if (!projectContacts || projectContacts.length === 0) {
+                strip.innerHTML = '<span class="ph-contact-badge" onclick="openContactsModal()" style="border-style:dashed;">+ Contacts</span>';
+                return;
+            }
+            var MAX_BADGES = 4;
+            var html = '';
+            var shown = Math.min(projectContacts.length, MAX_BADGES);
+            for (var i = 0; i < shown; i++) {
+                var pc = projectContacts[i];
+                var c = pc.contacts;
+                if (!c) continue;
+                var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : ''; }).filter(Boolean);
+                var displayName = companies.length > 0 ? name + ' \u00b7 ' + companies[0] : name;
+                html += '<span class="ph-contact-badge" onclick="openContactsModal()" title="' + escapeAttr(name) + '">' +
+                    '<span class="ph-contact-badge-role">' + escapeHtml(pc.role) + '</span> ' +
+                    escapeHtml(displayName) +
+                '</span>';
+            }
+            if (projectContacts.length > MAX_BADGES) {
+                html += '<span class="ph-contacts-more" onclick="openContactsModal()">+' + (projectContacts.length - MAX_BADGES) + '</span>';
+            }
+            strip.innerHTML = html;
+        }
+
+        function renderContactCards() {
+            var grid = document.getElementById('contactCardsGrid');
+            var html = '';
+            var usedRoles = {};
+
+            for (var i = 0; i < projectContacts.length; i++) {
+                var pc = projectContacts[i];
+                var c = pc.contacts;
+                if (!c) continue;
+                usedRoles[pc.role] = true;
+
+                var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+                var companiesData = (c.contact_companies || []).map(function(cc) {
+                    return cc.companies ? { id: cc.companies.id, name: cc.companies.name } : null;
+                }).filter(Boolean);
+                var companyLinks = companiesData.map(function(co) {
+                    return '<a href="clients.html#company-' + escapeAttr(co.id) + '" target="_blank" class="contact-card-company-link">' + escapeHtml(co.name) + '</a>';
+                }).join(', ');
+
+                html += '<div class="contact-card">' +
+                    '<button class="contact-card-remove" onclick="removeProjectContact(\'' + escapeAttr(pc.id) + '\')" title="Retirer">&times;</button>' +
+                    '<div class="contact-card-role">' + escapeHtml(pc.role) + '</div>' +
+                    '<div class="contact-card-name"><a href="clients.html#contact-' + escapeAttr(c.id) + '" target="_blank" class="contact-card-name-link">' + escapeHtml(fullName) + '</a></div>' +
+                    (companyLinks ? '<div class="contact-card-company">' + companyLinks + '</div>' : '') +
+                    '<div class="contact-card-details">' +
+                        (c.phone ? '&#128222; ' + escapeHtml(c.phone) + '<br>' : '') +
+                        (c.email ? '&#9993; ' + escapeHtml(c.email) : '') +
+                    '</div>' +
+                    '<div class="contact-card-actions">' +
+                        (c.phone ? '<button class="contact-card-btn" onclick="window.open(\'tel:' + escapeAttr(c.phone) + '\')">Appeler</button>' : '') +
+                        (c.email ? '<button class="contact-card-btn" onclick="window.open(\'mailto:' + escapeAttr(c.email) + '\')">Courriel</button>' : '') +
+                        '<button class="contact-card-btn" onclick="copyContactInfo(\'' + escapeAttr(c.id) + '\')">Copier</button>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Placeholder cards for missing configured roles
+            for (var j = 0; j < configContactRoles.length; j++) {
+                if (!usedRoles[configContactRoles[j]]) {
+                    html += '<div class="contact-card-placeholder" onclick="openAddContactModal(\'' + escapeAttr(configContactRoles[j]) + '\')">' +
+                        '<span>+ Ajouter un ' + escapeHtml(configContactRoles[j].toLowerCase()) + '</span>' +
+                    '</div>';
+                }
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function copyContactInfo(contactId) {
+            var pc = projectContacts.find(function(p) { return p.contacts && p.contacts.id === contactId; });
+            if (!pc || !pc.contacts) return;
+            var c = pc.contacts;
+            var text = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+            if (c.phone) text += '\n' + c.phone;
+            if (c.email) text += '\n' + c.email;
+            navigator.clipboard.writeText(text.trim());
+        }
+
+        async function removeProjectContact(pcId) {
+            var ok = await steleConfirm('Retirer ce contact du projet ?', 'Retirer', 'Retirer', true);
+            if (!ok) return;
+            try {
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_contacts?id=eq.' + pcId, { method: 'DELETE' });
+                await loadProjectContacts();
+                renderContactCards();
+                renderContactBadges();
+            } catch (e) { console.warn('Error removing project contact:', e); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ADD CONTACT SUB-MODAL + COMBOBOX
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openAddContactModal(preselectedRole) {
+            selectedComboContactId = null;
+            document.getElementById('contactComboInput').value = '';
+            document.getElementById('addContactStatus').textContent = '';
+            document.getElementById('btnConfirmAddContact').disabled = true;
+            var roleSelect = document.getElementById('addContactRole');
+            roleSelect.value = preselectedRole || 'Client';
+            document.getElementById('addContactOverlay').classList.add('active');
+            loadAllContactsForCombo();
+            loadAllCompaniesForCombo();
+            setTimeout(function() { document.getElementById('contactComboInput').focus(); }, 100);
+        }
+
+        function closeAddContactModal() {
+            document.getElementById('addContactOverlay').classList.remove('active');
+            closeContactCombo();
+        }
+
+        async function loadAllContactsForCombo() {
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/contacts?order=last_name,first_name&select=id,first_name,last_name,email,phone,addresses', {}
+                );
+                if (r.ok) allContactsCache = await r.json();
+            } catch (e) { allContactsCache = []; }
+        }
+
+        function openContactCombo() {
+            var dd = document.getElementById('contactComboDd');
+            populateContactCombo(dd, '');
+            dd.classList.add('open');
+        }
+
+        function filterContactCombo(input) {
+            var dd = document.getElementById('contactComboDd');
+            populateContactCombo(dd, input.value.toLowerCase().trim());
+            if (!dd.classList.contains('open')) dd.classList.add('open');
+        }
+
+        function populateContactCombo(dd, filter) {
+            var html = '';
+            var contactCount = 0;
+            var companyCount = 0;
+            var linkedIds = {};
+            for (var k = 0; k < projectContacts.length; k++) {
+                if (projectContacts[k].contact_id) linkedIds[projectContacts[k].contact_id] = true;
+            }
+
+            var contactHtml = '';
+            for (var i = 0; i < allContactsCache.length; i++) {
+                var c = allContactsCache[i];
+                if (linkedIds[c.id]) continue;
+                var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).toLowerCase();
+                var emailLower = (c.email || '').toLowerCase();
+                if (filter && fullName.indexOf(filter) === -1 && emailLower.indexOf(filter) === -1) continue;
+
+                var sel = (c.id === selectedComboContactId) ? ' selected' : '';
+                contactHtml += '<div class="combo-item' + sel + '" data-id="' + c.id + '" onclick="selectComboContact(this)">' +
+                    '<span class="combo-item-name">' + escapeHtml((c.first_name || '') + ' ' + (c.last_name || '')) + '</span>' +
+                    '<span class="combo-item-meta">' + escapeHtml(c.email || c.phone || '') + '</span>' +
+                '</div>';
+                contactCount++;
+            }
+
+            var companyHtml = '';
+            for (var j = 0; j < allCompaniesCache.length; j++) {
+                var co = allCompaniesCache[j];
+                var coNameLower = (co.name || '').toLowerCase();
+                if (filter && coNameLower.indexOf(filter) === -1) continue;
+                companyHtml += '<div class="combo-item" data-company-id="' + co.id + '" onclick="selectComboCompany(this)">' +
+                    '<span class="combo-item-name">' + escapeHtml(co.name || '') + '</span>' +
+                    '<span class="combo-item-meta">' + escapeHtml(co.company_type || '') + '</span>' +
+                '</div>';
+                companyCount++;
+            }
+
+            if (contactCount > 0) html += '<div class="combo-section-header">Contacts</div>' + contactHtml;
+            if (companyCount > 0) html += '<div class="combo-section-header">Entreprises</div>' + companyHtml;
+            if (contactCount === 0 && companyCount === 0 && filter) {
+                html += '<div class="combo-item" style="color:#999;font-style:italic;cursor:default;">Aucun r\u00e9sultat</div>';
+            }
+            html += '<div class="combo-add" onclick="createNewContactFromCombo()">+ Nouveau contact</div>';
+            dd.innerHTML = html;
+        }
+
+        function selectComboContact(el) {
+            selectedComboContactId = el.getAttribute('data-id');
+            var nameEl = el.querySelector('.combo-item-name');
+            document.getElementById('contactComboInput').value = nameEl ? nameEl.textContent : '';
+            document.getElementById('btnConfirmAddContact').disabled = false;
+            closeContactCombo();
+        }
+
+        async function selectComboCompany(el) {
+            var companyId = el.getAttribute('data-company-id');
+            var co = allCompaniesCache.find(function(x) { return x.id === companyId; });
+            if (!co) return;
+            var linkedContacts = (co.contact_companies || []).map(function(cc) { return cc.contacts; }).filter(Boolean);
+
+            if (linkedContacts.length === 0) {
+                closeContactCombo();
+                var ok = await steleConfirm(
+                    escapeHtml(co.name) + ' n\u2019a aucun contact li\u00e9. Cr\u00e9er un nouveau contact pour cette entreprise ?',
+                    'Aucun contact', 'Cr\u00e9er'
+                );
+                if (ok) {
+                    var firstName = await stelePrompt('Pr\u00e9nom :', 'Nouveau contact', 'Cr\u00e9er');
+                    if (!firstName || !firstName.trim()) return;
+                    var lastName = await stelePrompt('Nom de famille :', 'Nouveau contact', 'Cr\u00e9er');
+                    if (!lastName || !lastName.trim()) return;
+                    try {
+                        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), created_by: localStorage.getItem('sb_user_id') })
+                        });
+                        if (r.ok) {
+                            var res = await r.json();
+                            if (res.length > 0) {
+                                var newContact = res[0];
+                                await authenticatedFetch(SUPABASE_URL + '/rest/v1/contact_companies', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                    body: JSON.stringify({ contact_id: newContact.id, company_id: companyId })
+                                });
+                                allContactsCache.push(newContact);
+                                selectedComboContactId = newContact.id;
+                                document.getElementById('contactComboInput').value = newContact.first_name + ' ' + newContact.last_name;
+                                document.getElementById('btnConfirmAddContact').disabled = false;
+                            }
+                        }
+                    } catch (e) { console.warn('Error creating contact:', e); }
+                }
+            } else {
+                var dd = document.getElementById('contactComboDd');
+                var html = '<div class="combo-section-header">' + escapeHtml(co.name) + ' \u2014 Contacts</div>';
+                for (var i = 0; i < linkedContacts.length; i++) {
+                    var lc = linkedContacts[i];
+                    var lcName = ((lc.first_name || '') + ' ' + (lc.last_name || '')).trim();
+                    html += '<div class="combo-item" data-id="' + lc.id + '" onclick="selectComboContact(this)">' +
+                        '<span class="combo-item-name">' + escapeHtml(lcName) + '</span>' +
+                    '</div>';
+                }
+                html += '<div class="combo-add" onclick="openContactCombo()">\u2190 Retour</div>';
+                dd.innerHTML = html;
+            }
+        }
+
+        function closeContactCombo() {
+            var dd = document.getElementById('contactComboDd');
+            if (dd) dd.classList.remove('open');
+        }
+
+        async function createNewContactFromCombo() {
+            closeContactCombo();
+            var firstName = await stelePrompt('Pr\u00e9nom du nouveau contact :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!firstName || !firstName.trim()) return;
+            var lastName = await stelePrompt('Nom de famille :', 'Nouveau contact', 'Cr\u00e9er');
+            if (!lastName || !lastName.trim()) return;
+
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({
+                        first_name: firstName.trim(),
+                        last_name: lastName.trim(),
+                        created_by: localStorage.getItem('sb_user_id')
+                    })
+                });
+                if (r.ok) {
+                    var res = await r.json();
+                    if (res.length > 0) {
+                        var newContact = res[0];
+                        allContactsCache.push(newContact);
+                        allContactsCache.sort(function(a, b) {
+                            return ((a.last_name || '') + (a.first_name || '')).localeCompare((b.last_name || '') + (b.first_name || ''));
+                        });
+                        selectedComboContactId = newContact.id;
+                        document.getElementById('contactComboInput').value = newContact.first_name + ' ' + newContact.last_name;
+                        document.getElementById('btnConfirmAddContact').disabled = false;
+                    }
+                }
+            } catch (e) { console.warn('Error creating contact:', e); }
+        }
+
+        async function confirmAddContact() {
+            if (!selectedComboContactId || !currentProject) return;
+            var role = document.getElementById('addContactRole').value;
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({
+                        project_id: currentProject.id,
+                        contact_id: selectedComboContactId,
+                        role: role
+                    })
+                });
+                if (r.ok) {
+                    closeAddContactModal();
+                    await loadProjectContacts();
+                    renderContactCards();
+                    renderContactBadges();
+                } else {
+                    var errText = await r.text();
+                    var statusEl = document.getElementById('addContactStatus');
+                    if (errText.indexOf('unique') !== -1 || errText.indexOf('duplicate') !== -1) {
+                        statusEl.textContent = 'Ce contact est d\u00e9j\u00e0 li\u00e9 \u00e0 ce projet.';
+                    } else {
+                        statusEl.textContent = 'Erreur lors de l\'ajout.';
+                    }
+                    statusEl.style.color = '#c62828';
+                }
+            } catch (e) { console.warn('Error adding project contact:', e); }
+        }
+
+        // Close contact combo when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.contact-combo-wrap')) {
+                closeContactCombo();
+                closeClientCombo();
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════
         // MODE PRÉSENTATION (PLEIN ÉCRAN + NAVIGATION PAR PAGE)
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -9119,7 +10099,7 @@
             var badge = document.getElementById('subStatusBadge');
             if (!badge) return;
             var label = STATUS_LABELS[status] || status;
-            badge.className = 'status-badge status-' + status;
+            badge.className = 'ph-status-badge status-' + status;
             var locked = !isSubmissionCurrentlyEditable();
             var prefix = locked ? '\uD83D\uDD12 ' : '';
             if (currentSubmission && currentSubmission.bypass_approval) {
@@ -9367,6 +10347,11 @@
             updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
+            renderProjectInfoBloc();
+
+            // Charger les rôles contacts + contacts projet pour les badges header
+            loadContactRoles();
+            loadProjectContacts().then(function() { renderContactBadges(); });
 
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';

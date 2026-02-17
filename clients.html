@@ -109,6 +109,16 @@
         .modal-status.success { color: var(--stele-green); }
         .modal-status.error { color: #c0392b; }
 
+        /* Address cards */
+        .addr-card { background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin-bottom: 10px; position: relative; }
+        .addr-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .addr-card-label { flex: 1; }
+        .addr-primary-label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #666; white-space: nowrap; }
+        .addr-remove { background: none; border: none; color: #ccc; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+        .addr-remove:hover { color: #c0392b; }
+        .addr-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+        .addr-empty { font-size: 12px; color: #aaa; padding: 8px 0; }
+
         @media (max-width: 768px) {
             .nav-bar { padding: 12px 20px; gap: 16px; }
             .app-content { padding: 24px 16px; padding-top: 80px; }
@@ -190,9 +200,15 @@
                         <input type="tel" class="form-input" id="cPhone">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Adresse personnelle</label>
-                    <input type="text" class="form-input" id="cAddress">
+                <!-- Addresses -->
+                <div class="modal-section" id="contactAddressesSection" style="margin-top:10px;">
+                    <div class="modal-section-title">
+                        <span>Adresses</span>
+                        <button class="btn-small" onclick="addAddress('contact')">+ Ajouter</button>
+                    </div>
+                    <div id="contactAddressesList">
+                        <div class="addr-empty">Aucune adresse.</div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">M&eacute;thode de contact pr&eacute;f&eacute;r&eacute;e</label>
@@ -253,9 +269,15 @@
                         <datalist id="coTypeOptions"></datalist>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Adresse</label>
-                    <input type="text" class="form-input" id="coAddress">
+                <!-- Addresses -->
+                <div class="modal-section" id="companyAddressesSection" style="margin-top:10px;">
+                    <div class="modal-section-title">
+                        <span>Adresses</span>
+                        <button class="btn-small" onclick="addAddress('company')">+ Ajouter</button>
+                    </div>
+                    <div id="companyAddressesList">
+                        <div class="addr-empty">Aucune adresse.</div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -482,6 +504,8 @@
     var currentContactId = null;
     var currentCompanyId = null;
     var currentCompanyExtraData = {};
+    var currentContactAddresses = [];
+    var currentCompanyAddresses = [];
     var configCompanyTypes = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var configContactRoles = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var configCommTypes = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
@@ -683,7 +707,8 @@
             document.getElementById('cLastName').value = c.last_name || '';
             document.getElementById('cEmail').value = c.email || '';
             document.getElementById('cPhone').value = c.phone || '';
-            document.getElementById('cAddress').value = c.address || '';
+            currentContactAddresses = Array.isArray(c.addresses) && c.addresses.length > 0 ? JSON.parse(JSON.stringify(c.addresses)) : [];
+            renderAddressCards('contact');
             document.getElementById('cPreferred').value = c.preferred_contact || 'email';
             document.getElementById('cNotes').value = c.notes || '';
             renderContactLinks(c);
@@ -693,7 +718,8 @@
             document.getElementById('cLastName').value = '';
             document.getElementById('cEmail').value = '';
             document.getElementById('cPhone').value = '';
-            document.getElementById('cAddress').value = '';
+            currentContactAddresses = [];
+            renderAddressCards('contact');
             document.getElementById('cPreferred').value = 'email';
             document.getElementById('cNotes').value = '';
         }
@@ -711,11 +737,13 @@
         var ln = document.getElementById('cLastName').value.trim();
         if (!fn || !ln) { showStatus('contactModalStatus', 'error', 'Pr\u00e9nom et nom requis.'); return; }
 
+        var collectedAddr = collectAddresses('contact');
         var data = {
             first_name: fn, last_name: ln,
             email: document.getElementById('cEmail').value.trim() || null,
             phone: document.getElementById('cPhone').value.trim() || null,
-            address: document.getElementById('cAddress').value.trim() || null,
+            address: getPrimaryAddressText(collectedAddr),
+            addresses: collectedAddr,
             preferred_contact: document.getElementById('cPreferred').value,
             notes: document.getElementById('cNotes').value.trim() || null,
             updated_at: new Date().toISOString()
@@ -844,7 +872,7 @@
             if (!co) return;
             document.getElementById('coName').value = co.name || '';
             document.getElementById('coType').value = co.company_type || '';
-            document.getElementById('coAddress').value = co.address || '';
+            currentCompanyAddresses = Array.isArray(co.addresses) && co.addresses.length > 0 ? JSON.parse(JSON.stringify(co.addresses)) : [];
             document.getElementById('coPhone').value = co.phone || '';
             document.getElementById('coEmail').value = co.email || '';
             document.getElementById('coWebsite').value = co.website || '';
@@ -854,13 +882,14 @@
         } else {
             document.getElementById('coName').value = '';
             document.getElementById('coType').value = '';
-            document.getElementById('coAddress').value = '';
+            currentCompanyAddresses = [];
             document.getElementById('coPhone').value = '';
             document.getElementById('coEmail').value = '';
             document.getElementById('coWebsite').value = '';
             document.getElementById('coNotes').value = '';
         }
         updateTypeFields();
+        renderAddressCards('company');
         document.getElementById('companyModal').classList.add('active');
     }
 
@@ -884,9 +913,11 @@
             if (val) extraData[key] = val;
         });
 
+        var collectedAddr = collectAddresses('company');
         var data = {
             name: name, company_type: type,
-            address: document.getElementById('coAddress').value.trim() || null,
+            address: getPrimaryAddressText(collectedAddr),
+            addresses: collectedAddr,
             phone: document.getElementById('coPhone').value.trim() || null,
             email: document.getElementById('coEmail').value.trim() || null,
             website: document.getElementById('coWebsite').value.trim() || null,
@@ -1072,6 +1103,93 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ADDRESSES (multi-address JSONB)
+    // ═══════════════════════════════════════════════════════════════
+
+    function getAddresses(prefix) {
+        return prefix === 'contact' ? currentContactAddresses : currentCompanyAddresses;
+    }
+
+    function renderAddressCards(prefix) {
+        var addresses = getAddresses(prefix);
+        var listId = prefix === 'contact' ? 'contactAddressesList' : 'companyAddressesList';
+        var list = document.getElementById(listId);
+        if (!list) return;
+        if (addresses.length === 0) {
+            list.innerHTML = '<div class="addr-empty">Aucune adresse.</div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < addresses.length; i++) {
+            var a = addresses[i];
+            html += '<div class="addr-card">' +
+                '<div class="addr-card-header">' +
+                    '<input type="text" class="form-input addr-card-label" placeholder="Ex: Bureau, R\u00e9sidence..." value="' + escapeHtml(a.label || '') + '" data-addr-idx="' + i + '" data-addr-field="label">' +
+                    '<label class="addr-primary-label"><input type="radio" name="' + prefix + '_addr_primary" ' + (a.is_primary ? 'checked' : '') + ' data-addr-idx="' + i + '"> Principale</label>' +
+                    '<button class="addr-remove" onclick="removeAddress(\'' + prefix + '\',' + i + ')" title="Supprimer">&times;</button>' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom:8px;">' +
+                    '<input type="text" class="form-input" placeholder="Adresse ligne 1" value="' + escapeHtml(a.line1 || '') + '" data-addr-idx="' + i + '" data-addr-field="line1">' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom:8px;">' +
+                    '<input type="text" class="form-input" placeholder="Ligne 2 (optionnel)" value="' + escapeHtml(a.line2 || '') + '" data-addr-idx="' + i + '" data-addr-field="line2">' +
+                '</div>' +
+                '<div class="addr-row">' +
+                    '<input type="text" class="form-input" placeholder="Ville" value="' + escapeHtml(a.city || '') + '" data-addr-idx="' + i + '" data-addr-field="city">' +
+                    '<input type="text" class="form-input" placeholder="Code postal" value="' + escapeHtml(a.postal_code || '') + '" data-addr-idx="' + i + '" data-addr-field="postal_code">' +
+                '</div>' +
+            '</div>';
+        }
+        list.innerHTML = html;
+    }
+
+    function collectAddresses(prefix) {
+        var listId = prefix === 'contact' ? 'contactAddressesList' : 'companyAddressesList';
+        var list = document.getElementById(listId);
+        var addresses = getAddresses(prefix);
+        if (!list || addresses.length === 0) return addresses;
+        var inputs = list.querySelectorAll('[data-addr-field]');
+        for (var i = 0; i < inputs.length; i++) {
+            var el = inputs[i];
+            var idx = parseInt(el.dataset.addrIdx);
+            var field = el.dataset.addrField;
+            if (addresses[idx] && field) addresses[idx][field] = el.value;
+        }
+        for (var j = 0; j < addresses.length; j++) addresses[j].is_primary = false;
+        var radios = list.querySelectorAll('input[type="radio"]');
+        for (var k = 0; k < radios.length; k++) {
+            if (radios[k].checked) {
+                var pidx = parseInt(radios[k].dataset.addrIdx);
+                if (addresses[pidx]) addresses[pidx].is_primary = true;
+            }
+        }
+        return addresses;
+    }
+
+    function addAddress(prefix) {
+        collectAddresses(prefix);
+        var addresses = getAddresses(prefix);
+        addresses.push({ label: '', line1: '', line2: '', city: '', postal_code: '', is_primary: addresses.length === 0 });
+        renderAddressCards(prefix);
+    }
+
+    function removeAddress(prefix, idx) {
+        collectAddresses(prefix);
+        var addresses = getAddresses(prefix);
+        var wasPrimary = addresses[idx] && addresses[idx].is_primary;
+        addresses.splice(idx, 1);
+        if (wasPrimary && addresses.length > 0) addresses[0].is_primary = true;
+        renderAddressCards(prefix);
+    }
+
+    function getPrimaryAddressText(addresses) {
+        if (!addresses || addresses.length === 0) return null;
+        var primary = addresses.find(function(a) { return a.is_primary; });
+        if (!primary) primary = addresses[0];
+        return [primary.line1, primary.line2, primary.city, primary.postal_code].filter(Boolean).join(', ') || null;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════
 
@@ -1154,6 +1272,16 @@
         await Promise.all([loadContacts(), loadCompanies()]);
         renderContacts();
         renderCompanies();
+
+        // Hash detection: open contact or company modal from deep link
+        var hash = window.location.hash;
+        if (hash.startsWith('#contact-')) {
+            var contactId = hash.substring(9);
+            setTimeout(function() { openContactModal(contactId); }, 400);
+        } else if (hash.startsWith('#company-')) {
+            var companyId = hash.substring(9);
+            setTimeout(function() { switchTab('companies'); openCompanyModal(companyId); }, 400);
+        }
     })();
     </script>
 </body>

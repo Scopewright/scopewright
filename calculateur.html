@@ -3220,29 +3220,37 @@
             display: flex; flex-direction: column;
         }
 
-        /* Title page — split 45/55 */
-        .pv-page-title { flex-direction: row; padding: 0; align-items: stretch; }
-        .pv-cover-left {
-            flex: 0 0 45%; display: flex; flex-direction: column; justify-content: flex-start;
-            padding: 80px 52px 40px; background: #FFFFFF; text-align: left; position: relative;
-        }
-        .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 16px; }
-        .pv-cover-left .pv-project-name { font-size: 34px; font-weight: 600; color: #0F172A; line-height: 1.2; margin-bottom: 6px; }
-        .pv-cover-left .pv-client-name { font-size: 14px; font-weight: 400; color: #64748B; line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-client-address { font-size: 14px; font-weight: 400; color: #64748B; line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: #E2E8F0; margin: 24px 0; }
-        .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #0F172A; margin-bottom: 2px; }
-        .pv-cover-left .pv-sub-date { font-size: 13px; color: #94A3B8; }
+        /* Title page — full-screen image + text overlay */
+        .pv-page-title { position: relative; padding: 0; overflow: hidden; }
         .pv-cover-right {
-            flex: 0 0 55%; background: #0F1C2D; overflow: hidden; position: relative;
+            position: absolute; inset: 0; z-index: 0; background: #0F1C2D; overflow: hidden;
         }
-        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; min-height: 100vh; }
         .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0; background: linear-gradient(135deg, rgba(15,28,45,0.10) 0%, rgba(15,28,45,0.30) 100%);
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.35));
         }
+        .pv-cover-left {
+            position: relative; z-index: 1; width: 100%;
+            display: flex; flex-direction: column; justify-content: flex-start;
+            padding: clamp(32px, 4vw, 64px); min-height: 100%;
+            background: transparent; text-align: left;
+        }
+        .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
+        .pv-cover-left .pv-project-name { font-size: 34px; font-weight: 600; color: #FFFFFF; line-height: 1.2; margin-bottom: 6px; }
+        .pv-cover-left .pv-client-name { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
+        .pv-cover-left .pv-client-address { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
+        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: rgba(255,255,255,0.3); margin: 24px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #FFFFFF; margin-bottom: 2px; }
+        .pv-cover-left .pv-sub-date { font-size: 13px; color: rgba(255,255,255,0.7); }
+        .pv-cover-logo {
+            position: absolute; bottom: clamp(32px, 4vw, 64px); left: clamp(32px, 4vw, 64px);
+            max-width: 140px; z-index: 1;
+        }
+        .pv-cover-logo img { width: 100%; height: auto; display: block; }
 
         /* Installation non incluse — indicators */
-        .pv-install-banner { font-size: 12px; color: #94A3B8; margin-top: 60px; letter-spacing: 0.3px; }
+        .pv-install-banner { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 60px; letter-spacing: 0.3px; }
         .pv-install-room-note { font-size: 11px; color: #999; font-style: italic; margin-top: -30px; margin-bottom: 20px; padding-left: 20px; }
         .pv-install-total-note { font-size: 13px; color: #999; margin-bottom: 16px; letter-spacing: 0.3px; }
 
@@ -3250,7 +3258,7 @@
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 10px 48px; background: var(--stele-green); color: #fff;
-            border-radius: 0; margin: -36px -48px 38px -48px; flex-shrink: 0;
+            border-radius: 0; margin: -4px -48px 38px -48px; flex-shrink: 0;
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
@@ -9273,22 +9281,24 @@
             'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:#fff;color:var(--stele-black);line-height:1.5}\n' +
             '.pv-content{display:flex;flex-direction:column;gap:40px;max-width:1200px;margin:0 auto;padding:40px 0}\n' +
             '.pv-page{background:#fff;padding:36px 48px;aspect-ratio:11/8.5;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:4px}\n' +
-            '.pv-page-title{flex-direction:row;padding:0;align-items:stretch}\n' +
-            '.pv-cover-left{flex:0 0 45%;display:flex;flex-direction:column;justify-content:flex-start;padding:80px 52px 40px;background:#FFFFFF;text-align:left;position:relative}\n' +
-            '.pv-cover-brand{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8;margin-bottom:16px}\n' +
-            '.pv-cover-left .pv-project-name{font-size:34px;font-weight:600;color:#0F172A;line-height:1.2;margin-bottom:6px}\n' +
-            '.pv-cover-left .pv-client-name{font-size:14px;font-weight:400;color:#64748B;line-height:1.6;margin-bottom:0}\n' +
-            '.pv-cover-left .pv-client-address{font-size:14px;font-weight:400;color:#64748B;line-height:1.6;margin-bottom:0}\n' +
-            '.pv-cover-left .pv-cover-divider{width:40px;height:2px;background:#E2E8F0;margin:24px 0}\n' +
-            '.pv-cover-left .pv-sub-number{font-size:13px;font-weight:500;color:#0F172A;margin-bottom:2px}\n' +
-            '.pv-cover-left .pv-sub-date{font-size:13px;color:#94A3B8}\n' +
-            '.pv-cover-right{flex:0 0 55%;background:#0F1C2D;overflow:hidden;position:relative}\n' +
-            '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block}\n' +
-            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,28,45,0.10) 0%,rgba(15,28,45,0.30) 100%)}\n' +
-            '.pv-install-banner{font-size:12px;color:#94A3B8;margin-top:60px;letter-spacing:0.3px}\n' +
+            '.pv-page-title{position:relative;padding:0;overflow:hidden}\n' +
+            '.pv-cover-right{position:absolute;inset:0;z-index:0;background:#0F1C2D;overflow:hidden}\n' +
+            '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block;min-height:100vh}\n' +
+            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.25),rgba(0,0,0,0.35))}\n' +
+            '.pv-cover-left{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;justify-content:flex-start;padding:clamp(32px,4vw,64px);min-height:100%;background:transparent;text-align:left}\n' +
+            '.pv-cover-brand{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.7);margin-bottom:16px}\n' +
+            '.pv-cover-left .pv-project-name{font-size:34px;font-weight:600;color:#FFFFFF;line-height:1.2;margin-bottom:6px}\n' +
+            '.pv-cover-left .pv-client-name{font-size:14px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:0}\n' +
+            '.pv-cover-left .pv-client-address{font-size:14px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:0}\n' +
+            '.pv-cover-left .pv-cover-divider{width:40px;height:2px;background:rgba(255,255,255,0.3);margin:24px 0}\n' +
+            '.pv-cover-left .pv-sub-number{font-size:13px;font-weight:500;color:#FFFFFF;margin-bottom:2px}\n' +
+            '.pv-cover-left .pv-sub-date{font-size:13px;color:rgba(255,255,255,0.7)}\n' +
+            '.pv-cover-logo{position:absolute;bottom:clamp(32px,4vw,64px);left:clamp(32px,4vw,64px);max-width:140px;z-index:1}\n' +
+            '.pv-cover-logo img{width:100%;height:auto;display:block}\n' +
+            '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#999;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +
             '.pv-install-total-note{font-size:13px;color:#999;margin-bottom:16px;letter-spacing:0.3px}\n' +
-            '.pv-page-room-header{display:flex;align-items:center;justify-content:space-between;padding:10px 48px;background:var(--stele-green);color:#fff;border-radius:0;margin:-36px -48px 38px -48px;flex-shrink:0}\n' +
+            '.pv-page-room-header{display:flex;align-items:center;justify-content:space-between;padding:10px 48px;background:var(--stele-green);color:#fff;border-radius:0;margin:-4px -48px 38px -48px;flex-shrink:0}\n' +
             '.pv-page-room-name{font-size:17px;font-weight:600;letter-spacing:0.3px}\n' +
             '.pv-page-room-subtotal{font-size:17px;font-weight:700}\n' +
             '.pv-page-room-body{flex:1;display:flex;gap:38px;overflow:hidden;min-height:0}\n' +
@@ -9521,6 +9531,12 @@
             }
 
             html += '<div class="pv-page pv-page-title">';
+            html += '<div class="pv-cover-right">';
+            if (coverImageUrl) {
+                html += '<img src="' + escapeAttr(coverImageUrl) + '" alt="">';
+            }
+            html += '<div class="pv-cover-overlay"></div>';
+            html += '</div>';
             html += '<div class="pv-cover-left">';
             html += acceptanceProofHtml;
             html += '<div class="pv-cover-brand">stele</div>';
@@ -9535,12 +9551,7 @@
             if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
             if (allInstallExcluded) html += '<div class="pv-install-banner">' + (currentLang === 'en' ? 'Installation not included' : 'Installation non incluse') + '</div>';
             html += '</div>';
-            html += '<div class="pv-cover-right">';
-            if (coverImageUrl) {
-                html += '<img src="' + escapeAttr(coverImageUrl) + '" alt="">';
-                html += '<div class="pv-cover-overlay"></div>';
-            }
-            html += '</div>';
+            html += '<div class="pv-cover-logo"><img src="' + SUPABASE_URL + '/storage/v1/object/public/assets/logo_white.png" alt="stele" onerror="this.parentElement.style.display=\'none\'"></div>';
             html += '</div>';
 
             // ── Room pages (one per room) — text left, images right ──

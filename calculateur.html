@@ -3620,15 +3620,16 @@
 
         /* ── Pipeline — Table view ── */
         .pipeline-table-wrap {
-            overflow-x: auto; margin-bottom: 16px; border: 1px solid #e0e0e0; border-radius: 8px;
+            overflow-x: hidden; margin-bottom: 16px; border: 1px solid #e0e0e0; border-radius: 8px;
         }
         .pipeline-table {
-            width: 100%; border-collapse: collapse; font-size: 13px;
+            width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed;
         }
         .pipeline-table thead th {
-            background: #f8f8f8; padding: 10px 12px; text-align: left; font-weight: 600;
+            background: #f8f8f8; padding: 10px 14px; text-align: left; font-weight: 600;
             font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: #666;
             cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid #e0e0e0;
+            overflow: hidden; text-overflow: ellipsis;
         }
         .pipeline-table thead th:hover { background: #f0f0f0; }
         .pipeline-table thead th .sort-arrow { font-size: 10px; margin-left: 4px; opacity: 0.4; }
@@ -3638,11 +3639,39 @@
         }
         .pipeline-table tbody tr:hover { background: #f9faf9; }
         .pipeline-table tbody td {
-            padding: 9px 12px; white-space: nowrap; max-width: 200px;
+            padding: 9px 14px; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
         }
-        .pipeline-table tbody td.col-name { max-width: 260px; font-weight: 500; }
+        .pipeline-table tbody td.col-name { font-weight: 500; }
         .pipeline-table tbody td.col-amount { text-align: right; font-family: 'SF Mono', monospace; font-size: 12px; }
+        /* Column widths */
+        .col-w-code { width: 72px; }
+        .col-w-name { width: auto; }
+        .col-w-client { width: 14%; }
+        .col-w-amount { width: 100px; }
+        .col-w-prob { width: 60px; }
+        .col-w-status { width: 120px; }
+        .col-w-contact { width: 11%; }
+        .col-w-resp { width: 10%; }
+        .col-w-prio { width: 70px; }
+        .col-w-deadline { width: 70px; }
+        .col-w-weighted { width: 100px; }
+        .col-w-type { width: 10%; }
+        .col-w-city { width: 8%; }
+        .col-w-more { width: 40px; text-align: center; }
+        /* Secondary columns — hide progressively */
+        @media (max-width: 1199px) {
+            .col-hide-xl { display: none; }
+        }
+        @media (max-width: 991px) {
+            .col-hide-lg { display: none; }
+        }
+        /* More button */
+        .tbl-more-btn {
+            background: none; border: none; cursor: pointer; font-size: 16px;
+            color: #999; padding: 2px 6px; border-radius: 4px; line-height: 1;
+        }
+        .tbl-more-btn:hover { background: #f0f0f0; color: #333; }
         .pipeline-badge {
             display: inline-block; padding: 2px 10px; border-radius: 12px;
             font-size: 11px; font-weight: 600; white-space: nowrap;
@@ -3690,6 +3719,43 @@
             width: 6px; height: 2px; background: #e0e0e0;
         }
         .pipeline-mini-timeline .tl-line.filled { background: var(--stele-green); }
+
+        /* ── Pipeline — Project detail drawer ── */
+        .project-drawer-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 900;
+            opacity: 0; transition: opacity 0.2s; pointer-events: none;
+        }
+        .project-drawer-overlay.open { opacity: 1; pointer-events: auto; }
+        .project-drawer {
+            position: fixed; top: 0; right: -380px; width: 380px; height: 100%;
+            background: #fff; z-index: 901; box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+            transition: right 0.25s ease; display: flex; flex-direction: column;
+        }
+        .project-drawer.open { right: 0; }
+        .project-drawer-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 24px; border-bottom: 1px solid #e8e8e8;
+        }
+        .project-drawer-head h3 { font-size: 16px; font-weight: 600; margin: 0; }
+        .project-drawer-close {
+            background: none; border: none; font-size: 22px; cursor: pointer;
+            color: #999; line-height: 1; padding: 4px;
+        }
+        .project-drawer-close:hover { color: #333; }
+        .project-drawer-body {
+            flex: 1; overflow-y: auto; padding: 24px;
+        }
+        .drawer-field { margin-bottom: 16px; }
+        .drawer-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 4px; }
+        .drawer-field-value { font-size: 14px; color: #222; }
+
+        /* ── Pipeline — Container max-width ── */
+        .project-list-view { max-width: 1120px; margin: 0 auto; }
+
+        /* ── Pipeline — Auto-switch to cards on mobile ── */
+        @media (max-width: 767px) {
+            #viewTableContainer { display: none !important; }
+        }
 
         /* ── Pipeline — Card enhancements ── */
         .project-card-pipeline {
@@ -4646,6 +4712,16 @@
             <div class="project-empty" id="projectEmpty" style="display:none;">
                 Aucun projet pour le moment.<br>Cliquez sur &laquo; + Nouveau projet &raquo; pour commencer.
             </div>
+        </div>
+
+        <!-- Project detail drawer -->
+        <div class="project-drawer-overlay" id="projectDrawerOverlay" onclick="closeProjectDrawer()"></div>
+        <div class="project-drawer" id="projectDrawer">
+            <div class="project-drawer-head">
+                <h3 id="drawerProjectName"></h3>
+                <button class="project-drawer-close" onclick="closeProjectDrawer()">&times;</button>
+            </div>
+            <div class="project-drawer-body" id="drawerBody"></div>
         </div>
 
         <!-- ═══════ VUE 2 : CALCULATEUR ═══════ -->
@@ -10144,6 +10220,8 @@
         // ── Pipeline view switching ──
 
         function switchPipelineView(view) {
+            // Auto-switch to cards on mobile if table requested
+            if (view === 'table' && window.innerWidth < 768) view = 'cards';
             currentPipelineView = view;
             document.querySelectorAll('.pipeline-tab').forEach(function(t) {
                 t.classList.toggle('active', t.getAttribute('data-view') === view);
@@ -10151,6 +10229,11 @@
             document.getElementById('viewTableContainer').style.display = view === 'table' ? '' : 'none';
             document.getElementById('projectGrid').style.display = view === 'cards' ? '' : 'none';
             document.getElementById('viewSubmissions').style.display = view === 'submissions' ? '' : 'none';
+            // Clean up colgroup when leaving table view to avoid stale widths
+            if (view !== 'table') {
+                var cg = document.querySelector('#pipelineTable colgroup');
+                if (cg) cg.remove();
+            }
             populateFilterDropdowns();
             renderCurrentView();
         }
@@ -10224,24 +10307,36 @@
 
         // ── Table view ──
 
+        // Column definitions: hide = CSS class that hides at breakpoint, wCls = width class
         var TABLE_COLUMNS = [
-            { key: 'project_code', label: 'Code', cls: '' },
-            { key: 'name', label: 'Nom', cls: 'col-name' },
-            { key: 'client_name', label: 'Client', cls: '' },
-            { key: 'entrepreneur', label: 'Entrepreneur', cls: '', computed: true },
-            { key: 'architecte', label: 'Architecte', cls: '', computed: true },
-            { key: 'display_amount', label: 'Montant', cls: 'col-amount' },
-            { key: 'probability', label: 'Prob%', cls: 'col-amount' },
-            { key: 'weighted', label: 'Pond\u00e9r\u00e9', cls: 'col-amount', computed: true },
-            { key: 'assigned_to', label: 'Responsable', cls: '' },
-            { key: 'priority', label: 'Priorit\u00e9', cls: '' },
-            { key: 'deadline', label: 'Remise', cls: '', computed: true },
-            { key: 'pipeline_status', label: 'Statut', cls: '' },
-            { key: 'project_type', label: 'Type', cls: '' },
-            { key: 'project_city', label: 'Ville', cls: '' }
+            { key: 'project_code', label: 'Code', wCls: 'col-w-code', hide: '' },
+            { key: 'name', label: 'Nom', wCls: 'col-w-name', hide: '' },
+            { key: 'client_name', label: 'Client', wCls: 'col-w-client', hide: '' },
+            { key: 'entrepreneur', label: 'Entrep.', wCls: 'col-w-contact', hide: 'col-hide-lg', computed: true },
+            { key: 'architecte', label: 'Archit.', wCls: 'col-w-contact', hide: 'col-hide-xl', computed: true },
+            { key: 'display_amount', label: 'Montant', wCls: 'col-w-amount', hide: '', cls: 'col-amount' },
+            { key: 'probability', label: 'Prob%', wCls: 'col-w-prob', hide: '', cls: 'col-amount' },
+            { key: 'weighted', label: 'Pond.', wCls: 'col-w-weighted', hide: 'col-hide-xl', computed: true, cls: 'col-amount' },
+            { key: 'assigned_to', label: 'Resp.', wCls: 'col-w-resp', hide: 'col-hide-lg' },
+            { key: 'priority', label: 'Prio.', wCls: 'col-w-prio', hide: 'col-hide-lg' },
+            { key: 'deadline', label: 'Remise', wCls: 'col-w-deadline', hide: 'col-hide-xl', computed: true },
+            { key: 'pipeline_status', label: 'Statut', wCls: 'col-w-status', hide: '' },
+            { key: 'project_type', label: 'Type', wCls: 'col-w-type', hide: 'col-hide-lg' },
+            { key: 'project_city', label: 'Ville', wCls: 'col-w-city', hide: 'col-hide-xl' }
         ];
 
         function renderTableView(projects) {
+            var tbl = document.getElementById('pipelineTable');
+
+            // Colgroup
+            var cg = tbl.querySelector('colgroup');
+            if (cg) cg.remove();
+            var cgHtml = '<colgroup>';
+            TABLE_COLUMNS.forEach(function(col) { cgHtml += '<col class="' + col.wCls + (col.hide ? ' ' + col.hide : '') + '">'; });
+            cgHtml += '<col class="col-w-more">';
+            cgHtml += '</colgroup>';
+            tbl.insertAdjacentHTML('afterbegin', cgHtml);
+
             // Header
             var head = document.getElementById('pipelineTableHead');
             var hHtml = '<tr>';
@@ -10251,8 +10346,9 @@
                 if (pipelineSortColumn === col.key) {
                     arrow = pipelineSortDir === 'asc' ? '\u25B2' : '\u25BC';
                 }
-                hHtml += '<th class="' + sorted + '" onclick="sortPipelineTable(\'' + col.key + '\')"><span>' + col.label + '</span><span class="sort-arrow">' + arrow + '</span></th>';
+                hHtml += '<th class="' + sorted + (col.hide ? ' ' + col.hide : '') + '" onclick="sortPipelineTable(\'' + col.key + '\')"><span>' + col.label + '</span><span class="sort-arrow">' + arrow + '</span></th>';
             });
+            hHtml += '<th class="col-w-more"></th>';
             hHtml += '</tr>';
             head.innerHTML = hHtml;
 
@@ -10264,31 +10360,33 @@
             var bHtml = '';
             sorted.forEach(function(p) {
                 var subs = p.submissions || [];
-                var firstSub = subs[0];
                 var ps = getPipelineStatus(p.pipeline_status);
                 var deadline = getClosestDeadline(p);
                 var da = getProjectDisplayAmount(p);
                 var prob = p.probability || 0;
                 var weighted = da.value ? Math.round(da.value * prob / 100) : null;
+                var entrepreneur = getContactByRole(p, 'Entrepreneur');
+                var architecte = getContactByRole(p, 'Architecte');
 
                 bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
                 bHtml += '<td>' + escapeHtml(p.project_code || '—') + '</td>';
-                bHtml += '<td class="col-name">' + escapeHtml(p.name || '—') + '</td>';
-                bHtml += '<td>' + escapeHtml(p.client_name || '—') + '</td>';
-                bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Entrepreneur')) + '</td>';
-                bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Architecte')) + '</td>';
+                bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '—') + '</td>';
+                bHtml += '<td title="' + escapeAttr(p.client_name || '') + '">' + escapeHtml(p.client_name || '—') + '</td>';
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(entrepreneur) + '">' + escapeHtml(entrepreneur || '—') + '</td>';
+                bHtml += '<td class="col-hide-xl" title="' + escapeAttr(architecte) + '">' + escapeHtml(architecte || '—') + '</td>';
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
                 bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
-                bHtml += '<td class="col-amount">' + formatMoney(weighted) + '</td>';
-                bHtml += '<td>' + escapeHtml(p.assigned_to || '—') + '</td>';
-                bHtml += '<td>' + (p.priority === 'urgent' ? '<span class="priority-urgent">URGENT</span>' : 'Normal') + '</td>';
-                bHtml += '<td' + (deadline ? ' class="project-card-deadline"' : '') + '>' + formatDateShort(deadline) + '</td>';
+                bHtml += '<td class="col-amount col-hide-xl">' + formatMoney(weighted) + '</td>';
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '—') + '</td>';
+                bHtml += '<td class="col-hide-lg">' + (p.priority === 'urgent' ? '<span class="priority-urgent">URGENT</span>' : 'Normal') + '</td>';
+                bHtml += '<td class="col-hide-xl' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
                 bHtml += '<td><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
-                bHtml += '<td>' + escapeHtml(p.project_type || '—') + '</td>';
-                bHtml += '<td>' + escapeHtml(p.project_city || '—') + '</td>';
+                bHtml += '<td class="col-hide-lg">' + escapeHtml(p.project_type || '—') + '</td>';
+                bHtml += '<td class="col-hide-xl">' + escapeHtml(p.project_city || '—') + '</td>';
+                bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + escapeAttr(p.id) + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
             });
-            body.innerHTML = bHtml || '<tr><td colspan="14" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
+            body.innerHTML = bHtml || '<tr><td colspan="15" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
         }
 
         function sortProjects(arr) {
@@ -10338,6 +10436,65 @@
                 openProject(projectId);
             }
         }
+
+        // ── Project detail drawer ──
+
+        function openProjectDrawer(projectId, evt) {
+            evt.stopPropagation();
+            var p = cachedProjects.find(function(pr) { return pr.id === projectId; });
+            if (!p) return;
+            document.getElementById('drawerProjectName').textContent = p.name || 'Projet';
+            var ps = getPipelineStatus(p.pipeline_status);
+            var da = getProjectDisplayAmount(p);
+            var deadline = getClosestDeadline(p);
+            var entrepreneur = getContactByRole(p, 'Entrepreneur');
+            var architecte = getContactByRole(p, 'Architecte');
+            var prob = p.probability || 0;
+            var weighted = da.value ? Math.round(da.value * prob / 100) : null;
+
+            var fields = [
+                { label: 'Code', value: p.project_code },
+                { label: 'Client', value: p.client_name },
+                { label: 'Entrepreneur', value: entrepreneur },
+                { label: 'Architecte', value: architecte },
+                { label: 'Montant', value: da.value != null ? formatMoney(da.value) + (da.isOverride ? ' (estim\u00e9)' : '') : null },
+                { label: 'Probabilit\u00e9', value: prob ? prob + '%' : null },
+                { label: 'Pond\u00e9r\u00e9', value: weighted != null ? formatMoney(weighted) : null },
+                { label: 'Responsable', value: p.assigned_to },
+                { label: 'Priorit\u00e9', value: p.priority === 'urgent' ? 'URGENT' : 'Normal' },
+                { label: 'Date remise', value: deadline ? formatDateShort(deadline) : null },
+                { label: 'Statut pipeline', value: ps.label, badge: true, color: ps.color },
+                { label: 'Type', value: p.project_type },
+                { label: 'Ville', value: p.project_city },
+                { label: 'Source', value: p.source },
+                { label: 'D\u00e9but pr\u00e9vu', value: p.expected_start_date ? formatDateShort(p.expected_start_date) : null },
+                { label: 'Fin pr\u00e9vue', value: p.expected_end_date ? formatDateShort(p.expected_end_date) : null },
+                { label: 'Deadline interne', value: p.internal_deadline ? formatDateShort(p.internal_deadline) : null },
+                { label: 'Deadline client', value: p.client_deadline ? formatDateShort(p.client_deadline) : null }
+            ];
+
+            var html = '';
+            fields.forEach(function(f) {
+                var val = f.value || '—';
+                if (f.badge && f.color) val = '<span class="pipeline-badge" style="background:' + f.color + '20;color:' + f.color + ';">' + escapeHtml(val) + '</span>';
+                else val = escapeHtml(val);
+                html += '<div class="drawer-field"><div class="drawer-field-label">' + escapeHtml(f.label) + '</div><div class="drawer-field-value">' + val + '</div></div>';
+            });
+            document.getElementById('drawerBody').innerHTML = html;
+            document.getElementById('projectDrawerOverlay').classList.add('open');
+            document.getElementById('projectDrawer').classList.add('open');
+        }
+
+        function closeProjectDrawer() {
+            document.getElementById('projectDrawerOverlay').classList.remove('open');
+            document.getElementById('projectDrawer').classList.remove('open');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('projectDrawer').classList.contains('open')) {
+                closeProjectDrawer();
+            }
+        });
 
         // ── Card view (enriched) ──
 

@@ -89,18 +89,29 @@
             flex-direction: column;
         }
 
-        /* Title page */
-        .pv-page-title { justify-content: center; align-items: center; text-align: center; }
-        .pv-page-title .pv-logo { height: 64px; margin-bottom: 32px; }
-        .pv-page-title .pv-sub-number { font-size: 24px; font-weight: 700; color: var(--stele-green); margin-bottom: 6px; }
-        .pv-page-title .pv-sub-date { font-size: 14px; color: #888; margin-bottom: 32px; }
-        .pv-page-title .pv-client-name { font-size: 32px; font-weight: 300; color: var(--stele-black); margin-bottom: 6px; }
-        .pv-page-title .pv-project-name { font-size: 18px; color: #666; }
-        .pv-page-title .pv-designer { font-size: 14px; color: #999; margin-top: 4px; }
-        .pv-page-title .pv-client-address { font-size: 14px; color: #999; margin-top: 2px; }
+        /* Title page — split 50/50 */
+        .pv-page-title { flex-direction: row; padding: 0; align-items: stretch; }
+        .pv-cover-left {
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
+            padding: 48px 52px; background: #F7F8FA; text-align: left; position: relative;
+        }
+        .pv-cover-left .pv-logo { height: 56px; margin-bottom: 40px; align-self: flex-start; }
+        .pv-cover-left .pv-project-name { font-size: 26px; font-weight: 600; color: var(--stele-black); line-height: 1.25; margin-bottom: 8px; }
+        .pv-cover-left .pv-client-name { font-size: 17px; font-weight: 400; color: #444; margin-bottom: 4px; }
+        .pv-cover-left .pv-client-address { font-size: 14px; color: #888; margin-bottom: 0; line-height: 1.5; }
+        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: var(--stele-green); margin: 24px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 14px; font-weight: 600; color: var(--stele-green); margin-bottom: 4px; letter-spacing: 0.02em; }
+        .pv-cover-left .pv-sub-date { font-size: 13px; color: #999; }
+        .pv-cover-right {
+            flex: 1; background: #0B0F17; overflow: hidden; position: relative;
+        }
+        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pv-cover-right .pv-cover-overlay {
+            position: absolute; inset: 0; background: linear-gradient(135deg, rgba(15,23,42,0.15) 0%, rgba(15,23,42,0.35) 100%);
+        }
 
         /* Installation non incluse — indicators */
-        .pv-install-banner { position: absolute; bottom: 28px; left: 0; right: 0; text-align: center; font-size: 12px; color: #999; letter-spacing: 0.3px; }
+        .pv-install-banner { position: absolute; bottom: 20px; left: 0; right: 50%; text-align: center; font-size: 11px; color: #999; letter-spacing: 0.3px; }
         .pv-install-room-note { font-size: 11px; color: #999; font-style: italic; margin-top: -30px; margin-bottom: 20px; padding-left: 20px; }
         .pv-install-total-note { font-size: 13px; color: #999; margin-bottom: 16px; letter-spacing: 0.3px; }
 
@@ -554,6 +565,7 @@ var STEP_COLORS = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','
 
 let quoteData = null;
 let currentToken = null;
+var coverImageUrl = '';
 
 (async function init() {
     // Extract token from URL
@@ -589,6 +601,17 @@ let currentToken = null;
             showError('Lien invalide', quoteData?.error || 'Ce lien de soumission est invalide ou a expiré.');
             return;
         }
+
+        // Load cover image from app_config (anon read)
+        try {
+            var ciResp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.cover_image&select=value', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            if (ciResp.ok) {
+                var ciRows = await ciResp.json();
+                if (ciRows.length > 0 && ciRows[0].value) coverImageUrl = ciRows[0].value;
+            }
+        } catch (e) { /* fallback to dark bg */ }
 
         await renderQuote();
         initSignaturePad();
@@ -648,15 +671,15 @@ async function renderQuote() {
         if (token.signature_data) acceptanceProofHtml += '<div style="margin-top:8px;"><img src="' + token.signature_data + '" style="max-width:200px;border:1px solid #ccc;border-radius:4px;" alt="Signature"></div>';
         acceptanceProofHtml += '</div>';
     }
-    html += '<div class="pv-page pv-page-title">';
-    html += acceptanceProofHtml;
-    html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
-    html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
-    if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
-    if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
-    if (proj.client_address) html += '<div class="pv-client-address">' + escapeHtml(proj.client_address) + '</div>';
-    if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
-    if (proj.designer) html += '<div class="pv-designer">Designer : ' + escapeHtml(proj.designer) + '</div>';
+    // Build address from new columns with fallback
+    var coverAddrParts = [];
+    var projAddr = proj.project_address || proj.client_address || '';
+    var projCity = proj.project_city || '';
+    var projPostal = proj.project_postal_code || '';
+    if (projAddr) coverAddrParts.push(escapeHtml(projAddr));
+    if (projCity) coverAddrParts.push(escapeHtml(projCity));
+    if (projPostal) coverAddrParts.push(escapeHtml(projPostal));
+    var coverAddr = coverAddrParts.join(', ');
 
     // Pre-scan installation status
     var installExcludedIds = {};
@@ -666,7 +689,24 @@ async function renderQuote() {
     var allInstallExcluded = totalRooms > 0 && excludedCount === totalRooms;
     var someInstallExcluded = excludedCount > 0 && !allInstallExcluded;
 
+    html += '<div class="pv-page pv-page-title">';
+    html += '<div class="pv-cover-left">';
+    html += acceptanceProofHtml;
+    html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+    if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
+    if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
+    if (coverAddr) html += '<div class="pv-client-address">' + coverAddr + '</div>';
+    html += '<div class="pv-cover-divider"></div>';
+    html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
+    if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
     if (allInstallExcluded) html += '<div class="pv-install-banner">Installation non incluse</div>';
+    html += '</div>';
+    html += '<div class="pv-cover-right">';
+    if (coverImageUrl) {
+        html += '<img src="' + escapeAttr(coverImageUrl) + '" alt="">';
+        html += '<div class="pv-cover-overlay"></div>';
+    }
+    html += '</div>';
     html += '</div>';
 
     // ── Room pages (one per room) — text left, images right ──

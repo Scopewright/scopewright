@@ -151,6 +151,7 @@
     var allCompaniesCache = [];
     var selectedClientType = null;
     var selectedClientId = null;
+    var coverImageUrl = null;
 
     // ═══════════════════════════════════════════════════════════════════════
     // DIALOGUES CUSTOM (remplace alert/confirm/prompt natifs)
@@ -3199,18 +3200,29 @@
             display: flex; flex-direction: column;
         }
 
-        /* Title page */
-        .pv-page-title { justify-content: center; align-items: center; text-align: center; }
-        .pv-page-title .pv-logo { height: 64px; margin-bottom: 32px; }
-        .pv-page-title .pv-sub-number { font-size: 24px; font-weight: 700; color: var(--stele-green); margin-bottom: 6px; }
-        .pv-page-title .pv-sub-date { font-size: 14px; color: #888; margin-bottom: 32px; }
-        .pv-page-title .pv-client-name { font-size: 32px; font-weight: 300; color: var(--stele-black); margin-bottom: 6px; }
-        .pv-page-title .pv-project-name { font-size: 18px; color: #666; }
-        .pv-page-title .pv-designer { font-size: 14px; color: #999; margin-top: 4px; }
-        .pv-page-title .pv-client-address { font-size: 14px; color: #999; margin-top: 2px; }
+        /* Title page — split 50/50 */
+        .pv-page-title { flex-direction: row; padding: 0; align-items: stretch; }
+        .pv-cover-left {
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
+            padding: 48px 52px; background: #F7F8FA; text-align: left; position: relative;
+        }
+        .pv-cover-left .pv-logo { height: 56px; margin-bottom: 40px; align-self: flex-start; }
+        .pv-cover-left .pv-project-name { font-size: 26px; font-weight: 600; color: var(--stele-black); line-height: 1.25; margin-bottom: 8px; }
+        .pv-cover-left .pv-client-name { font-size: 17px; font-weight: 400; color: #444; margin-bottom: 4px; }
+        .pv-cover-left .pv-client-address { font-size: 14px; color: #888; margin-bottom: 0; line-height: 1.5; }
+        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: var(--stele-green); margin: 24px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 14px; font-weight: 600; color: var(--stele-green); margin-bottom: 4px; letter-spacing: 0.02em; }
+        .pv-cover-left .pv-sub-date { font-size: 13px; color: #999; }
+        .pv-cover-right {
+            flex: 1; background: #0B0F17; overflow: hidden; position: relative;
+        }
+        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pv-cover-right .pv-cover-overlay {
+            position: absolute; inset: 0; background: linear-gradient(135deg, rgba(15,23,42,0.15) 0%, rgba(15,23,42,0.35) 100%);
+        }
 
         /* Installation non incluse — indicators */
-        .pv-install-banner { position: absolute; bottom: 28px; left: 0; right: 0; text-align: center; font-size: 12px; color: #999; letter-spacing: 0.3px; }
+        .pv-install-banner { position: absolute; bottom: 20px; left: 0; right: 50%; text-align: center; font-size: 11px; color: #999; letter-spacing: 0.3px; }
         .pv-install-room-note { font-size: 11px; color: #999; font-style: italic; margin-top: -30px; margin-bottom: 20px; padding-left: 20px; }
         .pv-install-total-note { font-size: 13px; color: #999; margin-bottom: 16px; letter-spacing: 0.3px; }
 
@@ -8946,7 +8958,20 @@
             return null;
         }
 
+        async function loadCoverImage() {
+            if (coverImageUrl !== null) return; // already loaded
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.cover_image&select=value', {});
+                if (r.ok) {
+                    var rows = await r.json();
+                    if (rows.length > 0 && rows[0].value) coverImageUrl = rows[0].value;
+                    else coverImageUrl = '';
+                }
+            } catch (e) { coverImageUrl = ''; }
+        }
+
         async function renderPreview() {
+            await loadCoverImage();
             var container = document.getElementById('pvContent');
             var subLabel = document.getElementById('pvSubNumber');
             if (!container) return;
@@ -9005,18 +9030,40 @@
                     subDate = dt.toLocaleDateString(loc, { year: 'numeric', month: 'long', day: 'numeric' });
                 }
             }
+            // Build address from new columns with fallback
+            var coverAddr = '';
+            if (currentProject) {
+                var ap = [];
+                var pa = currentProject.project_address || currentProject._address || '';
+                var pc = currentProject.project_city || currentProject._city || '';
+                var pp = currentProject.project_postal_code || currentProject._postal || '';
+                if (!pa && !pc && !pp && currentProject.client_address) pa = currentProject.client_address;
+                if (pa) ap.push(escapeHtml(pa));
+                if (pc) ap.push(escapeHtml(pc));
+                if (pp) ap.push(escapeHtml(pp));
+                coverAddr = ap.join(', ');
+            }
+
             html += '<div class="pv-page pv-page-title">';
+            html += '<div class="pv-cover-left">';
             html += acceptanceProofHtml;
             html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+            if (currentProject) {
+                html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
+                html += '<div class="pv-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
+                if (coverAddr) html += '<div class="pv-client-address">' + coverAddr + '</div>';
+            }
+            html += '<div class="pv-cover-divider"></div>';
             html += '<div class="pv-sub-number">' + t('soumission') + ' #' + escapeHtml(subNum + '') + '</div>';
             if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
-            if (currentProject) {
-                html += '<div class="pv-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
-                if (currentProject.client_address) html += '<div class="pv-client-address">' + escapeHtml(currentProject.client_address) + '</div>';
-                html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
-                if (currentProject.designer) html += '<div class="pv-designer">' + t('designer') + ' : ' + escapeHtml(currentProject.designer) + '</div>';
-            }
             if (allInstallExcluded) html += '<div class="pv-install-banner">' + (currentLang === 'en' ? 'Installation not included' : 'Installation non incluse') + '</div>';
+            html += '</div>';
+            html += '<div class="pv-cover-right">';
+            if (coverImageUrl) {
+                html += '<img src="' + escapeAttr(coverImageUrl) + '" alt="">';
+                html += '<div class="pv-cover-overlay"></div>';
+            }
+            html += '</div>';
             html += '</div>';
 
             // ── Room pages (one per room) — text left, images right ──

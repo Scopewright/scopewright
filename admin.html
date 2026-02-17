@@ -642,6 +642,36 @@
                     </div>
                 </div>
             </div>
+
+            <div class="section collapsed" id="sectionCoverImage">
+                <div class="section-toggle" onclick="toggleSection('sectionCoverImage')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Image de couverture</div>
+                        <div class="section-desc">Image affich&eacute;e sur la page de couverture des soumissions (split 50/50).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:280px;">
+                            <p style="font-size:13px; color:#888; margin-bottom:16px;">
+                                Cette image appara&icirc;t sur la moiti&eacute; droite de la page de couverture des soumissions.
+                                Format recommand&eacute; : JPEG, ratio portrait ou carr&eacute;, minimum 1200px de large.
+                                Si aucune image n'est configur&eacute;e, un fond sombre uni sera affich&eacute;.
+                            </p>
+                            <label class="btn-outline" style="cursor:pointer; display:inline-block;">
+                                Choisir une image
+                                <input type="file" id="coverImageInput" accept="image/*" onchange="uploadCoverImage(this)" style="display:none;">
+                            </label>
+                            <button class="btn-outline" onclick="removeCoverImage()" style="margin-left:8px; color:#c00;">Supprimer</button>
+                            <span class="save-feedback" id="coverFeedback"></span>
+                        </div>
+                        <div id="coverImagePreview" style="width:240px; height:320px; border-radius:8px; overflow:hidden; background:#0B0F17; border:1px solid #e0e0e0; display:flex; align-items:center; justify-content:center;">
+                            <span style="color:#666; font-size:13px;" id="coverImagePlaceholder">Aucune image</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">stele — stele.ca</footer>
@@ -1862,6 +1892,125 @@
             alert('Erreur lors de la sauvegarde du r\u00f4le');
         }
     }
+    // ═══════════════════════════════════════════════════════════════════════
+    // COVER IMAGE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadCoverImagePreview() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.cover_image&select=value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0 && rows[0].value) {
+                    showCoverPreview(rows[0].value);
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function showCoverPreview(url) {
+        var preview = document.getElementById('coverImagePreview');
+        var placeholder = document.getElementById('coverImagePlaceholder');
+        if (url) {
+            preview.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;">';
+        } else {
+            preview.innerHTML = '<span style="color:#666;font-size:13px;" id="coverImagePlaceholder">Aucune image</span>';
+        }
+    }
+
+    async function uploadCoverImage(input) {
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        var feedback = document.getElementById('coverFeedback');
+        feedback.textContent = 'Upload en cours...';
+        feedback.style.color = '#888';
+
+        try {
+            // Compress image client-side
+            var compressed = await compressCoverImage(file, 1600, 0.85);
+
+            // Upload to Supabase Storage (assets bucket, public)
+            var r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/cover_image.jpg', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                body: compressed
+            });
+
+            if (!r.ok) {
+                // Try POST if PUT fails (file doesn't exist yet)
+                r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/cover_image.jpg', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                    body: compressed
+                });
+            }
+
+            if (r.ok) {
+                var publicUrl = SUPABASE_URL + '/storage/v1/object/public/assets/cover_image.jpg?t=' + Date.now();
+                // Save URL to app_config
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key: 'cover_image', value: JSON.stringify(publicUrl) })
+                });
+                showCoverPreview(publicUrl);
+                feedback.textContent = 'Image sauvegard\u00e9e!';
+                feedback.style.color = 'var(--stele-green, #4b6050)';
+            } else {
+                var errText = await r.text();
+                console.error('Upload error:', errText);
+                feedback.textContent = 'Erreur upload';
+                feedback.style.color = '#c00';
+            }
+        } catch (e) {
+            console.error('Cover image upload error:', e);
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+        input.value = '';
+    }
+
+    function compressCoverImage(file, maxWidth, quality) {
+        return new Promise(function(resolve) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    var canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function(blob) { resolve(blob); }, 'image/jpeg', quality);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function removeCoverImage() {
+        if (!confirm('Supprimer l\'image de couverture ?')) return;
+        var feedback = document.getElementById('coverFeedback');
+        try {
+            // Remove from app_config
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify({ key: 'cover_image', value: JSON.stringify('') })
+            });
+            showCoverPreview('');
+            feedback.textContent = 'Image supprim\u00e9e';
+            feedback.style.color = '#888';
+        } catch (e) {
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+    }
+
+    // Load cover image preview on page load
+    loadCoverImagePreview();
+
     </script>
 </body>
 </html>

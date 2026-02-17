@@ -89,29 +89,29 @@
             flex-direction: column;
         }
 
-        /* Title page — split 50/50 */
+        /* Title page — split 45/55 */
         .pv-page-title { flex-direction: row; padding: 0; align-items: stretch; }
         .pv-cover-left {
-            flex: 1; display: flex; flex-direction: column; justify-content: center;
-            padding: 48px 52px; background: #F7F8FA; text-align: left; position: relative;
+            flex: 0 0 45%; display: flex; flex-direction: column; justify-content: flex-start;
+            padding: 80px 52px 40px; background: #FFFFFF; text-align: left; position: relative;
         }
-        .pv-cover-left .pv-logo { height: 56px; margin-bottom: 40px; align-self: flex-start; }
-        .pv-cover-left .pv-project-name { font-size: 26px; font-weight: 600; color: var(--stele-black); line-height: 1.25; margin-bottom: 8px; }
-        .pv-cover-left .pv-client-name { font-size: 17px; font-weight: 400; color: #444; margin-bottom: 4px; }
-        .pv-cover-left .pv-client-address { font-size: 14px; color: #888; margin-bottom: 0; line-height: 1.5; }
-        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: var(--stele-green); margin: 24px 0; }
-        .pv-cover-left .pv-sub-number { font-size: 14px; font-weight: 600; color: var(--stele-green); margin-bottom: 4px; letter-spacing: 0.02em; }
-        .pv-cover-left .pv-sub-date { font-size: 13px; color: #999; }
+        .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 16px; }
+        .pv-cover-left .pv-project-name { font-size: 34px; font-weight: 600; color: #0F172A; line-height: 1.2; margin-bottom: 6px; }
+        .pv-cover-left .pv-client-name { font-size: 14px; font-weight: 400; color: #64748B; line-height: 1.6; margin-bottom: 0; }
+        .pv-cover-left .pv-client-address { font-size: 14px; font-weight: 400; color: #64748B; line-height: 1.6; margin-bottom: 0; }
+        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: #E2E8F0; margin: 24px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #0F172A; margin-bottom: 2px; }
+        .pv-cover-left .pv-sub-date { font-size: 13px; color: #94A3B8; }
         .pv-cover-right {
-            flex: 1; background: #0B0F17; overflow: hidden; position: relative;
+            flex: 0 0 55%; background: #0F1C2D; overflow: hidden; position: relative;
         }
         .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0; background: linear-gradient(135deg, rgba(15,23,42,0.15) 0%, rgba(15,23,42,0.35) 100%);
+            position: absolute; inset: 0; background: linear-gradient(135deg, rgba(15,28,45,0.10) 0%, rgba(15,28,45,0.30) 100%);
         }
 
         /* Installation non incluse — indicators */
-        .pv-install-banner { position: absolute; bottom: 20px; left: 0; right: 50%; text-align: center; font-size: 11px; color: #999; letter-spacing: 0.3px; }
+        .pv-install-banner { font-size: 12px; color: #94A3B8; margin-top: 60px; letter-spacing: 0.3px; }
         .pv-install-room-note { font-size: 11px; color: #999; font-style: italic; margin-top: -30px; margin-bottom: 20px; padding-left: 20px; }
         .pv-install-total-note { font-size: 13px; color: #999; margin-bottom: 16px; letter-spacing: 0.3px; }
 
@@ -690,15 +690,12 @@ async function renderQuote() {
         if (token.signature_data) acceptanceProofHtml += '<div style="margin-top:8px;"><img src="' + token.signature_data + '" style="max-width:200px;border:1px solid #ccc;border-radius:4px;" alt="Signature"></div>';
         acceptanceProofHtml += '</div>';
     }
-    // Build address from new columns with fallback
-    var coverAddrParts = [];
-    var projAddr = proj.project_address || proj.client_address || '';
-    var projCity = proj.project_city || '';
-    var projPostal = proj.project_postal_code || '';
-    if (projAddr) coverAddrParts.push(escapeHtml(projAddr));
-    if (projCity) coverAddrParts.push(escapeHtml(projCity));
-    if (projPostal) coverAddrParts.push(escapeHtml(projPostal));
-    var coverAddr = coverAddrParts.join(', ');
+    // Build separate address lines (new columns with fallback)
+    var coverAddrLine = proj.project_address || proj.client_address || '';
+    var coverCityParts = [];
+    if (proj.project_city) coverCityParts.push(proj.project_city);
+    if (proj.project_postal_code) coverCityParts.push(proj.project_postal_code);
+    var coverCityPostal = coverCityParts.join(', ');
 
     // Pre-scan installation status
     var installExcludedIds = {};
@@ -711,10 +708,11 @@ async function renderQuote() {
     html += '<div class="pv-page pv-page-title">';
     html += '<div class="pv-cover-left">';
     html += acceptanceProofHtml;
-    html += '<img class="pv-logo" src="https://rplzbtjfnwahqodrhpny.supabase.co/storage/v1/object/public/assets/stele_logo_noir.png" alt="Stele">';
+    html += '<div class="pv-cover-brand">stele</div>';
     if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
     if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
-    if (coverAddr) html += '<div class="pv-client-address">' + coverAddr + '</div>';
+    if (coverAddrLine) html += '<div class="pv-client-address">' + escapeHtml(coverAddrLine) + '</div>';
+    if (coverCityPostal) html += '<div class="pv-client-address">' + escapeHtml(coverCityPostal) + '</div>';
     html += '<div class="pv-cover-divider"></div>';
     html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
     if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';

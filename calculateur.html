@@ -3651,14 +3651,41 @@
             color: #c62828; font-weight: 700;
         }
 
+        /* ── Pipeline — Amount override inline edit ── */
+        .amount-cell { cursor: pointer; position: relative; }
+        .amount-cell:hover { background: rgba(0,0,0,0.03); }
+        .amount-override { color: #c62828; }
+        .amount-override::after {
+            content: attr(data-tooltip); position: absolute; bottom: calc(100% + 4px); right: 0;
+            white-space: nowrap; background: #333; color: #fff; font-size: 11px;
+            padding: 3px 8px; border-radius: 4px; pointer-events: none;
+            opacity: 0; transition: opacity 0.15s; font-family: "Segoe UI", system-ui, sans-serif;
+        }
+        .amount-override:hover::after { opacity: 1; }
+        .amount-inline-input {
+            width: 100%; border: 1px solid var(--stele-green); border-radius: 3px;
+            padding: 2px 6px; font-family: 'SF Mono', monospace; font-size: 12px;
+            text-align: right; outline: none; background: #fff;
+        }
+
         /* ── Pipeline — Submissions view ── */
         .pipeline-mini-timeline {
             display: inline-flex; align-items: center; gap: 3px;
         }
+        .pipeline-table tbody td:has(.pipeline-mini-timeline) { overflow: visible; }
         .pipeline-mini-timeline .tl-dot {
             width: 8px; height: 8px; border-radius: 50%; background: #e0e0e0;
+            position: relative; cursor: default;
         }
         .pipeline-mini-timeline .tl-dot.filled { background: var(--stele-green); }
+        .pipeline-mini-timeline .tl-dot::after {
+            content: attr(data-label); position: absolute; bottom: calc(100% + 6px); left: 50%;
+            transform: translateX(-50%); white-space: nowrap;
+            background: #333; color: #fff; font-size: 11px; padding: 3px 8px;
+            border-radius: 4px; pointer-events: none;
+            opacity: 0; transition: opacity 0.15s; z-index: 10;
+        }
+        .pipeline-mini-timeline .tl-dot:hover::after { opacity: 1; }
         .pipeline-mini-timeline .tl-line {
             width: 6px; height: 2px; background: #e0e0e0;
         }
@@ -10065,6 +10092,55 @@
             return d;
         }
 
+        // Returns { value: number|null, isOverride: boolean } for a project's display amount
+        function getProjectDisplayAmount(p) {
+            if (p.amount_override != null) return { value: parseFloat(p.amount_override), isOverride: true };
+            // Sum approved_total across submissions
+            var total = 0; var hasAny = false;
+            (p.submissions || []).forEach(function(s) {
+                if (s.approved_total) { total += parseFloat(s.approved_total); hasAny = true; }
+            });
+            if (hasAny) return { value: total, isOverride: false };
+            if (p.estimated_amount != null) return { value: parseFloat(p.estimated_amount), isOverride: false };
+            return { value: null, isOverride: false };
+        }
+
+        function renderAmountCell(p) {
+            var da = getProjectDisplayAmount(p);
+            if (da.isOverride) {
+                return '<span class="amount-override" data-tooltip="Montant estim\u00e9 manuellement">' + formatMoney(da.value) + '</span>';
+            }
+            return formatMoney(da.value);
+        }
+
+        function startAmountEdit(td, projectId, evt) {
+            evt.stopPropagation();
+            if (td.querySelector('.amount-inline-input')) return;
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            var current = proj && proj.amount_override != null ? String(Math.round(proj.amount_override)) : '';
+            td.innerHTML = '<input class="amount-inline-input" type="text" value="' + current + '" placeholder="Montant...">';
+            var input = td.querySelector('input');
+            input.focus();
+            input.select();
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { input.blur(); }
+                if (e.key === 'Escape') { renderCurrentView(); }
+            });
+            input.addEventListener('blur', function() {
+                saveAmountOverride(projectId, input.value.trim());
+            });
+        }
+
+        async function saveAmountOverride(projectId, rawValue) {
+            var val = rawValue.replace(/[^0-9.,]/g, '').replace(',', '.');
+            var numericVal = val === '' ? null : parseFloat(val);
+            if (val !== '' && isNaN(numericVal)) { renderCurrentView(); return; }
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (proj) proj.amount_override = numericVal;
+            renderCurrentView();
+            await updateProject(projectId, { amount_override: numericVal });
+        }
+
         // ── Pipeline view switching ──
 
         function switchPipelineView(view) {
@@ -10154,7 +10230,7 @@
             { key: 'client_name', label: 'Client', cls: '' },
             { key: 'entrepreneur', label: 'Entrepreneur', cls: '', computed: true },
             { key: 'architecte', label: 'Architecte', cls: '', computed: true },
-            { key: 'estimated_amount', label: 'Montant', cls: 'col-amount' },
+            { key: 'display_amount', label: 'Montant', cls: 'col-amount' },
             { key: 'probability', label: 'Prob%', cls: 'col-amount' },
             { key: 'weighted', label: 'Pond\u00e9r\u00e9', cls: 'col-amount', computed: true },
             { key: 'assigned_to', label: 'Responsable', cls: '' },
@@ -10191,9 +10267,9 @@
                 var firstSub = subs[0];
                 var ps = getPipelineStatus(p.pipeline_status);
                 var deadline = getClosestDeadline(p);
-                var amount = p.estimated_amount;
+                var da = getProjectDisplayAmount(p);
                 var prob = p.probability || 0;
-                var weighted = amount ? Math.round(amount * prob / 100) : null;
+                var weighted = da.value ? Math.round(da.value * prob / 100) : null;
 
                 bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
                 bHtml += '<td>' + escapeHtml(p.project_code || '—') + '</td>';
@@ -10201,7 +10277,7 @@
                 bHtml += '<td>' + escapeHtml(p.client_name || '—') + '</td>';
                 bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Entrepreneur')) + '</td>';
                 bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Architecte')) + '</td>';
-                bHtml += '<td class="col-amount">' + formatMoney(amount) + '</td>';
+                bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
                 bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
                 bHtml += '<td class="col-amount">' + formatMoney(weighted) + '</td>';
                 bHtml += '<td>' + escapeHtml(p.assigned_to || '—') + '</td>';
@@ -10220,9 +10296,12 @@
             var dir = pipelineSortDir === 'asc' ? 1 : -1;
             return arr.sort(function(a, b) {
                 var va, vb;
-                if (col === 'weighted') {
-                    va = (a.estimated_amount || 0) * (a.probability || 0);
-                    vb = (b.estimated_amount || 0) * (b.probability || 0);
+                if (col === 'display_amount') {
+                    va = (getProjectDisplayAmount(a).value || 0);
+                    vb = (getProjectDisplayAmount(b).value || 0);
+                } else if (col === 'weighted') {
+                    va = (getProjectDisplayAmount(a).value || 0) * (a.probability || 0);
+                    vb = (getProjectDisplayAmount(b).value || 0) * (b.probability || 0);
                 } else if (col === 'deadline') {
                     va = getClosestDeadline(a) || 'zzzz';
                     vb = getClosestDeadline(b) || 'zzzz';
@@ -10284,9 +10363,16 @@
                         '</div>';
                 });
 
+                var cardDa = getProjectDisplayAmount(proj);
+                var cardAmountHtml = '';
+                if (cardDa.value != null) {
+                    cardAmountHtml = cardDa.isOverride
+                        ? '<span class="project-card-amount" style="color:#c62828;" title="Montant estim\u00e9 manuellement">' + formatMoney(cardDa.value) + '</span>'
+                        : '<span class="project-card-amount">' + formatMoney(cardDa.value) + '</span>';
+                }
                 var pipelineHtml = '<div class="project-card-pipeline">' +
                     '<span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span>' +
-                    (proj.estimated_amount ? '<span class="project-card-amount">' + formatMoney(proj.estimated_amount) + '</span>' : '') +
+                    cardAmountHtml +
                     '</div>';
 
                 var metaHtml = '';
@@ -10324,13 +10410,22 @@
 
         var SUB_STATUSES_ORDER = ['draft', 'pending_internal', 'returned', 'approved_internal', 'sent_client', 'accepted'];
 
+        var SUB_STATUS_LABELS = {
+            draft: 'Brouillon',
+            pending_internal: 'En approbation interne',
+            returned: 'Retourné',
+            approved_internal: 'Approuvé',
+            sent_client: 'Envoyé au client',
+            accepted: 'Accepté'
+        };
+
         function buildMiniTimeline(status) {
             var idx = SUB_STATUSES_ORDER.indexOf(status);
             if (idx === -1) idx = 0;
             var html = '<span class="pipeline-mini-timeline">';
             for (var i = 0; i < SUB_STATUSES_ORDER.length; i++) {
                 if (i > 0) html += '<span class="tl-line' + (i <= idx ? ' filled' : '') + '"></span>';
-                html += '<span class="tl-dot' + (i <= idx ? ' filled' : '') + '"></span>';
+                html += '<span class="tl-dot' + (i <= idx ? ' filled' : '') + '" data-label="' + (SUB_STATUS_LABELS[SUB_STATUSES_ORDER[i]] || '') + '"></span>';
             }
             html += '</span>';
             return html;

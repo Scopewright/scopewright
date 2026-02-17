@@ -7817,11 +7817,8 @@
         async function openPdfViewer(planId) {
             setPlanButtonLoading(planId, 'View', true);
 
-            // Open window IMMEDIATELY (sync) to preserve user gesture — avoids pop-up blocker
-            var viewerHtml = createStandaloneViewer();
-            var blob = new Blob([viewerHtml], { type: 'text/html' });
-            var blobUrl = URL.createObjectURL(blob);
-            var newWindow = window.open(blobUrl, '_blank', 'width=1200,height=800');
+            // Open blank window IMMEDIATELY (sync) to preserve user gesture — avoids pop-up blocker
+            var newWindow = window.open('about:blank', '_blank', 'width=1200,height=800');
 
             if (!newWindow) {
                 alert('Veuillez autoriser les fenêtres pop-up pour cette fonctionnalité.');
@@ -7857,7 +7854,13 @@
 
                 currentPdfUrl = SUPABASE_URL + '/storage/v1' + signData.signedURL;
 
-                // Send data to the already-open window
+                // Write viewer HTML directly into the window (same origin — avoids blob:null CORS issues)
+                var viewerHtml = createStandaloneViewer();
+                newWindow.document.open();
+                newWindow.document.write(viewerHtml);
+                newWindow.document.close();
+
+                // Send PDF data once the viewer scripts are loaded
                 function trySendMessage() {
                     newWindow.postMessage({
                         type: 'INIT_PDF',
@@ -7869,11 +7872,22 @@
                     }, '*');
                 }
 
-                if (newWindow.document && newWindow.document.readyState === 'complete') {
+                // Retry mechanism: send message multiple times until viewer ACKs
+                var sendAttempts = 0;
+                var sendInterval = setInterval(function() {
+                    if (newWindow.closed) { clearInterval(sendInterval); return; }
                     trySendMessage();
-                } else {
-                    newWindow.addEventListener('load', trySendMessage);
-                }
+                    sendAttempts++;
+                    if (sendAttempts > 30) clearInterval(sendInterval); // stop after 15s
+                }, 500);
+
+                // Listen for ACK from viewer to stop retrying
+                window.addEventListener('message', function ackHandler(e) {
+                    if (e.data && e.data.type === 'PDF_VIEWER_ACK') {
+                        clearInterval(sendInterval);
+                        window.removeEventListener('message', ackHandler);
+                    }
+                });
 
                 // Auto-close plans modal when PDF viewer window is closed
                 var checkClosed = setInterval(function() {
@@ -7885,8 +7899,10 @@
 
             } catch (err) {
                 console.error('PDF viewer error:', err);
-                newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +
-                    '<h2>Erreur</h2><p>' + err.message + '</p></div>';
+                try {
+                    newWindow.document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;">' +
+                        '<h2>Erreur</h2><p>' + err.message + '</p></div>';
+                } catch (e) { /* window might be closed */ }
             } finally {
                 setPlanButtonLoading(planId, 'View', false);
             }
@@ -8044,13 +8060,21 @@
 'var cropper = null, capturedBlob = null, selectedRoomId = null, cropRatioLabel = "16:9";' +
 
 /* INIT via postMessage */
+'var pdfInitialized = false;' +
 'window.addEventListener("message", async function(e) {' +
-'  if (e.data.type === "INIT_PDF") {' +
+'  if (e.data.type === "INIT_PDF" && !pdfInitialized) {' +
+'    pdfInitialized = true;' +
+'    if (e.source) e.source.postMessage({ type: "PDF_VIEWER_ACK" }, "*");' +
 '    planRecord = e.data.planRecord; submissionId = e.data.submissionId; supabaseUrl = e.data.supabaseUrl; accessToken = e.data.accessToken;' +
 '    document.getElementById("title").textContent = planRecord.file_name;' +
-'    var loadingTask = pdfjsLib.getDocument(e.data.pdfUrl);' +
-'    pdfDoc = await loadingTask.promise; totalPages = pdfDoc.numPages; await render(); await loadRooms();' +
-'    var ls = document.getElementById("loadingScreen"); ls.classList.add("hidden"); setTimeout(function() { ls.remove(); }, 500);' +
+'    try {' +
+'      var loadingTask = pdfjsLib.getDocument(e.data.pdfUrl);' +
+'      pdfDoc = await loadingTask.promise; totalPages = pdfDoc.numPages; await render(); await loadRooms();' +
+'      var ls = document.getElementById("loadingScreen"); ls.classList.add("hidden"); setTimeout(function() { ls.remove(); }, 500);' +
+'    } catch (err) {' +
+'      console.error("PDF load error:", err);' +
+'      document.getElementById("loadingScreen").innerHTML = "<div style=\\"color:#fff;padding:40px;text-align:center;\\"><h2>Erreur de chargement</h2><p>" + err.message + "</p><p style=\\"margin-top:16px;color:#999;font-size:13px;\\">V\\u00e9rifiez que le fichier PDF existe dans le stockage.</p></div>";' +
+'    }' +
 '  }' +
 '});' +
 

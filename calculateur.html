@@ -86,6 +86,16 @@
     let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
     let propMedia = [];
 
+    // Pipeline commercial
+    var pipelineStatuses = [];
+    var projectSources = [];
+    var projectTypes = [];
+    var currentPipelineView = 'cards';
+    var cachedProjects = [];
+    var pipelineSortColumn = 'updated_at';
+    var pipelineSortDir = 'desc';
+    var pipelineFilters = { search: '', status: '', assigned: '', type: '' };
+
     // Configure PDF.js worker (wait for script to load)
     function initPdfJs() {
         if (typeof pdfjsLib !== 'undefined') {
@@ -251,8 +261,13 @@
 
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval)', {});
-        if (!r.ok) return [];
+        // Try enriched query with pipeline columns + contacts
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline),project_contacts(role,contacts(first_name,last_name))', {});
+        if (!r.ok) {
+            // Fallback: basic query without pipeline columns (migrations not yet run)
+            r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval)', {});
+            if (!r.ok) return [];
+        }
         var projects = await r.json();
         projects.forEach(function(p) {
             if (p.submissions) p.submissions.sort(function(a, b) { return b.submission_number - a.submission_number; });
@@ -3570,6 +3585,106 @@
         }
         .btn-add-sub:hover { border-color: var(--stele-green); color: var(--stele-green); background: #f9faf9; }
 
+        /* ── Pipeline — Tabs ── */
+        .pipeline-tabs {
+            display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e0e0e0;
+        }
+        .pipeline-tab {
+            padding: 10px 20px; font-size: 13px; font-weight: 600; color: #888;
+            cursor: pointer; border: none; background: none; font-family: inherit;
+            border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+        }
+        .pipeline-tab:hover { color: #333; }
+        .pipeline-tab.active { color: var(--stele-green); border-bottom-color: var(--stele-green); }
+
+        /* ── Pipeline — Filter bar ── */
+        .pipeline-filters {
+            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .pipeline-filters input[type="text"] {
+            flex: 1; min-width: 180px; padding: 7px 12px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 13px; font-family: inherit;
+        }
+        .pipeline-filters select {
+            padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; font-family: inherit; background: #fff; min-width: 140px;
+        }
+
+        /* ── Pipeline — Table view ── */
+        .pipeline-table-wrap {
+            overflow-x: auto; margin-bottom: 16px; border: 1px solid #e0e0e0; border-radius: 8px;
+        }
+        .pipeline-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .pipeline-table thead th {
+            background: #f8f8f8; padding: 10px 12px; text-align: left; font-weight: 600;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: #666;
+            cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid #e0e0e0;
+        }
+        .pipeline-table thead th:hover { background: #f0f0f0; }
+        .pipeline-table thead th .sort-arrow { font-size: 10px; margin-left: 4px; opacity: 0.4; }
+        .pipeline-table thead th.sorted .sort-arrow { opacity: 1; color: var(--stele-green); }
+        .pipeline-table tbody tr {
+            cursor: pointer; transition: background 0.1s; border-bottom: 1px solid #f0f0f0;
+        }
+        .pipeline-table tbody tr:hover { background: #f9faf9; }
+        .pipeline-table tbody td {
+            padding: 9px 12px; white-space: nowrap; max-width: 200px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .pipeline-table tbody td.col-name { max-width: 260px; font-weight: 500; }
+        .pipeline-table tbody td.col-amount { text-align: right; font-family: 'SF Mono', monospace; font-size: 12px; }
+        .pipeline-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .priority-urgent {
+            color: #c62828; font-weight: 700;
+        }
+
+        /* ── Pipeline — Submissions view ── */
+        .pipeline-mini-timeline {
+            display: inline-flex; align-items: center; gap: 3px;
+        }
+        .pipeline-mini-timeline .tl-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #e0e0e0;
+        }
+        .pipeline-mini-timeline .tl-dot.filled { background: var(--stele-green); }
+        .pipeline-mini-timeline .tl-line {
+            width: 6px; height: 2px; background: #e0e0e0;
+        }
+        .pipeline-mini-timeline .tl-line.filled { background: var(--stele-green); }
+
+        /* ── Pipeline — Card enhancements ── */
+        .project-card-pipeline {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+        }
+        .project-card-amount {
+            font-size: 14px; font-weight: 600; color: var(--stele-green);
+        }
+        .project-card-meta-row {
+            display: flex; align-items: center; gap: 12px; font-size: 11px; color: #888; margin-top: 6px;
+        }
+        .project-card-deadline { color: #c62828; font-weight: 600; }
+        .project-card-urgent { border-left: 3px solid #c62828; }
+
+        /* ── Pipeline — Submission assignment ── */
+        .sub-assignment-row {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .sub-assignment-row .sa-field {
+            display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 120px;
+        }
+        .sub-assignment-row .sa-label {
+            font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #999;
+        }
+        .sub-assignment-row select, .sub-assignment-row input[type="date"] {
+            padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit; background: #fff;
+        }
+
         /* Panneau soumissions dans le calculateur */
         .header-sub-panel {
             display: none; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
@@ -4447,9 +4562,52 @@
                 </div>
             </div>
 
+            <!-- Pipeline tabs -->
+            <div class="pipeline-tabs" id="pipelineTabs">
+                <button class="pipeline-tab" data-view="table" onclick="switchPipelineView('table')">Table</button>
+                <button class="pipeline-tab active" data-view="cards" onclick="switchPipelineView('cards')">Cartes</button>
+                <button class="pipeline-tab" data-view="submissions" onclick="switchPipelineView('submissions')">Soumissions</button>
+            </div>
+
+            <!-- Pipeline filters -->
+            <div class="pipeline-filters" id="pipelineFilters">
+                <input type="text" id="pipelineSearch" placeholder="Rechercher (nom, client, code, ville...)" oninput="applyPipelineFilters()">
+                <select id="pipelineStatusFilter" onchange="applyPipelineFilters()">
+                    <option value="">Tous les statuts</option>
+                </select>
+                <select id="pipelineAssignedFilter" onchange="applyPipelineFilters()">
+                    <option value="">Tous les responsables</option>
+                </select>
+                <select id="pipelineTypeFilter" onchange="applyPipelineFilters()">
+                    <option value="">Tous les types</option>
+                </select>
+            </div>
+
+            <!-- Vue Table -->
+            <div id="viewTableContainer" style="display:none;">
+                <div class="pipeline-table-wrap">
+                    <table class="pipeline-table" id="pipelineTable">
+                        <thead id="pipelineTableHead"></thead>
+                        <tbody id="pipelineTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vue Cartes -->
             <div id="projectGrid" class="project-grid">
                 <!-- Rempli dynamiquement -->
             </div>
+
+            <!-- Vue Soumissions -->
+            <div id="viewSubmissions" style="display:none;">
+                <div class="pipeline-table-wrap">
+                    <table class="pipeline-table" id="submissionsTable">
+                        <thead id="submissionsTableHead"></thead>
+                        <tbody id="submissionsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="project-empty" id="projectEmpty" style="display:none;">
                 Aucun projet pour le moment.<br>Cliquez sur &laquo; + Nouveau projet &raquo; pour commencer.
             </div>
@@ -4500,6 +4658,29 @@
                     <button class="btn-main-action btn-main-purple" id="btnWfSendClient" onclick="sendToClient()">Envoyer au client</button>
                     <button class="btn-main-action btn-main-red" id="btnWfBypass" onclick="bypassApproval()">Envoyer sans approbation</button>
                     <button class="btn-main-action btn-main-green" id="btnWfAcceptOffline" onclick="offlineAcceptance()">Confirmer la vente</button>
+                </div>
+                <!-- Submission assignment -->
+                <div class="sub-assignment-row" id="subAssignmentRow" style="display:none;">
+                    <div class="sa-field">
+                        <span class="sa-label">Estimateur</span>
+                        <select id="saEstimateur" onchange="saveSubAssignment()"><option value="">—</option></select>
+                    </div>
+                    <div class="sa-field">
+                        <span class="sa-label">Vendeur / CP</span>
+                        <select id="saVendeur" onchange="saveSubAssignment()"><option value="">—</option></select>
+                    </div>
+                    <div class="sa-field">
+                        <span class="sa-label">Approbateur</span>
+                        <select id="saApprobateur" onchange="saveSubAssignment()"><option value="">—</option></select>
+                    </div>
+                    <div class="sa-field">
+                        <span class="sa-label">Remise interne</span>
+                        <input type="date" id="saInternalDeadline" onchange="saveSubAssignment()">
+                    </div>
+                    <div class="sa-field">
+                        <span class="sa-label">Remise client</span>
+                        <input type="date" id="saClientDeadline" onchange="saveSubAssignment()">
+                    </div>
                 </div>
                 <input type="hidden" id="subTitle" value="">
                 <span id="subNumber" style="display:none;"></span>
@@ -4982,6 +5163,70 @@
                     </div>
                 </div>
                 <div id="addrSuggestPanel" style="display:none;"></div>
+
+                <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+                <div style="font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:10px;">Pipeline commercial</div>
+
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Statut pipeline</label>
+                        <select class="form-input" id="infoPipelineStatus"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Priorit&eacute;</label>
+                        <select class="form-input" id="infoPriority">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Source</label>
+                        <select class="form-input" id="infoSource"><option value="">—</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select class="form-input" id="infoProjectType"><option value="">—</option></select>
+                    </div>
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Montant estim&eacute; ($)</label>
+                        <input type="number" class="form-input" id="infoEstimatedAmount" placeholder="0" min="0" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Probabilit&eacute; (%)</label>
+                        <input type="range" id="infoProbability" min="0" max="100" step="5" value="0" oninput="document.getElementById('infoProbVal').textContent=this.value+'%'" style="width:100%;">
+                        <span id="infoProbVal" style="font-size:12px;color:#666;">0%</span>
+                    </div>
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Responsable</label>
+                        <select class="form-input" id="infoAssignedTo"><option value="">—</option></select>
+                    </div>
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Date d&eacute;but pr&eacute;vue</label>
+                        <input type="date" class="form-input" id="infoExpectedStart">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date fin pr&eacute;vue</label>
+                        <input type="date" class="form-input" id="infoExpectedEnd">
+                    </div>
+                </div>
+                <div class="info-modal-row">
+                    <div class="form-group">
+                        <label class="form-label">Deadline interne</label>
+                        <input type="date" class="form-input" id="infoInternalDeadline">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deadline client</label>
+                        <input type="date" class="form-input" id="infoClientDeadline">
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeEditInfoModal()">Annuler</button>
@@ -5909,6 +6154,36 @@
                     });
                 }
             } catch (e) { /* keep defaults */ }
+        }
+
+        async function loadPipelineConfig() {
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/app_config?key=in.(pipeline_statuses,project_sources,project_types)&select=key,value', {}
+                );
+                if (r.ok) {
+                    var rows = await r.json();
+                    rows.forEach(function(row) {
+                        if (row.key === 'pipeline_statuses') pipelineStatuses = row.value || [];
+                        if (row.key === 'project_sources') projectSources = row.value || [];
+                        if (row.key === 'project_types') projectTypes = row.value || [];
+                    });
+                }
+            } catch (e) { /* keep empty */ }
+            // Defaults if nothing loaded
+            if (!pipelineStatuses.length) {
+                pipelineStatuses = [
+                    {slug:'a_contacter',label:'A contacter',color:'#9e9e9e',sort_order:1},
+                    {slug:'en_attente_infos',label:'En attente d\'infos',color:'#ff9800',sort_order:2},
+                    {slug:'a_soumissionner',label:'A soumissionner',color:'#2196f3',sort_order:3},
+                    {slug:'en_revision',label:'En r\u00e9vision',color:'#9c27b0',sort_order:4},
+                    {slug:'a_presenter',label:'A pr\u00e9senter',color:'#00bcd4',sort_order:5},
+                    {slug:'envoye',label:'Envoy\u00e9',color:'#3f51b5',sort_order:6},
+                    {slug:'en_discussions',label:'En discussions',color:'#ff5722',sort_order:7},
+                    {slug:'vendu',label:'Vendu',color:'#4caf50',sort_order:8},
+                    {slug:'perdu',label:'Perdu',color:'#f44336',sort_order:9}
+                ];
+            }
         }
 
         // Calculer le prix composé d'un article catalogue
@@ -9741,25 +10016,252 @@
             container.innerHTML = html;
         }
 
-        async function renderProjectList() {
-            const grid = document.getElementById('projectGrid');
-            const empty = document.getElementById('projectEmpty');
-            grid.innerHTML = '';
+        // ── Pipeline helpers ──
 
-            const projects = await loadProjects();
+        function getPipelineStatus(slug) {
+            return pipelineStatuses.find(function(s) { return s.slug === slug; }) || { slug: slug, label: slug || '—', color: '#9e9e9e' };
+        }
 
-            if (projects.length === 0) {
+        function getContactByRole(proj, role) {
+            if (!proj.project_contacts) return '';
+            var match = proj.project_contacts.find(function(pc) { return pc.role === role && pc.contacts; });
+            if (!match || !match.contacts) return '';
+            return ((match.contacts.first_name || '') + ' ' + (match.contacts.last_name || '')).trim();
+        }
+
+        function getClosestDeadline(proj) {
+            var dates = [];
+            if (proj.internal_deadline) dates.push(proj.internal_deadline);
+            if (proj.client_deadline) dates.push(proj.client_deadline);
+            (proj.submissions || []).forEach(function(s) {
+                if (s.internal_deadline) dates.push(s.internal_deadline);
+                if (s.client_deadline) dates.push(s.client_deadline);
+            });
+            if (dates.length === 0) return null;
+            dates.sort();
+            return dates[0];
+        }
+
+        function formatMoney(n) {
+            if (n == null || isNaN(n)) return '—';
+            return parseFloat(n).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function formatDateShort(d) {
+            if (!d) return '—';
+            var parts = d.split('-');
+            if (parts.length === 3) return parts[2] + '/' + parts[1];
+            return d;
+        }
+
+        // ── Pipeline view switching ──
+
+        function switchPipelineView(view) {
+            currentPipelineView = view;
+            document.querySelectorAll('.pipeline-tab').forEach(function(t) {
+                t.classList.toggle('active', t.getAttribute('data-view') === view);
+            });
+            document.getElementById('viewTableContainer').style.display = view === 'table' ? '' : 'none';
+            document.getElementById('projectGrid').style.display = view === 'cards' ? '' : 'none';
+            document.getElementById('viewSubmissions').style.display = view === 'submissions' ? '' : 'none';
+            populateFilterDropdowns();
+            renderCurrentView();
+        }
+
+        function populateFilterDropdowns() {
+            // Status filter
+            var sf = document.getElementById('pipelineStatusFilter');
+            var currentVal = sf.value;
+            sf.innerHTML = '<option value="">Tous les statuts</option>';
+            if (currentPipelineView === 'submissions') {
+                var subStatuses = [['draft','Brouillon'],['pending_internal','En approbation'],['returned','Retourn\u00e9e'],['approved_internal','Pr\u00eate'],['sent_client','Envoy\u00e9e'],['accepted','Vendue']];
+                subStatuses.forEach(function(s) { sf.innerHTML += '<option value="' + s[0] + '">' + escapeHtml(s[1]) + '</option>'; });
+            } else {
+                pipelineStatuses.forEach(function(s) { sf.innerHTML += '<option value="' + escapeAttr(s.slug) + '">' + escapeHtml(s.label) + '</option>'; });
+            }
+            sf.value = currentVal;
+
+            // Assigned filter
+            var af = document.getElementById('pipelineAssignedFilter');
+            var aVal = af.value;
+            af.innerHTML = '<option value="">Tous les responsables</option>';
+            EMPLOYEES_DATA.forEach(function(e) { af.innerHTML += '<option value="' + escapeAttr(e.name) + '">' + escapeHtml(e.name) + '</option>'; });
+            af.value = aVal;
+
+            // Type filter
+            var tf = document.getElementById('pipelineTypeFilter');
+            var tVal = tf.value;
+            tf.innerHTML = '<option value="">Tous les types</option>';
+            projectTypes.forEach(function(t) { tf.innerHTML += '<option value="' + escapeAttr(t) + '">' + escapeHtml(t) + '</option>'; });
+            tf.value = tVal;
+
+            // Hide type filter for submissions view
+            tf.style.display = currentPipelineView === 'submissions' ? 'none' : '';
+        }
+
+        function applyPipelineFilters() {
+            pipelineFilters.search = (document.getElementById('pipelineSearch').value || '').toLowerCase();
+            pipelineFilters.status = document.getElementById('pipelineStatusFilter').value;
+            pipelineFilters.assigned = document.getElementById('pipelineAssignedFilter').value;
+            pipelineFilters.type = document.getElementById('pipelineTypeFilter').value;
+            renderCurrentView();
+        }
+
+        function filterProjects(projects) {
+            return projects.filter(function(p) {
+                if (pipelineFilters.search) {
+                    var s = pipelineFilters.search;
+                    var haystack = [p.name, p.client_name, p.project_code, p.project_city, p.assigned_to].filter(Boolean).join(' ').toLowerCase();
+                    if (haystack.indexOf(s) === -1) return false;
+                }
+                if (pipelineFilters.status && (p.pipeline_status || 'a_contacter') !== pipelineFilters.status) return false;
+                if (pipelineFilters.assigned && p.assigned_to !== pipelineFilters.assigned) return false;
+                if (pipelineFilters.type && p.project_type !== pipelineFilters.type) return false;
+                return true;
+            });
+        }
+
+        function renderCurrentView() {
+            var filtered = filterProjects(cachedProjects);
+            var empty = document.getElementById('projectEmpty');
+            if (cachedProjects.length === 0) {
                 empty.style.display = 'block';
                 return;
             }
             empty.style.display = 'none';
 
-            projects.forEach(proj => {
-                const card = document.createElement('div');
-                card.className = 'project-card';
+            if (currentPipelineView === 'table') renderTableView(filtered);
+            else if (currentPipelineView === 'cards') renderCardView(filtered);
+            else if (currentPipelineView === 'submissions') renderSubmissionsView(filtered);
+        }
 
-                const subs = proj.submissions || [];
-                const subCount = subs.length;
+        // ── Table view ──
+
+        var TABLE_COLUMNS = [
+            { key: 'project_code', label: 'Code', cls: '' },
+            { key: 'name', label: 'Nom', cls: 'col-name' },
+            { key: 'client_name', label: 'Client', cls: '' },
+            { key: 'entrepreneur', label: 'Entrepreneur', cls: '', computed: true },
+            { key: 'architecte', label: 'Architecte', cls: '', computed: true },
+            { key: 'estimated_amount', label: 'Montant', cls: 'col-amount' },
+            { key: 'probability', label: 'Prob%', cls: 'col-amount' },
+            { key: 'weighted', label: 'Pond\u00e9r\u00e9', cls: 'col-amount', computed: true },
+            { key: 'assigned_to', label: 'Responsable', cls: '' },
+            { key: 'priority', label: 'Priorit\u00e9', cls: '' },
+            { key: 'deadline', label: 'Remise', cls: '', computed: true },
+            { key: 'pipeline_status', label: 'Statut', cls: '' },
+            { key: 'project_type', label: 'Type', cls: '' },
+            { key: 'project_city', label: 'Ville', cls: '' }
+        ];
+
+        function renderTableView(projects) {
+            // Header
+            var head = document.getElementById('pipelineTableHead');
+            var hHtml = '<tr>';
+            TABLE_COLUMNS.forEach(function(col) {
+                var arrow = '';
+                var sorted = pipelineSortColumn === col.key ? ' sorted' : '';
+                if (pipelineSortColumn === col.key) {
+                    arrow = pipelineSortDir === 'asc' ? '\u25B2' : '\u25BC';
+                }
+                hHtml += '<th class="' + sorted + '" onclick="sortPipelineTable(\'' + col.key + '\')"><span>' + col.label + '</span><span class="sort-arrow">' + arrow + '</span></th>';
+            });
+            hHtml += '</tr>';
+            head.innerHTML = hHtml;
+
+            // Sort
+            var sorted = sortProjects(projects.slice());
+
+            // Body
+            var body = document.getElementById('pipelineTableBody');
+            var bHtml = '';
+            sorted.forEach(function(p) {
+                var subs = p.submissions || [];
+                var firstSub = subs[0];
+                var ps = getPipelineStatus(p.pipeline_status);
+                var deadline = getClosestDeadline(p);
+                var amount = p.estimated_amount;
+                var prob = p.probability || 0;
+                var weighted = amount ? Math.round(amount * prob / 100) : null;
+
+                bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
+                bHtml += '<td>' + escapeHtml(p.project_code || '—') + '</td>';
+                bHtml += '<td class="col-name">' + escapeHtml(p.name || '—') + '</td>';
+                bHtml += '<td>' + escapeHtml(p.client_name || '—') + '</td>';
+                bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Entrepreneur')) + '</td>';
+                bHtml += '<td>' + escapeHtml(getContactByRole(p, 'Architecte')) + '</td>';
+                bHtml += '<td class="col-amount">' + formatMoney(amount) + '</td>';
+                bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
+                bHtml += '<td class="col-amount">' + formatMoney(weighted) + '</td>';
+                bHtml += '<td>' + escapeHtml(p.assigned_to || '—') + '</td>';
+                bHtml += '<td>' + (p.priority === 'urgent' ? '<span class="priority-urgent">URGENT</span>' : 'Normal') + '</td>';
+                bHtml += '<td' + (deadline ? ' class="project-card-deadline"' : '') + '>' + formatDateShort(deadline) + '</td>';
+                bHtml += '<td><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
+                bHtml += '<td>' + escapeHtml(p.project_type || '—') + '</td>';
+                bHtml += '<td>' + escapeHtml(p.project_city || '—') + '</td>';
+                bHtml += '</tr>';
+            });
+            body.innerHTML = bHtml || '<tr><td colspan="14" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
+        }
+
+        function sortProjects(arr) {
+            var col = pipelineSortColumn;
+            var dir = pipelineSortDir === 'asc' ? 1 : -1;
+            return arr.sort(function(a, b) {
+                var va, vb;
+                if (col === 'weighted') {
+                    va = (a.estimated_amount || 0) * (a.probability || 0);
+                    vb = (b.estimated_amount || 0) * (b.probability || 0);
+                } else if (col === 'deadline') {
+                    va = getClosestDeadline(a) || 'zzzz';
+                    vb = getClosestDeadline(b) || 'zzzz';
+                } else if (col === 'entrepreneur' || col === 'architecte') {
+                    va = getContactByRole(a, col === 'entrepreneur' ? 'Entrepreneur' : 'Architecte') || '';
+                    vb = getContactByRole(b, col === 'entrepreneur' ? 'Entrepreneur' : 'Architecte') || '';
+                } else {
+                    va = a[col]; vb = b[col];
+                }
+                if (va == null) va = '';
+                if (vb == null) vb = '';
+                if (typeof va === 'string') return va.localeCompare(vb) * dir;
+                return (va - vb) * dir;
+            });
+        }
+
+        function sortPipelineTable(col) {
+            if (pipelineSortColumn === col) {
+                pipelineSortDir = pipelineSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                pipelineSortColumn = col;
+                pipelineSortDir = 'asc';
+            }
+            renderCurrentView();
+        }
+
+        function pipelineRowClick(projectId) {
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (!proj) return;
+            var subs = proj.submissions || [];
+            if (subs.length > 0) {
+                openSubmission(subs[0].id);
+            } else {
+                openProject(projectId);
+            }
+        }
+
+        // ── Card view (enriched) ──
+
+        function renderCardView(projects) {
+            var grid = document.getElementById('projectGrid');
+            grid.innerHTML = '';
+
+            projects.forEach(function(proj) {
+                var card = document.createElement('div');
+                card.className = 'project-card' + (proj.priority === 'urgent' ? ' project-card-urgent' : '');
+
+                var subs = proj.submissions || [];
+                var ps = getPipelineStatus(proj.pipeline_status);
+                var deadline = getClosestDeadline(proj);
 
                 var subsHtml = '';
                 subs.forEach(function(sub) {
@@ -9771,32 +10273,116 @@
                         '</div>';
                 });
 
+                var pipelineHtml = '<div class="project-card-pipeline">' +
+                    '<span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span>' +
+                    (proj.estimated_amount ? '<span class="project-card-amount">' + formatMoney(proj.estimated_amount) + '</span>' : '') +
+                    '</div>';
+
+                var metaHtml = '';
+                var metaParts = [];
+                if (proj.assigned_to) metaParts.push(escapeHtml(proj.assigned_to));
+                if (proj.project_type) metaParts.push(escapeHtml(proj.project_type));
+                if (deadline) metaParts.push('<span class="project-card-deadline">' + formatDateShort(deadline) + '</span>');
+                if (metaParts.length) metaHtml = '<div class="project-card-meta-row">' + metaParts.join(' &middot; ') + '</div>';
+
                 card.innerHTML =
                     '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
+                    pipelineHtml +
                     '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
                     '<div class="project-card-client">' + escapeHtml(proj.client_name || 'Aucun client') + '</div>' +
+                    metaHtml +
                     '<div class="project-subs">' + (subsHtml || '<div class="sub-empty">Aucune soumission</div>') + '</div>' +
                     '<button class="btn-add-sub" onclick="handleAddSubmission(\'' + escapeAttr(proj.id) + '\', event)">+ Nouvelle soumission</button>';
 
-                // Click on a submission line → open it
                 card.addEventListener('click', function(e) {
                     if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub')) return;
                     var subLine = e.target.closest('.sub-line');
                     if (subLine) {
-                        var subId = subLine.getAttribute('data-subid');
-                        openSubmission(subId);
+                        openSubmission(subLine.getAttribute('data-subid'));
                         return;
                     }
-                    // Click on card header (project name) → open first submission
-                    if (subs.length > 0) {
-                        openSubmission(subs[0].id);
-                    } else {
-                        openProject(proj.id); // creates default submission
-                    }
+                    if (subs.length > 0) openSubmission(subs[0].id);
+                    else openProject(proj.id);
                 });
 
                 grid.appendChild(card);
             });
+        }
+
+        // ── Submissions view ──
+
+        var SUB_STATUSES_ORDER = ['draft', 'pending_internal', 'returned', 'approved_internal', 'sent_client', 'accepted'];
+
+        function buildMiniTimeline(status) {
+            var idx = SUB_STATUSES_ORDER.indexOf(status);
+            if (idx === -1) idx = 0;
+            var html = '<span class="pipeline-mini-timeline">';
+            for (var i = 0; i < SUB_STATUSES_ORDER.length; i++) {
+                if (i > 0) html += '<span class="tl-line' + (i <= idx ? ' filled' : '') + '"></span>';
+                html += '<span class="tl-dot' + (i <= idx ? ' filled' : '') + '"></span>';
+            }
+            html += '</span>';
+            return html;
+        }
+
+        function renderSubmissionsView(projects) {
+            // Flatten all submissions
+            var allSubs = [];
+            projects.forEach(function(p) {
+                (p.submissions || []).forEach(function(s) {
+                    s._project = p;
+                    allSubs.push(s);
+                });
+            });
+
+            // Apply submission-specific filters
+            if (pipelineFilters.search) {
+                var q = pipelineFilters.search;
+                allSubs = allSubs.filter(function(s) {
+                    var haystack = [s.title, s._project.name, s._project.client_name, String(s.submission_number)].filter(Boolean).join(' ').toLowerCase();
+                    return haystack.indexOf(q) !== -1;
+                });
+            }
+            if (pipelineFilters.status) {
+                allSubs = allSubs.filter(function(s) { return s.status === pipelineFilters.status; });
+            }
+            if (pipelineFilters.assigned) {
+                allSubs = allSubs.filter(function(s) { return s.estimateur === pipelineFilters.assigned || s.vendeur_cp === pipelineFilters.assigned; });
+            }
+
+            // Sort by updated_at desc
+            allSubs.sort(function(a, b) { return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+
+            // Header
+            var head = document.getElementById('submissionsTableHead');
+            head.innerHTML = '<tr><th>#</th><th>Titre</th><th>Projet</th><th>Client</th><th>Montant</th><th>Estimateur</th><th>Vendeur</th><th>Statut</th><th>Remise</th></tr>';
+
+            // Body
+            var body = document.getElementById('submissionsTableBody');
+            var html = '';
+            allSubs.forEach(function(s) {
+                var deadline = s.internal_deadline || s.client_deadline || '';
+                html += '<tr onclick="openSubmission(\'' + escapeAttr(s.id) + '\')">';
+                html += '<td style="font-weight:700;color:var(--stele-green);">#' + escapeHtml(String(s.submission_number)) + '</td>';
+                html += '<td class="col-name">' + escapeHtml(s.title || 'Sans titre') + '</td>';
+                html += '<td>' + escapeHtml(s._project.name || '—') + '</td>';
+                html += '<td>' + escapeHtml(s._project.client_name || '—') + '</td>';
+                html += '<td class="col-amount">' + (s.approved_total ? formatMoney(s.approved_total) : '—') + '</td>';
+                html += '<td>' + escapeHtml(s.estimateur || '—') + '</td>';
+                html += '<td>' + escapeHtml(s.vendeur_cp || '—') + '</td>';
+                html += '<td>' + buildMiniTimeline(s.status) + '</td>';
+                html += '<td' + (deadline ? ' class="project-card-deadline"' : '') + '>' + formatDateShort(deadline) + '</td>';
+                html += '</tr>';
+            });
+            body.innerHTML = html || '<tr><td colspan="9" style="text-align:center;color:#888;padding:24px;">Aucune soumission ne correspond aux filtres.</td></tr>';
+        }
+
+        // ── Main renderProjectList — loads data then renders current view ──
+
+        async function renderProjectList() {
+            cachedProjects = await loadProjects();
+            populateFilterDropdowns();
+            renderCurrentView();
         }
 
         async function handleAddSubmission(projectId, event) {
@@ -9993,6 +10579,7 @@
             }
 
             updateWorkflowButtons();
+            populateSubAssignment();
             loadSubmissionReviews(submissionId);
             // Refresh default materials UI + tag filter
             if (document.getElementById('dmBody').classList.contains('open')) renderDefaultMaterials();
@@ -10009,6 +10596,43 @@
             } else {
                 renderHeaderSubmissionList();
             }
+        }
+
+        // ── Submission assignment ──
+
+        function populateSubAssignment() {
+            var row = document.getElementById('subAssignmentRow');
+            if (!currentSubmission) { row.style.display = 'none'; return; }
+            row.style.display = '';
+
+            ['saEstimateur', 'saVendeur', 'saApprobateur'].forEach(function(id) {
+                var sel = document.getElementById(id);
+                var val = sel.value;
+                sel.innerHTML = '<option value="">—</option>';
+                EMPLOYEES_DATA.forEach(function(e) {
+                    sel.innerHTML += '<option value="' + escapeAttr(e.name) + '">' + escapeHtml(e.name) + '</option>';
+                });
+            });
+
+            document.getElementById('saEstimateur').value = currentSubmission.estimateur || '';
+            document.getElementById('saVendeur').value = currentSubmission.vendeur_cp || '';
+            document.getElementById('saApprobateur').value = currentSubmission.approbateur || '';
+            document.getElementById('saInternalDeadline').value = currentSubmission.internal_deadline || '';
+            document.getElementById('saClientDeadline').value = currentSubmission.client_deadline || '';
+        }
+
+        function saveSubAssignment() {
+            if (!currentSubmission) return;
+            var fields = {
+                estimateur: document.getElementById('saEstimateur').value || null,
+                vendeur_cp: document.getElementById('saVendeur').value || null,
+                approbateur: document.getElementById('saApprobateur').value || null,
+                internal_deadline: document.getElementById('saInternalDeadline').value || null,
+                client_deadline: document.getElementById('saClientDeadline').value || null
+            };
+            Object.assign(currentSubmission, fields);
+            updateSubmission(currentSubmission.id, fields).catch(function(e) { console.error('Save sub assignment:', e); });
+            showSaveIndicator();
         }
 
         // Panneau de soumissions dans le calculateur
@@ -10449,6 +11073,42 @@
 
             await loadAllContactsForCombo();
             await loadAllCompaniesForCombo();
+
+            // Pipeline fields
+            var psSelect = document.getElementById('infoPipelineStatus');
+            psSelect.innerHTML = '';
+            pipelineStatuses.forEach(function(s) {
+                psSelect.innerHTML += '<option value="' + escapeAttr(s.slug) + '">' + escapeHtml(s.label) + '</option>';
+            });
+            psSelect.value = currentProject.pipeline_status || 'a_contacter';
+
+            document.getElementById('infoPriority').value = currentProject.priority || 'normal';
+
+            var srcSelect = document.getElementById('infoSource');
+            srcSelect.innerHTML = '<option value="">—</option>';
+            projectSources.forEach(function(s) { srcSelect.innerHTML += '<option value="' + escapeAttr(s) + '">' + escapeHtml(s) + '</option>'; });
+            srcSelect.value = currentProject.source || '';
+
+            var typeSelect = document.getElementById('infoProjectType');
+            typeSelect.innerHTML = '<option value="">—</option>';
+            projectTypes.forEach(function(t) { typeSelect.innerHTML += '<option value="' + escapeAttr(t) + '">' + escapeHtml(t) + '</option>'; });
+            typeSelect.value = currentProject.project_type || '';
+
+            document.getElementById('infoEstimatedAmount').value = currentProject.estimated_amount || '';
+
+            var probSlider = document.getElementById('infoProbability');
+            probSlider.value = currentProject.probability || 0;
+            document.getElementById('infoProbVal').textContent = (currentProject.probability || 0) + '%';
+
+            var assignSelect = document.getElementById('infoAssignedTo');
+            assignSelect.innerHTML = '<option value="">—</option>';
+            EMPLOYEES_DATA.forEach(function(e) { assignSelect.innerHTML += '<option value="' + escapeAttr(e.name) + '">' + escapeHtml(e.name) + '</option>'; });
+            assignSelect.value = currentProject.assigned_to || '';
+
+            document.getElementById('infoExpectedStart').value = currentProject.expected_start_date || '';
+            document.getElementById('infoExpectedEnd').value = currentProject.expected_end_date || '';
+            document.getElementById('infoInternalDeadline').value = currentProject.internal_deadline || '';
+            document.getElementById('infoClientDeadline').value = currentProject.client_deadline || '';
         }
 
         function closeEditInfoModal() {
@@ -10466,6 +11126,19 @@
             // Build full address for client_address fallback
             var fullAddr = [address, city, postal].filter(Boolean).join(', ');
 
+            // Pipeline fields
+            var pipelineStatus = document.getElementById('infoPipelineStatus').value;
+            var priority = document.getElementById('infoPriority').value;
+            var source = document.getElementById('infoSource').value || null;
+            var projectType = document.getElementById('infoProjectType').value || null;
+            var estimatedAmount = parseFloat(document.getElementById('infoEstimatedAmount').value) || null;
+            var probability = parseInt(document.getElementById('infoProbability').value) || 0;
+            var assignedTo = document.getElementById('infoAssignedTo').value || null;
+            var expectedStart = document.getElementById('infoExpectedStart').value || null;
+            var expectedEnd = document.getElementById('infoExpectedEnd').value || null;
+            var internalDeadline = document.getElementById('infoInternalDeadline').value || null;
+            var clientDeadline = document.getElementById('infoClientDeadline').value || null;
+
             // Try with new columns first, fallback to legacy columns
             var updateObj = {
                 client_name: clientName,
@@ -10473,7 +11146,18 @@
                 project_city: city,
                 project_postal_code: postal,
                 client_contact_id: selectedClientType === 'contact' ? selectedClientId : null,
-                client_company_id: selectedClientType === 'company' ? selectedClientId : null
+                client_company_id: selectedClientType === 'company' ? selectedClientId : null,
+                pipeline_status: pipelineStatus,
+                priority: priority,
+                source: source,
+                project_type: projectType,
+                estimated_amount: estimatedAmount,
+                probability: probability,
+                assigned_to: assignedTo,
+                expected_start_date: expectedStart,
+                expected_end_date: expectedEnd,
+                internal_deadline: internalDeadline,
+                client_deadline: clientDeadline
             };
 
             try {
@@ -12014,6 +12698,7 @@
                 await loadTauxAndExpenses();
                 await loadMediaTags();
                 await loadEmployeesData();
+                await loadPipelineConfig();
                 setupProposerMediaHandlers();
 
                 // Setup PDF viewer Ctrl+scroll zoom

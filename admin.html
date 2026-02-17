@@ -672,6 +672,79 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Statuts du pipeline -->
+            <div class="section collapsed" id="sectionPipelineStatuses">
+                <div class="section-toggle" onclick="toggleSection('sectionPipelineStatuses')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Statuts du pipeline</div>
+                        <div class="section-desc">G&eacute;rez les &eacute;tapes du pipeline commercial (projets).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table" id="pipelineStatusesTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40%">Label</th>
+                                <th style="width:15%">Couleur</th>
+                                <th style="width:35%">Slug</th>
+                                <th style="width:10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipelineStatusesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addPipelineStatusRow()">+ Ajouter un statut</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="savePipelineStatuses()">Sauvegarder les statuts</button>
+                        <span class="save-feedback" id="pipelineStatusesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sources de projet -->
+            <div class="section collapsed" id="sectionProjectSources">
+                <div class="section-toggle" onclick="toggleSection('sectionProjectSources')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Sources de projet</div>
+                        <div class="section-desc">D'o&ugrave; proviennent les projets (AO, r&eacute;f&eacute;rence, direct, etc.).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead><tr><th style="width:85%">Source</th><th style="width:15%"></th></tr></thead>
+                        <tbody id="projectSourcesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addProjectSourceRow()">+ Ajouter une source</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveProjectSources()">Sauvegarder les sources</button>
+                        <span class="save-feedback" id="projectSourcesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Types de projet -->
+            <div class="section collapsed" id="sectionProjectTypes">
+                <div class="section-toggle" onclick="toggleSection('sectionProjectTypes')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Types de projet</div>
+                        <div class="section-desc">Classification des projets (r&eacute;sidentiel, commercial, institutionnel, etc.).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead><tr><th style="width:85%">Type</th><th style="width:15%"></th></tr></thead>
+                        <tbody id="projectTypesBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addProjectTypeRow()">+ Ajouter un type</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveProjectTypes()">Sauvegarder les types</button>
+                        <span class="save-feedback" id="projectTypesFeedback"></span>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">stele — stele.ca</footer>
@@ -897,6 +970,23 @@
     var DEFAULT_CONTACT_ROLES = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var DEFAULT_COMM_TYPES = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
 
+    var DEFAULT_PIPELINE_STATUSES = [
+        {slug:'a_contacter',label:'A contacter',color:'#9e9e9e',sort_order:1},
+        {slug:'en_attente_infos',label:'En attente d\'infos',color:'#ff9800',sort_order:2},
+        {slug:'a_soumissionner',label:'A soumissionner',color:'#2196f3',sort_order:3},
+        {slug:'en_revision',label:'En revision',color:'#9c27b0',sort_order:4},
+        {slug:'a_presenter',label:'A presenter',color:'#00bcd4',sort_order:5},
+        {slug:'envoye',label:'Envoye',color:'#3f51b5',sort_order:6},
+        {slug:'en_discussions',label:'En discussions',color:'#ff5722',sort_order:7},
+        {slug:'vendu',label:'Vendu',color:'#4caf50',sort_order:8},
+        {slug:'perdu',label:'Perdu',color:'#f44336',sort_order:9}
+    ];
+    var DEFAULT_PROJECT_SOURCES = ['AO sous invitation','R\u00e9f\u00e9rence','Direct','Site web','Salon/Expo','Bouche-\u00e0-oreille'];
+    var DEFAULT_PROJECT_TYPES = ['R\u00e9sidentiel d\'envergure','R\u00e9sidentiel petit','Commercial','Institutionnel'];
+    var pipelineStatuses = [];
+    var projectSources = [];
+    var projectTypes = [];
+
     // ── Helper functions ──
 
     function escapeAttr(str) {
@@ -1027,6 +1117,9 @@
                     if (rows[i].key === 'contact_roles') contactRoles = rows[i].value;
                     if (rows[i].key === 'communication_types') communicationTypes = rows[i].value;
                     if (rows[i].key === 'tag_prefixes') tagPrefixes = rows[i].value;
+                    if (rows[i].key === 'pipeline_statuses') pipelineStatuses = rows[i].value;
+                    if (rows[i].key === 'project_sources') projectSources = rows[i].value;
+                    if (rows[i].key === 'project_types') projectTypes = rows[i].value;
                 }
             }
             await loadUserProfiles();
@@ -1097,6 +1190,15 @@
         if (!Array.isArray(tagPrefixes) || !tagPrefixes.length) {
             tagPrefixes = JSON.parse(JSON.stringify(DEFAULT_TAG_PREFIXES));
         }
+        if (!Array.isArray(pipelineStatuses) || !pipelineStatuses.length) {
+            pipelineStatuses = JSON.parse(JSON.stringify(DEFAULT_PIPELINE_STATUSES));
+        }
+        if (!Array.isArray(projectSources) || !projectSources.length) {
+            projectSources = DEFAULT_PROJECT_SOURCES.slice();
+        }
+        if (!Array.isArray(projectTypes) || !projectTypes.length) {
+            projectTypes = DEFAULT_PROJECT_TYPES.slice();
+        }
     }
 
     function renderAll() {
@@ -1111,6 +1213,9 @@
         renderContactRolesTable();
         renderCommTypesTable();
         renderTagPrefixTable();
+        renderPipelineStatusesTable();
+        renderProjectSourcesTable();
+        renderProjectTypesTable();
     }
 
     // ── Permissions table ──
@@ -1752,6 +1857,108 @@
         // Update sort_order
         tagPrefixes.forEach(function(tp, i) { tp.sort_order = i + 1; });
         saveConfig('tag_prefixes', tagPrefixes, 'tagsFeedback');
+    }
+
+    // ── Pipeline statuses table ──
+
+    function slugify(str) {
+        return (str || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    }
+
+    function renderPipelineStatusesTable() {
+        var body = document.getElementById('pipelineStatusesBody');
+        if (!body) return;
+        var html = '';
+        for (var i = 0; i < pipelineStatuses.length; i++) {
+            var s = pipelineStatuses[i];
+            html += '<tr>' +
+                '<td><input type="text" class="input-email ps-label" value="' + escapeAttr(s.label || '') + '" placeholder="Nom du statut" oninput="updatePipelineSlug(this)"></td>' +
+                '<td><input type="color" class="ps-color" value="' + escapeAttr(s.color || '#9e9e9e') + '" style="width:40px;height:30px;border:1px solid #ccc;border-radius:3px;cursor:pointer;padding:0;"></td>' +
+                '<td><input type="text" class="ps-slug" value="' + escapeAttr(s.slug || '') + '" readonly style="background:#f5f5f5;color:#888;font-family:monospace;font-size:12px;"></td>' +
+                '<td><button class="btn-remove" onclick="removePipelineStatusRow(this)" title="Retirer">&times;</button></td>' +
+                '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    function updatePipelineSlug(input) {
+        var row = input.closest('tr');
+        var slugInput = row.querySelector('.ps-slug');
+        slugInput.value = slugify(input.value);
+    }
+
+    function addPipelineStatusRow() {
+        pipelineStatuses.push({slug:'', label:'', color:'#9e9e9e', sort_order: pipelineStatuses.length + 1});
+        renderPipelineStatusesTable();
+        var inputs = document.querySelectorAll('#pipelineStatusesBody .ps-label');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    async function removePipelineStatusRow(btn) {
+        if (!await steleConfirm('Retirer ce statut ?')) return;
+        btn.closest('tr').remove();
+    }
+
+    function savePipelineStatuses() {
+        var newStatuses = [];
+        var rows = document.querySelectorAll('#pipelineStatusesBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var label = rows[i].querySelector('.ps-label').value.trim();
+            if (!label) continue;
+            var color = rows[i].querySelector('.ps-color').value;
+            var slug = rows[i].querySelector('.ps-slug').value || slugify(label);
+            newStatuses.push({ slug: slug, label: label, color: color, sort_order: i + 1 });
+        }
+        pipelineStatuses = newStatuses;
+        saveConfig('pipeline_statuses', pipelineStatuses, 'pipelineStatusesFeedback');
+    }
+
+    // ── Project sources table ──
+
+    function renderProjectSourcesTable() {
+        var body = document.getElementById('projectSourcesBody');
+        if (!body) return;
+        var html = '';
+        for (var i = 0; i < projectSources.length; i++) {
+            html += '<tr><td><input type="text" class="input-email" value="' + escapeHtml(projectSources[i]) + '" placeholder="Source"></td>' +
+                '<td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>';
+        }
+        body.innerHTML = html;
+    }
+    function addProjectSourceRow() {
+        var body = document.getElementById('projectSourcesBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="Source"></td><td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+    function saveProjectSources() {
+        projectSources = collectSimpleList('projectSourcesBody');
+        saveConfig('project_sources', projectSources, 'projectSourcesFeedback');
+    }
+
+    // ── Project types table ──
+
+    function renderProjectTypesTable() {
+        var body = document.getElementById('projectTypesBody');
+        if (!body) return;
+        var html = '';
+        for (var i = 0; i < projectTypes.length; i++) {
+            html += '<tr><td><input type="text" class="input-email" value="' + escapeHtml(projectTypes[i]) + '" placeholder="Type de projet"></td>' +
+                '<td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>';
+        }
+        body.innerHTML = html;
+    }
+    function addProjectTypeRow() {
+        var body = document.getElementById('projectTypesBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="Type de projet"></td><td><button class="btn-remove" onclick="removeGenericRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+    function saveProjectTypes() {
+        projectTypes = collectSimpleList('projectTypesBody');
+        saveConfig('project_types', projectTypes, 'projectTypesFeedback');
     }
 
     function handleLogout() {

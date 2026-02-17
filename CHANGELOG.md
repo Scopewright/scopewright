@@ -2,6 +2,24 @@
 
 ---
 
+## 2026-02-17
+
+### Features — Pipeline commercial
+- **Pipeline views** — 3 vues pour la page projets : Table (14 colonnes triables), Cartes (enrichies avec statut/montant/deadline), Soumissions (toutes les soumissions avec mini-timeline)
+- **Pipeline statuses** — Statuts configurables via admin.html (A contacter → Vendu/Perdu), badges colorés
+- **Filter bar** — Recherche texte + filtres par statut pipeline, responsable, type de projet
+- **Project pipeline fields** — Montant estimé, probabilité, pondéré, responsable, priorité, source, type, deadlines (internes + client), dates prévues
+- **Submission assignment** — Estimateur, Vendeur/CP, Approbateur (dropdowns employés), deadlines par soumission, auto-save
+- **Enhanced edit info modal** — Tous les champs pipeline (statut, source, type, montant, probabilité slider, responsable, priorité, dates)
+- **Admin config** — 3 nouvelles sections : Statuts du pipeline (label + couleur + slug), Sources de projet, Types de projet
+
+### Database Changes
+- `sql/pipeline_projects.sql` — 11 nouvelles colonnes sur `projects` (pipeline_status, source, project_type, estimated_amount, probability, assigned_to, priority, expected_start_date, expected_end_date, internal_deadline, client_deadline) + index
+- `sql/pipeline_submissions.sql` — 5 nouvelles colonnes sur `submissions` (estimateur, vendeur_cp, approbateur, internal_deadline, client_deadline)
+- `app_config` keys: `pipeline_statuses`, `project_sources`, `project_types`
+
+---
+
 ## 2026-02-15
 
 ### Features

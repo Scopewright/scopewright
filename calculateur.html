@@ -3666,7 +3666,7 @@
         .col-w-resp { width: 10%; }
         .col-w-prio { width: 70px; }
         .col-w-deadline { width: 70px; }
-        .col-w-weighted { width: 100px; }
+
         .col-w-type { width: 10%; }
         .col-w-city { width: 8%; }
         .col-w-more { width: 40px; text-align: center; }
@@ -10340,7 +10340,7 @@
             { key: 'architecte', label: 'Archit.', wCls: 'col-w-contact', hide: 'col-hide-xl', computed: true },
             { key: 'display_amount', label: 'Montant', wCls: 'col-w-amount', hide: '', cls: 'col-amount' },
             { key: 'probability', label: 'Prob%', wCls: 'col-w-prob', hide: '', cls: 'col-amount' },
-            { key: 'weighted', label: 'Pond.', wCls: 'col-w-weighted', hide: 'col-hide-xl', computed: true, cls: 'col-amount' },
+
             { key: 'assigned_to', label: 'Resp.', wCls: 'col-w-resp', hide: 'col-hide-lg' },
             { key: 'priority', label: 'Prio.', wCls: 'col-w-prio', hide: 'col-hide-lg' },
             { key: 'deadline', label: 'Remise', wCls: 'col-w-deadline', hide: 'col-hide-xl', computed: true },
@@ -10388,7 +10388,6 @@
                 var deadline = getClosestDeadline(p);
                 var da = getProjectDisplayAmount(p);
                 var prob = p.probability || 0;
-                var weighted = da.value ? Math.round(da.value * prob / 100) : null;
                 var entrepreneur = getContactByRole(p, 'Entrepreneur');
                 var architecte = getContactByRole(p, 'Architecte');
 
@@ -10400,7 +10399,6 @@
                 bHtml += '<td class="col-hide-xl" title="' + escapeAttr(architecte) + '">' + escapeHtml(architecte || '—') + '</td>';
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
                 bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
-                bHtml += '<td class="col-amount col-hide-xl">' + formatMoney(weighted) + '</td>';
                 bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '—') + '</td>';
                 bHtml += '<td class="col-hide-lg">' + (p.priority === 'urgent' ? '<span class="priority-urgent">URGENT</span>' : 'Normal') + '</td>';
                 bHtml += '<td class="col-hide-xl' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
@@ -10410,7 +10408,7 @@
                 bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + escapeAttr(p.id) + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
             });
-            body.innerHTML = bHtml || '<tr><td colspan="15" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
+            body.innerHTML = bHtml || '<tr><td colspan="14" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
         }
 
         function sortProjects(arr) {
@@ -10421,9 +10419,6 @@
                 if (col === 'display_amount') {
                     va = (getProjectDisplayAmount(a).value || 0);
                     vb = (getProjectDisplayAmount(b).value || 0);
-                } else if (col === 'weighted') {
-                    va = (getProjectDisplayAmount(a).value || 0) * (a.probability || 0);
-                    vb = (getProjectDisplayAmount(b).value || 0) * (b.probability || 0);
                 } else if (col === 'deadline') {
                     va = getClosestDeadline(a) || 'zzzz';
                     vb = getClosestDeadline(b) || 'zzzz';
@@ -10474,7 +10469,6 @@
             var entrepreneur = getContactByRole(p, 'Entrepreneur');
             var architecte = getContactByRole(p, 'Architecte');
             var prob = p.probability || 0;
-            var weighted = da.value ? Math.round(da.value * prob / 100) : null;
 
             var fields = [
                 { label: 'Code', value: p.project_code },
@@ -10483,7 +10477,6 @@
                 { label: 'Architecte', value: architecte },
                 { label: 'Montant', value: da.value != null ? formatMoney(da.value) + (da.isOverride ? ' (estim\u00e9)' : '') : null },
                 { label: 'Probabilit\u00e9', value: prob ? prob + '%' : null },
-                { label: 'Pond\u00e9r\u00e9', value: weighted != null ? formatMoney(weighted) : null },
                 { label: 'Responsable', value: p.assigned_to },
                 { label: 'Priorit\u00e9', value: p.priority === 'urgent' ? 'URGENT' : 'Normal' },
                 { label: 'Date remise', value: deadline ? formatDateShort(deadline) : null },

@@ -11618,8 +11618,14 @@
             var internalDeadline = document.getElementById('infoInternalDeadline').value || null;
             var clientDeadline = document.getElementById('infoClientDeadline').value || null;
 
+            // Compute name from code + city (trigger does this too, but safeguard client-side)
+            var computedName = currentProject.project_code
+                ? (city ? currentProject.project_code + ' ' + city : currentProject.project_code)
+                : (currentProject.name || '');
+
             // Try with new columns first, fallback to legacy columns
             var updateObj = {
+                name: computedName,
                 client_name: clientName,
                 project_address: address,
                 project_city: city,

@@ -37,10 +37,13 @@ CREATE OR REPLACE FUNCTION update_project_name_on_city()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.project_city IS DISTINCT FROM OLD.project_city THEN
-        IF NEW.project_city IS NOT NULL AND NEW.project_city != '' THEN
-            NEW.name := NEW.project_code || ' ' || NEW.project_city;
-        ELSE
-            NEW.name := NEW.project_code;
+        -- Ne recalculer que si project_code existe (projets auto-générés)
+        IF NEW.project_code IS NOT NULL AND NEW.project_code != '' THEN
+            IF NEW.project_city IS NOT NULL AND NEW.project_city != '' THEN
+                NEW.name := NEW.project_code || ' ' || NEW.project_city;
+            ELSE
+                NEW.name := NEW.project_code;
+            END IF;
         END IF;
     END IF;
     RETURN NEW;
@@ -61,3 +64,22 @@ SELECT setval('project_code_seq', GREATEST(
     (SELECT COUNT(*) FROM projects),
     1
 ));
+
+-- Backfill : assigner un code aux projets existants qui n'en ont pas
+DO $$
+DECLARE
+    prefix TEXT;
+    proj RECORD;
+    seq_num INTEGER;
+BEGIN
+    SELECT (value #>> '{}')::TEXT INTO prefix FROM app_config WHERE key = 'project_code_prefix';
+    IF prefix IS NULL THEN prefix := 'EP'; END IF;
+
+    FOR proj IN SELECT id, project_city FROM projects WHERE project_code IS NULL OR project_code = '' ORDER BY created_at LOOP
+        seq_num := nextval('project_code_seq');
+        UPDATE projects SET
+            project_code = prefix || LPAD(seq_num::TEXT, 3, '0'),
+            name = prefix || LPAD(seq_num::TEXT, 3, '0') || COALESCE(' ' || NULLIF(project_city, ''), '')
+        WHERE id = proj.id;
+    END LOOP;
+END $$;

@@ -94,7 +94,8 @@
     var cachedProjects = [];
     var pipelineSortColumn = 'updated_at';
     var pipelineSortDir = 'desc';
-    var pipelineFilters = { search: '', status: '', assigned: '', type: '' };
+    var pipelineFilters = { search: '', status: '', assigned: '', type: '', followsOnly: false };
+    var userFollows = {};
 
     // Configure PDF.js worker (wait for script to load)
     function initPdfJs() {
@@ -301,6 +302,47 @@
             method: 'DELETE'
         });
         return r.ok;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROJECT FOLLOWS (★)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadUserFollows() {
+        var userId = localStorage.getItem('sb_user_id');
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_follows?user_id=eq.' + userId + '&select=project_id', {});
+            if (!r.ok) return;
+            var rows = await r.json();
+            userFollows = {};
+            rows.forEach(function(row) { userFollows[row.project_id] = true; });
+        } catch (e) {
+            console.warn('loadUserFollows error (table may not exist yet):', e);
+        }
+    }
+
+    async function toggleFollow(projectId, evt) {
+        evt.stopPropagation();
+        var userId = localStorage.getItem('sb_user_id');
+        if (userFollows[projectId]) {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_follows?project_id=eq.' + projectId + '&user_id=eq.' + userId, { method: 'DELETE' });
+            delete userFollows[projectId];
+        } else {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_follows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ project_id: projectId, user_id: userId })
+            });
+            userFollows[projectId] = true;
+        }
+        renderCurrentView();
+    }
+
+    function toggleFollowsFilter() {
+        pipelineFilters.followsOnly = !pipelineFilters.followsOnly;
+        var btn = document.getElementById('filterFollowsBtn');
+        if (btn) btn.classList.toggle('active', pipelineFilters.followsOnly);
+        applyPipelineFilters();
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2505,6 +2547,8 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            padding: 20px;
+            overflow-y: auto;
         }
         #steleDialogOverlay { z-index: 9999; }
 
@@ -2515,12 +2559,16 @@
             border-radius: 8px;
             width: 100%;
             max-width: 450px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
         }
 
         .modal-header {
             padding: 20px 24px;
             border-bottom: 1px solid var(--stele-gray);
+            flex-shrink: 0;
         }
 
         .modal-title {
@@ -2529,7 +2577,7 @@
             color: var(--stele-black);
         }
 
-        .modal-body { padding: 24px; }
+        .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
 
         .form-group { margin-bottom: 16px; }
         .form-group:last-child { margin-bottom: 0; }
@@ -2560,6 +2608,7 @@
             display: flex;
             justify-content: flex-end;
             gap: 12px;
+            flex-shrink: 0;
         }
 
         .btn-cancel {
@@ -3628,6 +3677,11 @@
             padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
             font-size: 13px; font-family: inherit; background: #fff; min-width: 140px;
         }
+        .pipeline-filter-btn {
+            padding: 7px 14px; border: 1px solid #ddd; border-radius: 6px;
+            background: #fff; cursor: pointer; font-size: 13px; font-family: inherit;
+        }
+        .pipeline-filter-btn.active { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
 
         /* ── Pipeline — Table view ── */
         .pipeline-table-wrap {
@@ -3656,27 +3710,37 @@
         .pipeline-table tbody td.col-name { font-weight: 500; }
         .pipeline-table tbody td.col-amount { text-align: right; font-family: 'SF Mono', monospace; font-size: 12px; }
         /* Column widths */
-        .col-w-code { width: 72px; }
+        .col-w-follow { width: 36px; text-align: center; }
+        .col-w-prio { width: 50px; text-align: center; }
         .col-w-name { width: auto; }
-        .col-w-client { width: 14%; }
+        .col-w-contact { width: 11%; }
         .col-w-amount { width: 100px; }
         .col-w-prob { width: 60px; }
         .col-w-status { width: 120px; }
-        .col-w-contact { width: 11%; }
+        .col-w-deadline { width: 80px; }
         .col-w-resp { width: 10%; }
-        .col-w-prio { width: 70px; }
-        .col-w-deadline { width: 70px; }
-
         .col-w-type { width: 10%; }
-        .col-w-city { width: 8%; }
         .col-w-more { width: 40px; text-align: center; }
         /* Secondary columns — hide progressively */
-        @media (max-width: 1199px) {
+        @media (max-width: 1399px) {
             .col-hide-xl { display: none; }
         }
-        @media (max-width: 991px) {
+        @media (max-width: 1199px) {
             .col-hide-lg { display: none; }
         }
+        /* Follow star */
+        .follow-star {
+            cursor: pointer; font-size: 16px; color: #ccc;
+            transition: color 0.15s; user-select: none;
+        }
+        .follow-star.active { color: #f5a623; }
+        .follow-star:hover { color: #f5a623; }
+        /* Priority dot */
+        .prio-dot {
+            display: inline-block; width: 10px; height: 10px;
+            border-radius: 50%; background: #e0e0e0;
+        }
+        .prio-dot.urgent { background: #f44336; }
         /* More button */
         .tbl-more-btn {
             background: none; border: none; cursor: pointer; font-size: 16px;
@@ -3975,6 +4039,7 @@
             border-radius: 4px; transition: all 0.15s; line-height: 1;
         }
         .project-card-delete:hover { color: #c62828; background: #ffebee; }
+        .card-follow { position: absolute; top: 10px; left: 10px; font-size: 18px; }
 
         .project-empty {
             text-align: center; padding: 60px 20px; color: #999; font-size: 15px;
@@ -4686,11 +4751,9 @@
             </div>
 
             <div class="new-project-form" id="newProjectForm">
-                <div class="form-row">
-                    <input type="text" id="newProjectName" placeholder="Nom du projet (ex: R&eacute;sidence Tremblay)" onkeydown="if(event.key==='Enter')handleCreateProject()">
-                </div>
                 <div class="new-project-form-actions">
-                    <button class="btn-create-project" id="btnCreateProject" onclick="handleCreateProject()">Cr&eacute;er</button>
+                    <span style="font-size:13px;color:#666;">Le code projet sera g&eacute;n&eacute;r&eacute; automatiquement.</span>
+                    <button class="btn-create-project" id="btnCreateProject" onclick="handleCreateProject()">Cr&eacute;er un projet</button>
                     <button class="btn-cancel-project" onclick="hideNewProjectForm()">Annuler</button>
                 </div>
             </div>
@@ -4704,6 +4767,7 @@
 
             <!-- Pipeline filters -->
             <div class="pipeline-filters" id="pipelineFilters">
+                <button class="pipeline-filter-btn" id="filterFollowsBtn" onclick="toggleFollowsFilter()" title="Afficher seulement les projets suivis">&starf; Suivis</button>
                 <input type="text" id="pipelineSearch" placeholder="Rechercher (nom, client, code, ville...)" oninput="applyPipelineFilters()">
                 <select id="pipelineStatusFilter" onchange="applyPipelineFilters()">
                     <option value="">Tous les statuts</option>
@@ -4779,7 +4843,7 @@
                         </div>
                     </div>
                 </div>
-                <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" onblur="saveProjectField()">
+                <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" readonly>
                 <span class="ph-sub-number" id="headerSubNumber"></span>
                 <span class="save-indicator" id="saveIndicator"></span>
                 <div class="ph-info-bloc" id="projInfoBloc">
@@ -6326,6 +6390,9 @@
                     {slug:'vendu',label:'Vendu',color:'#4caf50',sort_order:8},
                     {slug:'perdu',label:'Perdu',color:'#f44336',sort_order:9}
                 ];
+            }
+            if (!projectTypes.length) {
+                projectTypes = ['R\u00e9sidentiel', 'R\u00e9sidentiel d\'envergure', 'Commercial', 'Collaboration', 'Autre'];
             }
         }
 
@@ -10338,6 +10405,7 @@
                 if (pipelineFilters.status && (p.pipeline_status || 'a_contacter') !== pipelineFilters.status) return false;
                 if (pipelineFilters.assigned && p.assigned_to !== pipelineFilters.assigned) return false;
                 if (pipelineFilters.type && p.project_type !== pipelineFilters.type) return false;
+                if (pipelineFilters.followsOnly && !userFollows[p.id]) return false;
                 return true;
             });
         }
@@ -10360,20 +10428,16 @@
 
         // Column definitions: hide = CSS class that hides at breakpoint, wCls = width class
         var TABLE_COLUMNS = [
-            { key: 'project_code', label: 'Code', wCls: 'col-w-code', hide: '' },
-            { key: 'name', label: 'Nom', wCls: 'col-w-name', hide: '' },
-            { key: 'client_name', label: 'Client', wCls: 'col-w-client', hide: '' },
-            { key: 'entrepreneur', label: 'Entrep.', wCls: 'col-w-contact', hide: 'col-hide-lg', computed: true },
-            { key: 'architecte', label: 'Archit.', wCls: 'col-w-contact', hide: 'col-hide-xl', computed: true },
-            { key: 'display_amount', label: 'Montant', wCls: 'col-w-amount', hide: '', cls: 'col-amount' },
-            { key: 'probability', label: 'Prob%', wCls: 'col-w-prob', hide: '', cls: 'col-amount' },
-
-            { key: 'assigned_to', label: 'Resp.', wCls: 'col-w-resp', hide: 'col-hide-lg' },
-            { key: 'priority', label: 'Prio.', wCls: 'col-w-prio', hide: 'col-hide-lg' },
-            { key: 'deadline', label: 'Remise', wCls: 'col-w-deadline', hide: 'col-hide-xl', computed: true },
-            { key: 'pipeline_status', label: 'Statut', wCls: 'col-w-status', hide: '' },
-            { key: 'project_type', label: 'Type', wCls: 'col-w-type', hide: 'col-hide-lg' },
-            { key: 'project_city', label: 'Ville', wCls: 'col-w-city', hide: 'col-hide-xl' }
+            { key: 'follow',          label: '\u2605',     wCls: 'col-w-follow',   hide: '',            computed: true },
+            { key: 'priority',        label: 'Prio.',      wCls: 'col-w-prio',     hide: '' },
+            { key: 'name',            label: 'Nom',        wCls: 'col-w-name',     hide: '' },
+            { key: 'architecte',      label: 'Archit.',    wCls: 'col-w-contact',  hide: 'col-hide-lg', computed: true },
+            { key: 'display_amount',  label: 'Montant',    wCls: 'col-w-amount',   hide: '',            cls: 'col-amount' },
+            { key: 'probability',     label: 'Prob%',      wCls: 'col-w-prob',     hide: 'col-hide-lg', cls: 'col-amount' },
+            { key: 'pipeline_status', label: 'Statut',     wCls: 'col-w-status',   hide: '' },
+            { key: 'deadline',        label: 'Remise',     wCls: 'col-w-deadline', hide: 'col-hide-lg', computed: true },
+            { key: 'assigned_to',     label: 'Resp.',      wCls: 'col-w-resp',     hide: 'col-hide-lg' },
+            { key: 'project_type',    label: 'Type',       wCls: 'col-w-type',     hide: 'col-hide-xl' }
         ];
 
         function renderTableView(projects) {
@@ -10410,34 +10474,39 @@
             var body = document.getElementById('pipelineTableBody');
             var bHtml = '';
             sorted.forEach(function(p) {
-                var subs = p.submissions || [];
                 var ps = getPipelineStatus(p.pipeline_status);
                 var deadline = getClosestDeadline(p);
-                var da = getProjectDisplayAmount(p);
                 var prob = p.probability || 0;
-                var entrepreneur = getContactByRole(p, 'Entrepreneur');
                 var architecte = getContactByRole(p, 'Architecte');
-                var entrepreneurTip = getContactTooltipByRole(p, 'Entrepreneur');
                 var architecteTip = getContactTooltipByRole(p, 'Architecte');
+                var isFollowed = userFollows[p.id] ? ' active' : '';
 
                 bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
-                bHtml += '<td>' + escapeHtml(p.project_code || '—') + '</td>';
-                bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '—') + '</td>';
-                bHtml += '<td title="' + escapeAttr(p.client_name || '') + '">' + escapeHtml(p.client_name || '—') + '</td>';
-                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(entrepreneurTip) + '">' + escapeHtml(entrepreneur || '—') + '</td>';
-                bHtml += '<td class="col-hide-xl" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '—') + '</td>';
+                // ★ Follow
+                bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + escapeAttr(p.id) + '\',event)">\u2605</span></td>';
+                // Prio
+                bHtml += '<td><span class="prio-dot' + (p.priority === 'urgent' ? ' urgent' : '') + '" title="' + (p.priority === 'urgent' ? 'Urgent' : 'Normal') + '"></span></td>';
+                // Nom
+                bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '\u2014') + '</td>';
+                // Architecte
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '\u2014') + '</td>';
+                // Montant
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
-                bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
-                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '—') + '</td>';
-                bHtml += '<td class="col-hide-lg">' + (p.priority === 'urgent' ? '<span class="priority-urgent">URGENT</span>' : 'Normal') + '</td>';
-                bHtml += '<td class="col-hide-xl' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
+                // Prob%
+                bHtml += '<td class="col-amount col-hide-lg">' + (prob || '\u2014') + '</td>';
+                // Statut pipeline
                 bHtml += '<td><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
-                bHtml += '<td class="col-hide-lg">' + escapeHtml(p.project_type || '—') + '</td>';
-                bHtml += '<td class="col-hide-xl">' + escapeHtml(p.project_city || '—') + '</td>';
+                // Remise
+                bHtml += '<td class="col-hide-lg' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
+                // Responsable
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
+                // Type
+                bHtml += '<td class="col-hide-xl">' + escapeHtml(p.project_type || '\u2014') + '</td>';
+                // More button
                 bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + escapeAttr(p.id) + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
             });
-            body.innerHTML = bHtml || '<tr><td colspan="14" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
+            body.innerHTML = bHtml || '<tr><td colspan="' + (TABLE_COLUMNS.length + 1) + '" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';
         }
 
         function sortProjects(arr) {
@@ -10445,15 +10514,21 @@
             var dir = pipelineSortDir === 'asc' ? 1 : -1;
             return arr.sort(function(a, b) {
                 var va, vb;
-                if (col === 'display_amount') {
+                if (col === 'follow') {
+                    va = userFollows[a.id] ? 0 : 1;
+                    vb = userFollows[b.id] ? 0 : 1;
+                } else if (col === 'priority') {
+                    va = a.priority === 'urgent' ? 0 : 1;
+                    vb = b.priority === 'urgent' ? 0 : 1;
+                } else if (col === 'display_amount') {
                     va = (getProjectDisplayAmount(a).value || 0);
                     vb = (getProjectDisplayAmount(b).value || 0);
                 } else if (col === 'deadline') {
                     va = getClosestDeadline(a) || 'zzzz';
                     vb = getClosestDeadline(b) || 'zzzz';
-                } else if (col === 'entrepreneur' || col === 'architecte') {
-                    va = getContactByRole(a, col === 'entrepreneur' ? 'Entrepreneur' : 'Architecte') || '';
-                    vb = getContactByRole(b, col === 'entrepreneur' ? 'Entrepreneur' : 'Architecte') || '';
+                } else if (col === 'architecte') {
+                    va = getContactByRole(a, 'Architecte') || '';
+                    vb = getContactByRole(b, 'Architecte') || '';
                 } else {
                     va = a[col]; vb = b[col];
                 }
@@ -10585,17 +10660,20 @@
                 if (deadline) metaParts.push('<span class="project-card-deadline">' + formatDateShort(deadline) + '</span>');
                 if (metaParts.length) metaHtml = '<div class="project-card-meta-row">' + metaParts.join(' &middot; ') + '</div>';
 
+                var followCls = userFollows[proj.id] ? ' active' : '';
+
                 card.innerHTML =
+                    '<span class="follow-star card-follow' + followCls + '" onclick="toggleFollow(\'' + escapeAttr(proj.id) + '\',event)" title="Suivre">\u2605</span>' +
                     '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
                     pipelineHtml +
                     '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
-                    '<div class="project-card-client">' + escapeHtml(proj.client_name || 'Aucun client') + '</div>' +
+                    '<div class="project-card-client">' + escapeHtml(proj.client_name || '') + '</div>' +
                     metaHtml +
                     '<div class="project-subs">' + (subsHtml || '<div class="sub-empty">Aucune soumission</div>') + '</div>' +
                     '<button class="btn-add-sub" onclick="handleAddSubmission(\'' + escapeAttr(proj.id) + '\', event)">+ Nouvelle soumission</button>';
 
                 card.addEventListener('click', function(e) {
-                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub')) return;
+                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub') || e.target.closest('.follow-star')) return;
                     var subLine = e.target.closest('.sub-line');
                     if (subLine) {
                         openSubmission(subLine.getAttribute('data-subid'));
@@ -10690,6 +10768,7 @@
 
         async function renderProjectList() {
             cachedProjects = await loadProjects();
+            await loadUserFollows();
             populateFilterDropdowns();
             renderCurrentView();
         }
@@ -10713,25 +10792,20 @@
 
         function showNewProjectForm() {
             document.getElementById('newProjectForm').classList.add('active');
-            document.getElementById('newProjectName').focus();
         }
 
         function hideNewProjectForm() {
             document.getElementById('newProjectForm').classList.remove('active');
-            document.getElementById('newProjectName').value = '';
         }
 
         async function handleCreateProject() {
-            const nameInput = document.getElementById('newProjectName');
-            const name = nameInput.value.trim();
-            if (!name) { nameInput.focus(); return; }
-
             const btn = document.getElementById('btnCreateProject');
             btn.disabled = true;
             btn.textContent = 'Création...';
 
             try {
-                const project = await createProject(name, '');
+                // Name & code auto-generated by DB trigger
+                const project = await createProject('', '');
                 hideNewProjectForm();
                 await openProject(project.id);
             } catch (e) {
@@ -11033,11 +11107,8 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         function saveProjectField() {
-            if (!currentProject) return;
-            var name = document.getElementById('projName').value.trim();
-            currentProject.name = name;
-            updateProject(currentProject.id, { name: name });
-            showSaveIndicator();
+            // Name is now auto-generated by DB trigger (readonly field)
+            // Kept for backward compatibility but does nothing
         }
 
         function saveSubmissionField() {
@@ -11527,7 +11598,11 @@
                     return;
                 }
                 var rows = await r.json();
-                if (rows.length > 0) currentProject = rows[0];
+                if (rows.length > 0) {
+                    currentProject = rows[0];
+                    // Update header with trigger-generated name (code + city)
+                    document.getElementById('projName').value = currentProject.name || '';
+                }
                 renderProjectInfoBloc();
                 closeEditInfoModal();
             } catch (e) {

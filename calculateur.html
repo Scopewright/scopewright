@@ -1448,9 +1448,21 @@
     function toggleDefaultMaterials() {
         var body = document.getElementById('dmBody');
         var arrow = document.getElementById('dmArrow');
-        var isOpen = body.classList.toggle('open');
-        if (isOpen) { arrow.classList.add('open'); renderDefaultMaterials(); }
-        else { arrow.classList.remove('open'); }
+        var isCollapsed = body.classList.toggle('collapsed');
+        arrow.classList.toggle('open', !isCollapsed);
+        localStorage.setItem('dmPanelCollapsed', isCollapsed ? '1' : '0');
+        if (!isCollapsed) renderDefaultMaterials();
+    }
+
+    function restoreDmPanelState() {
+        var saved = localStorage.getItem('dmPanelCollapsed');
+        // Default collapsed (saved is null or '1')
+        var shouldCollapse = saved !== '0';
+        var body = document.getElementById('dmBody');
+        var arrow = document.getElementById('dmArrow');
+        if (body) body.classList.toggle('collapsed', shouldCollapse);
+        if (arrow) arrow.classList.toggle('open', !shouldCollapse);
+        if (!shouldCollapse) renderDefaultMaterials();
     }
 
     function getDefaultMaterials() {
@@ -3817,20 +3829,24 @@
         }
         .header-sub-body.collapsed { max-height: 0; opacity: 0; }
 
-        /* ── Matériaux par défaut section ── */
+        /* ── Matériaux par défaut section — same style as header-sub-panel ── */
         .default-materials-panel {
-            margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 10px 14px; margin: -8px 0 16px;
         }
-        .default-materials-toggle {
-            display: flex; align-items: center; gap: 6px; cursor: pointer;
+        .default-materials-panel .dm-label {
             font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
-            letter-spacing: 0.5px; background: none; border: none; padding: 4px 0; width: 100%;
+            letter-spacing: 0.5px; margin-bottom: 6px; cursor: pointer; user-select: none;
+            display: flex; align-items: center; gap: 6px;
         }
-        .default-materials-toggle:hover { color: var(--stele-green); }
-        .default-materials-toggle .dm-arrow { transition: transform 0.2s; font-size: 10px; }
-        .default-materials-toggle .dm-arrow.open { transform: rotate(90deg); }
-        .default-materials-body { display: none; padding-top: 8px; }
-        .default-materials-body.open { display: block; }
+        .default-materials-panel .dm-label:hover { color: #555; }
+        .dm-label .dm-arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+        .dm-label .dm-arrow.open { transform: rotate(90deg); }
+        .default-materials-body {
+            overflow: hidden; transition: max-height 0.3s ease, opacity 0.2s ease;
+            max-height: 600px; opacity: 1; padding-top: 8px;
+        }
+        .default-materials-body.collapsed { max-height: 0; opacity: 0; padding-top: 0; }
         .dm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
         .dm-row {
             display: flex; gap: 6px; align-items: center; font-size: 12px;
@@ -4816,11 +4832,8 @@
             </div>
 
             <div class="default-materials-panel" id="defaultMaterialsPanel">
-                <button class="default-materials-toggle" onclick="toggleDefaultMaterials()">
-                    <span class="dm-arrow" id="dmArrow">&#9654;</span>
-                    Mat&eacute;riaux par d&eacute;faut
-                </button>
-                <div class="default-materials-body" id="dmBody"></div>
+                <div class="dm-label" onclick="toggleDefaultMaterials()"><span class="dm-arrow" id="dmArrow">&#9654;</span> Mat&eacute;riaux par d&eacute;faut</div>
+                <div class="default-materials-body collapsed" id="dmBody"></div>
             </div>
 
             <h1 class="page-title">Calculateur</h1>
@@ -10856,7 +10869,7 @@
             populateSubAssignment();
             loadSubmissionReviews(submissionId);
             // Refresh default materials UI + tag filter
-            if (document.getElementById('dmBody').classList.contains('open')) renderDefaultMaterials();
+            restoreDmPanelState();
             activeTagFilter = null;
             refreshTagFilterBar();
             var isEditable = isSubmissionCurrentlyEditable();

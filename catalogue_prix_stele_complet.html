@@ -2089,7 +2089,7 @@
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
-            document.getElementById('editPriceDisplay').textContent = item.price != null ? item.price.toFixed(2) + ' $' : 'Calculé automatiquement';
+            document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
@@ -2363,10 +2363,10 @@
             var priceField = document.getElementById('editPrice');
             var priceDisplay = document.getElementById('editPriceDisplay');
             if (total > 0) {
-                totalEl.textContent = total.toFixed(2) + ' $';
-                breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
+                totalEl.textContent = formatPrice(total);
+                breakdownEl.textContent = '(MO: ' + formatPrice(laborTotal) + ' + Mat: ' + formatPrice(materialTotal) + ')';
                 priceField.value = total.toFixed(2);
-                priceDisplay.textContent = total.toFixed(2) + ' $';
+                priceDisplay.textContent = formatPrice(total);
             } else {
                 totalEl.textContent = '\u2014';
                 breakdownEl.textContent = '';
@@ -2591,7 +2591,7 @@
                         var currentCost = parseFloat(matInput.value);
                         var confirmed = await steleConfirm(
                             'La cat\u00e9gorie <strong>' + escapeHtml(newCat) + '</strong> a d\u00e9j\u00e0 un co\u00fbt manuel de' +
-                            '<span class="scb-amount">' + currentCost.toFixed(2) + ' $</span>' +
+                            '<span class="scb-amount">' + formatPrice(currentCost) + '</span>' +
                             'En ajoutant des composantes, ce montant sera remplac\u00e9 par le total calcul\u00e9 des composantes.',
                             'Remplacer le co\u00fbt manuel ?',
                             'Oui, remplacer par les composantes'

@@ -6579,10 +6579,10 @@
             var priceDisplay = document.getElementById('propPriceDisplay');
 
             if (total > 0) {
-                totalEl.textContent = total.toFixed(2) + ' $';
-                breakdownEl.textContent = '(MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + materialTotal.toFixed(2) + ')';
+                totalEl.textContent = formatPrice(total);
+                breakdownEl.textContent = '(MO: ' + formatPrice(laborTotal) + ' + Mat: ' + formatPrice(materialTotal) + ')';
                 priceField.value = total.toFixed(2);
-                priceDisplay.textContent = total.toFixed(2) + ' $';
+                priceDisplay.textContent = formatPrice(total);
             } else {
                 totalEl.textContent = '\u2014';
                 breakdownEl.textContent = '';

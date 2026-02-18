@@ -3850,9 +3850,17 @@
         .project-drawer-body {
             flex: 1; overflow-y: auto; padding: 24px;
         }
-        .drawer-field { margin-bottom: 16px; }
-        .drawer-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 4px; }
+        .drawer-field { margin-bottom: 14px; }
+        .drawer-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 3px; }
         .drawer-field-value { font-size: 14px; color: #222; }
+        .drawer-field-value.readonly { color: #666; }
+        .drawer-edit {
+            width: 100%; padding: 5px 8px; font-size: 13px; font-family: inherit;
+            border: 1px solid #ddd; border-radius: 4px; background: #fff; outline: none;
+            color: #222; box-sizing: border-box;
+        }
+        .drawer-edit:focus { border-color: var(--stele-green); }
+        select.drawer-edit { cursor: pointer; }
 
         /* ── Pipeline — Full-width with side padding ── */
         .project-list-view { margin-left: -60px; margin-right: -60px; padding-left: 48px; padding-right: 48px; }
@@ -10697,10 +10705,35 @@
 
         // ── Project detail drawer ──
 
+        var _drawerProjectId = null;
+
+        function drawerSave(field, value) {
+            if (!_drawerProjectId) return;
+            var proj = cachedProjects.find(function(p) { return p.id === _drawerProjectId; });
+            if (proj) proj[field] = value;
+            var patch = {};
+            if (field === 'probability') patch[field] = value ? parseInt(value) : 0;
+            else patch[field] = value || null;
+            updateProject(_drawerProjectId, patch).then(function() { renderCurrentView(); });
+        }
+
+        function drawerSaveCity(value) {
+            if (!_drawerProjectId) return;
+            var proj = cachedProjects.find(function(p) { return p.id === _drawerProjectId; });
+            if (!proj) return;
+            proj.project_city = value;
+            var newName = proj.project_code ? (value ? proj.project_code + ' ' + value : proj.project_code) : proj.name;
+            proj.name = newName;
+            document.getElementById('drawerProjectName').textContent = newName || 'Projet';
+            var patch = { project_city: value || null, name: newName };
+            updateProject(_drawerProjectId, patch).then(function() { renderCurrentView(); });
+        }
+
         function openProjectDrawer(projectId, evt) {
             evt.stopPropagation();
             var p = cachedProjects.find(function(pr) { return pr.id === projectId; });
             if (!p) return;
+            _drawerProjectId = projectId;
             document.getElementById('drawerProjectName').textContent = p.name || 'Projet';
             var ps = getPipelineStatus(p.pipeline_status);
             var da = getProjectDisplayAmount(p);
@@ -10709,32 +10742,61 @@
             var architecte = getContactTooltipByRole(p, 'Architecte');
             var prob = p.probability || 0;
 
-            var fields = [
-                { label: 'Code', value: p.project_code },
-                { label: 'Client', value: p.client_name },
-                { label: 'Entrepreneur', value: entrepreneur },
-                { label: 'Architecte', value: architecte },
-                { label: 'Montant', value: da.value != null ? formatMoney(da.value) + (da.isOverride ? ' (estim\u00e9)' : '') : null },
-                { label: 'Probabilit\u00e9', value: prob ? prob + '%' : null },
-                { label: 'Responsable', value: p.assigned_to },
-                { label: 'Priorit\u00e9', value: p.priority === 'urgente' ? 'Urgente' : (p.priority === 'haute' ? 'Haute' : 'Normal') },
-                { label: 'Date remise', value: deadline ? formatDateShort(deadline) : null },
-                { label: 'Statut pipeline', value: ps.label, badge: true, color: ps.color },
-                { label: 'Type', value: p.project_type },
-                { label: 'Ville', value: p.project_city },
-                { label: 'Source', value: p.source },
-                { label: 'Livraison', value: p.delivery_month ? formatMonthYear(p.delivery_month) : null },
-                { label: 'Deadline interne', value: p.internal_deadline ? formatDateShort(p.internal_deadline) : null },
-                { label: 'Deadline client', value: p.client_deadline ? formatDateShort(p.client_deadline) : null }
-            ];
+            // Build select options
+            var statusOptions = pipelineStatuses.map(function(s) {
+                return '<option value="' + escapeAttr(s.slug) + '"' + (s.slug === p.pipeline_status ? ' selected' : '') + '>' + escapeHtml(s.label) + '</option>';
+            }).join('');
+
+            var respOptions = '<option value="">—</option>' + EMPLOYEES_DATA.map(function(e) {
+                return '<option value="' + escapeAttr(e.name) + '"' + (e.name === p.assigned_to ? ' selected' : '') + '>' + escapeHtml(e.name) + '</option>';
+            }).join('');
+
+            var prioOptions = ['normal', 'haute', 'urgente'].map(function(v) {
+                var lbl = v === 'urgente' ? 'Urgente' : (v === 'haute' ? 'Haute' : 'Normal');
+                return '<option value="' + v + '"' + (v === (p.priority || 'normal') ? ' selected' : '') + '>' + lbl + '</option>';
+            }).join('');
+
+            var typeOptions = '<option value="">—</option>' + projectTypes.map(function(t) {
+                return '<option value="' + escapeAttr(t) + '"' + (t === p.project_type ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+            }).join('');
 
             var html = '';
-            fields.forEach(function(f) {
-                var val = f.value || '—';
-                if (f.badge && f.color) val = '<span class="pipeline-badge" style="background:' + f.color + '20;color:' + f.color + ';">' + escapeHtml(val) + '</span>';
-                else val = escapeHtml(val);
-                html += '<div class="drawer-field"><div class="drawer-field-label">' + escapeHtml(f.label) + '</div><div class="drawer-field-value">' + val + '</div></div>';
-            });
+
+            // Code (readonly)
+            html += '<div class="drawer-field"><div class="drawer-field-label">Code</div><div class="drawer-field-value readonly">' + escapeHtml(p.project_code || '—') + '</div></div>';
+            // Client (readonly — via contacts)
+            html += '<div class="drawer-field"><div class="drawer-field-label">Client</div><div class="drawer-field-value readonly">' + escapeHtml(p.client_name || '—') + '</div></div>';
+            // Entrepreneur (readonly — via contacts)
+            html += '<div class="drawer-field"><div class="drawer-field-label">Entrepreneur</div><div class="drawer-field-value readonly">' + escapeHtml(entrepreneur || '—') + '</div></div>';
+            // Architecte (readonly — via contacts)
+            html += '<div class="drawer-field"><div class="drawer-field-label">Architecte</div><div class="drawer-field-value readonly">' + escapeHtml(architecte || '—') + '</div></div>';
+            // Montant (readonly — calculated)
+            html += '<div class="drawer-field"><div class="drawer-field-label">Montant</div><div class="drawer-field-value readonly">' + (da.value != null ? formatMoney(da.value) + (da.isOverride ? ' (estim\u00e9)' : '') : '—') + '</div></div>';
+            // Probabilité
+            html += '<div class="drawer-field"><div class="drawer-field-label">Probabilit\u00e9</div><input type="number" class="drawer-edit" min="0" max="100" value="' + (prob || '') + '" onchange="drawerSave(\'probability\',this.value)"></div>';
+            // Responsable
+            html += '<div class="drawer-field"><div class="drawer-field-label">Responsable</div><select class="drawer-edit" onchange="drawerSave(\'assigned_to\',this.value)">' + respOptions + '</select></div>';
+            // Priorité
+            html += '<div class="drawer-field"><div class="drawer-field-label">Priorit\u00e9</div><select class="drawer-edit" onchange="drawerSave(\'priority\',this.value)">' + prioOptions + '</select></div>';
+            // Statut pipeline
+            html += '<div class="drawer-field"><div class="drawer-field-label">Statut pipeline</div><select class="drawer-edit" onchange="drawerSave(\'pipeline_status\',this.value)">' + statusOptions + '</select></div>';
+            // Type
+            html += '<div class="drawer-field"><div class="drawer-field-label">Type</div><select class="drawer-edit" onchange="drawerSave(\'project_type\',this.value)">' + typeOptions + '</select></div>';
+            // Ville
+            html += '<div class="drawer-field"><div class="drawer-field-label">Ville</div><input type="text" class="drawer-edit" value="' + escapeAttr(p.project_city || '') + '" onchange="drawerSaveCity(this.value.trim())"></div>';
+            // Source
+            html += '<div class="drawer-field"><div class="drawer-field-label">Source</div><input type="text" class="drawer-edit" value="' + escapeAttr(p.source || '') + '" onchange="drawerSave(\'source\',this.value.trim())"></div>';
+            // Livraison
+            html += '<div class="drawer-field"><div class="drawer-field-label">Livraison</div><input type="month" class="drawer-edit" value="' + escapeAttr(p.delivery_month || '') + '" onchange="drawerSave(\'delivery_month\',this.value)"></div>';
+            // Deadline interne
+            html += '<div class="drawer-field"><div class="drawer-field-label">Deadline interne</div><input type="date" class="drawer-edit" value="' + escapeAttr(p.internal_deadline || '') + '" onchange="drawerSave(\'internal_deadline\',this.value)"></div>';
+            // Deadline client
+            html += '<div class="drawer-field"><div class="drawer-field-label">Deadline client</div><input type="date" class="drawer-edit" value="' + escapeAttr(p.client_deadline || '') + '" onchange="drawerSave(\'client_deadline\',this.value)"></div>';
+            // Date remise (readonly — computed)
+            if (deadline) {
+                html += '<div class="drawer-field"><div class="drawer-field-label">Date remise</div><div class="drawer-field-value readonly">' + formatDateShort(deadline) + '</div></div>';
+            }
+
             document.getElementById('drawerBody').innerHTML = html;
             document.getElementById('projectDrawerOverlay').classList.add('open');
             document.getElementById('projectDrawer').classList.add('open');

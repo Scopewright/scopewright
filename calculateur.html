@@ -3720,6 +3720,7 @@
         .col-w-deadline { width: 80px; }
         .col-w-resp { width: 10%; }
         .col-w-type { width: 10%; }
+        .col-w-delivery { width: 90px; }
         .col-w-more { width: 40px; text-align: center; }
         /* Secondary columns — hide progressively */
         @media (max-width: 1399px) {
@@ -5416,12 +5417,8 @@
                 </div>
                 <div class="info-modal-row">
                     <div class="form-group">
-                        <label class="form-label">Date d&eacute;but pr&eacute;vue</label>
-                        <input type="date" class="form-input" id="infoExpectedStart">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Date fin pr&eacute;vue</label>
-                        <input type="date" class="form-input" id="infoExpectedEnd">
+                        <label class="form-label">Mois de livraison</label>
+                        <input type="month" class="form-input" id="infoDeliveryMonth" placeholder="ex: 2026-05">
                     </div>
                 </div>
                 <div class="info-modal-row">
@@ -10280,10 +10277,21 @@
         }
 
         function formatDateShort(d) {
-            if (!d) return '—';
+            if (!d) return '\u2014';
             var parts = d.split('-');
             if (parts.length === 3) return parts[2] + '/' + parts[1];
             return d;
+        }
+
+        var MONTH_NAMES_FR = ['janv.','f\u00e9vr.','mars','avr.','mai','juin','juil.','ao\u00fbt','sept.','oct.','nov.','d\u00e9c.'];
+        function formatMonthYear(m) {
+            if (!m) return '\u2014';
+            var parts = m.split('-');
+            if (parts.length >= 2) {
+                var mi = parseInt(parts[1], 10) - 1;
+                return (MONTH_NAMES_FR[mi] || parts[1]) + ' ' + parts[0];
+            }
+            return m;
         }
 
         // Returns { value: number|null, isOverride: boolean } for a project's display amount
@@ -10437,7 +10445,8 @@
             { key: 'pipeline_status', label: 'Statut',     wCls: 'col-w-status',   hide: '' },
             { key: 'deadline',        label: 'Remise',     wCls: 'col-w-deadline', hide: 'col-hide-lg', computed: true },
             { key: 'assigned_to',     label: 'Resp.',      wCls: 'col-w-resp',     hide: 'col-hide-lg' },
-            { key: 'project_type',    label: 'Type',       wCls: 'col-w-type',     hide: 'col-hide-xl' }
+            { key: 'project_type',    label: 'Type',       wCls: 'col-w-type',     hide: 'col-hide-xl' },
+            { key: 'delivery_month',  label: 'Livraison',  wCls: 'col-w-delivery', hide: 'col-hide-xl' }
         ];
 
         function renderTableView(projects) {
@@ -10502,6 +10511,8 @@
                 bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type
                 bHtml += '<td class="col-hide-xl">' + escapeHtml(p.project_type || '\u2014') + '</td>';
+                // Livraison
+                bHtml += '<td class="col-hide-xl">' + formatMonthYear(p.delivery_month) + '</td>';
                 // More button
                 bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + escapeAttr(p.id) + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
@@ -10588,8 +10599,7 @@
                 { label: 'Type', value: p.project_type },
                 { label: 'Ville', value: p.project_city },
                 { label: 'Source', value: p.source },
-                { label: 'D\u00e9but pr\u00e9vu', value: p.expected_start_date ? formatDateShort(p.expected_start_date) : null },
-                { label: 'Fin pr\u00e9vue', value: p.expected_end_date ? formatDateShort(p.expected_end_date) : null },
+                { label: 'Livraison', value: p.delivery_month ? formatMonthYear(p.delivery_month) : null },
                 { label: 'Deadline interne', value: p.internal_deadline ? formatDateShort(p.internal_deadline) : null },
                 { label: 'Deadline client', value: p.client_deadline ? formatDateShort(p.client_deadline) : null }
             ];
@@ -11506,8 +11516,7 @@
             EMPLOYEES_DATA.forEach(function(e) { assignSelect.innerHTML += '<option value="' + escapeAttr(e.name) + '">' + escapeHtml(e.name) + '</option>'; });
             assignSelect.value = currentProject.assigned_to || '';
 
-            document.getElementById('infoExpectedStart').value = currentProject.expected_start_date || '';
-            document.getElementById('infoExpectedEnd').value = currentProject.expected_end_date || '';
+            document.getElementById('infoDeliveryMonth').value = currentProject.delivery_month || '';
             document.getElementById('infoInternalDeadline').value = currentProject.internal_deadline || '';
             document.getElementById('infoClientDeadline').value = currentProject.client_deadline || '';
         }
@@ -11535,8 +11544,7 @@
             var estimatedAmount = parseFloat(document.getElementById('infoEstimatedAmount').value) || null;
             var probability = parseInt(document.getElementById('infoProbability').value) || 0;
             var assignedTo = document.getElementById('infoAssignedTo').value || null;
-            var expectedStart = document.getElementById('infoExpectedStart').value || null;
-            var expectedEnd = document.getElementById('infoExpectedEnd').value || null;
+            var deliveryMonth = document.getElementById('infoDeliveryMonth').value || null;
             var internalDeadline = document.getElementById('infoInternalDeadline').value || null;
             var clientDeadline = document.getElementById('infoClientDeadline').value || null;
 
@@ -11555,8 +11563,7 @@
                 estimated_amount: estimatedAmount,
                 probability: probability,
                 assigned_to: assignedTo,
-                expected_start_date: expectedStart,
-                expected_end_date: expectedEnd,
+                delivery_month: deliveryMonth,
                 internal_deadline: internalDeadline,
                 client_deadline: clientDeadline
             };

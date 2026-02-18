@@ -3832,7 +3832,7 @@
         /* ── Matériaux par défaut section — same style as header-sub-panel ── */
         .default-materials-panel {
             background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 10px 14px; margin: -8px 0 16px;
+            padding: 10px 14px; margin: -8px 0 16px; overflow: visible; position: relative; z-index: 2;
         }
         .default-materials-panel .dm-label {
             font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
@@ -3843,10 +3843,10 @@
         .dm-label .dm-arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
         .dm-label .dm-arrow.open { transform: rotate(90deg); }
         .default-materials-body {
-            overflow: hidden; transition: max-height 0.3s ease, opacity 0.2s ease;
+            overflow: visible; transition: max-height 0.3s ease, opacity 0.2s ease;
             max-height: 600px; opacity: 1; padding-top: 8px;
         }
-        .default-materials-body.collapsed { max-height: 0; opacity: 0; padding-top: 0; }
+        .default-materials-body.collapsed { max-height: 0; opacity: hidden; padding-top: 0; overflow: hidden; }
         .dm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
         .dm-row {
             display: flex; gap: 6px; align-items: center; font-size: 12px;

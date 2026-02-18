@@ -262,7 +262,7 @@
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
         // Try enriched query with pipeline columns + contacts
-        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline),project_contacts(role,contacts(first_name,last_name))', {});
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline),project_contacts(role,is_primary,contacts(first_name,last_name,contact_companies(companies(name))))', {});
         if (!r.ok) {
             // Fallback: basic query without pipeline columns (migrations not yet run)
             r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval)', {});
@@ -4565,7 +4565,13 @@
         .contact-card-role {
             font-size: 11px; font-weight: 700; text-transform: uppercase;
             letter-spacing: 0.5px; color: var(--stele-green); margin-bottom: 8px;
+            display: flex; align-items: center; gap: 6px;
         }
+        .contact-primary-star {
+            cursor: pointer; font-size: 15px; line-height: 1; color: #ccc; transition: color 0.15s;
+        }
+        .contact-primary-star:hover { color: #f5a623; }
+        .contact-primary-star.active { color: #f5a623; }
         .contact-card-name { font-size: 16px; font-weight: 700; color: var(--stele-black); margin-bottom: 2px; }
         .contact-card-name-link {
             color: var(--stele-black); text-decoration: none; transition: color 0.15s; cursor: pointer;
@@ -10164,9 +10170,28 @@
 
         function getContactByRole(proj, role) {
             if (!proj.project_contacts) return '';
-            var match = proj.project_contacts.find(function(pc) { return pc.role === role && pc.contacts; });
-            if (!match || !match.contacts) return '';
-            return ((match.contacts.first_name || '') + ' ' + (match.contacts.last_name || '')).trim();
+            var candidates = proj.project_contacts.filter(function(pc) { return pc.role === role && pc.contacts; });
+            if (candidates.length === 0) return '';
+            // Prefer is_primary; if none marked, take first
+            var match = candidates.find(function(pc) { return pc.is_primary; }) || candidates[0];
+            var c = match.contacts;
+            // If contact has a company, show company name
+            var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : ''; }).filter(Boolean);
+            if (companies.length > 0) return companies[0];
+            return ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+        }
+
+        // Full tooltip: contact name + company
+        function getContactTooltipByRole(proj, role) {
+            if (!proj.project_contacts) return '';
+            var candidates = proj.project_contacts.filter(function(pc) { return pc.role === role && pc.contacts; });
+            if (candidates.length === 0) return '';
+            var match = candidates.find(function(pc) { return pc.is_primary; }) || candidates[0];
+            var c = match.contacts;
+            var name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+            var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : ''; }).filter(Boolean);
+            if (companies.length > 0) return name + ' — ' + companies[0];
+            return name;
         }
 
         function getClosestDeadline(proj) {
@@ -10392,13 +10417,15 @@
                 var prob = p.probability || 0;
                 var entrepreneur = getContactByRole(p, 'Entrepreneur');
                 var architecte = getContactByRole(p, 'Architecte');
+                var entrepreneurTip = getContactTooltipByRole(p, 'Entrepreneur');
+                var architecteTip = getContactTooltipByRole(p, 'Architecte');
 
                 bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
                 bHtml += '<td>' + escapeHtml(p.project_code || '—') + '</td>';
                 bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '—') + '</td>';
                 bHtml += '<td title="' + escapeAttr(p.client_name || '') + '">' + escapeHtml(p.client_name || '—') + '</td>';
-                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(entrepreneur) + '">' + escapeHtml(entrepreneur || '—') + '</td>';
-                bHtml += '<td class="col-hide-xl" title="' + escapeAttr(architecte) + '">' + escapeHtml(architecte || '—') + '</td>';
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(entrepreneurTip) + '">' + escapeHtml(entrepreneur || '—') + '</td>';
+                bHtml += '<td class="col-hide-xl" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '—') + '</td>';
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
                 bHtml += '<td class="col-amount">' + (prob || '—') + '</td>';
                 bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '—') + '</td>';
@@ -10468,8 +10495,8 @@
             var ps = getPipelineStatus(p.pipeline_status);
             var da = getProjectDisplayAmount(p);
             var deadline = getClosestDeadline(p);
-            var entrepreneur = getContactByRole(p, 'Entrepreneur');
-            var architecte = getContactByRole(p, 'Architecte');
+            var entrepreneur = getContactTooltipByRole(p, 'Entrepreneur');
+            var architecte = getContactTooltipByRole(p, 'Architecte');
             var prob = p.probability || 0;
 
             var fields = [
@@ -11772,6 +11799,10 @@
             var html = '';
             var usedRoles = {};
 
+            // Count contacts per role to decide whether to show star
+            var roleCounts = {};
+            projectContacts.forEach(function(pc) { roleCounts[pc.role] = (roleCounts[pc.role] || 0) + 1; });
+
             for (var i = 0; i < projectContacts.length; i++) {
                 var pc = projectContacts[i];
                 var c = pc.contacts;
@@ -11784,9 +11815,16 @@
                 }).filter(Boolean);
                 var companyStr = companiesData.map(function(co) { return escapeHtml(co.name); }).join(', ');
 
+                var starHtml = '';
+                if (roleCounts[pc.role] > 1) {
+                    var starCls = pc.is_primary ? 'contact-primary-star active' : 'contact-primary-star';
+                    var starIcon = pc.is_primary ? '&#9733;' : '&#9734;';
+                    starHtml = '<span class="' + starCls + '" onclick="togglePrimaryContact(\'' + escapeAttr(pc.id) + '\',\'' + escapeAttr(pc.role) + '\')" title="' + (pc.is_primary ? 'Contact principal' : 'Définir comme principal') + '">' + starIcon + '</span>';
+                }
+
                 html += '<div class="contact-card">' +
                     '<button class="contact-card-remove" onclick="removeProjectContact(\'' + escapeAttr(pc.id) + '\')" title="Retirer">&times;</button>' +
-                    '<div class="contact-card-role">' + escapeHtml(pc.role) + '</div>' +
+                    '<div class="contact-card-role">' + escapeHtml(pc.role) + starHtml + '</div>' +
                     '<div class="contact-card-name"><span class="contact-card-name-link" onclick="openContactDetail(\'' + escapeAttr(c.id) + '\')">' + escapeHtml(fullName) + '</span></div>' +
                     (companyStr ? '<div class="contact-card-company">' + companyStr + '</div>' : '') +
                     '<div class="contact-card-details">' +
@@ -11859,6 +11897,24 @@
                 renderContactCards();
                 renderContactBadges();
             } catch (e) { console.warn('Error removing project contact:', e); }
+        }
+
+        async function togglePrimaryContact(pcId, role) {
+            if (!currentProject) return;
+            try {
+                // Clear is_primary for all contacts of this role in this project
+                await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/project_contacts?project_id=eq.' + currentProject.id + '&role=eq.' + encodeURIComponent(role),
+                    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_primary: false }) }
+                );
+                // Set this one as primary
+                await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/project_contacts?id=eq.' + pcId,
+                    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_primary: true }) }
+                );
+                await loadProjectContacts();
+                renderContactCards();
+            } catch (e) { console.warn('Error toggling primary contact:', e); }
         }
 
         // ═══════════════════════════════════════════════════════════════════════

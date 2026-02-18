@@ -4069,7 +4069,7 @@
             border-radius: 4px; transition: all 0.15s; line-height: 1;
         }
         .project-card-delete:hover { color: #c62828; background: #ffebee; }
-        .card-follow { position: absolute; top: 10px; left: 10px; font-size: 18px; }
+        .card-follow { font-size: 18px; flex-shrink: 0; }
 
         .project-empty {
             text-align: center; padding: 60px 20px; color: #999; font-size: 15px;
@@ -10782,11 +10782,6 @@
                         ? '<span class="project-card-amount" style="color:#c62828;" title="Montant estim\u00e9 manuellement">' + formatMoney(cardDa.value) + '</span>'
                         : '<span class="project-card-amount">' + formatMoney(cardDa.value) + '</span>';
                 }
-                var pipelineHtml = '<div class="project-card-pipeline">' +
-                    '<span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span>' +
-                    cardAmountHtml +
-                    '</div>';
-
                 var metaHtml = '';
                 var metaParts = [];
                 if (proj.assigned_to) metaParts.push(escapeHtml(proj.assigned_to));
@@ -10796,10 +10791,16 @@
 
                 var followCls = userFollows[proj.id] ? ' active' : '';
 
+                var followStarHtml = '<span class="follow-star card-follow' + followCls + '" onclick="toggleFollow(\'' + escapeAttr(proj.id) + '\',event)" title="Suivre">\u2605</span>';
+                var pipelineWithStar = '<div class="project-card-pipeline">' +
+                    followStarHtml +
+                    '<span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span>' +
+                    cardAmountHtml +
+                    '</div>';
+
                 card.innerHTML =
-                    '<span class="follow-star card-follow' + followCls + '" onclick="toggleFollow(\'' + escapeAttr(proj.id) + '\',event)" title="Suivre">\u2605</span>' +
                     '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
-                    pipelineHtml +
+                    pipelineWithStar +
                     '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
                     '<div class="project-card-client">' + escapeHtml(proj.client_name || '') + '</div>' +
                     metaHtml +

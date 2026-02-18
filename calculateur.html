@@ -3759,6 +3759,13 @@
         /* ── Pipeline — Amount override inline edit ── */
         .amount-cell { cursor: pointer; position: relative; }
         .amount-cell:hover { background: rgba(0,0,0,0.03); }
+        .inline-editable { cursor: pointer; }
+        .inline-editable:hover { background: rgba(0,0,0,0.03); }
+        .inline-edit-select, .inline-edit-input {
+            width: 100%; padding: 4px 6px; font-size: 12px; font-family: inherit;
+            border: 1px solid var(--stele-green); border-radius: 4px; background: #fff;
+            outline: none;
+        }
         .amount-override { color: #c62828; }
         .amount-override::after {
             content: attr(data-tooltip); position: absolute; bottom: calc(100% + 4px); right: 0;
@@ -10343,6 +10350,62 @@
             await updateProject(projectId, { amount_override: numericVal });
         }
 
+        // ── Inline edit helpers ──
+
+        function inlineEditSelect(td, projectId, field, options, currentVal, evt) {
+            evt.stopPropagation();
+            if (td.querySelector('select')) return;
+            var html = '<select class="inline-edit-select">';
+            options.forEach(function(opt) {
+                var val = typeof opt === 'object' ? opt.value : opt;
+                var label = typeof opt === 'object' ? opt.label : opt;
+                html += '<option value="' + escapeAttr(val) + '"' + (val === currentVal ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+            });
+            html += '</select>';
+            td.innerHTML = html;
+            var sel = td.querySelector('select');
+            sel.focus();
+            sel.addEventListener('change', function() { saveInlineField(projectId, field, sel.value); });
+            sel.addEventListener('blur', function() { saveInlineField(projectId, field, sel.value); });
+            sel.addEventListener('keydown', function(e) { if (e.key === 'Escape') renderCurrentView(); });
+        }
+
+        function inlineEditText(td, projectId, field, currentVal, inputType, evt) {
+            evt.stopPropagation();
+            if (td.querySelector('input')) return;
+            td.innerHTML = '<input class="inline-edit-input" type="' + (inputType || 'text') + '" value="' + escapeAttr(currentVal || '') + '">';
+            var input = td.querySelector('input');
+            input.focus();
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') renderCurrentView();
+            });
+            input.addEventListener('blur', function() { saveInlineField(projectId, field, input.value.trim() || null); });
+        }
+
+        function toggleInlinePriority(projectId, evt) {
+            evt.stopPropagation();
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (!proj) return;
+            var newVal = proj.priority === 'urgent' ? 'normal' : 'urgent';
+            proj.priority = newVal;
+            renderCurrentView();
+            updateProject(projectId, { priority: newVal });
+        }
+
+        async function saveInlineField(projectId, field, value) {
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (proj) proj[field] = value;
+            renderCurrentView();
+            var patch = {};
+            if (field === 'probability') {
+                patch[field] = value ? parseInt(value) : 0;
+            } else {
+                patch[field] = value || null;
+            }
+            await updateProject(projectId, patch);
+        }
+
         // ── Pipeline view switching ──
 
         function switchPipelineView(view) {
@@ -10490,31 +10553,38 @@
                 var architecteTip = getContactTooltipByRole(p, 'Architecte');
                 var isFollowed = userFollows[p.id] ? ' active' : '';
 
-                bHtml += '<tr onclick="pipelineRowClick(\'' + escapeAttr(p.id) + '\')">';
+                var pid = escapeAttr(p.id);
+
+                // Build status options for inline select
+                var statusOpts = pipelineStatuses.map(function(s) { return {value: s.slug, label: s.label}; });
+                var respOpts = [{value:'', label:'\u2014'}].concat(EMPLOYEES_DATA.map(function(e) { return {value: e.name, label: e.name}; }));
+                var typeOpts = [{value:'', label:'\u2014'}].concat(projectTypes.map(function(t) { return {value: t, label: t}; }));
+
+                bHtml += '<tr onclick="pipelineRowClick(\'' + pid + '\')">';
                 // ★ Follow
-                bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + escapeAttr(p.id) + '\',event)">\u2605</span></td>';
-                // Prio
-                bHtml += '<td><span class="prio-dot' + (p.priority === 'urgent' ? ' urgent' : '') + '" title="' + (p.priority === 'urgent' ? 'Urgent' : 'Normal') + '"></span></td>';
-                // Nom
+                bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + pid + '\',event)">\u2605</span></td>';
+                // Prio (toggle on click)
+                bHtml += '<td class="inline-editable" onclick="toggleInlinePriority(\'' + pid + '\',event)"><span class="prio-dot' + (p.priority === 'urgent' ? ' urgent' : '') + '" title="' + (p.priority === 'urgent' ? 'Urgent' : 'Normal') + '"></span></td>';
+                // Nom (readonly — auto-generated)
                 bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '\u2014') + '</td>';
-                // Architecte
+                // Architecte (from contacts — not inline editable)
                 bHtml += '<td class="col-hide-lg" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '\u2014') + '</td>';
-                // Montant
-                bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + escapeAttr(p.id) + '\',event)">' + renderAmountCell(p) + '</td>';
+                // Montant (existing inline edit)
+                bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + pid + '\',event)">' + renderAmountCell(p) + '</td>';
                 // Prob%
-                bHtml += '<td class="col-amount col-hide-lg">' + (prob || '\u2014') + '</td>';
+                bHtml += '<td class="col-amount col-hide-lg inline-editable" onclick="inlineEditText(this,\'' + pid + '\',\'probability\',\'' + prob + '\',\'number\',event)">' + (prob || '\u2014') + '</td>';
                 // Statut pipeline
-                bHtml += '<td><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
-                // Remise
+                bHtml += '<td class="inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'pipeline_status\',' + escapeAttr(JSON.stringify(statusOpts)) + ',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
+                // Remise (computed — not inline editable)
                 bHtml += '<td class="col-hide-lg' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
                 // Responsable
-                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(p.assigned_to || '') + '">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
+                bHtml += '<td class="col-hide-lg inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type
-                bHtml += '<td class="col-hide-xl">' + escapeHtml(p.project_type || '\u2014') + '</td>';
+                bHtml += '<td class="col-hide-xl inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'project_type\',' + escapeAttr(JSON.stringify(typeOpts)) + ',\'' + escapeAttr(p.project_type || '') + '\',event)">' + escapeHtml(p.project_type || '\u2014') + '</td>';
                 // Livraison
-                bHtml += '<td class="col-hide-xl">' + formatMonthYear(p.delivery_month) + '</td>';
+                bHtml += '<td class="col-hide-xl inline-editable" onclick="inlineEditText(this,\'' + pid + '\',\'delivery_month\',\'' + escapeAttr(p.delivery_month || '') + '\',\'month\',event)">' + formatMonthYear(p.delivery_month) + '</td>';
                 // More button
-                bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + escapeAttr(p.id) + '\',event)" title="D\u00e9tails">\u2026</button></td>';
+                bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + pid + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
             });
             body.innerHTML = bHtml || '<tr><td colspan="' + (TABLE_COLUMNS.length + 1) + '" style="text-align:center;color:#888;padding:24px;">Aucun projet ne correspond aux filtres.</td></tr>';

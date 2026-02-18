@@ -3711,7 +3711,6 @@
         .pipeline-table tbody td.col-amount { text-align: right; font-family: 'SF Mono', monospace; font-size: 12px; }
         /* Column widths */
         .col-w-follow { width: 36px; text-align: center; }
-        .col-w-prio { width: 50px; text-align: center; }
         .col-w-name { width: auto; }
         .col-w-contact { width: 11%; }
         .col-w-amount { width: 100px; }
@@ -3722,12 +3721,18 @@
         .col-w-type { width: 10%; }
         .col-w-delivery { width: 90px; }
         .col-w-more { width: 40px; text-align: center; }
-        /* Secondary columns — hide progressively */
+        /* PROB% — always hidden */
+        .col-prob-hidden th, .col-prob-hidden td { /* handled via inline class */ }
+        .col-always-hidden { display: none !important; }
+        /* Responsive column hiding */
         @media (max-width: 1399px) {
-            .col-hide-xl { display: none; }
+            .col-hide-xl { display: none !important; }
         }
         @media (max-width: 1199px) {
-            .col-hide-lg { display: none; }
+            .col-hide-lg { display: none !important; }
+        }
+        @media (max-width: 991px) {
+            .col-hide-md { display: none !important; }
         }
         /* Follow star */
         .follow-star {
@@ -3736,12 +3741,33 @@
         }
         .follow-star.active { color: #f5a623; }
         .follow-star:hover { color: #f5a623; }
-        /* Priority dot */
-        .prio-dot {
-            display: inline-block; width: 10px; height: 10px;
-            border-radius: 50%; background: #e0e0e0;
+        /* Priority indicator (inline in name cell) */
+        .prio-indicator {
+            display: inline-block; width: 8px; height: 8px;
+            border-radius: 50%; margin-right: 6px; vertical-align: middle;
+            cursor: pointer; flex-shrink: 0;
         }
-        .prio-dot.urgent { background: #f44336; }
+        .prio-indicator.haute { background: #F59E0B; }
+        .prio-indicator.urgente { background: #EF4444; }
+        .prio-indicator.normal { background: transparent; width: 8px; height: 8px; }
+        .prio-indicator:hover { opacity: 0.8; }
+        /* Priority dropdown */
+        .prio-dropdown {
+            position: absolute; top: 100%; left: 0; z-index: 100;
+            background: #fff; border: 1px solid #ddd; border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 4px 0;
+            min-width: 130px;
+        }
+        .prio-dropdown-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px; cursor: pointer; font-size: 13px;
+            white-space: nowrap;
+        }
+        .prio-dropdown-item:hover { background: #f5f5f5; }
+        .prio-dropdown-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        }
+        .name-cell-inner { display: flex; align-items: center; position: relative; }
         /* More button */
         .tbl-more-btn {
             background: none; border: none; cursor: pointer; font-size: 16px;
@@ -3752,10 +3778,6 @@
             display: inline-block; padding: 2px 10px; border-radius: 12px;
             font-size: 11px; font-weight: 600; white-space: nowrap;
         }
-        .priority-urgent {
-            color: #c62828; font-weight: 700;
-        }
-
         /* ── Pipeline — Amount override inline edit ── */
         .amount-cell { cursor: pointer; position: relative; }
         .amount-cell:hover { background: rgba(0,0,0,0.03); }
@@ -5391,7 +5413,8 @@
                         <label class="form-label">Priorit&eacute;</label>
                         <select class="form-input" id="infoPriority">
                             <option value="normal">Normal</option>
-                            <option value="urgent">Urgent</option>
+                            <option value="haute">Haute</option>
+                            <option value="urgente">Urgente</option>
                         </select>
                     </div>
                 </div>
@@ -10383,14 +10406,45 @@
             input.addEventListener('blur', function() { saveInlineField(projectId, field, input.value.trim() || null); });
         }
 
-        function toggleInlinePriority(projectId, evt) {
+        function openPriorityDropdown(el, projectId, evt) {
             evt.stopPropagation();
-            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
-            if (!proj) return;
-            var newVal = proj.priority === 'urgent' ? 'normal' : 'urgent';
-            proj.priority = newVal;
-            renderCurrentView();
-            updateProject(projectId, { priority: newVal });
+            evt.preventDefault();
+            // Close any existing dropdown
+            var existing = document.querySelector('.prio-dropdown');
+            if (existing) existing.remove();
+
+            var container = el.closest('.name-cell-inner');
+            if (!container) return;
+
+            var dd = document.createElement('div');
+            dd.className = 'prio-dropdown';
+            dd.innerHTML =
+                '<div class="prio-dropdown-item" data-val="normal"><span class="prio-dropdown-dot" style="background:#ccc;"></span> Normal</div>' +
+                '<div class="prio-dropdown-item" data-val="haute"><span class="prio-dropdown-dot" style="background:#F59E0B;"></span> Haute</div>' +
+                '<div class="prio-dropdown-item" data-val="urgente"><span class="prio-dropdown-dot" style="background:#EF4444;"></span> Urgente</div>';
+            container.appendChild(dd);
+
+            dd.querySelectorAll('.prio-dropdown-item').forEach(function(item) {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var val = item.getAttribute('data-val');
+                    var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+                    if (proj) proj.priority = val;
+                    dd.remove();
+                    renderCurrentView();
+                    updateProject(projectId, { priority: val });
+                });
+            });
+
+            // Close on outside click
+            setTimeout(function() {
+                document.addEventListener('click', function closePrio(e) {
+                    if (!dd.contains(e.target)) {
+                        dd.remove();
+                        document.removeEventListener('click', closePrio);
+                    }
+                });
+            }, 0);
         }
 
         async function saveInlineField(projectId, field, value) {
@@ -10499,17 +10553,15 @@
 
         // Column definitions: hide = CSS class that hides at breakpoint, wCls = width class
         var TABLE_COLUMNS = [
-            { key: 'follow',          label: '\u2605',     wCls: 'col-w-follow',   hide: '',            computed: true },
-            { key: 'priority',        label: 'Prio.',      wCls: 'col-w-prio',     hide: '' },
+            { key: 'follow',          label: '★',          wCls: 'col-w-follow',   hide: '' },
             { key: 'name',            label: 'Nom',        wCls: 'col-w-name',     hide: '' },
-            { key: 'architecte',      label: 'Archit.',    wCls: 'col-w-contact',  hide: 'col-hide-lg', computed: true },
+            { key: 'architecte',      label: 'Archit.',    wCls: 'col-w-contact',  hide: 'col-hide-md', computed: true },
             { key: 'display_amount',  label: 'Montant',    wCls: 'col-w-amount',   hide: '',            cls: 'col-amount' },
-            { key: 'probability',     label: 'Prob%',      wCls: 'col-w-prob',     hide: 'col-hide-lg', cls: 'col-amount' },
+            { key: 'probability',     label: 'Prob%',      wCls: 'col-w-prob',     hide: 'col-always-hidden', cls: 'col-amount' },
             { key: 'pipeline_status', label: 'Statut',     wCls: 'col-w-status',   hide: '' },
             { key: 'deadline',        label: 'Remise',     wCls: 'col-w-deadline', hide: 'col-hide-lg', computed: true },
             { key: 'assigned_to',     label: 'Resp.',      wCls: 'col-w-resp',     hide: 'col-hide-lg' },
-            { key: 'project_type',    label: 'Type',       wCls: 'col-w-type',     hide: 'col-hide-xl' },
-            { key: 'delivery_month',  label: 'Livraison',  wCls: 'col-w-delivery', hide: 'col-hide-xl' }
+            { key: 'project_type',    label: 'Type',       wCls: 'col-w-type',     hide: 'col-hide-xl' }
         ];
 
         function renderTableView(projects) {
@@ -10560,29 +10612,32 @@
                 var respOpts = [{value:'', label:'\u2014'}].concat(EMPLOYEES_DATA.map(function(e) { return {value: e.name, label: e.name}; }));
                 var typeOpts = [{value:'', label:'\u2014'}].concat(projectTypes.map(function(t) { return {value: t, label: t}; }));
 
+                // Priority indicator class
+                var prioCls = p.priority === 'urgente' ? ' urgente' : (p.priority === 'haute' ? ' haute' : ' normal');
+                var prioTitle = p.priority === 'urgente' ? 'Urgente' : (p.priority === 'haute' ? 'Haute' : '');
+
                 bHtml += '<tr onclick="pipelineRowClick(\'' + pid + '\')">';
                 // ★ Follow
                 bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + pid + '\',event)">\u2605</span></td>';
-                // Prio (toggle on click)
-                bHtml += '<td class="inline-editable" onclick="toggleInlinePriority(\'' + pid + '\',event)"><span class="prio-dot' + (p.priority === 'urgent' ? ' urgent' : '') + '" title="' + (p.priority === 'urgent' ? 'Urgent' : 'Normal') + '"></span></td>';
-                // Nom (readonly — auto-generated)
-                bHtml += '<td class="col-name" title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '\u2014') + '</td>';
-                // Architecte (from contacts — not inline editable)
-                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '\u2014') + '</td>';
-                // Montant (existing inline edit)
+                // Nom with priority indicator
+                bHtml += '<td class="col-name"><div class="name-cell-inner">';
+                bHtml += '<span class="prio-indicator' + prioCls + '" onclick="openPriorityDropdown(this,\'' + pid + '\',event)"' + (prioTitle ? ' title="' + prioTitle + '"' : '') + '></span>';
+                bHtml += '<span title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '\u2014') + '</span>';
+                bHtml += '</div></td>';
+                // Architecte
+                bHtml += '<td class="col-hide-md" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '\u2014') + '</td>';
+                // Montant
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + pid + '\',event)">' + renderAmountCell(p) + '</td>';
-                // Prob%
-                bHtml += '<td class="col-amount col-hide-lg inline-editable" onclick="inlineEditText(this,\'' + pid + '\',\'probability\',\'' + prob + '\',\'number\',event)">' + (prob || '\u2014') + '</td>';
+                // Prob% (always hidden in table, visible in drawer)
+                bHtml += '<td class="col-always-hidden">' + (prob || '\u2014') + '</td>';
                 // Statut pipeline
                 bHtml += '<td class="inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'pipeline_status\',' + escapeAttr(JSON.stringify(statusOpts)) + ',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
-                // Remise (computed — not inline editable)
+                // Remise
                 bHtml += '<td class="col-hide-lg' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
                 // Responsable
                 bHtml += '<td class="col-hide-lg inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type
                 bHtml += '<td class="col-hide-xl inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'project_type\',' + escapeAttr(JSON.stringify(typeOpts)) + ',\'' + escapeAttr(p.project_type || '') + '\',event)">' + escapeHtml(p.project_type || '\u2014') + '</td>';
-                // Livraison
-                bHtml += '<td class="col-hide-xl inline-editable" onclick="inlineEditText(this,\'' + pid + '\',\'delivery_month\',\'' + escapeAttr(p.delivery_month || '') + '\',\'month\',event)">' + formatMonthYear(p.delivery_month) + '</td>';
                 // More button
                 bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + pid + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';
@@ -10599,8 +10654,9 @@
                     va = userFollows[a.id] ? 0 : 1;
                     vb = userFollows[b.id] ? 0 : 1;
                 } else if (col === 'priority') {
-                    va = a.priority === 'urgent' ? 0 : 1;
-                    vb = b.priority === 'urgent' ? 0 : 1;
+                    var prioOrder = { urgente: 0, haute: 1, normal: 2 };
+                    va = prioOrder[a.priority] != null ? prioOrder[a.priority] : 2;
+                    vb = prioOrder[b.priority] != null ? prioOrder[b.priority] : 2;
                 } else if (col === 'display_amount') {
                     va = (getProjectDisplayAmount(a).value || 0);
                     vb = (getProjectDisplayAmount(b).value || 0);
@@ -10663,7 +10719,7 @@
                 { label: 'Montant', value: da.value != null ? formatMoney(da.value) + (da.isOverride ? ' (estim\u00e9)' : '') : null },
                 { label: 'Probabilit\u00e9', value: prob ? prob + '%' : null },
                 { label: 'Responsable', value: p.assigned_to },
-                { label: 'Priorit\u00e9', value: p.priority === 'urgent' ? 'URGENT' : 'Normal' },
+                { label: 'Priorit\u00e9', value: p.priority === 'urgente' ? 'Urgente' : (p.priority === 'haute' ? 'Haute' : 'Normal') },
                 { label: 'Date remise', value: deadline ? formatDateShort(deadline) : null },
                 { label: 'Statut pipeline', value: ps.label, badge: true, color: ps.color },
                 { label: 'Type', value: p.project_type },
@@ -10705,7 +10761,7 @@
 
             projects.forEach(function(proj) {
                 var card = document.createElement('div');
-                card.className = 'project-card' + (proj.priority === 'urgent' ? ' project-card-urgent' : '');
+                card.className = 'project-card' + (proj.priority === 'urgente' ? ' project-card-urgent' : '');
 
                 var subs = proj.submissions || [];
                 var ps = getPipelineStatus(proj.pipeline_status);

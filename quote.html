@@ -126,8 +126,12 @@
         /* Room page — landscape layout */
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 32px; background: var(--stele-green); color: #fff;
-            border-radius: 0; margin: -4px -32px 38px -32px; flex-shrink: 0;
+            padding: 10px 16px; background: var(--stele-green); color: #fff;
+            border-radius: 0; margin: 0 0 38px 0; flex-shrink: 0;
+        }
+        .pv-room-separator {
+            border-bottom: 1px solid #E5E7EB;
+            margin-top: auto;
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
@@ -802,7 +806,9 @@ async function renderQuote() {
             html += '</div>';
         }
 
-        html += '</div></div>';
+        html += '</div>';
+        html += '<div class="pv-room-separator"></div>';
+        html += '</div>';
     });
 
     // ── Clauses page ──

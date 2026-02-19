@@ -90,19 +90,19 @@
         }
 
         /* Title page — full-screen image + text overlay */
-        .pv-page-title { position: relative; padding: 0; overflow: hidden; }
+        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #0A0203; }
         .pv-cover-right {
-            position: absolute; inset: 0; z-index: 0; background: #0F1C2D; overflow: hidden;
+            position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
         }
-        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; min-height: 100vh; }
+        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0;
+            position: absolute; inset: 0; border-radius: 4px;
             background: linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.35));
         }
         .pv-cover-left {
             position: relative; z-index: 1; width: 100%;
             display: flex; flex-direction: column; justify-content: flex-start;
-            padding: clamp(32px, 4vw, 64px); min-height: 100%;
+            padding: clamp(24px, 3vw, 48px); min-height: 100%;
             background: transparent; text-align: left;
         }
         .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
@@ -113,7 +113,7 @@
         .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #FFFFFF; margin-bottom: 2px; }
         .pv-cover-left .pv-sub-date { font-size: 13px; color: rgba(255,255,255,0.7); }
         .pv-cover-logo {
-            position: absolute; bottom: clamp(32px, 4vw, 64px); left: clamp(32px, 4vw, 64px);
+            position: absolute; bottom: calc(32px + clamp(24px, 3vw, 48px)); left: calc(32px + clamp(24px, 3vw, 48px));
             max-width: 140px; z-index: 1;
         }
         .pv-cover-logo img { width: 100%; height: auto; display: block; }

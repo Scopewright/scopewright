@@ -3302,19 +3302,19 @@
         }
 
         /* Title page — full-screen image + text overlay */
-        .pv-page-title { position: relative; padding: 0; overflow: hidden; }
+        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #0A0203; }
         .pv-cover-right {
-            position: absolute; inset: 0; z-index: 0; background: #0F1C2D; overflow: hidden;
+            position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
         }
-        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; min-height: 100vh; }
+        .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0;
+            position: absolute; inset: 0; border-radius: 4px;
             background: linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.35));
         }
         .pv-cover-left {
             position: relative; z-index: 1; width: 100%;
             display: flex; flex-direction: column; justify-content: flex-start;
-            padding: clamp(32px, 4vw, 64px); min-height: 100%;
+            padding: clamp(24px, 3vw, 48px); min-height: 100%;
             background: transparent; text-align: left;
         }
         .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
@@ -3325,7 +3325,7 @@
         .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #FFFFFF; margin-bottom: 2px; }
         .pv-cover-left .pv-sub-date { font-size: 13px; color: rgba(255,255,255,0.7); }
         .pv-cover-logo {
-            position: absolute; bottom: clamp(32px, 4vw, 64px); left: clamp(32px, 4vw, 64px);
+            position: absolute; bottom: calc(32px + clamp(24px, 3vw, 48px)); left: calc(32px + clamp(24px, 3vw, 48px));
             max-width: 140px; z-index: 1;
         }
         .pv-cover-logo img { width: 100%; height: auto; display: block; }
@@ -9546,11 +9546,11 @@
             'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:#fff;color:var(--stele-black);line-height:1.5}\n' +
             '.pv-content{display:flex;flex-direction:column;gap:40px;max-width:1200px;margin:0 auto;padding:40px 0}\n' +
             '.pv-page{background:#fff;padding:36px 48px;aspect-ratio:11/8.5;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:4px}\n' +
-            '.pv-page-title{position:relative;padding:0;overflow:hidden}\n' +
-            '.pv-cover-right{position:absolute;inset:0;z-index:0;background:#0F1C2D;overflow:hidden}\n' +
-            '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block;min-height:100vh}\n' +
-            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.25),rgba(0,0,0,0.35))}\n' +
-            '.pv-cover-left{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;justify-content:flex-start;padding:clamp(32px,4vw,64px);min-height:100%;background:transparent;text-align:left}\n' +
+            '.pv-page-title{position:relative;padding:32px;overflow:hidden;background:#0A0203}\n' +
+            '.pv-cover-right{position:absolute;inset:32px;z-index:0;background:#0F1C2D;overflow:hidden;border-radius:4px}\n' +
+            '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block}\n' +
+            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;border-radius:4px;background:linear-gradient(to bottom,rgba(0,0,0,0.25),rgba(0,0,0,0.35))}\n' +
+            '.pv-cover-left{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;justify-content:flex-start;padding:clamp(24px,3vw,48px);min-height:100%;background:transparent;text-align:left}\n' +
             '.pv-cover-brand{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.7);margin-bottom:16px}\n' +
             '.pv-cover-left .pv-project-name{font-size:34px;font-weight:600;color:#FFFFFF;line-height:1.2;margin-bottom:6px}\n' +
             '.pv-cover-left .pv-client-name{font-size:14px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:0}\n' +
@@ -9558,7 +9558,7 @@
             '.pv-cover-left .pv-cover-divider{width:40px;height:2px;background:rgba(255,255,255,0.3);margin:24px 0}\n' +
             '.pv-cover-left .pv-sub-number{font-size:13px;font-weight:500;color:#FFFFFF;margin-bottom:2px}\n' +
             '.pv-cover-left .pv-sub-date{font-size:13px;color:rgba(255,255,255,0.7)}\n' +
-            '.pv-cover-logo{position:absolute;bottom:clamp(32px,4vw,64px);left:clamp(32px,4vw,64px);max-width:140px;z-index:1}\n' +
+            '.pv-cover-logo{position:absolute;bottom:calc(32px + clamp(24px,3vw,48px));left:calc(32px + clamp(24px,3vw,48px));max-width:140px;z-index:1}\n' +
             '.pv-cover-logo img{width:100%;height:auto;display:block}\n' +
             '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#999;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +

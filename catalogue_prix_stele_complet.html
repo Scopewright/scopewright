@@ -1495,7 +1495,7 @@
     </div>
 
     <!-- Supplier Modal -->
-    <div class="modal-overlay" id="supplierModal" onclick="if(event.target===this)closeSupplierModal()">
+    <div class="modal-overlay" id="supplierModal" style="z-index:1100;" onclick="if(event.target===this)closeSupplierModal()">
         <div class="modal-box" style="max-width:480px;">
             <div class="modal-header"><h2 id="supplierModalTitle">Nouveau fournisseur</h2></div>
             <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
@@ -2033,7 +2033,7 @@
         // ═══ Composantes fournisseur ═══
         let editComponents = [];          // { id, supplier_name, supplier_sku, description, expense_category, qty_per_unit, unit_cost, notes, sort_order, isNew }
         let editComponentsToDelete = [];  // UUIDs à supprimer au save
-        let supplierCompanies = [];       // { id, name } from companies WHERE company_type='Fournisseur'
+        let supplierCompanies = [];       // { id, name } from companies WHERE company_type='Fournisseurs'
 
         // ═══ Médias tagués ═══
         let editMedia = [];           // { id, file_url, file_type, tags, isNew, file, previewUrl }
@@ -2400,7 +2400,7 @@
             var cHtml = '';
             for (var j = 0; j < expenseCategories.length; j++) {
                 var cat = expenseCategories[j].name;
-                var cVal = materialCosts[cat] || '';
+                var cVal = materialCosts[cat] ? parseFloat(materialCosts[cat]).toFixed(2) : '';
                 cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
                     '<td><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '"' +
                     ' data-cat="' + escapeAttr(cat) + '"' +
@@ -2483,7 +2483,7 @@
 
         async function loadSupplierCompanies() {
             try {
-                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?company_type=eq.Fournisseur&select=id,name&order=name', {});
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?company_type=eq.Fournisseurs&select=id,name&order=name', {});
                 if (resp.ok) {
                     supplierCompanies = await resp.json();
                 }
@@ -2651,7 +2651,7 @@
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                     body: JSON.stringify({
                         name: name,
-                        company_type: 'Fournisseur',
+                        company_type: 'Fournisseurs',
                         address: document.getElementById('supAddress').value.trim() || null,
                         phone: document.getElementById('supPhone').value.trim() || null,
                         email: document.getElementById('supEmail').value.trim() || null,

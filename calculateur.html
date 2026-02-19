@@ -10783,8 +10783,8 @@
                 var html = '<div class="dp-header">';
                 html += '<span class="dp-header-title">' + escapeHtml(months[m]) + ' ' + y + '</span>';
                 html += '<div class="dp-nav">';
-                html += '<button class="dp-nav-btn" data-dp="prev">&#8249;</button>';
-                html += '<button class="dp-nav-btn" data-dp="next">&#8250;</button>';
+                html += '<button type="button" class="dp-nav-btn" data-dp="prev">&#8249;</button>';
+                html += '<button type="button" class="dp-nav-btn" data-dp="next">&#8250;</button>';
                 html += '</div></div>';
 
                 html += '<div class="dp-weekdays">';
@@ -10797,12 +10797,11 @@
                 var firstDay = new Date(y, m, 1).getDay();
                 var startOffset = (firstDay + 6) % 7; // Monday-based
                 var daysInMonth = new Date(y, m + 1, 0).getDate();
-                var daysInPrev = new Date(y, m, 0).getDate();
 
-                // Previous month days
+                // Previous month days (use Date object for correct month/year rollover)
                 for (var i = startOffset - 1; i >= 0; i--) {
-                    var d = daysInPrev - i;
-                    html += '<button class="dp-day outside" data-dp-day="' + (y) + '-' + pad(m) + '-' + pad(d) + '">' + d + '</button>';
+                    var dt = new Date(y, m, -i); // day 0 = last day of prev month, -1 = second-to-last, etc.
+                    html += '<button type="button" class="dp-day outside" data-dp-day="' + toISO(dt) + '">' + dt.getDate() + '</button>';
                 }
 
                 // Current month days
@@ -10811,45 +10810,45 @@
                     var cls = 'dp-day';
                     if (isSameDay(dt, today)) cls += ' today';
                     if (isSameDay(dt, selectedDate)) cls += ' selected';
-                    html += '<button class="' + cls + '" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
+                    html += '<button type="button" class="' + cls + '" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
                 }
 
-                // Next month days
+                // Next month days (use Date object for correct month/year rollover)
                 var totalCells = startOffset + daysInMonth;
                 var remaining = (7 - (totalCells % 7)) % 7;
                 for (var d = 1; d <= remaining; d++) {
-                    html += '<button class="dp-day outside" data-dp-day="' + (y) + '-' + pad(m + 2) + '-' + pad(d) + '">' + d + '</button>';
+                    var dt = new Date(y, m + 1, d);
+                    html += '<button type="button" class="dp-day outside" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
                 }
 
                 html += '</div>';
 
                 // Footer
                 html += '<div class="dp-footer">';
-                html += '<button class="dp-footer-btn dp-today-btn" data-dp="today">Aujourd\'hui</button>';
+                html += '<button type="button" class="dp-footer-btn dp-today-btn" data-dp="today">Aujourd\'hui</button>';
                 if (selectedDate) {
-                    html += '<button class="dp-footer-btn" data-dp="clear">Effacer</button>';
+                    html += '<button type="button" class="dp-footer-btn" data-dp="clear">Effacer</button>';
                 }
                 html += '</div>';
 
                 dp.innerHTML = html;
-
-                // Wire events
-                dp.querySelectorAll('[data-dp-day]').forEach(function(btn) {
-                    btn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        var val = btn.getAttribute('data-dp-day');
-                        selectDate(val);
-                    });
-                });
-                var prevBtn = dp.querySelector('[data-dp="prev"]');
-                var nextBtn = dp.querySelector('[data-dp="next"]');
-                if (prevBtn) prevBtn.addEventListener('click', function(e) { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() - 1); render(); });
-                if (nextBtn) nextBtn.addEventListener('click', function(e) { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() + 1); render(); });
-                var todayBtn = dp.querySelector('[data-dp="today"]');
-                if (todayBtn) todayBtn.addEventListener('click', function(e) { e.stopPropagation(); selectDate(toISO(new Date())); });
-                var clearBtn = dp.querySelector('[data-dp="clear"]');
-                if (clearBtn) clearBtn.addEventListener('click', function(e) { e.stopPropagation(); selectDate(null); });
             }
+
+            // Event delegation on dp container (survives innerHTML replacement)
+            dp.addEventListener('click', function(e) {
+                var target = e.target.closest('[data-dp-day]') || e.target.closest('[data-dp]');
+                if (!target) return;
+                e.stopPropagation();
+
+                var dayVal = target.getAttribute('data-dp-day');
+                if (dayVal) { selectDate(dayVal); return; }
+
+                var action = target.getAttribute('data-dp');
+                if (action === 'prev') { viewDate.setMonth(viewDate.getMonth() - 1); render(); }
+                else if (action === 'next') { viewDate.setMonth(viewDate.getMonth() + 1); render(); }
+                else if (action === 'today') { selectDate(toISO(new Date())); }
+                else if (action === 'clear') { selectDate(null); }
+            });
 
             function selectDate(isoVal) {
                 closeDP();
@@ -10863,7 +10862,7 @@
             }
 
             function onOutside(e) {
-                if (!dp.contains(e.target)) closeDP();
+                if (!dp.contains(e.target) && !dp.contains(document.activeElement)) closeDP();
             }
 
             function onKey(e) {

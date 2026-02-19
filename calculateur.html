@@ -10749,6 +10749,102 @@
             }, 0);
         }
 
+        // ── Generic inline dropdown (same style as status) ──
+        function openInlineDropdown(td, projectId, field, options, currentVal, evt) {
+            evt.stopPropagation();
+            var existing = document.querySelector('.status-dropdown');
+            if (existing) existing.remove();
+
+            var rect = td.getBoundingClientRect();
+
+            var dd = document.createElement('div');
+            dd.className = 'status-dropdown';
+            dd.setAttribute('tabindex', '-1');
+
+            var focusIdx = -1;
+            var items = [];
+
+            options.forEach(function(opt, idx) {
+                var val = typeof opt === 'object' ? opt.value : opt;
+                var label = typeof opt === 'object' ? opt.label : opt;
+                var isActive = val === currentVal;
+                if (isActive) focusIdx = idx;
+                var item = document.createElement('div');
+                item.className = 'status-dropdown-item' + (isActive ? ' sd-focused' : '');
+                item.setAttribute('data-val', val);
+                item.setAttribute('data-idx', idx);
+                item.innerHTML =
+                    '<span class="sd-label">' + escapeHtml(label) + '</span>' +
+                    '<span class="sd-check">' + (isActive ? '\u2713' : '') + '</span>';
+                dd.appendChild(item);
+                items.push(item);
+
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    closeDD();
+                    if (val !== currentVal) saveInlineField(projectId, field, val);
+                });
+                item.addEventListener('mouseenter', function() {
+                    setFocus(idx);
+                });
+            });
+
+            function setFocus(idx) {
+                items.forEach(function(it) { it.classList.remove('sd-focused'); });
+                if (idx >= 0 && idx < items.length) {
+                    focusIdx = idx;
+                    items[idx].classList.add('sd-focused');
+                    items[idx].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            function closeDD() {
+                dd.remove();
+                document.removeEventListener('click', onOutsideClick);
+                document.removeEventListener('keydown', onKeyDown);
+            }
+
+            function onOutsideClick(e) {
+                if (!dd.contains(e.target)) closeDD();
+            }
+
+            function onKeyDown(e) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setFocus(Math.min(focusIdx + 1, items.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setFocus(Math.max(focusIdx - 1, 0));
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (focusIdx >= 0 && items[focusIdx]) items[focusIdx].click();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeDD();
+                }
+            }
+
+            document.body.appendChild(dd);
+
+            var ddRect = dd.getBoundingClientRect();
+            var top = rect.bottom + 4;
+            var left = rect.left;
+            if (top + ddRect.height > window.innerHeight - 8) {
+                top = rect.top - ddRect.height - 4;
+            }
+            if (left + ddRect.width > window.innerWidth - 8) {
+                left = window.innerWidth - ddRect.width - 8;
+            }
+            dd.style.top = top + 'px';
+            dd.style.left = left + 'px';
+
+            dd.focus();
+            setTimeout(function() {
+                document.addEventListener('click', onOutsideClick);
+                document.addEventListener('keydown', onKeyDown);
+            }, 0);
+        }
+
         // ── Date Picker (Apple/Linear style) ──
         var DP_MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
         var DP_MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -11083,9 +11179,9 @@
                 // Remise
                 bHtml += '<td class="col-hide-lg inline-editable' + (deadline ? ' project-card-deadline' : '') + '" onclick="openDatePicker(this,\'' + pid + '\',\'' + escapeAttr(p.client_deadline || '') + '\',\'client_deadline\',event)">' + formatDateShort(deadline) + '</td>';
                 // Responsable
-                bHtml += '<td class="col-hide-lg inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
+                bHtml += '<td class="col-hide-lg inline-editable" onclick="openInlineDropdown(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type
-                bHtml += '<td class="col-hide-xl inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'project_type\',' + escapeAttr(JSON.stringify(typeOpts)) + ',\'' + escapeAttr(p.project_type || '') + '\',event)">' + escapeHtml(p.project_type || '\u2014') + '</td>';
+                bHtml += '<td class="col-hide-xl inline-editable" onclick="openInlineDropdown(this,\'' + pid + '\',\'project_type\',' + escapeAttr(JSON.stringify(typeOpts)) + ',\'' + escapeAttr(p.project_type || '') + '\',event)">' + escapeHtml(p.project_type || '\u2014') + '</td>';
                 // More button
                 bHtml += '<td class="col-w-more"><button class="tbl-more-btn" onclick="openProjectDrawer(\'' + pid + '\',event)" title="D\u00e9tails">\u2026</button></td>';
                 bHtml += '</tr>';

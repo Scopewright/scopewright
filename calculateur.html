@@ -4237,6 +4237,12 @@
         .timeline-cta button.btn-outline-orange:hover {
             background: #fff3e0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+        .timeline-cta button.btn-outline {
+            background: transparent; color: #555; border: 1.5px solid #ccc;
+        }
+        .timeline-cta button.btn-outline:hover {
+            background: #f5f5f5; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
 
         /* Timeline step clickable (pour copier lien client) */
         .timeline-step.clickable {
@@ -7942,7 +7948,11 @@
                 var grandTotal = calculerGrandTotal();
 
                 if (canApproveQuotes) {
-                    // Auto-approbation
+                    // Auto-approbation en 2 étapes (le trigger DB exige draft→pending→approved)
+                    await updateSubmission(currentSubmission.id, {
+                        status: 'pending_internal',
+                        approved_total: grandTotal
+                    });
                     await createSubmissionReview(currentSubmission.id, 'approved', projectDescription || 'Auto-approbation');
                     await updateSubmission(currentSubmission.id, {
                         status: 'approved_internal',
@@ -10274,7 +10284,11 @@
             // CTA button at the end
             var cta = null;
             if (status === 'draft' || status === 'returned') {
-                cta = { text: status === 'returned' ? 'Resoumettre' : 'Soumettre', action: 'openSubmitModal()', className: status === 'returned' ? 'btn-orange' : '' };
+                if (canBypassApproval) {
+                    cta = { text: 'Envoyer au client', action: 'bypassApproval()', className: '', secondaryText: status === 'returned' ? 'Resoumettre' : 'Soumettre', secondaryAction: 'openSubmitModal()', secondaryClassName: status === 'returned' ? 'btn-outline-orange' : 'btn-outline' };
+                } else {
+                    cta = { text: status === 'returned' ? 'Resoumettre' : 'Soumettre', action: 'openSubmitModal()', className: status === 'returned' ? 'btn-orange' : '' };
+                }
             } else if (status === 'pending_internal' && canApproveQuotes) {
                 cta = { text: 'Approuver', action: 'approveSubmission()', className: '', secondaryText: 'Retourner', secondaryAction: 'returnSubmission()', secondaryClassName: 'btn-outline-orange' };
             } else if (status === 'approved_internal') {

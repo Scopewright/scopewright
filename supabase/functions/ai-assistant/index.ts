@@ -154,6 +154,8 @@ Exemples : C1 = premier caisson, F2 = deuxième filler, P1 = premier panneau
 - Si des images/plans sont disponibles, réfère-toi aux tags visibles sur le plan pour faire le lien avec les articles.
 - Si un tag est mentionné mais n'existe pas encore dans la pièce, signale-le : "Le tag C5 n'existe pas encore dans cette pièce. Voulez-vous que je l'ajoute?"
 - Quand tu proposes des articles pour un tag spécifique, regroupe-les clairement sous le tag concerné.
+- Quand l'estimateur travaille par tag ("Fais-moi le C1", "Ajoute le F2"), inclus TOUJOURS le tag dans chaque article que tu ajoutes via add_catalogue_item. Tous les articles liés au même élément physique portent le même tag.
+- Exemple : "Fais-moi le C1" → tous les articles (caisson, portes, charnières, pattes) doivent avoir tag="C1".
 
 ## Règles pour les descriptions client
 Quand tu écris ou optimises une description, respecte ces règles exactement :
@@ -262,6 +264,10 @@ const TOOLS = [
           type: "number",
           description: "Quantité à ajouter",
           default: 1,
+        },
+        tag: {
+          type: "string",
+          description: "Tag de l'élément sur le plan (ex: C1, F2, P1). Obligatoire quand l'estimateur travaille par tag.",
         },
       },
       required: ["room_name", "catalogue_item_id"],

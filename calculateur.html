@@ -1304,8 +1304,15 @@
                         updateRow(rowId);
                     }
                 }
+                if (input.tag) {
+                    var tagInput = document.getElementById(rowId + '-tag');
+                    if (tagInput) {
+                        tagInput.value = input.tag.toUpperCase();
+                        saveRowTag(rowId);
+                    }
+                }
                 updateGrandTotal();
-                return { success: true, rowId: rowId, room: input.room_name };
+                return { success: true, rowId: rowId, room: input.room_name, tag: input.tag || null };
             }
             case 'update_item_quantity': {
                 var gid = findGroupIdByName(input.room_name);

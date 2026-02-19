@@ -10269,7 +10269,7 @@
             var cta = null;
             if (status === 'draft' || status === 'returned') {
                 cta = { text: status === 'returned' ? 'Resoumettre' : 'Soumettre', action: 'openSubmitModal()', className: status === 'returned' ? 'btn-orange' : '' };
-            } else if (status === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {
+            } else if (status === 'pending_internal' && canApproveQuotes) {
                 cta = { text: 'Approuver', action: 'approveSubmission()', className: '' };
             } else if (status === 'approved_internal') {
                 cta = { text: 'Envoyer au client', action: 'sendToClient()', className: '' };
@@ -11348,7 +11348,7 @@
             if (!currentSubmission) return true;
             var s = currentSubmission.status;
             return s === 'draft' || s === 'returned' ||
-                   (s === 'pending_internal' && (canApproveQuotes || isApprovalMode));
+                   (s === 'pending_internal' && canApproveQuotes);
         }
 
         function setEditable(editable) {
@@ -12536,7 +12536,7 @@
                     }
                 }
             }
-            if (s === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {
+            if (s === 'pending_internal' && canApproveQuotes) {
                 btnApprove.style.display = 'inline-block';
                 btnReturn.style.display = 'inline-block';
             }
@@ -12670,7 +12670,7 @@
         }
 
         async function approveSubmission() {
-            if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
+            if (!currentSubmission || !canApproveQuotes) return;
             var comment = await stelePrompt('Commentaire d\'approbation (optionnel) :', 'Approuver la soumission');
             if (comment === null) return;
             try {
@@ -12699,7 +12699,7 @@
         }
 
         async function returnSubmission() {
-            if (!currentSubmission || !(canApproveQuotes || isApprovalMode)) return;
+            if (!currentSubmission || !canApproveQuotes) return;
             var comment = await stelePrompt('Raison du retour :', 'Retourner la soumission', 'Ex: Revoir les prix du meuble X...');
             if (comment === null) return;
             if (!comment.trim()) { steleAlert('Veuillez indiquer une raison.'); return; }

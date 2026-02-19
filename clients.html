@@ -844,6 +844,7 @@
             if (!co) return;
             document.getElementById('coName').value = co.name || '';
             document.getElementById('coType').value = co.company_type || '';
+            document.getElementById('coType').disabled = true;
             document.getElementById('coAddress').value = co.address || '';
             document.getElementById('coPhone').value = co.phone || '';
             document.getElementById('coEmail').value = co.email || '';
@@ -852,6 +853,7 @@
             currentCompanyExtraData = co.extra_data || {};
             renderCompanyLinks(co);
         } else {
+            document.getElementById('coType').disabled = false;
             document.getElementById('coName').value = '';
             document.getElementById('coType').value = '';
             document.getElementById('coAddress').value = '';

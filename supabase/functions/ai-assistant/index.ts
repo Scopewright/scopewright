@@ -60,6 +60,20 @@ function buildSystemPrompt(context: any): string {
 
   const clientFile = context.clientFile ? `\n## Fiche client\nNom: ${context.clientFile.name || 'N/A'}\nEntreprise: ${context.clientFile.company || 'N/A'}\nNotes: ${context.clientFile.notes || 'Aucune'}\nPréférences: ${context.clientFile.preferences || 'Aucune'}\nHistorique: ${context.clientFile.history || 'Aucun'}` : '';
 
+  let calcRulesStr = '';
+  if (context.calculationRules && context.calculationRules.length > 0) {
+    const rulesLines = context.calculationRules.map((r: any) => {
+      const rule = r.rule || {};
+      const vars = rule.variables ? Object.entries(rule.variables).map(([k, v]: [string, any]) =>
+        `${k}: ${v.label || k}${v.defaut != null ? ' (défaut: ' + v.defaut + ')' : ''}`
+      ).join(', ') : 'aucune';
+      return `- **${r.id}** (${r.description || ''}): formule=${rule.formule || 'N/A'}, perte=${rule.perte != null ? (rule.perte * 100) + '%' : 'aucune'}, unité=${rule.unite_sortie || 'N/A'}\n  Variables: ${vars}`;
+    }).join("\n");
+    calcRulesStr = `\n## Règles de calcul automatique
+Certains articles du catalogue ont une règle de calcul pour déterminer automatiquement la quantité. Quand tu ajoutes un de ces articles, utilise la formule pour calculer la quantité. Demande à l'estimateur les variables manquantes (celles avec source "demander"). Applique le facteur de perte après le calcul.
+${rulesLines}`;
+  }
+
   const tagPrefixStr = (context.tagPrefixes || [])
     .map((t: any) => `${t.prefix} = ${t.label_fr} (${t.label_en})`)
     .join(", ");
@@ -121,7 +135,7 @@ ${DESCRIPTION_FORMAT_RULES}
 - Orthographe, accents, pluriels, concordances simples
 - Garder le ton original, pas de reformulation marketing
 - Pas de créativité non demandée, pas de contenu inventé
-${benchmarks}${defaultMaterials}${clientFile}
+${benchmarks}${defaultMaterials}${clientFile}${calcRulesStr}
 
 ## Contexte actuel
 Projet : ${context.project?.name || 'N/A'}

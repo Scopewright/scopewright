@@ -727,6 +727,22 @@
             flex: 1;
             min-width: 0;
         }
+        .calc-rule-json {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            tab-size: 2;
+        }
+        .calc-rule-error {
+            color: #c62828;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        .calc-rule-success {
+            border-color: var(--stele-green) !important;
+            transition: border-color 1.5s;
+        }
         .cp-section-title {
             font-size: 12px;
             font-weight: 600;
@@ -1386,6 +1402,15 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+                <!-- Règles de calcul (admin only) -->
+                <div class="form-group" id="calcRuleGroup" style="display:none;">
+                    <div class="cp-section-title">R&egrave;gles de calcul</div>
+                    <label class="form-label" style="margin-top:8px;">R&egrave;gle humaine (texte libre)</label>
+                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Surface totale = dos (L&times;H) + 2 c&ocirc;t&eacute;s (P&times;H)..." oninput="updateGenerateRuleBtn()"></textarea>
+                    <div class="calc-rule-error" id="calcRuleError"></div>
+                    <label class="form-label" style="margin-top:8px;">R&egrave;gle AI (JSON structur&eacute;)</label>
+                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON g&eacute;n&eacute;r&eacute; ou saisi manuellement..."></textarea>
+                </div>
                 <!-- Prix composé — Minutes & Matériaux -->
                 <div class="form-group" id="composedPriceGroup">
                     <div class="cp-section-title">Prix compos&eacute;</div>
@@ -1504,6 +1529,7 @@
         let canEditCatalogue = false;
         let canEditMinutes = false;
         let canEditMaterials = false;
+        let isAdmin = false;
 
         // Données de base (chargées depuis app_config)
         let tauxHoraires = [];
@@ -1866,7 +1892,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1945,6 +1971,7 @@
                     canEditCatalogue = !!allowed.catalogue_edit;
                     canEditMinutes = !!allowed.edit_minutes;
                     canEditMaterials = !!allowed.edit_materials;
+                    isAdmin = !!allowed.admin;
                     resolve();
                 })
                 .catch(() => {
@@ -1954,6 +1981,7 @@
                     canEditCatalogue = !!allowed.catalogue_edit;
                     canEditMinutes = !!allowed.edit_minutes;
                     canEditMaterials = !!allowed.edit_materials;
+                    isAdmin = !!allowed.admin;
                     resolve();
                 });
             });
@@ -2091,6 +2119,14 @@
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
             document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
+
+            // Règles de calcul (admin only)
+            document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
+            document.getElementById('editCalcRuleAi').value = item.calculation_rule_ai ? JSON.stringify(item.calculation_rule_ai, null, 2) : '';
+            document.getElementById('calcRuleGroup').style.display = isAdmin ? '' : 'none';
+            document.getElementById('calcRuleError').style.display = 'none';
+            updateGenerateRuleBtn();
+
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
@@ -2140,6 +2176,11 @@
         function openSalesSheet() {
             const itemId = document.getElementById('editItemId').value;
             window.open('fiche.html?code=' + encodeURIComponent(itemId) + '&edit=true', '_blank');
+        }
+
+        function updateGenerateRuleBtn() {
+            // No button yet — placeholder for future "Generate AI rule" button
+            // This function is called by the oninput handler on editCalcRuleHuman
         }
 
         function closeEditModal() {
@@ -2733,6 +2774,18 @@
                 }
             }
 
+            // Validate JSON in calc rule AI field if non-empty
+            var calcRuleAiRaw = document.getElementById('editCalcRuleAi').value.trim();
+            if (calcRuleAiRaw) {
+                try { JSON.parse(calcRuleAiRaw); } catch (e) {
+                    var errEl = document.getElementById('calcRuleError');
+                    errEl.textContent = 'JSON invalide dans la r\u00e8gle AI : ' + e.message;
+                    errEl.style.display = '';
+                    document.getElementById('editCalcRuleAi').focus();
+                    return;
+                }
+            }
+
             const btn = document.getElementById('btnEditSave');
             const status = document.getElementById('editStatus');
             btn.disabled = true;
@@ -2752,7 +2805,13 @@
                     in_calculator: document.getElementById('editInCalculator').checked,
                     has_sales_sheet: document.getElementById('editHasSalesSheet').checked,
                     labor_minutes: collectLaborMinutes(),
-                    material_costs: collectMaterialCosts()
+                    material_costs: collectMaterialCosts(),
+                    calculation_rule_human: document.getElementById('editCalcRuleHuman').value || null,
+                    calculation_rule_ai: (function() {
+                        var v = document.getElementById('editCalcRuleAi').value.trim();
+                        if (!v) return null;
+                        try { return JSON.parse(v); } catch(e) { return null; }
+                    })()
                 };
 
                 let resp;

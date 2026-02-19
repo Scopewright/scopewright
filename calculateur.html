@@ -10674,6 +10674,7 @@
             { key: 'follow',          label: '★',          wCls: 'col-w-follow',   hide: '' },
             { key: 'name',            label: 'Nom',        wCls: 'col-w-name',     hide: '' },
             { key: 'architecte',      label: 'Archit.',    wCls: 'col-w-contact',  hide: 'col-hide-md', computed: true },
+            { key: 'entrepreneur',    label: 'Entrep.',    wCls: 'col-w-contact',  hide: 'col-hide-lg', computed: true },
             { key: 'display_amount',  label: 'Montant',    wCls: 'col-w-amount',   hide: '',            cls: 'col-amount' },
             { key: 'probability',     label: 'Prob%',      wCls: 'col-w-prob',     hide: 'col-always-hidden', cls: 'col-amount' },
             { key: 'pipeline_status', label: 'Statut',     wCls: 'col-w-status',   hide: '' },
@@ -10721,6 +10722,8 @@
                 var prob = p.probability || 0;
                 var architecte = getContactByRole(p, 'Architecte');
                 var architecteTip = getContactTooltipByRole(p, 'Architecte');
+                var entrepreneur = getContactByRole(p, 'Entrepreneur');
+                var entrepreneurTip = getContactTooltipByRole(p, 'Entrepreneur');
                 var isFollowed = userFollows[p.id] ? ' active' : '';
 
                 var pid = escapeAttr(p.id);
@@ -10744,6 +10747,8 @@
                 bHtml += '</div></td>';
                 // Architecte
                 bHtml += '<td class="col-hide-md" title="' + escapeAttr(architecteTip) + '">' + escapeHtml(architecte || '\u2014') + '</td>';
+                // Entrepreneur
+                bHtml += '<td class="col-hide-lg" title="' + escapeAttr(entrepreneurTip) + '">' + escapeHtml(entrepreneur || '\u2014') + '</td>';
                 // Montant
                 bHtml += '<td class="col-amount amount-cell" onclick="startAmountEdit(this,\'' + pid + '\',event)">' + renderAmountCell(p) + '</td>';
                 // Prob% (always hidden in table, visible in drawer)
@@ -10784,6 +10789,9 @@
                 } else if (col === 'architecte') {
                     va = getContactByRole(a, 'Architecte') || '';
                     vb = getContactByRole(b, 'Architecte') || '';
+                } else if (col === 'entrepreneur') {
+                    va = getContactByRole(a, 'Entrepreneur') || '';
+                    vb = getContactByRole(b, 'Entrepreneur') || '';
                 } else {
                     va = a[col]; vb = b[col];
                 }

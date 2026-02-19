@@ -64,13 +64,33 @@ function buildSystemPrompt(context: any): string {
   if (context.calculationRules && context.calculationRules.length > 0) {
     const rulesLines = context.calculationRules.map((r: any) => {
       const rule = r.rule || {};
-      const vars = rule.variables ? Object.entries(rule.variables).map(([k, v]: [string, any]) =>
-        `${k}: ${v.label || k}${v.defaut != null ? ' (défaut: ' + v.defaut + ')' : ''}`
-      ).join(', ') : 'aucune';
-      return `- **${r.id}** (${r.description || ''}): formule=${rule.formule || 'N/A'}, perte=${rule.perte != null ? (rule.perte * 100) + '%' : 'aucune'}, unité=${rule.unite_sortie || 'N/A'}\n  Variables: ${vars}`;
-    }).join("\n");
+      const varsEntries = rule.variables ? Object.entries(rule.variables) : [];
+      const varsStr = varsEntries.map(([k, v]: [string, any]) => {
+        let line = `    - ${k}: ${v.label || k}`;
+        if (v.source === 'demander') line += ' [DEMANDER à l\'estimateur]';
+        else if (v.source === 'defaut_silencieux') line += ` [défaut silencieux: ${v.defaut}]`;
+        else if (v.defaut != null) line += ` (défaut: ${v.defaut})`;
+        if (v.unite) line += ` (${v.unite})`;
+        return line;
+      }).join('\n');
+      let ruleLine = `- **${r.id}** — ${r.description || ''}\n  Formule: ${rule.formule || 'N/A'}\n  Unité sortie: ${rule.unite_sortie || 'N/A'}`;
+      if (rule.perte != null) ruleLine += `\n  Perte: ${(rule.perte * 100)}%`;
+      if (rule.scenarios) ruleLine += `\n  Scénarios: ${JSON.stringify(rule.scenarios)}`;
+      if (rule.conditions) ruleLine += `\n  Conditions: ${JSON.stringify(rule.conditions)}`;
+      if (varsStr) ruleLine += `\n  Variables:\n${varsStr}`;
+      return ruleLine;
+    }).join("\n\n");
     calcRulesStr = `\n## Règles de calcul automatique
-Certains articles du catalogue ont une règle de calcul pour déterminer automatiquement la quantité. Quand tu ajoutes un de ces articles, utilise la formule pour calculer la quantité. Demande à l'estimateur les variables manquantes (celles avec source "demander"). Applique le facteur de perte après le calcul.
+Certains articles du catalogue ont une règle de calcul pour déterminer automatiquement la quantité.
+
+**Comportement attendu :**
+1. Quand tu ajoutes un article qui a une règle, utilise la formule pour calculer la quantité
+2. Variables avec source "demander" → demande la valeur à l'estimateur AVANT de calculer
+3. Variables avec source "defaut_silencieux" → utilise la valeur par défaut SANS demander (sauf si l'estimateur la spécifie)
+4. Applique le facteur de perte APRÈS le calcul de base
+5. Si la règle a des scénarios, choisis le bon selon le contexte ou demande à l'estimateur
+6. Si la règle a des conditions, vérifie-les avant d'appliquer
+
 ${rulesLines}`;
   }
 
@@ -123,11 +143,17 @@ ${tauxStr || 'Non disponible'}
 ## Catégories de dépenses (matériaux)
 ${matStr || 'Non disponible'}
 
-## Nomenclature des tags
+## Tags et désignations
 Les articles dans le calculateur peuvent avoir un tag qui identifie l'élément physique sur le plan.
 Préfixes : ${tagPrefixStr || 'C = Caisson, F = Filler, P = Panneau, T = Tiroir, M = Moulure, A = Accessoire'}
 Exemples : C1 = premier caisson, F2 = deuxième filler, P1 = premier panneau
-IMPORTANT : Quand des tags existent, utilise-les dans tes réponses pour être précis. Dis "C3 n'a pas de filler à sa droite" plutôt que "le troisième caisson".
+
+**Comportement attendu :**
+- TOUJOURS utiliser les tags dans tes réponses quand ils existent. Dis "C3 n'a pas de filler à sa droite" plutôt que "le troisième caisson".
+- Quand l'estimateur dit "Fais-moi le C1" ou "Estime C1 à C4", tu dois comprendre qu'il parle des caissons identifiés par ces tags et proposer les articles appropriés pour chacun.
+- Si des images/plans sont disponibles, réfère-toi aux tags visibles sur le plan pour faire le lien avec les articles.
+- Si un tag est mentionné mais n'existe pas encore dans la pièce, signale-le : "Le tag C5 n'existe pas encore dans cette pièce. Voulez-vous que je l'ajoute?"
+- Quand tu proposes des articles pour un tag spécifique, regroupe-les clairement sous le tag concerné.
 
 ## Règles pour les descriptions client
 Quand tu écris ou optimises une description, respecte ces règles exactement :
@@ -147,6 +173,24 @@ Total estimé : ${context.grandTotal || 0}$
 ## Pièces
 ${roomsStr || 'Aucune pièce'}
 ${focusStr}
+
+## Articles par défaut (★)
+Les articles marqués ★ dans le catalogue sont les go-to de l'atelier — les matériaux, quincailleries et composantes que Stele utilise par défaut sur la majorité des projets.
+
+**Comportement attendu :**
+- Quand tu suggères des articles, propose TOUJOURS les articles ★ en premier
+- Ne propose des alternatives non-★ QUE si l'estimateur le demande explicitement ou si le contexte l'exige (ex: projet commercial nécessitant un matériau spécifique)
+- Si l'estimateur ne précise pas de matériau, assume l'article ★ de la catégorie
+- Quand tu listes des options, mets les ★ en premier avec la mention "(par défaut)"
+
+## Efficacité
+Tu es un outil de travail pour des estimateurs occupés. Sois efficace :
+- Ne pose PAS de questions dont la réponse est évidente ou disponible dans le contexte
+- Si l'estimateur donne des dimensions et un type de meuble, tu as assez d'info pour proposer — fais-le
+- Regroupe tes questions quand tu en as plusieurs, plutôt que de les poser une par une
+- Montre les résultats directement (articles, quantités, prix) plutôt que de décrire ce que tu "pourrais faire"
+- Si tu utilises une valeur par défaut silencieuse, mentionne-la brièvement mais ne demande pas de confirmation
+- Quand l'estimateur dit "ajoute X", propose la liste complète d'articles en une seule réponse, pas un par un
 
 ## Langue
 Réponds dans la langue de l'utilisateur (français canadien par défaut). Ton professionnel mais naturel, comme un collègue expérimenté en ébénisterie.
@@ -311,7 +355,7 @@ serve(async (req) => {
     // Inject catalogue summary into context if provided
     let enrichedSystem = systemPrompt;
     if (context?.catalogueSummary) {
-      enrichedSystem += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles par défaut de l'atelier. Quand tu suggères des articles, privilégie ceux-là en premier sauf si l'estimateur spécifie autrement.\n${context.catalogueSummary}`;
+      enrichedSystem += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles PAR DÉFAUT de l'atelier — utilise-les en priorité sauf indication contraire de l'estimateur. Les articles sans ★ sont des alternatives disponibles mais non privilégiées.\n${context.catalogueSummary}`;
     }
 
     const body: any = {

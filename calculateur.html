@@ -3295,14 +3295,14 @@
 
         /* ── Landscape pages (11 × 8.5 in) ── */
         .pv-page {
-            background: #fff; padding: 36px 48px;
+            background: #fff; padding: 36px 32px;
             aspect-ratio: 11 / 8.5;
             overflow: hidden; position: relative;
             display: flex; flex-direction: column;
         }
 
         /* Title page — full-screen image + text overlay */
-        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #0A0203; }
+        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #fff; }
         .pv-cover-right {
             position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
         }
@@ -3338,8 +3338,8 @@
         /* Room page — landscape layout */
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 48px; background: var(--stele-green); color: #fff;
-            border-radius: 0; margin: -4px -48px 38px -48px; flex-shrink: 0;
+            padding: 10px 32px; background: var(--stele-green); color: #fff;
+            border-radius: 0; margin: -4px -32px 38px -32px; flex-shrink: 0;
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
@@ -3408,7 +3408,7 @@
         .pv-page-footer-text { margin-top: 32px; font-size: 12px; color: #aaa; letter-spacing: 0.5px; }
 
         /* Steps page */
-        .pv-page-steps { padding: 32px 48px; }
+        .pv-page-steps { padding: 32px 32px; }
         .pv-steps-title {
             font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
             color: var(--stele-green); font-weight: 700; margin-bottom: 20px;
@@ -9545,8 +9545,8 @@
             '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}\n' +
             'body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:#fff;color:var(--stele-black);line-height:1.5}\n' +
             '.pv-content{display:flex;flex-direction:column;gap:40px;max-width:1200px;margin:0 auto;padding:40px 0}\n' +
-            '.pv-page{background:#fff;padding:36px 48px;aspect-ratio:11/8.5;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:4px}\n' +
-            '.pv-page-title{position:relative;padding:32px;overflow:hidden;background:#0A0203}\n' +
+            '.pv-page{background:#fff;padding:36px 32px;aspect-ratio:11/8.5;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-radius:4px}\n' +
+            '.pv-page-title{position:relative;padding:32px;overflow:hidden;background:#fff}\n' +
             '.pv-cover-right{position:absolute;inset:32px;z-index:0;background:#0F1C2D;overflow:hidden;border-radius:4px}\n' +
             '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block}\n' +
             '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;border-radius:4px;background:linear-gradient(to bottom,rgba(0,0,0,0.25),rgba(0,0,0,0.35))}\n' +
@@ -9563,7 +9563,7 @@
             '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#999;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +
             '.pv-install-total-note{font-size:13px;color:#999;margin-bottom:16px;letter-spacing:0.3px}\n' +
-            '.pv-page-room-header{display:flex;align-items:center;justify-content:space-between;padding:10px 48px;background:var(--stele-green);color:#fff;border-radius:0;margin:-4px -48px 38px -48px;flex-shrink:0}\n' +
+            '.pv-page-room-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:var(--stele-green);color:#fff;border-radius:0;margin:-4px -32px 38px -32px;flex-shrink:0}\n' +
             '.pv-page-room-name{font-size:17px;font-weight:600;letter-spacing:0.3px}\n' +
             '.pv-page-room-subtotal{font-size:17px;font-weight:700}\n' +
             '.pv-page-room-body{flex:1;display:flex;gap:38px;overflow:hidden;min-height:0}\n' +
@@ -9592,7 +9592,7 @@
             '.pv-total-box .total-amount{font-size:42px;font-weight:700}\n' +
             '.pv-total-box .total-taxes{font-size:13px;opacity:0.6;margin-top:6px}\n' +
             '.pv-page-footer-text{margin-top:32px;font-size:12px;color:#aaa;letter-spacing:0.5px}\n' +
-            '.pv-page-steps{padding:32px 48px}\n' +
+            '.pv-page-steps{padding:32px 32px}\n' +
             '.pv-steps-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--stele-green);font-weight:700;margin-bottom:20px;padding-bottom:6px;border-bottom:2px solid var(--stele-green)}\n' +
             '.pv-steps-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:10px 48px;grid-auto-flow:column}\n' +
             '.pv-step{display:flex;gap:16px;align-items:flex-start}\n' +

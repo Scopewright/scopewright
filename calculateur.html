@@ -3802,7 +3802,36 @@
         .tbl-more-btn:hover { background: #f0f0f0; color: #333; }
         .pipeline-badge {
             display: inline-block; padding: 2px 10px; border-radius: 12px;
-            font-size: 11px; font-weight: 600; white-space: nowrap;
+            font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer;
+        }
+        /* ── Status dropdown (Linear/Notion style) ── */
+        .status-dropdown {
+            position: fixed; z-index: 9999;
+            background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+            padding: 4px; min-width: 180px;
+            transform-origin: top left;
+            animation: sdFadeIn 0.12s ease-out;
+        }
+        @keyframes sdFadeIn {
+            from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .status-dropdown-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 7px 10px; cursor: pointer; font-size: 13px;
+            border-radius: 6px; color: #0f172a; white-space: nowrap;
+            transition: background 0.08s;
+        }
+        .status-dropdown-item:hover, .status-dropdown-item.sd-focused {
+            background: #f1f5f9;
+        }
+        .status-dropdown-item .sd-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .status-dropdown-item .sd-label { flex: 1; }
+        .status-dropdown-item .sd-check {
+            width: 16px; text-align: center; font-size: 13px; color: #64748b;
         }
         /* ── Pipeline — Amount override inline edit ── */
         .amount-cell { cursor: pointer; position: relative; }
@@ -10565,6 +10594,104 @@
             }, 0);
         }
 
+        function openStatusDropdown(td, projectId, currentSlug, evt) {
+            evt.stopPropagation();
+            // Close any existing status dropdown
+            var existing = document.querySelector('.status-dropdown');
+            if (existing) existing.remove();
+
+            var badge = td.querySelector('.pipeline-badge') || td;
+            var rect = badge.getBoundingClientRect();
+
+            var dd = document.createElement('div');
+            dd.className = 'status-dropdown';
+            dd.setAttribute('tabindex', '-1');
+
+            var focusIdx = -1;
+            var items = [];
+
+            pipelineStatuses.forEach(function(s, idx) {
+                var isActive = s.slug === currentSlug;
+                if (isActive) focusIdx = idx;
+                var item = document.createElement('div');
+                item.className = 'status-dropdown-item' + (isActive ? ' sd-focused' : '');
+                item.setAttribute('data-val', s.slug);
+                item.setAttribute('data-idx', idx);
+                item.innerHTML =
+                    '<span class="sd-dot" style="background:' + s.color + ';"></span>' +
+                    '<span class="sd-label">' + escapeHtml(s.label) + '</span>' +
+                    '<span class="sd-check">' + (isActive ? '✓' : '') + '</span>';
+                dd.appendChild(item);
+                items.push(item);
+
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    closeDD();
+                    if (s.slug !== currentSlug) saveInlineField(projectId, 'pipeline_status', s.slug);
+                });
+                item.addEventListener('mouseenter', function() {
+                    setFocus(idx);
+                });
+            });
+
+            function setFocus(idx) {
+                items.forEach(function(it) { it.classList.remove('sd-focused'); });
+                if (idx >= 0 && idx < items.length) {
+                    focusIdx = idx;
+                    items[idx].classList.add('sd-focused');
+                    items[idx].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            function closeDD() {
+                dd.remove();
+                document.removeEventListener('click', onOutsideClick);
+                document.removeEventListener('keydown', onKeyDown);
+            }
+
+            function onOutsideClick(e) {
+                if (!dd.contains(e.target)) closeDD();
+            }
+
+            function onKeyDown(e) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setFocus(Math.min(focusIdx + 1, items.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setFocus(Math.max(focusIdx - 1, 0));
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (focusIdx >= 0 && items[focusIdx]) items[focusIdx].click();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeDD();
+                }
+            }
+
+            document.body.appendChild(dd);
+
+            // Position: below badge, flip up if near bottom
+            var ddRect = dd.getBoundingClientRect();
+            var top = rect.bottom + 4;
+            var left = rect.left;
+            if (top + ddRect.height > window.innerHeight - 8) {
+                top = rect.top - ddRect.height - 4;
+            }
+            if (left + ddRect.width > window.innerWidth - 8) {
+                left = window.innerWidth - ddRect.width - 8;
+            }
+            dd.style.top = top + 'px';
+            dd.style.left = left + 'px';
+
+            dd.focus();
+
+            setTimeout(function() {
+                document.addEventListener('click', onOutsideClick);
+                document.addEventListener('keydown', onKeyDown);
+            }, 0);
+        }
+
         async function saveInlineField(projectId, field, value) {
             var proj = cachedProjects.find(function(p) { return p.id === projectId; });
             if (proj) proj[field] = value;
@@ -10728,8 +10855,6 @@
 
                 var pid = escapeAttr(p.id);
 
-                // Build status options for inline select
-                var statusOpts = pipelineStatuses.map(function(s) { return {value: s.slug, label: s.label}; });
                 var respOpts = [{value:'', label:'\u2014'}].concat(EMPLOYEES_DATA.map(function(e) { return {value: e.name, label: e.name}; }));
                 var typeOpts = [{value:'', label:'\u2014'}].concat(projectTypes.map(function(t) { return {value: t, label: t}; }));
 
@@ -10754,7 +10879,7 @@
                 // Prob% (always hidden in table, visible in drawer)
                 bHtml += '<td class="col-always-hidden">' + (prob || '\u2014') + '</td>';
                 // Statut pipeline
-                bHtml += '<td class="inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'pipeline_status\',' + escapeAttr(JSON.stringify(statusOpts)) + ',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
+                bHtml += '<td class="inline-editable" onclick="openStatusDropdown(this,\'' + pid + '\',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
                 // Remise
                 bHtml += '<td class="col-hide-lg' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
                 // Responsable

@@ -94,7 +94,7 @@
     var cachedProjects = [];
     var pipelineSortColumn = 'updated_at';
     var pipelineSortDir = 'desc';
-    var pipelineFilters = { search: '', status: '', assigned: '', type: '', followsOnly: false };
+    var pipelineFilters = { search: '', status: '', assigned: '', type: '', followsOnly: false, showArchived: false };
     var userFollows = {};
 
     // Configure PDF.js worker (wait for script to load)
@@ -263,10 +263,10 @@
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
         // Try enriched query with pipeline columns + contacts
-        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline),project_contacts(role,is_primary,contacts(first_name,last_name,contact_companies(companies(name))))', {});
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline,is_archived),project_contacts(role,is_primary,contacts(first_name,last_name,contact_companies(companies(name))))', {});
         if (!r.ok) {
             // Fallback: basic query without pipeline columns (migrations not yet run)
-            r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval)', {});
+            r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,is_archived)', {});
             if (!r.ok) return [];
         }
         var projects = await r.json();
@@ -3654,6 +3654,7 @@
         .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
         .status-sent_client { background: #ede7f6; color: #4527a0; }
         .status-accepted { background: #e8f5e9; color: #1b5e20; }
+        .status-lost { background: #ffebee; color: #c62828; }
         /* Legacy */
         .status-brouillon { background: #f0f0f0; color: #666; }
         .status-soumis { background: #e3f2fd; color: #1565c0; }
@@ -3837,6 +3838,7 @@
             position: relative; cursor: default;
         }
         .pipeline-mini-timeline .tl-dot.filled { background: var(--stele-green); }
+        .pipeline-mini-timeline .tl-dot.filled.lost { background: #c62828; }
         .pipeline-mini-timeline .tl-dot::after {
             content: attr(data-label); position: absolute; bottom: calc(100% + 6px); left: 50%;
             transform: translateX(-50%); white-space: nowrap;
@@ -4095,6 +4097,7 @@
         .status-approved_internal { background: #e8f5e9; color: #2e7d32; }
         .status-sent_client { background: #e3f2fd; color: #1565c0; }
         .status-accepted { background: #e8f5e9; color: #1b5e20; }
+        .status-lost { background: #ffebee; color: #c62828; }
 
         .project-card-delete {
             position: absolute; top: 8px; right: 8px; background: none; border: none;
@@ -4206,6 +4209,9 @@
         .timeline-step.active.returned .timeline-circle {
             background: #ff9800; box-shadow: 0 0 0 3px rgba(255,152,0,0.15);
         }
+        .timeline-step.active.lost .timeline-circle {
+            background: #c62828; box-shadow: 0 0 0 3px rgba(198,40,40,0.15);
+        }
         .timeline-step.future .timeline-circle {
             background: #f0f0f0; color: #bbb; border: 1px solid #ddd;
         }
@@ -4247,6 +4253,14 @@
         .timeline-cta button.btn-outline:hover {
             background: #f5f5f5; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+
+        .timeline-cta button.btn-outline-red {
+            background: transparent; color: #c62828; border: 1.5px solid #c62828;
+        }
+        .timeline-cta button.btn-outline-red:hover {
+            background: #ffebee; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .sub-line.archived { opacity: 0.5; }
 
         /* Timeline step clickable (pour copier lien client) */
         .timeline-step.clickable {
@@ -4846,6 +4860,7 @@
             <!-- Pipeline filters -->
             <div class="pipeline-filters" id="pipelineFilters">
                 <button class="pipeline-filter-btn" id="filterFollowsBtn" onclick="toggleFollowsFilter()" title="Afficher seulement les projets suivis">&starf; Suivis</button>
+                <button class="pipeline-filter-btn" id="filterArchiveBtn" onclick="toggleArchiveFilter()" title="Afficher les soumissions archiv&eacute;es">Archiv&eacute;es</button>
                 <input type="text" id="pipelineSearch" placeholder="Rechercher (nom, client, code, ville...)" oninput="applyPipelineFilters()">
                 <select id="pipelineStatusFilter" onchange="applyPipelineFilters()">
                     <option value="">Tous les statuts</option>
@@ -4917,6 +4932,7 @@
                                 <button id="kebabVersions" onclick="openVersionDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9776;</span> Versions</button>
                                 <button id="kebabTimeline" onclick="openTimelineDrawer(); closeHeaderKebab()"><span class="kebab-icon">&#9201;</span> Historique</button>
                                 <button id="kebabUnlock" onclick="unlockSubmission(); closeHeaderKebab()" style="display:none;"><span class="kebab-icon">&#128275;</span> D&eacute;verrouiller</button>
+                                <button id="kebabArchive" onclick="toggleArchiveSubmission(); closeHeaderKebab()" style="display:none;"><span class="kebab-icon">&#128451;</span> Archiver</button>
                             </div>
                         </div>
                     </div>
@@ -5218,6 +5234,39 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeOfflineAcceptModal()">Annuler</button>
                 <button class="btn-generate" id="btnOfflineConfirm" style="background:#2e7d32;" onclick="executeOfflineAcceptance()">Confirmer la vente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Marquer comme perdu -->
+    <div class="modal-overlay" id="lostModal">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 class="modal-title" style="color:#c62828;">Marquer comme perdu</h3>
+            </div>
+            <div class="modal-body">
+                <div style="background:#ffebee; border:1px solid #c62828; border-radius:6px; padding:14px; margin-bottom:16px; font-size:13px; color:#c62828; line-height:1.5;">
+                    Cette soumission sera marqu&eacute;e comme <strong>perdue</strong>. Vous pourrez la rouvrir ult&eacute;rieurement si n&eacute;cessaire.
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="lostReason">Raison de la perte (optionnel)</label>
+                    <textarea class="form-input" id="lostReason" rows="2" placeholder="Ex: Prix trop &eacute;lev&eacute;, d&eacute;lai trop long, client a choisi un concurrent..." style="resize:vertical; min-height:40px;"></textarea>
+                </div>
+                <div class="form-group" style="position:relative;">
+                    <label class="form-label" for="lostCompetitorSearch">Concurrent (optionnel)</label>
+                    <input type="text" class="form-input" id="lostCompetitorSearch" placeholder="Rechercher une entreprise..." oninput="filterLostCompetitors(this)" onfocus="filterLostCompetitors(this)" autocomplete="off">
+                    <input type="hidden" id="lostCompetitorId">
+                    <div class="contact-combo-dd" id="lostCompetitorDd" style="position:absolute; top:100%; left:0; right:0; z-index:20; max-height:200px; overflow-y:auto;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="lostCompetitorPrice">Prix concurrent (optionnel)</label>
+                    <input type="number" class="form-input" id="lostCompetitorPrice" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <div id="lostStatus" style="display:none; padding:10px; border-radius:4px; font-size:13px; margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeLostModal()">Annuler</button>
+                <button class="btn-generate" id="btnLostConfirm" style="background:#c62828;" onclick="executeLostSubmission()">Marquer comme perdu</button>
             </div>
         </div>
     </div>
@@ -10198,6 +10247,7 @@
         var STATUS_LABELS = {
             'draft': 'Brouillon', 'pending_internal': 'En approbation', 'returned': 'Retourn\u00e9e',
             'approved_internal': 'Pr\u00eate \u00e0 envoyer', 'sent_client': 'Envoy\u00e9e', 'accepted': 'Vendue',
+            'lost': 'Perdue',
             // Legacy
             'brouillon': 'Brouillon', 'soumis': 'Soumis', 'approuv\u00e9': 'Approuv\u00e9',
             'envoy\u00e9': 'Envoy\u00e9', 'sign\u00e9': 'Sign\u00e9'
@@ -10226,14 +10276,17 @@
 
             var status = currentSubmission.status;
 
-            // Define 6 timeline steps
+            // Define 6 timeline steps (last step is dynamic: Vendue or Perdue)
+            var lastStep = status === 'lost'
+                ? { key: 'lost', label: 'Perdue' }
+                : { key: 'accepted', label: 'Vendue' };
             var steps = [
                 { key: 'draft', label: 'Brouillon' },
                 { key: 'pending_internal', label: 'En approbation' },
                 { key: 'returned', label: 'Retourn\u00e9e' },
                 { key: 'approved_internal', label: 'Pr\u00eate \u00e0 envoyer' },
                 { key: 'sent_client', label: 'Envoy\u00e9e' },
-                { key: 'accepted', label: 'Vendue' }
+                lastStep
             ];
 
             // Determine step state for each step
@@ -10259,6 +10312,8 @@
                         return (stepKey === 'draft' || stepKey === 'pending_internal' || stepKey === 'approved_internal') ? 'completed' : 'future';
                     case 'accepted':
                         return (stepKey === 'draft' || stepKey === 'pending_internal' || stepKey === 'approved_internal' || stepKey === 'sent_client') ? 'completed' : 'future';
+                    case 'lost':
+                        return (stepKey === 'draft' || stepKey === 'pending_internal' || stepKey === 'approved_internal' || stepKey === 'sent_client') ? 'completed' : 'future';
                     default:
                         return 'future';
                 }
@@ -10269,6 +10324,7 @@
                 var stepState = getStepState(step.key);
                 var classNames = 'timeline-step ' + stepState;
                 if (step.key === 'returned' && stepState === 'active') classNames += ' returned';
+                if (step.key === 'lost' && stepState === 'active') classNames += ' lost';
 
                 // Rendre "Envoyée" cliquable pour copier le lien client
                 var isClickable = (status === 'sent_client' && step.key === 'sent_client');
@@ -10301,7 +10357,9 @@
             } else if (status === 'approved_internal') {
                 cta = { text: 'Envoyer au client', action: 'sendToClient()', className: '' };
             } else if (status === 'sent_client') {
-                cta = { text: 'Confirmer la vente', action: 'offlineAcceptance()', className: '' };
+                cta = { text: 'Confirmer la vente', action: 'offlineAcceptance()', className: '', secondaryText: 'Marquer comme perdu', secondaryAction: 'openLostModal()', secondaryClassName: 'btn-outline-red' };
+            } else if (status === 'lost') {
+                cta = { text: 'Rouvrir', action: 'reopenLostSubmission()', className: 'btn-outline' };
             }
 
             if (cta) {
@@ -10547,7 +10605,7 @@
             var currentVal = sf.value;
             sf.innerHTML = '<option value="">Tous les statuts</option>';
             if (currentPipelineView === 'submissions') {
-                var subStatuses = [['draft','Brouillon'],['pending_internal','En approbation'],['returned','Retourn\u00e9e'],['approved_internal','Pr\u00eate'],['sent_client','Envoy\u00e9e'],['accepted','Vendue']];
+                var subStatuses = [['draft','Brouillon'],['pending_internal','En approbation'],['returned','Retourn\u00e9e'],['approved_internal','Pr\u00eate'],['sent_client','Envoy\u00e9e'],['accepted','Vendue'],['lost','Perdue']];
                 subStatuses.forEach(function(s) { sf.innerHTML += '<option value="' + s[0] + '">' + escapeHtml(s[1]) + '</option>'; });
             } else {
                 pipelineStatuses.forEach(function(s) { sf.innerHTML += '<option value="' + escapeAttr(s.slug) + '">' + escapeHtml(s.label) + '</option>'; });
@@ -10882,14 +10940,20 @@
                 var deadline = getClosestDeadline(proj);
 
                 var subsHtml = '';
+                var archivedCount = 0;
                 subs.forEach(function(sub) {
+                    if (sub.is_archived && !pipelineFilters.showArchived) { archivedCount++; return; }
                     var label = STATUS_LABELS[sub.status] || sub.status || 'Brouillon';
-                    subsHtml += '<div class="sub-line" data-subid="' + escapeAttr(sub.id) + '" data-projid="' + escapeAttr(proj.id) + '">' +
+                    var lineClass = 'sub-line' + (sub.is_archived ? ' archived' : '');
+                    subsHtml += '<div class="' + lineClass + '" data-subid="' + escapeAttr(sub.id) + '" data-projid="' + escapeAttr(proj.id) + '">' +
                         '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                         '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
                         '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
                         '</div>';
                 });
+                if (archivedCount > 0) {
+                    subsHtml += '<div style="font-size:11px;color:#999;padding:2px 10px;">' + archivedCount + ' archiv\u00e9e(s)</div>';
+                }
 
                 var cardDa = getProjectDisplayAmount(proj);
                 var cardAmountHtml = '';
@@ -10948,16 +11012,21 @@
             returned: 'Retourné',
             approved_internal: 'Approuvé',
             sent_client: 'Envoyé au client',
-            accepted: 'Accepté'
+            accepted: 'Accepté',
+            lost: 'Perdue'
         };
 
         function buildMiniTimeline(status) {
-            var idx = SUB_STATUSES_ORDER.indexOf(status);
+            var isLost = (status === 'lost');
+            var idx = isLost ? (SUB_STATUSES_ORDER.length - 1) : SUB_STATUSES_ORDER.indexOf(status);
             if (idx === -1) idx = 0;
             var html = '<span class="pipeline-mini-timeline">';
             for (var i = 0; i < SUB_STATUSES_ORDER.length; i++) {
-                if (i > 0) html += '<span class="tl-line' + (i <= idx ? ' filled' : '') + '"></span>';
-                html += '<span class="tl-dot' + (i <= idx ? ' filled' : '') + '" data-label="' + (SUB_STATUS_LABELS[SUB_STATUSES_ORDER[i]] || '') + '"></span>';
+                var isFilled = (i <= idx);
+                var isLastAndLost = isLost && (i === SUB_STATUSES_ORDER.length - 1);
+                if (i > 0) html += '<span class="tl-line' + (isFilled ? ' filled' : '') + '"></span>';
+                var label = isLastAndLost ? 'Perdue' : (SUB_STATUS_LABELS[SUB_STATUSES_ORDER[i]] || '');
+                html += '<span class="tl-dot' + (isFilled ? ' filled' : '') + (isLastAndLost ? ' lost' : '') + '" data-label="' + label + '"></span>';
             }
             html += '</span>';
             return html;
@@ -10986,6 +11055,9 @@
             }
             if (pipelineFilters.assigned) {
                 allSubs = allSubs.filter(function(s) { return s.estimateur === pipelineFilters.assigned || s.vendeur_cp === pipelineFilters.assigned; });
+            }
+            if (!pipelineFilters.showArchived) {
+                allSubs = allSubs.filter(function(s) { return !s.is_archived; });
             }
 
             // Sort by updated_at desc
@@ -11279,13 +11351,14 @@
             var subs = await loadSubmissions(currentProject.id);
             var html = '';
             subs.forEach(function(sub) {
+                if (sub.is_archived && !pipelineFilters.showArchived) return;
                 var label = STATUS_LABELS[sub.status] || sub.status || 'Brouillon';
                 var isActive = currentSubmission && currentSubmission.id === sub.id;
-                html += '<div class="sub-line' + (isActive ? ' active' : '') + '" data-subid="' + escapeAttr(sub.id) + '">' +
+                var lineClass = 'sub-line' + (isActive ? ' active' : '') + (sub.is_archived ? ' archived' : '');
+                html += '<div class="' + lineClass + '" data-subid="' + escapeAttr(sub.id) + '">' +
                     '<span class="sub-number">#' + escapeHtml(String(sub.submission_number)) + '</span> ' +
                     '<span class="sub-title">' + escapeHtml(sub.title || 'Sans titre') + '</span>' +
                     '<span class="project-status-badge status-' + escapeAttr(sub.status) + '">' + escapeHtml(label) + (sub.bypass_approval ? ' <span class="bypass-badge">BYPASS</span>' : '') + '</span>' +
-                    '' +
                     '</div>';
             });
             list.innerHTML = html || '<div class="sub-empty">Aucune soumission</div>';
@@ -11335,7 +11408,7 @@
 
         // Legacy wrapper pour compatibilité — ouvre la première soumission du projet
         async function openProject(projectId) {
-            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId + '&select=*,submissions(id,submission_number,title,status,updated_at)', {});
+            const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId + '&select=*,submissions(id,submission_number,title,status,updated_at,is_archived)', {});
             if (!r.ok) return;
             const data = await r.json();
             if (data.length === 0) return;
@@ -12606,8 +12679,22 @@
             if (kebabUnlock) {
                 kebabUnlock.style.display = 'none';
                 if (canUnlockSubmission) {
-                    var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted'];
+                    var lockedStatuses = ['pending_internal','approved_internal','sent_client','accepted','lost'];
                     if (lockedStatuses.includes(s)) kebabUnlock.style.display = '';
+                }
+            }
+
+            // Kebab archive button
+            var kebabArchive = document.getElementById('kebabArchive');
+            if (kebabArchive) {
+                kebabArchive.style.display = 'none';
+                if (currentSubmission && (s === 'accepted' || s === 'lost')) {
+                    kebabArchive.style.display = '';
+                    if (currentSubmission.is_archived) {
+                        kebabArchive.innerHTML = '<span class="kebab-icon">&#128194;</span> D\u00e9sarchiver';
+                    } else {
+                        kebabArchive.innerHTML = '<span class="kebab-icon">&#128451;</span> Archiver';
+                    }
                 }
             }
 
@@ -13016,6 +13103,198 @@
                 showOfflineAcceptStatus('Erreur: ' + e.message, true);
                 btn.disabled = false;
                 btn.textContent = 'Confirmer la vente';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MARQUER COMME PERDU (LOST)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function openLostModal() {
+            if (!currentSubmission) return;
+            if (currentSubmission.status !== 'sent_client') {
+                steleAlert('Seules les soumissions envoy\u00e9es au client peuvent \u00eatre marqu\u00e9es comme perdues.');
+                return;
+            }
+            document.getElementById('lostReason').value = '';
+            document.getElementById('lostCompetitorSearch').value = '';
+            document.getElementById('lostCompetitorId').value = '';
+            document.getElementById('lostCompetitorPrice').value = '';
+            document.getElementById('lostStatus').style.display = 'none';
+            document.getElementById('btnLostConfirm').disabled = false;
+            document.getElementById('btnLostConfirm').textContent = 'Marquer comme perdu';
+            document.getElementById('lostCompetitorDd').classList.remove('open');
+            document.getElementById('lostModal').classList.add('active');
+        }
+
+        function closeLostModal() {
+            document.getElementById('lostModal').classList.remove('active');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target === document.getElementById('lostModal')) closeLostModal();
+        });
+
+        function showLostStatus(msg, isError) {
+            var el = document.getElementById('lostStatus');
+            el.style.display = 'block';
+            el.textContent = msg;
+            el.style.background = isError ? '#ffebee' : '#e8f5e9';
+            el.style.color = isError ? '#c62828' : '#2e7d32';
+        }
+
+        function filterLostCompetitors(input) {
+            var dd = document.getElementById('lostCompetitorDd');
+            var f = (input.value || '').toLowerCase();
+            // Clear hidden id when user types
+            document.getElementById('lostCompetitorId').value = '';
+            var filtered = allCompaniesCache.filter(function(co) {
+                return !f || (co.name || '').toLowerCase().indexOf(f) !== -1;
+            });
+            var html = '';
+            for (var i = 0; i < Math.min(filtered.length, 10); i++) {
+                var co = filtered[i];
+                html += '<div class="contact-combo-item" onclick="selectLostCompetitor(this)" data-id="' + escapeAttr(co.id) + '" data-name="' + escapeAttr(co.name) + '">' +
+                    escapeHtml(co.name) + (co.is_competitor ? ' <small style="color:#c62828;">\u2022 concurrent</small>' : '') + '</div>';
+            }
+            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucune entreprise trouv\u00e9e</div>';
+            dd.classList.add('open');
+        }
+
+        function selectLostCompetitor(el) {
+            document.getElementById('lostCompetitorSearch').value = el.getAttribute('data-name');
+            document.getElementById('lostCompetitorId').value = el.getAttribute('data-id');
+            document.getElementById('lostCompetitorDd').classList.remove('open');
+        }
+
+        // Close competitor dropdown on outside click
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('lostCompetitorDd');
+            if (dd && !e.target.closest('#lostCompetitorSearch') && !e.target.closest('#lostCompetitorDd')) {
+                dd.classList.remove('open');
+            }
+        });
+
+        async function executeLostSubmission() {
+            var reason = document.getElementById('lostReason').value.trim();
+            var competitorId = document.getElementById('lostCompetitorId').value || null;
+            var competitorPrice = document.getElementById('lostCompetitorPrice').value.trim();
+            competitorPrice = competitorPrice ? parseFloat(competitorPrice) : null;
+
+            var btn = document.getElementById('btnLostConfirm');
+            btn.disabled = true;
+            btn.textContent = 'Traitement en cours...';
+            showLostStatus('Enregistrement...', false);
+
+            try {
+                // 1. Snapshot before marking as lost
+                await createVersion(currentSubmission.id);
+
+                // 2. Update submission with lost fields
+                await updateSubmission(currentSubmission.id, {
+                    status: 'lost',
+                    lost_at: new Date().toISOString(),
+                    lost_reason: reason || null,
+                    lost_competitor_company_id: competitorId,
+                    lost_competitor_price: competitorPrice
+                });
+
+                // 3. Mark competitor company if selected (non-blocking)
+                if (competitorId) {
+                    try {
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?id=eq.' + competitorId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ is_competitor: true })
+                        });
+                    } catch (e) { /* non-blocking */ }
+                }
+
+                // 4. Review timeline entry
+                var comment = 'Soumission marqu\u00e9e comme perdue.';
+                if (reason) comment += ' Raison: ' + reason;
+                if (competitorId) {
+                    var coName = document.getElementById('lostCompetitorSearch').value;
+                    if (coName) comment += ' Concurrent: ' + coName;
+                }
+                if (competitorPrice) comment += ' Prix concurrent: ' + formatPrice(competitorPrice);
+                await createSubmissionReview(currentSubmission.id, 'lost', comment);
+
+                // 5. Update UI
+                currentSubmission.status = 'lost';
+                currentSubmission.lost_at = new Date().toISOString();
+                updateStatusBadge('lost');
+                updateWorkflowButtons();
+                setEditable(false);
+                loadSubmissionReviews(currentSubmission.id);
+
+                showLostStatus('Soumission marqu\u00e9e comme perdue.', false);
+                setTimeout(function() { closeLostModal(); }, 1500);
+
+            } catch (e) {
+                console.error('Erreur marquage perdu:', e);
+                showLostStatus('Erreur: ' + e.message, true);
+                btn.disabled = false;
+                btn.textContent = 'Marquer comme perdu';
+            }
+        }
+
+        async function reopenLostSubmission() {
+            if (!currentSubmission || currentSubmission.status !== 'lost') return;
+            if (!(await steleConfirm(
+                'Rouvrir cette soumission perdue ?\nElle repassera au statut \u00abEnvoy\u00e9e au client\u00bb.',
+                'Rouvrir la soumission', 'Rouvrir'
+            ))) return;
+
+            try {
+                await createVersion(currentSubmission.id);
+                await updateSubmission(currentSubmission.id, {
+                    status: 'sent_client',
+                    lost_at: null,
+                    lost_reason: null,
+                    lost_competitor_company_id: null,
+                    lost_competitor_price: null
+                });
+                await createSubmissionReview(currentSubmission.id, 'reopened', 'Soumission rouverte depuis le statut perdu');
+
+                currentSubmission.status = 'sent_client';
+                updateStatusBadge('sent_client');
+                updateWorkflowButtons();
+                setEditable(false);
+                loadSubmissionReviews(currentSubmission.id);
+            } catch (e) {
+                console.error('Erreur r\u00e9ouverture:', e);
+                steleAlert('Erreur: ' + e.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ARCHIVAGE DES SOUMISSIONS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function toggleArchiveFilter() {
+            pipelineFilters.showArchived = !pipelineFilters.showArchived;
+            var btn = document.getElementById('filterArchiveBtn');
+            if (btn) btn.classList.toggle('active', pipelineFilters.showArchived);
+            applyPipelineFilters();
+        }
+
+        async function toggleArchiveSubmission() {
+            if (!currentSubmission) return;
+            var newVal = !currentSubmission.is_archived;
+            try {
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ is_archived: newVal })
+                });
+                currentSubmission.is_archived = newVal;
+                updateWorkflowButtons();
+                renderProjectList();
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Erreur archivage:', e);
+                steleAlert('Erreur: ' + e.message);
             }
         }
 

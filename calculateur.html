@@ -11154,7 +11154,6 @@
             var bHtml = '';
             sorted.forEach(function(p) {
                 var ps = getPipelineStatus(p.pipeline_status);
-                var deadline = getClosestDeadline(p);
                 var prob = p.probability || 0;
                 var architecte = getContactByRole(p, 'Architecte');
                 var architecteTip = getContactTooltipByRole(p, 'Architecte');
@@ -11190,7 +11189,8 @@
                 // Statut pipeline
                 bHtml += '<td class="inline-editable" onclick="openStatusDropdown(this,\'' + pid + '\',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
                 // Remise
-                bHtml += '<td class="col-hide-lg inline-editable' + (deadline ? ' project-card-deadline' : '') + '" onclick="openDatePicker(this,\'' + pid + '\',\'' + escapeAttr(p.client_deadline || '') + '\',\'client_deadline\',event)">' + formatDateShort(deadline) + '</td>';
+                var projDeadline = p.client_deadline || '';
+                bHtml += '<td class="col-hide-lg inline-editable' + (projDeadline ? ' project-card-deadline' : '') + '" onclick="openDatePicker(this,\'' + pid + '\',\'' + escapeAttr(projDeadline) + '\',\'client_deadline\',event)">' + formatDateShort(projDeadline) + '</td>';
                 // Responsable
                 bHtml += '<td class="col-hide-lg inline-editable" onclick="openInlineDropdown(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type
@@ -11218,8 +11218,8 @@
                     va = (getProjectDisplayAmount(a).value || 0);
                     vb = (getProjectDisplayAmount(b).value || 0);
                 } else if (col === 'deadline') {
-                    va = getClosestDeadline(a) || 'zzzz';
-                    vb = getClosestDeadline(b) || 'zzzz';
+                    va = a.client_deadline || 'zzzz';
+                    vb = b.client_deadline || 'zzzz';
                 } else if (col === 'architecte') {
                     va = getContactByRole(a, 'Architecte') || '';
                     vb = getContactByRole(b, 'Architecte') || '';
@@ -11379,7 +11379,7 @@
 
                 var subs = proj.submissions || [];
                 var ps = getPipelineStatus(proj.pipeline_status);
-                var deadline = getClosestDeadline(proj);
+                var deadline = proj.client_deadline || '';
 
                 var subsHtml = '';
                 var archivedCount = 0;

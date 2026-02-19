@@ -1001,12 +1001,8 @@
         return ROLES.slice();
     }
 
-    // Get permissions for a role (from DB if available, otherwise from permissions object)
+    // Get permissions for a role (always from app_config permissions object)
     function getRolePermissions(roleName) {
-        if (rolesFromDB.length > 0) {
-            var role = rolesFromDB.find(function(r) { return r.name === roleName; });
-            if (role) return role.permissions || {};
-        }
         return permissions[roleName] || {};
     }
 
@@ -1678,44 +1674,8 @@
 
         permissions = newPerm;
 
-        // If using roles from DB, update each role's permissions in the database
-        if (rolesFromDB.length > 0) {
-            var fb = document.getElementById('permFeedback');
-            fb.textContent = 'Sauvegarde en cours...';
-            fb.className = 'save-feedback visible';
-
-            try {
-                var savePromises = [];
-                for (var roleName in newPerm) {
-                    var role = rolesFromDB.find(function(r) { return r.name === roleName; });
-                    if (role) {
-                        var promise = authenticatedFetch(SUPABASE_URL + '/rest/v1/roles?id=eq.' + role.id, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                            body: JSON.stringify({ permissions: newPerm[roleName] })
-                        });
-                        savePromises.push(promise);
-                    }
-                }
-                var responses = await Promise.all(savePromises);
-                var failed = responses.filter(function(r) { return !r.ok; });
-                if (failed.length > 0) {
-                    var errText = await failed[0].text();
-                    console.error('PATCH roles failed:', failed[0].status, errText);
-                    throw new Error('PATCH roles failed: ' + failed[0].status);
-                }
-                // Also sync to app_config for other pages that read from there
-                saveConfig('permissions', newPerm, null);
-                await loadRoles();
-                showFeedback(fb, 'Permissions sauvegard\u00e9es avec succ\u00e8s', false);
-            } catch (e) {
-                console.error('Error saving permissions:', e);
-                showFeedback(fb, 'Erreur lors de la sauvegarde: ' + e.message, true);
-            }
-        } else {
-            // Fallback to app_config
-            saveConfig('permissions', permissions, 'permFeedback');
-        }
+        // Always save to app_config (source of truth for all pages)
+        saveConfig('permissions', newPerm, 'permFeedback');
     }
 
     async function saveUserRoles() {

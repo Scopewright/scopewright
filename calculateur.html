@@ -1822,15 +1822,15 @@
         const snapshot = collecterDonneesCalculateur();
         const userId = localStorage.getItem('sb_user_id');
 
+        var projectId = currentProject ? currentProject.id : (currentSubmission ? currentSubmission.project_id : null);
         var payload = {
             submission_id: submissionId,
+            project_id: projectId,
             version_number: nextVersion,
             snapshot: snapshot,
             status_at_save: currentSubmission ? currentSubmission.status : 'draft',
             created_by: userId
         };
-        // Also set project_id for transition period
-        if (currentProject) payload.project_id = currentProject.id;
 
         var vr = await authenticatedFetch(SUPABASE_URL + '/rest/v1/project_versions', {
             method: 'POST',

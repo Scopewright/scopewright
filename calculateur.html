@@ -526,6 +526,7 @@
     function openAiDrawer() {
         document.getElementById('aiOverlay').classList.add('active');
         document.getElementById('aiDrawer').classList.add('active');
+        document.body.style.overflow = 'hidden';
         updateAiScope();
         if (!aiChatLoaded && currentSubmission) {
             aiChatLoaded = true;
@@ -537,6 +538,7 @@
     function closeAiDrawer() {
         document.getElementById('aiOverlay').classList.remove('active');
         document.getElementById('aiDrawer').classList.remove('active');
+        document.body.style.overflow = '';
     }
 
     function updateAiScope() {
@@ -5062,7 +5064,7 @@
     <div class="ai-drawer-overlay" id="aiOverlay" onclick="closeAiDrawer()"></div>
     <div class="ai-drawer" id="aiDrawer">
         <div class="ai-drawer-header">
-            <h3>Assistant Stele</h3>
+            <h3>Assistant Scopewright</h3>
             <div class="ai-scope-badge" id="aiScopeBadge">Projet</div>
             <button class="ai-drawer-close" onclick="closeAiDrawer()">&times;</button>
         </div>

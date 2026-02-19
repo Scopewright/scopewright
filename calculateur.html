@@ -6028,7 +6028,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,supplier_name,supplier_sku,supplier_cost,supplier_id,is_default&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();

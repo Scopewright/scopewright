@@ -1459,8 +1459,8 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
-                <!-- Présentation client -->
-                <div class="form-group">
+                <!-- Présentation client (admin only) -->
+                <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
                     <label class="form-label" style="margin-top:8px;">Texte</label>
                     <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
@@ -2314,8 +2314,9 @@
             document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
 
-            // Présentation client
+            // Présentation client (admin only)
             document.getElementById('editClientText').value = item.client_text || '';
+            document.getElementById('clientTextGroup').style.display = isAdmin ? '' : 'none';
 
             // Règles de calcul (admin only)
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';

@@ -4215,7 +4215,7 @@
             color: #666;
         }
         .timeline-cta {
-            margin-left: auto; padding-left: 16px;
+            margin-left: auto; padding-left: 16px; display: flex; gap: 8px; align-items: center;
         }
         .timeline-cta button {
             background: var(--stele-green); color: #fff; border: none; padding: 8px 20px;
@@ -4230,6 +4230,12 @@
         }
         .timeline-cta button.btn-orange:hover {
             background: #f57c00;
+        }
+        .timeline-cta button.btn-outline-orange {
+            background: transparent; color: #e65100; border: 1.5px solid #e65100;
+        }
+        .timeline-cta button.btn-outline-orange:hover {
+            background: #fff3e0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
         /* Timeline step clickable (pour copier lien client) */
@@ -10270,7 +10276,7 @@
             if (status === 'draft' || status === 'returned') {
                 cta = { text: status === 'returned' ? 'Resoumettre' : 'Soumettre', action: 'openSubmitModal()', className: status === 'returned' ? 'btn-orange' : '' };
             } else if (status === 'pending_internal' && canApproveQuotes) {
-                cta = { text: 'Approuver', action: 'approveSubmission()', className: '' };
+                cta = { text: 'Approuver', action: 'approveSubmission()', className: '', secondaryText: 'Retourner', secondaryAction: 'returnSubmission()', secondaryClassName: 'btn-outline-orange' };
             } else if (status === 'approved_internal') {
                 cta = { text: 'Envoyer au client', action: 'sendToClient()', className: '' };
             } else if (status === 'sent_client') {
@@ -10279,6 +10285,9 @@
 
             if (cta) {
                 html += '<div class="timeline-cta">';
+                if (cta.secondaryText) {
+                    html += '<button onclick="' + cta.secondaryAction + '" class="' + (cta.secondaryClassName || '') + '">' + escapeHtml(cta.secondaryText) + '</button> ';
+                }
                 html += '<button onclick="' + cta.action + '" class="' + (cta.className || '') + '">' + escapeHtml(cta.text) + '</button>';
                 html += '</div>';
             }

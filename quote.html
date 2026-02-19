@@ -75,7 +75,7 @@
         /* ── Landscape pages (11 × 8.5 in) — fullscreen presentation ── */
         .pv-page {
             background: #fff;
-            padding: 36px 48px;
+            padding: 36px 32px;
             scroll-snap-align: start;
             height: 100vh;
             max-height: 100vh;
@@ -90,7 +90,7 @@
         }
 
         /* Title page — full-screen image + text overlay */
-        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #0A0203; }
+        .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #fff; }
         .pv-cover-right {
             position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
         }
@@ -126,8 +126,8 @@
         /* Room page — landscape layout */
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 48px; background: var(--stele-green); color: #fff;
-            border-radius: 0; margin: -4px -48px 38px -48px; flex-shrink: 0;
+            padding: 10px 32px; background: var(--stele-green); color: #fff;
+            border-radius: 0; margin: -4px -32px 38px -32px; flex-shrink: 0;
         }
         .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
         .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
@@ -185,7 +185,7 @@
         .pv-page-footer-text { margin-top: 32px; font-size: 12px; color: #aaa; letter-spacing: 0.5px; }
 
         /* Steps page */
-        .pv-page-steps { padding: 32px 48px; }
+        .pv-page-steps { padding: 32px 32px; }
         .pv-steps-title {
             font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
             color: var(--stele-green); font-weight: 700; margin-bottom: 20px;

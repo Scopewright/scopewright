@@ -2231,6 +2231,18 @@
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
 
+            // Rafraîchir taux horaires et catégories dépenses depuis app_config
+            try {
+                var cfgResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories)&select=key,value', {});
+                if (cfgResp.ok) {
+                    var cfgRows = await cfgResp.json();
+                    cfgRows.forEach(function(r) {
+                        if (r.key === 'taux_horaires') tauxHoraires = r.value;
+                        if (r.key === 'expense_categories') expenseCategories = r.value;
+                    });
+                }
+            } catch (e) { /* use cached values */ }
+
             // Prix composé — tableaux minutes & matériaux
             renderComposedTables(item);
 

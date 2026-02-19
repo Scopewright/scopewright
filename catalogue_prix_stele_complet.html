@@ -890,6 +890,22 @@
         .item-supplier-dd .isd-add:hover { background: #f5f5f5; }
         /* Supplier subtitle in catalogue list */
         .item-supplier-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
+        /* Default star in catalogue list */
+        .default-star {
+            cursor: pointer; font-size: 15px; color: #ddd; user-select: none;
+            transition: color 0.15s; vertical-align: middle;
+        }
+        .default-star.active { color: #F59E0B; }
+        .default-star:hover { color: #F59E0B; }
+        /* Default filter button in nav */
+        .nav-filter-btn {
+            padding: 3px 10px; border: 1px solid #ddd; border-radius: 12px;
+            background: #fff; cursor: pointer; font-size: 13px; color: #888;
+            margin-left: 8px; transition: all 0.15s;
+        }
+        .nav-filter-btn.active { background: #F59E0B; color: #fff; border-color: #F59E0B; }
+        .nav-filter-btn:hover { border-color: #F59E0B; color: #F59E0B; }
+        .nav-filter-btn.active:hover { background: #d4880a; }
         .comp-category { flex: 1.5; min-width: 0; }
         .comp-sku { flex: 1.2; min-width: 0; }
         .comp-desc { flex: 2.5; min-width: 0; }
@@ -1328,6 +1344,7 @@
         <div class="nav-links" id="navLinks">
             <a href="app.html" class="nav-back">&larr; Menu</a>
             <a href="#disclaimer">Avis</a>
+            <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <!-- Les liens des catégories sont générés dynamiquement -->
         </div>
         <div class="data-status" id="dataStatus">
@@ -1500,6 +1517,13 @@
                             <span class="slider"></span>
                         </label>
                         <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    </div>
+                    <div class="edit-toggle-row" style="margin-top: 12px;">
+                        <label class="edit-toggle">
+                            <input type="checkbox" id="editIsDefault">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="edit-toggle-label">Article par d&eacute;faut &#9733;</span>
                     </div>
                     <div class="edit-toggle-row" style="margin-top: 12px;">
                         <label class="edit-toggle">
@@ -1812,6 +1836,7 @@
             CATALOGUE_DATA.forEach(item => {
                 // Exclure les catégories Temps et Ajouts des tableaux
                 if (isExcludedCategory(item.category)) return;
+                if (filterDefaultsOnly && !item.is_default) return;
 
                 if (!grouped[item.category]) {
                     grouped[item.category] = [];
@@ -1895,6 +1920,7 @@
                             <td>${item.has_sales_sheet ? `<a class="fiche-link" href="fiche.html?code=${encodeURIComponent(item.id)}" target="_blank">fiche client</a>` : ''}</td>
                             <td>${formatType(item.type)}</td>
                             <td>
+                                ${canEditCatalogue ? `<span class="default-star${item.is_default ? ' active' : ''}" onclick="event.stopPropagation();toggleDefault('${escapeAttr(item.id)}',this)" title="Article par d\u00e9faut">\u2605</span> ` : (item.is_default ? '<span class="default-star active" style="cursor:default;" title="Article par d\u00e9faut">\u2605</span> ' : '')}
                                 <span class="tooltip-container tooltip-table tooltip-left">
                                     ${escapeHtml(item.description)}
                                     <div class="${tooltipClass}">
@@ -1918,6 +1944,37 @@
 
 
 
+
+        // ═══ Toggle default star ═══
+
+        async function toggleDefault(itemId, starEl) {
+            var item = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+            if (!item) return;
+            var newVal = !item.is_default;
+            starEl.classList.toggle('active', newVal);
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_default: newVal })
+                });
+                if (!resp.ok) throw new Error('Erreur ' + resp.status);
+                item.is_default = newVal;
+            } catch (e) {
+                starEl.classList.toggle('active', !newVal);
+            }
+        }
+
+        // ═══ Default filter ═══
+
+        var filterDefaultsOnly = false;
+
+        function toggleDefaultFilter() {
+            filterDefaultsOnly = !filterDefaultsOnly;
+            var btn = document.getElementById('filterDefaultBtn');
+            if (btn) btn.classList.toggle('active', filterDefaultsOnly);
+            generatePriceTables();
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // CHARGEMENT DES DONNÉES DEPUIS GOOGLE SHEETS (via API Visualization)
@@ -1972,7 +2029,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,supplier_cost,supplier_id&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,supplier_cost,supplier_id,is_default&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -2215,6 +2272,7 @@
             updateGenerateRuleBtn();
 
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
+            document.getElementById('editIsDefault').checked = item.is_default === true;
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
 
@@ -2995,6 +3053,7 @@
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
                     instruction: document.getElementById('editInstruction').value,
                     in_calculator: document.getElementById('editInCalculator').checked,
+                    is_default: document.getElementById('editIsDefault').checked,
                     has_sales_sheet: document.getElementById('editHasSalesSheet').checked,
                     labor_minutes: collectLaborMinutes(),
                     material_costs: collectMaterialCosts(),

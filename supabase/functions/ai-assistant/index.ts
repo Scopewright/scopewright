@@ -311,7 +311,7 @@ serve(async (req) => {
     // Inject catalogue summary into context if provided
     let enrichedSystem = systemPrompt;
     if (context?.catalogueSummary) {
-      enrichedSystem += `\n\n## Catalogue disponible (résumé)\n${context.catalogueSummary}`;
+      enrichedSystem += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles par défaut de l'atelier. Quand tu suggères des articles, privilégie ceux-là en premier sauf si l'estimateur spécifie autrement.\n${context.catalogueSummary}`;
     }
 
     const body: any = {

@@ -3833,6 +3833,63 @@
         .status-dropdown-item .sd-check {
             width: 16px; text-align: center; font-size: 13px; color: #64748b;
         }
+        /* ── Date picker (Apple/Linear style) ── */
+        .dp-popover {
+            position: fixed; z-index: 9999;
+            background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+            padding: 12px; width: 264px; user-select: none;
+            animation: sdFadeIn 0.12s ease-out;
+        }
+        .dp-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 8px; padding: 0 2px;
+        }
+        .dp-header-title {
+            font-size: 14px; font-weight: 600; color: #0f172a;
+            cursor: default;
+        }
+        .dp-nav {
+            display: flex; gap: 2px;
+        }
+        .dp-nav-btn {
+            width: 28px; height: 28px; border: none; background: transparent;
+            border-radius: 6px; cursor: pointer; font-size: 16px; color: #64748b;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.08s;
+        }
+        .dp-nav-btn:hover { background: #f1f5f9; }
+        .dp-weekdays {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            text-align: center; font-size: 11px; font-weight: 600;
+            color: #94a3b8; margin-bottom: 4px;
+        }
+        .dp-weekdays span { padding: 4px 0; }
+        .dp-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .dp-day {
+            width: 32px; height: 32px; border: none; background: transparent;
+            border-radius: 8px; cursor: pointer; font-size: 13px; color: #0f172a;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto; transition: background 0.08s;
+        }
+        .dp-day:hover { background: #f1f5f9; }
+        .dp-day.outside { color: #cbd5e1; }
+        .dp-day.today { box-shadow: inset 0 0 0 1.5px #cbd5e1; }
+        .dp-day.selected { background: #0F1C2D; color: #fff; }
+        .dp-day.selected.today { box-shadow: none; }
+        .dp-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9;
+        }
+        .dp-footer-btn {
+            border: none; background: transparent; cursor: pointer;
+            font-size: 12px; color: #64748b; padding: 4px 8px; border-radius: 6px;
+        }
+        .dp-footer-btn:hover { background: #f1f5f9; color: #0f172a; }
+        .dp-footer-btn.dp-today-btn { color: var(--stele-green); font-weight: 600; }
         /* ── Pipeline — Amount override inline edit ── */
         .amount-cell { cursor: pointer; position: relative; }
         .amount-cell:hover { background: rgba(0,0,0,0.03); }
@@ -10692,6 +10749,150 @@
             }, 0);
         }
 
+        // ── Date Picker (Apple/Linear style) ──
+        var DP_MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+        var DP_MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var DP_DAYS_FR = ['Lu','Ma','Me','Je','Ve','Sa','Di'];
+        var DP_DAYS_EN = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+
+        function openDatePicker(td, projectId, currentVal, field, evt) {
+            evt.stopPropagation();
+            var existing = document.querySelector('.dp-popover');
+            if (existing) existing.remove();
+
+            var selectedDate = currentVal ? new Date(currentVal + 'T00:00:00') : null;
+            var viewDate = selectedDate ? new Date(selectedDate) : new Date();
+            viewDate.setDate(1);
+
+            var dp = document.createElement('div');
+            dp.className = 'dp-popover';
+            dp.setAttribute('tabindex', '-1');
+            document.body.appendChild(dp);
+
+            function pad(n) { return n < 10 ? '0' + n : '' + n; }
+            function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+            function isSameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+
+            function render() {
+                var y = viewDate.getFullYear();
+                var m = viewDate.getMonth();
+                var months = DP_MONTHS_FR;
+                var dayNames = DP_DAYS_FR;
+                var today = new Date();
+
+                var html = '<div class="dp-header">';
+                html += '<span class="dp-header-title">' + escapeHtml(months[m]) + ' ' + y + '</span>';
+                html += '<div class="dp-nav">';
+                html += '<button class="dp-nav-btn" data-dp="prev">&#8249;</button>';
+                html += '<button class="dp-nav-btn" data-dp="next">&#8250;</button>';
+                html += '</div></div>';
+
+                html += '<div class="dp-weekdays">';
+                dayNames.forEach(function(d) { html += '<span>' + d + '</span>'; });
+                html += '</div>';
+
+                html += '<div class="dp-grid">';
+
+                // First day of month — Monday = 0
+                var firstDay = new Date(y, m, 1).getDay();
+                var startOffset = (firstDay + 6) % 7; // Monday-based
+                var daysInMonth = new Date(y, m + 1, 0).getDate();
+                var daysInPrev = new Date(y, m, 0).getDate();
+
+                // Previous month days
+                for (var i = startOffset - 1; i >= 0; i--) {
+                    var d = daysInPrev - i;
+                    html += '<button class="dp-day outside" data-dp-day="' + (y) + '-' + pad(m) + '-' + pad(d) + '">' + d + '</button>';
+                }
+
+                // Current month days
+                for (var d = 1; d <= daysInMonth; d++) {
+                    var dt = new Date(y, m, d);
+                    var cls = 'dp-day';
+                    if (isSameDay(dt, today)) cls += ' today';
+                    if (isSameDay(dt, selectedDate)) cls += ' selected';
+                    html += '<button class="' + cls + '" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
+                }
+
+                // Next month days
+                var totalCells = startOffset + daysInMonth;
+                var remaining = (7 - (totalCells % 7)) % 7;
+                for (var d = 1; d <= remaining; d++) {
+                    html += '<button class="dp-day outside" data-dp-day="' + (y) + '-' + pad(m + 2) + '-' + pad(d) + '">' + d + '</button>';
+                }
+
+                html += '</div>';
+
+                // Footer
+                html += '<div class="dp-footer">';
+                html += '<button class="dp-footer-btn dp-today-btn" data-dp="today">Aujourd\'hui</button>';
+                if (selectedDate) {
+                    html += '<button class="dp-footer-btn" data-dp="clear">Effacer</button>';
+                }
+                html += '</div>';
+
+                dp.innerHTML = html;
+
+                // Wire events
+                dp.querySelectorAll('[data-dp-day]').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var val = btn.getAttribute('data-dp-day');
+                        selectDate(val);
+                    });
+                });
+                var prevBtn = dp.querySelector('[data-dp="prev"]');
+                var nextBtn = dp.querySelector('[data-dp="next"]');
+                if (prevBtn) prevBtn.addEventListener('click', function(e) { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() - 1); render(); });
+                if (nextBtn) nextBtn.addEventListener('click', function(e) { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() + 1); render(); });
+                var todayBtn = dp.querySelector('[data-dp="today"]');
+                if (todayBtn) todayBtn.addEventListener('click', function(e) { e.stopPropagation(); selectDate(toISO(new Date())); });
+                var clearBtn = dp.querySelector('[data-dp="clear"]');
+                if (clearBtn) clearBtn.addEventListener('click', function(e) { e.stopPropagation(); selectDate(null); });
+            }
+
+            function selectDate(isoVal) {
+                closeDP();
+                saveInlineField(projectId, field, isoVal);
+            }
+
+            function closeDP() {
+                dp.remove();
+                document.removeEventListener('click', onOutside);
+                document.removeEventListener('keydown', onKey);
+            }
+
+            function onOutside(e) {
+                if (!dp.contains(e.target)) closeDP();
+            }
+
+            function onKey(e) {
+                if (e.key === 'Escape') { e.preventDefault(); closeDP(); }
+            }
+
+            render();
+
+            // Position
+            var rect = td.getBoundingClientRect();
+            var dpRect = dp.getBoundingClientRect();
+            var top = rect.bottom + 4;
+            var left = rect.left;
+            if (top + dpRect.height > window.innerHeight - 8) {
+                top = rect.top - dpRect.height - 4;
+            }
+            if (left + dpRect.width > window.innerWidth - 8) {
+                left = window.innerWidth - dpRect.width - 8;
+            }
+            dp.style.top = top + 'px';
+            dp.style.left = left + 'px';
+
+            dp.focus();
+            setTimeout(function() {
+                document.addEventListener('click', onOutside);
+                document.addEventListener('keydown', onKey);
+            }, 0);
+        }
+
         async function saveInlineField(projectId, field, value) {
             var proj = cachedProjects.find(function(p) { return p.id === projectId; });
             if (proj) proj[field] = value;
@@ -10881,7 +11082,7 @@
                 // Statut pipeline
                 bHtml += '<td class="inline-editable" onclick="openStatusDropdown(this,\'' + pid + '\',\'' + escapeAttr(p.pipeline_status || 'a_contacter') + '\',event)"><span class="pipeline-badge" style="background:' + ps.color + '20;color:' + ps.color + ';">' + escapeHtml(ps.label) + '</span></td>';
                 // Remise
-                bHtml += '<td class="col-hide-lg' + (deadline ? ' project-card-deadline' : '') + '">' + formatDateShort(deadline) + '</td>';
+                bHtml += '<td class="col-hide-lg inline-editable' + (deadline ? ' project-card-deadline' : '') + '" onclick="openDatePicker(this,\'' + pid + '\',\'' + escapeAttr(p.client_deadline || '') + '\',\'client_deadline\',event)">' + formatDateShort(deadline) + '</td>';
                 // Responsable
                 bHtml += '<td class="col-hide-lg inline-editable" onclick="inlineEditSelect(this,\'' + pid + '\',\'assigned_to\',' + escapeAttr(JSON.stringify(respOpts)) + ',\'' + escapeAttr(p.assigned_to || '') + '\',event)">' + escapeHtml(p.assigned_to || '\u2014') + '</td>';
                 // Type

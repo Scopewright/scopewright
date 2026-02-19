@@ -20,7 +20,12 @@ ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
 ALTER TABLE submissions ADD CONSTRAINT submissions_status_check
     CHECK (status IN ('draft', 'pending_internal', 'returned', 'approved_internal', 'sent_client', 'accepted', 'lost'));
 
--- 5. Trigger remplacé : ajouter transitions lost ↔ sent_client
+-- 5. CHECK constraint mis à jour sur submission_reviews (ajouter 'lost', 'reopened')
+ALTER TABLE submission_reviews DROP CONSTRAINT IF EXISTS submission_reviews_action_check;
+ALTER TABLE submission_reviews ADD CONSTRAINT submission_reviews_action_check
+    CHECK (action IN ('submitted', 'approved', 'returned', 'sent', 'bypass', 'offline_accepted', 'invoiced', 'duplicated', 'unlocked', 'lost', 'reopened'));
+
+-- 6. Trigger remplacé : ajouter transitions lost ↔ sent_client
 CREATE OR REPLACE FUNCTION check_submission_status_transition()
 RETURNS TRIGGER AS $$
 BEGIN

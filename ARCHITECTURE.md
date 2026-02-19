@@ -181,7 +181,7 @@
 | `version_at_review` | INTEGER | Numéro de version au moment de la révision |
 | `created_at` | TIMESTAMPTZ | Date de la révision |
 
-**Actions possibles** : `submitted`, `approved`, `returned`, `sent`, `bypass`, `offline_accepted`, `invoiced`, `duplicated`, `unlocked`
+**Actions possibles** : `submitted`, `approved`, `returned`, `sent`, `bypass`, `offline_accepted`, `invoiced`, `duplicated`, `unlocked`, `lost`, `reopened`
 
 **RLS** : authentifié peut insérer, propriétaire + approbateurs peuvent lire.
 

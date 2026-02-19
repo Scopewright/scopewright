@@ -871,6 +871,25 @@
             font-weight: 600; border-top: 1px solid #eee;
         }
         .comp-supplier-dd .comp-dd-add:hover { background: #f5f5f5; }
+        /* Item-level supplier dropdown (article parent) */
+        .item-supplier-dd {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px;
+            max-height: 200px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .item-supplier-dd.open { display: block; }
+        .item-supplier-dd .isd-item {
+            padding: 7px 10px; cursor: pointer; font-size: 13px;
+        }
+        .item-supplier-dd .isd-item:hover { background: #f0f0f0; }
+        .item-supplier-dd .isd-item.selected { background: #e8f0ea; font-weight: 600; }
+        .item-supplier-dd .isd-add {
+            padding: 7px 10px; cursor: pointer; font-size: 12px; color: var(--stele-green);
+            font-weight: 600; border-top: 1px solid #eee;
+        }
+        .item-supplier-dd .isd-add:hover { background: #f5f5f5; }
+        /* Supplier subtitle in catalogue list */
+        .item-supplier-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
         .comp-category { flex: 1.5; min-width: 0; }
         .comp-sku { flex: 1.2; min-width: 0; }
         .comp-desc { flex: 2.5; min-width: 0; }
@@ -1402,6 +1421,27 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+                <!-- Fournisseur principal (article parent) -->
+                <div class="form-group" id="supplierGroup">
+                    <div class="cp-section-title">Fournisseur</div>
+                    <div style="display:flex;gap:10px;margin-top:8px;">
+                        <div style="flex:2;position:relative;">
+                            <label class="form-label">Fournisseur</label>
+                            <input class="form-input" id="editSupplierName" placeholder="Rechercher ou saisir un fournisseur..." autocomplete="off"
+                                oninput="filterItemSupplierDropdown()" onfocus="openItemSupplierDropdown()">
+                            <input type="hidden" id="editSupplierId">
+                            <div class="item-supplier-dd" id="itemSupplierDd"></div>
+                        </div>
+                        <div style="flex:1;">
+                            <label class="form-label">SKU</label>
+                            <input class="form-input" id="editSupplierSku" placeholder="Code produit fournisseur">
+                        </div>
+                        <div style="flex:1;">
+                            <label class="form-label">Co&ucirc;t fournisseur ($)</label>
+                            <input class="form-input" id="editSupplierCost" type="number" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
                 <!-- Règles de calcul (admin only) -->
                 <div class="form-group" id="calcRuleGroup" style="display:none;">
                     <div class="cp-section-title">R&egrave;gles de calcul</div>
@@ -1863,6 +1903,7 @@
                                         <div class="tooltip-text">${escapeHtml(item.instruction || '')}</div>
                                     </div>
                                 </span>
+                                ${(item.supplier_name || item.supplier_sku) ? '<div class="item-supplier-sub">' + [item.supplier_name, item.supplier_sku].filter(Boolean).map(escapeHtml).join(' \u2022 ') + '</div>' : ''}
                             </td>
                             <td>${formatPrice(item.price)}</td>
                             ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${escapeAttr(item.id)}')" title="Modifier">&#9998;</button></td>` : ''}
@@ -1931,7 +1972,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,supplier_cost,supplier_id&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -2158,6 +2199,13 @@
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
             document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
+
+            // Fournisseur principal
+            document.getElementById('editSupplierName').value = item.supplier_name || '';
+            document.getElementById('editSupplierId').value = item.supplier_id || '';
+            document.getElementById('editSupplierSku').value = item.supplier_sku || '';
+            document.getElementById('editSupplierCost').value = item.supplier_cost != null ? item.supplier_cost : '';
+            closeItemSupplierDropdown();
 
             // Règles de calcul (admin only)
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
@@ -2490,6 +2538,68 @@
             } catch (e) { /* ignore */ }
         }
 
+        // ═══ Item-level supplier dropdown ═══
+
+        function openItemSupplierDropdown() {
+            filterItemSupplierDropdown();
+            document.getElementById('itemSupplierDd').classList.add('open');
+        }
+
+        function closeItemSupplierDropdown() {
+            document.getElementById('itemSupplierDd').classList.remove('open');
+        }
+
+        function filterItemSupplierDropdown() {
+            var dd = document.getElementById('itemSupplierDd');
+            var input = document.getElementById('editSupplierName');
+            var filter = input.value.toLowerCase().trim();
+            var currentId = document.getElementById('editSupplierId').value;
+            var html = '';
+            var count = 0;
+            for (var i = 0; i < supplierCompanies.length; i++) {
+                var s = supplierCompanies[i];
+                if (filter && s.name.toLowerCase().indexOf(filter) === -1) continue;
+                var sel = (s.id === currentId) ? ' selected' : '';
+                html += '<div class="isd-item' + sel + '" data-id="' + escapeAttr(s.id) + '" data-name="' + escapeAttr(s.name) + '" onclick="selectItemSupplier(this)">' + escapeHtml(s.name) + '</div>';
+                count++;
+            }
+            if (count === 0 && filter) {
+                html += '<div class="isd-item" style="color:#999;font-style:italic;">Aucun r\u00e9sultat</div>';
+            }
+            html += '<div class="isd-add" onclick="addNewItemSupplier()">+ Ajouter un fournisseur</div>';
+            dd.innerHTML = html;
+        }
+
+        function selectItemSupplier(el) {
+            var name = el.getAttribute('data-name');
+            var id = el.getAttribute('data-id');
+            document.getElementById('editSupplierName').value = name;
+            document.getElementById('editSupplierId').value = id;
+            closeItemSupplierDropdown();
+        }
+
+        function addNewItemSupplier() {
+            closeItemSupplierDropdown();
+            _supplierTargetIdx = null; // not a component row
+            document.getElementById('supName').value = document.getElementById('editSupplierName').value.trim();
+            document.getElementById('supAddress').value = '';
+            document.getElementById('supPhone').value = '';
+            document.getElementById('supEmail').value = '';
+            document.getElementById('supWebsite').value = '';
+            document.getElementById('supNotes').value = '';
+            document.getElementById('supplierModalStatus').textContent = '';
+            document.getElementById('supplierModal').classList.add('active');
+        }
+
+        // Close item supplier dropdown on click outside
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('itemSupplierDd');
+            var input = document.getElementById('editSupplierName');
+            if (dd && !dd.contains(e.target) && e.target !== input) {
+                closeItemSupplierDropdown();
+            }
+        });
+
         async function loadComponents(itemId) {
             editComponents = [];
             editComponentsToDelete = [];
@@ -2666,10 +2776,14 @@
                     supplierCompanies.push({ id: rows[0].id, name: name });
                     supplierCompanies.sort(function(a, b) { return a.name.localeCompare(b.name); });
                 }
-                // Assign to component row
+                // Assign to component row OR item-level supplier
                 if (_supplierTargetIdx != null && editComponents[_supplierTargetIdx]) {
                     editComponents[_supplierTargetIdx].supplier_name = name;
                     renderComponents();
+                } else if (_supplierTargetIdx === null) {
+                    // Item-level supplier assignment
+                    document.getElementById('editSupplierName').value = name;
+                    document.getElementById('editSupplierId').value = rows.length > 0 ? rows[0].id : '';
                 }
                 closeSupplierModal();
             } catch (e) {
@@ -2889,7 +3003,14 @@
                         var v = document.getElementById('editCalcRuleAi').value.trim();
                         if (!v) return null;
                         try { return JSON.parse(v); } catch(e) { return null; }
-                    })()
+                    })(),
+                    supplier_name: document.getElementById('editSupplierName').value.trim() || null,
+                    supplier_sku: document.getElementById('editSupplierSku').value.trim() || null,
+                    supplier_cost: (function() {
+                        var v = document.getElementById('editSupplierCost').value;
+                        return v !== '' ? parseFloat(v) : null;
+                    })(),
+                    supplier_id: document.getElementById('editSupplierId').value || null
                 };
 
                 let resp;

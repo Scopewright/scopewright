@@ -1462,27 +1462,25 @@
                 <!-- Présentation client -->
                 <div class="form-group">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
-                    <label class="form-label" style="margin-top:8px;">Texte FR</label>
+                    <label class="form-label" style="margin-top:8px;">Texte</label>
                     <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
-                    <label class="form-label" style="margin-top:8px;">Texte EN</label>
-                    <input type="text" class="form-input" id="editClientTextEn" placeholder="Ex: white oak FC veneer">
                 </div>
-                <!-- Règles de calcul (admin only) -->
-                <div class="form-group" id="calcRuleGroup" style="display:none;">
-                    <div class="cp-section-title">R&egrave;gles de calcul</div>
-                    <label class="form-label" style="margin-top:8px;">R&egrave;gle humaine (texte libre)</label>
-                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Surface totale = dos (L&times;H) + 2 c&ocirc;t&eacute;s (P&times;H)..." oninput="updateGenerateRuleBtn()"></textarea>
-                    <div class="calc-rule-error" id="calcRuleError"></div>
-                    <label class="form-label" style="margin-top:8px;">R&egrave;gle AI (JSON structur&eacute;)</label>
-                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON g&eacute;n&eacute;r&eacute; ou saisi manuellement..."></textarea>
-                </div>
-                <!-- Règles de présentation (admin only) -->
+                <!-- Comment décrire au client (admin only) -->
                 <div class="form-group" id="presRuleGroup" style="display:none;">
-                    <div class="cp-section-title">R&egrave;gles de pr&eacute;sentation</div>
-                    <label class="form-label" style="margin-top:8px;">R&egrave;gle pr&eacute;sentation (texte libre)</label>
-                    <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes au client."></textarea>
-                    <label class="form-label" style="margin-top:8px;">R&egrave;gle pr&eacute;sentation (JSON)</label>
-                    <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder='{"ordre": 1, "prefixe": "en", "separateur": ", ", "inclure_quantite": false}'></textarea>
+                    <div class="cp-section-title">Comment d&eacute;crire au client</div>
+                    <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
+                    <label class="form-label" style="margin-top:8px;">JSON</label>
+                    <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
+                </div>
+                <!-- Comment calculer la quantité (admin only) -->
+                <div class="form-group" id="calcRuleGroup" style="display:none;">
+                    <div class="cp-section-title">Comment calculer la quantit&eacute;</div>
+                    <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Surface totale = dos (L&times;H) + 2 c&ocirc;t&eacute;s (P&times;H). Diviser par 144 pour pi&sup2;. 15% de perte." oninput="updateGenerateRuleBtn()"></textarea>
+                    <div class="calc-rule-error" id="calcRuleError"></div>
+                    <label class="form-label" style="margin-top:8px;">JSON</label>
+                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
@@ -2318,7 +2316,6 @@
 
             // Présentation client
             document.getElementById('editClientText').value = item.client_text || '';
-            document.getElementById('editClientTextEn').value = item.client_text_en || '';
 
             // Règles de calcul (admin only)
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
@@ -3071,7 +3068,6 @@
                         try { return JSON.parse(v); } catch(e) { return null; }
                     })(),
                     client_text: document.getElementById('editClientText').value || null,
-                    client_text_en: document.getElementById('editClientTextEn').value || null,
                     presentation_rule_human: document.getElementById('editPresRuleHuman').value || null,
                     presentation_rule: (function() {
                         var v = document.getElementById('editPresRuleAi').value.trim();

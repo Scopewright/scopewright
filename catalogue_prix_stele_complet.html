@@ -1473,14 +1473,14 @@
                     <label class="form-label" style="margin-top:8px;">JSON</label>
                     <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
                 </div>
-                <!-- Comment calculer la quantité (admin only) -->
+                <!-- Instructions AI (admin only) -->
                 <div class="form-group" id="calcRuleGroup" style="display:none;">
-                    <div class="cp-section-title">Comment calculer la quantit&eacute;</div>
+                    <div class="cp-section-title">Instructions AI</div>
                     <label class="form-label" style="margin-top:8px;">Explication</label>
-                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Surface totale = dos (L&times;H) + 2 c&ocirc;t&eacute;s (P&times;H). Diviser par 144 pour pi&sup2;. 15% de perte." oninput="updateGenerateRuleBtn()"></textarea>
+                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
                     <div class="calc-rule-error" id="calcRuleError"></div>
                     <label class="form-label" style="margin-top:8px;">JSON</label>
-                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
+                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">

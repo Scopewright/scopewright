@@ -1316,6 +1316,40 @@
         .btn-generate:hover {
             background: #3d4f42;
         }
+        /* Global add button in nav */
+        .nav-add-wrap { position: relative; display: inline-block; margin-left: 8px; }
+        .nav-add-btn {
+            width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #ddd;
+            background: #fff; color: #555; font-size: 18px; line-height: 1; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s;
+        }
+        .nav-add-btn:hover { border-color: var(--stele-green); color: var(--stele-green); }
+        .nav-add-dd {
+            display: none; position: absolute; top: 100%; right: 0; margin-top: 6px;
+            background: #fff; border: 1px solid #ddd; border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 220px; z-index: 500;
+            max-height: 320px; overflow-y: auto;
+        }
+        .nav-add-dd.open { display: block; }
+        .nav-add-dd .add-dd-item {
+            padding: 8px 14px; cursor: pointer; font-size: 13px;
+        }
+        .nav-add-dd .add-dd-item:hover { background: #f0f0f0; }
+        .nav-add-dd .add-dd-sep {
+            border-top: 1px solid #eee; margin: 4px 0;
+        }
+        .nav-add-dd .add-dd-input {
+            padding: 8px 14px; display: flex; gap: 6px;
+        }
+        .nav-add-dd .add-dd-input input {
+            flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; font-family: inherit;
+        }
+        .nav-add-dd .add-dd-input input:focus { outline: none; border-color: var(--stele-green); }
+        .nav-add-dd .add-dd-input button {
+            padding: 6px 12px; background: var(--stele-green); color: #fff; border: none;
+            border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
+        }
 
     </style>
 </head>
@@ -1330,9 +1364,15 @@
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <!-- Les liens des catégories sont générés dynamiquement -->
         </div>
-        <div class="data-status" id="dataStatus">
-            <span class="status-dot"></span>
-            <span class="status-text" id="statusText">Chargement...</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
+                <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
+                <div class="nav-add-dd" id="navAddDd"></div>
+            </div>
+            <div class="data-status" id="dataStatus">
+                <span class="status-dot"></span>
+                <span class="status-text" id="statusText">Chargement...</span>
+            </div>
         </div>
     </nav>
 
@@ -1937,6 +1977,49 @@
             if (btn) btn.classList.toggle('active', filterDefaultsOnly);
             generatePriceTables();
         }
+
+        // ═══ Global add article dropdown ═══
+
+        function toggleAddDropdown() {
+            var dd = document.getElementById('navAddDd');
+            if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+            // Build list of existing categories + configCategories
+            var cats = new Set(configCategories);
+            CATALOGUE_DATA.forEach(function(i) { if (i.category) cats.add(i.category); });
+            var sorted = Array.from(cats).sort(function(a, b) { return a.localeCompare(b, 'fr'); });
+            var html = '<div style="padding:8px 14px;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;">Cat\u00e9gorie existante</div>';
+            sorted.forEach(function(cat) {
+                html += '<div class="add-dd-item" onclick="addItemInCategory(\'' + cat.replace(/'/g, "\\'") + '\')">' + escapeHtml(cat) + '</div>';
+            });
+            html += '<div class="add-dd-sep"></div>';
+            html += '<div style="padding:8px 14px;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;">Nouvelle cat\u00e9gorie</div>';
+            html += '<div class="add-dd-input"><input id="newCatInput" placeholder="Nom..." onkeydown="if(event.key===\'Enter\')addItemNewCategory()"><button onclick="addItemNewCategory()">Cr\u00e9er</button></div>';
+            dd.innerHTML = html;
+            dd.classList.add('open');
+        }
+
+        function addItemInCategory(category) {
+            document.getElementById('navAddDd').classList.remove('open');
+            createNewItem(category);
+        }
+
+        function addItemNewCategory() {
+            var input = document.getElementById('newCatInput');
+            var name = input.value.trim();
+            if (!name) return;
+            document.getElementById('navAddDd').classList.remove('open');
+            // Add to configCategories if not already there
+            if (!configCategories.includes(name)) configCategories.push(name);
+            createNewItem(name);
+        }
+
+        // Close dropdown on click outside
+        document.addEventListener('click', function(e) {
+            var wrap = document.getElementById('navAddWrap');
+            if (wrap && !wrap.contains(e.target)) {
+                document.getElementById('navAddDd').classList.remove('open');
+            }
+        });
 
         // ═══════════════════════════════════════════════════════════════════════
         // CHARGEMENT DES DONNÉES DEPUIS GOOGLE SHEETS (via API Visualization)
@@ -3187,6 +3270,7 @@
             // Setup des handlers de la modal d'édition
             if (canEditCatalogue) {
                 setupEditModalHandlers();
+                document.getElementById('navAddWrap').style.display = '';
             }
         });
     </script>

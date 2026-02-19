@@ -1296,6 +1296,13 @@
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
                 var rowId = addRow(gid);
+                // Wait for Supabase item creation (async in addRow) before updating
+                var waitAttempts = 0;
+                while (!itemMap[rowId] && waitAttempts < 50) {
+                    await new Promise(function(r) { setTimeout(r, 100); });
+                    waitAttempts++;
+                }
+                if (!itemMap[rowId]) return { error: 'Échec création ligne Supabase' };
                 var select = document.querySelector('#' + rowId + ' .item-select');
                 if (select) {
                     select.value = input.catalogue_item_id;

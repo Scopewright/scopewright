@@ -1494,6 +1494,46 @@
         </div>
     </div>
 
+    <!-- Supplier Modal -->
+    <div class="modal-overlay" id="supplierModal" onclick="if(event.target===this)closeSupplierModal()">
+        <div class="modal-box" style="max-width:480px;">
+            <div class="modal-header"><h2 id="supplierModalTitle">Nouveau fournisseur</h2></div>
+            <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
+                <div class="form-group">
+                    <label class="form-label">Nom *</label>
+                    <input class="form-input" id="supName" placeholder="Nom de l'entreprise">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adresse</label>
+                    <input class="form-input" id="supAddress" placeholder="Adresse">
+                </div>
+                <div class="form-group" style="display:flex;gap:10px;">
+                    <div style="flex:1;">
+                        <label class="form-label">T&eacute;l&eacute;phone</label>
+                        <input class="form-input" id="supPhone" placeholder="T&eacute;l&eacute;phone">
+                    </div>
+                    <div style="flex:1;">
+                        <label class="form-label">Email</label>
+                        <input class="form-input" id="supEmail" placeholder="Email" type="email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Site web</label>
+                    <input class="form-input" id="supWebsite" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-input" id="supNotes" rows="2" style="resize:vertical;" placeholder="Notes..."></textarea>
+                </div>
+                <div class="edit-status" id="supplierModalStatus"></div>
+            </div>
+            <div class="modal-footer" style="justify-content:flex-end;">
+                <button class="btn-cancel" onclick="closeSupplierModal()">Annuler</button>
+                <button class="btn-generate" onclick="saveNewSupplier()">Cr&eacute;er le fournisseur</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Crop Modal (même pattern que calculateur.html) -->
     <div class="crop-overlay" id="cropModal">
         <div class="crop-box">
@@ -2573,31 +2613,70 @@
             closeAllSupplierDropdowns();
         }
 
-        async function addNewSupplier(el) {
+        var _supplierTargetIdx = null;
+
+        function addNewSupplier(el) {
             var row = el.closest('.comp-row');
+            _supplierTargetIdx = parseInt(row.getAttribute('data-idx'));
+            closeAllSupplierDropdowns();
+            // Pre-fill name from current input text
             var input = row.querySelector('.comp-supplier-wrap input');
-            var idx = parseInt(row.getAttribute('data-idx'));
-            var name = prompt('Nom du nouveau fournisseur :');
-            if (!name || !name.trim()) return;
-            name = name.trim();
-            // Create company with type Fournisseur
+            document.getElementById('supName').value = input.value.trim();
+            document.getElementById('supAddress').value = '';
+            document.getElementById('supPhone').value = '';
+            document.getElementById('supEmail').value = '';
+            document.getElementById('supWebsite').value = '';
+            document.getElementById('supNotes').value = '';
+            document.getElementById('supplierModalStatus').textContent = '';
+            document.getElementById('supplierModal').classList.add('active');
+            document.getElementById('supName').focus();
+        }
+
+        function closeSupplierModal() {
+            document.getElementById('supplierModal').classList.remove('active');
+            _supplierTargetIdx = null;
+        }
+
+        async function saveNewSupplier() {
+            var name = document.getElementById('supName').value.trim();
+            if (!name) {
+                document.getElementById('supplierModalStatus').textContent = 'Le nom est requis.';
+                document.getElementById('supplierModalStatus').className = 'edit-status error';
+                document.getElementById('supplierModalStatus').style.display = '';
+                return;
+            }
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-                    body: JSON.stringify({ name: name, company_type: 'Fournisseur', created_by: localStorage.getItem('sb_user_id') })
+                    body: JSON.stringify({
+                        name: name,
+                        company_type: 'Fournisseur',
+                        address: document.getElementById('supAddress').value.trim() || null,
+                        phone: document.getElementById('supPhone').value.trim() || null,
+                        email: document.getElementById('supEmail').value.trim() || null,
+                        website: document.getElementById('supWebsite').value.trim() || null,
+                        notes: document.getElementById('supNotes').value.trim() || null,
+                        created_by: localStorage.getItem('sb_user_id')
+                    })
                 });
-                if (resp.ok) {
-                    var rows = await resp.json();
-                    if (rows.length > 0) {
-                        supplierCompanies.push({ id: rows[0].id, name: name });
-                        supplierCompanies.sort(function(a, b) { return a.name.localeCompare(b.name); });
-                    }
+                if (!resp.ok) throw new Error('Erreur ' + resp.status);
+                var rows = await resp.json();
+                if (rows.length > 0) {
+                    supplierCompanies.push({ id: rows[0].id, name: name });
+                    supplierCompanies.sort(function(a, b) { return a.name.localeCompare(b.name); });
                 }
-            } catch (e) { /* ignore */ }
-            input.value = name;
-            editComponents[idx].supplier_name = name;
-            closeAllSupplierDropdowns();
+                // Assign to component row
+                if (_supplierTargetIdx != null && editComponents[_supplierTargetIdx]) {
+                    editComponents[_supplierTargetIdx].supplier_name = name;
+                    renderComponents();
+                }
+                closeSupplierModal();
+            } catch (e) {
+                document.getElementById('supplierModalStatus').textContent = 'Erreur: ' + e.message;
+                document.getElementById('supplierModalStatus').className = 'edit-status error';
+                document.getElementById('supplierModalStatus').style.display = '';
+            }
         }
 
         function closeAllSupplierDropdowns() {

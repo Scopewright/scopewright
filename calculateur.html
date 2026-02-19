@@ -12516,7 +12516,7 @@
             btnApprove.style.display = 'none';
             btnReturn.style.display = 'none';
             if (btnSendClient) { btnSendClient.style.display = 'none'; btnSendClient.textContent = 'Envoyer au client'; btnSendClient.onclick = function() { sendToClient(); }; }
-            if (btnBypass) btnBypass.style.display = 'none';
+            if (btnBypass) { btnBypass.style.display = 'none'; btnBypass.textContent = 'Envoyer sans approbation'; btnBypass.className = 'btn-main-action btn-main-red'; }
             if (btnAcceptOffline) btnAcceptOffline.style.display = 'none';
 
             if (!currentSubmission) return;
@@ -12524,9 +12524,16 @@
             var s = currentSubmission.status;
             if (s === 'draft' || s === 'returned') {
                 btnSubmit.style.display = 'inline-block';
-                btnSubmit.textContent = 'Soumettre';
+                btnSubmit.textContent = s === 'returned' ? 'Resoumettre' : 'Soumettre';
                 if (canBypassApproval && btnBypass) {
                     btnBypass.style.display = 'inline-block';
+                    if (s === 'returned') {
+                        btnBypass.textContent = 'Envoyer au client';
+                        btnBypass.className = 'btn-main-action btn-main-green';
+                    } else {
+                        btnBypass.textContent = 'Envoyer sans approbation';
+                        btnBypass.className = 'btn-main-action btn-main-red';
+                    }
                 }
             }
             if (s === 'pending_internal' && (canApproveQuotes || isApprovalMode)) {

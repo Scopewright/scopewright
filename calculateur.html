@@ -10851,10 +10851,114 @@
         var DP_DAYS_FR = ['Lu','Ma','Me','Je','Ve','Sa','Di'];
         var DP_DAYS_EN = ['Mo','Tu','We','Th','Fr','Sa','Su'];
 
+        // ── Date picker global state (for inline onclick handlers) ──
+        var _dp = null; // { el, projectId, field, selectedDate, viewDate, onOutside, onKey }
+
+        function _dpClose() {
+            if (!_dp) return;
+            _dp.el.remove();
+            document.removeEventListener('mousedown', _dp.onOutside);
+            document.removeEventListener('keydown', _dp.onKey);
+            _dp = null;
+        }
+
+        function _dpNav(dir) {
+            if (!_dp) return;
+            _dp.viewDate.setMonth(_dp.viewDate.getMonth() + dir);
+            _dpRender();
+        }
+
+        function _dpSelect(iso) {
+            if (!_dp) return;
+            var projectId = _dp.projectId;
+            var field = _dp.field;
+            _dpClose();
+            saveInlineField(projectId, field, iso);
+        }
+
+        function _dpToday() {
+            var d = new Date();
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            _dpSelect(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+        }
+
+        function _dpClear() {
+            if (!_dp) return;
+            var projectId = _dp.projectId;
+            var field = _dp.field;
+            _dpClose();
+            saveInlineField(projectId, field, null);
+        }
+
+        function _dpRender() {
+            if (!_dp) return;
+            var y = _dp.viewDate.getFullYear();
+            var m = _dp.viewDate.getMonth();
+            var months = DP_MONTHS_FR;
+            var dayNames = DP_DAYS_FR;
+            var today = new Date();
+            var sel = _dp.selectedDate;
+
+            function pad(n) { return n < 10 ? '0' + n : '' + n; }
+            function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+            function isSameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+
+            var html = '<div class="dp-header">';
+            html += '<span class="dp-header-title">' + escapeHtml(months[m]) + ' ' + y + '</span>';
+            html += '<div class="dp-nav">';
+            html += '<button type="button" class="dp-nav-btn" onclick="_dpNav(-1);event.stopPropagation()">&#8249;</button>';
+            html += '<button type="button" class="dp-nav-btn" onclick="_dpNav(1);event.stopPropagation()">&#8250;</button>';
+            html += '</div></div>';
+
+            html += '<div class="dp-weekdays">';
+            dayNames.forEach(function(d) { html += '<span>' + d + '</span>'; });
+            html += '</div>';
+
+            html += '<div class="dp-grid">';
+
+            var firstDay = new Date(y, m, 1).getDay();
+            var startOffset = (firstDay + 6) % 7;
+            var daysInMonth = new Date(y, m + 1, 0).getDate();
+
+            // Previous month days
+            for (var i = startOffset - 1; i >= 0; i--) {
+                var dt = new Date(y, m, -i);
+                html += '<button type="button" class="dp-day outside" onclick="_dpSelect(\'' + toISO(dt) + '\');event.stopPropagation()">' + dt.getDate() + '</button>';
+            }
+
+            // Current month days
+            for (var d = 1; d <= daysInMonth; d++) {
+                var dt = new Date(y, m, d);
+                var cls = 'dp-day';
+                if (isSameDay(dt, today)) cls += ' today';
+                if (isSameDay(dt, sel)) cls += ' selected';
+                html += '<button type="button" class="' + cls + '" onclick="_dpSelect(\'' + toISO(dt) + '\');event.stopPropagation()">' + d + '</button>';
+            }
+
+            // Next month days
+            var totalCells = startOffset + daysInMonth;
+            var remaining = (7 - (totalCells % 7)) % 7;
+            for (var d = 1; d <= remaining; d++) {
+                var dt = new Date(y, m + 1, d);
+                html += '<button type="button" class="dp-day outside" onclick="_dpSelect(\'' + toISO(dt) + '\');event.stopPropagation()">' + d + '</button>';
+            }
+
+            html += '</div>';
+
+            // Footer
+            html += '<div class="dp-footer">';
+            html += '<button type="button" class="dp-footer-btn dp-today-btn" onclick="_dpToday();event.stopPropagation()">Aujourd\'hui</button>';
+            if (sel) {
+                html += '<button type="button" class="dp-footer-btn" onclick="_dpClear();event.stopPropagation()">Effacer</button>';
+            }
+            html += '</div>';
+
+            _dp.el.innerHTML = html;
+        }
+
         function openDatePicker(td, projectId, currentVal, field, evt) {
             evt.stopPropagation();
-            var existing = document.querySelector('.dp-popover');
-            if (existing) existing.remove();
+            _dpClose(); // close any existing
 
             var selectedDate = currentVal ? new Date(currentVal + 'T00:00:00') : null;
             var viewDate = selectedDate ? new Date(selectedDate) : new Date();
@@ -10865,107 +10969,16 @@
             dp.setAttribute('tabindex', '-1');
             document.body.appendChild(dp);
 
-            function pad(n) { return n < 10 ? '0' + n : '' + n; }
-            function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-            function isSameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
-
-            function render() {
-                var y = viewDate.getFullYear();
-                var m = viewDate.getMonth();
-                var months = DP_MONTHS_FR;
-                var dayNames = DP_DAYS_FR;
-                var today = new Date();
-
-                var html = '<div class="dp-header">';
-                html += '<span class="dp-header-title">' + escapeHtml(months[m]) + ' ' + y + '</span>';
-                html += '<div class="dp-nav">';
-                html += '<button type="button" class="dp-nav-btn" data-dp="prev">&#8249;</button>';
-                html += '<button type="button" class="dp-nav-btn" data-dp="next">&#8250;</button>';
-                html += '</div></div>';
-
-                html += '<div class="dp-weekdays">';
-                dayNames.forEach(function(d) { html += '<span>' + d + '</span>'; });
-                html += '</div>';
-
-                html += '<div class="dp-grid">';
-
-                // First day of month — Monday = 0
-                var firstDay = new Date(y, m, 1).getDay();
-                var startOffset = (firstDay + 6) % 7; // Monday-based
-                var daysInMonth = new Date(y, m + 1, 0).getDate();
-
-                // Previous month days (use Date object for correct month/year rollover)
-                for (var i = startOffset - 1; i >= 0; i--) {
-                    var dt = new Date(y, m, -i); // day 0 = last day of prev month, -1 = second-to-last, etc.
-                    html += '<button type="button" class="dp-day outside" data-dp-day="' + toISO(dt) + '">' + dt.getDate() + '</button>';
-                }
-
-                // Current month days
-                for (var d = 1; d <= daysInMonth; d++) {
-                    var dt = new Date(y, m, d);
-                    var cls = 'dp-day';
-                    if (isSameDay(dt, today)) cls += ' today';
-                    if (isSameDay(dt, selectedDate)) cls += ' selected';
-                    html += '<button type="button" class="' + cls + '" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
-                }
-
-                // Next month days (use Date object for correct month/year rollover)
-                var totalCells = startOffset + daysInMonth;
-                var remaining = (7 - (totalCells % 7)) % 7;
-                for (var d = 1; d <= remaining; d++) {
-                    var dt = new Date(y, m + 1, d);
-                    html += '<button type="button" class="dp-day outside" data-dp-day="' + toISO(dt) + '">' + d + '</button>';
-                }
-
-                html += '</div>';
-
-                // Footer
-                html += '<div class="dp-footer">';
-                html += '<button type="button" class="dp-footer-btn dp-today-btn" data-dp="today">Aujourd\'hui</button>';
-                if (selectedDate) {
-                    html += '<button type="button" class="dp-footer-btn" data-dp="clear">Effacer</button>';
-                }
-                html += '</div>';
-
-                dp.innerHTML = html;
-            }
-
-            // Event delegation on dp container (survives innerHTML replacement)
-            dp.addEventListener('click', function(e) {
-                var target = e.target.closest('[data-dp-day]') || e.target.closest('[data-dp]');
-                if (!target) return;
-                e.stopPropagation();
-
-                var dayVal = target.getAttribute('data-dp-day');
-                if (dayVal) { selectDate(dayVal); return; }
-
-                var action = target.getAttribute('data-dp');
-                if (action === 'prev') { viewDate.setMonth(viewDate.getMonth() - 1); render(); }
-                else if (action === 'next') { viewDate.setMonth(viewDate.getMonth() + 1); render(); }
-                else if (action === 'today') { selectDate(toISO(new Date())); }
-                else if (action === 'clear') { selectDate(null); }
-            });
-
-            function selectDate(isoVal) {
-                closeDP();
-                saveInlineField(projectId, field, isoVal);
-            }
-
-            function closeDP() {
-                dp.remove();
-                document.removeEventListener('click', onOutside);
-                document.removeEventListener('keydown', onKey);
-            }
-
             function onOutside(e) {
-                if (!dp.contains(e.target) && !dp.contains(document.activeElement)) closeDP();
+                if (!dp.contains(e.target)) _dpClose();
             }
-
             function onKey(e) {
-                if (e.key === 'Escape') { e.preventDefault(); closeDP(); }
+                if (e.key === 'Escape') { e.preventDefault(); _dpClose(); }
             }
 
-            render();
+            _dp = { el: dp, projectId: projectId, field: field, selectedDate: selectedDate, viewDate: viewDate, onOutside: onOutside, onKey: onKey };
+
+            _dpRender();
 
             // Position
             var rect = td.getBoundingClientRect();
@@ -10983,7 +10996,7 @@
 
             dp.focus();
             setTimeout(function() {
-                document.addEventListener('click', onOutside);
+                document.addEventListener('mousedown', onOutside);
                 document.addEventListener('keydown', onKey);
             }, 0);
         }

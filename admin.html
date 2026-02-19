@@ -1697,12 +1697,20 @@
                         savePromises.push(promise);
                     }
                 }
-                await Promise.all(savePromises);
+                var responses = await Promise.all(savePromises);
+                var failed = responses.filter(function(r) { return !r.ok; });
+                if (failed.length > 0) {
+                    var errText = await failed[0].text();
+                    console.error('PATCH roles failed:', failed[0].status, errText);
+                    throw new Error('PATCH roles failed: ' + failed[0].status);
+                }
+                // Also sync to app_config for other pages that read from there
+                saveConfig('permissions', newPerm, null);
                 await loadRoles();
                 showFeedback(fb, 'Permissions sauvegard\u00e9es avec succ\u00e8s', false);
             } catch (e) {
                 console.error('Error saving permissions:', e);
-                showFeedback(fb, 'Erreur lors de la sauvegarde', true);
+                showFeedback(fb, 'Erreur lors de la sauvegarde: ' + e.message, true);
             }
         } else {
             // Fallback to app_config
@@ -1817,6 +1825,7 @@
     }
 
     function showFeedback(el, msg, isWarn) {
+        if (!el) return;
         el.textContent = (isWarn ? '' : '\u2713 ') + msg;
         el.className = 'save-feedback visible' + (isWarn ? ' warn' : '');
         setTimeout(function() { el.className = 'save-feedback'; }, 4000);

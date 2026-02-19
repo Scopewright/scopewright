@@ -1411,6 +1411,12 @@
                     <label class="form-label" style="margin-top:8px;">R&egrave;gle AI (JSON structur&eacute;)</label>
                     <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON g&eacute;n&eacute;r&eacute; ou saisi manuellement..."></textarea>
                 </div>
+                <!-- Composantes fournisseur -->
+                <div class="form-group" id="componentsGroup">
+                    <div class="cp-section-title">Composantes fournisseur</div>
+                    <div id="componentsList"></div>
+                    <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
+                </div>
                 <!-- Prix composé — Minutes & Matériaux -->
                 <div class="form-group" id="composedPriceGroup">
                     <div class="cp-section-title">Prix compos&eacute;</div>
@@ -1437,13 +1443,6 @@
                         </div>
                         <span class="cp-total-value" id="cpTotalValue">—</span>
                     </div>
-                </div>
-
-                <!-- Composantes fournisseur -->
-                <div class="form-group" id="componentsGroup">
-                    <div class="cp-section-title">Composantes fournisseur</div>
-                    <div id="componentsList"></div>
-                    <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
                 </div>
 
                 <div class="form-group">

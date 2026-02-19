@@ -6252,8 +6252,6 @@
         }
 
         async function removeFurnitureGroup(groupId) {
-            const groups = document.querySelectorAll('.furniture-group');
-            if (groups.length <= 1) return;
             if (!(await steleConfirm('Supprimer ce meuble et tous ses articles ?', 'Supprimer', 'Supprimer', true))) return;
 
             // Supprimer dans Supabase

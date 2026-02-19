@@ -11876,12 +11876,7 @@
                 }
             }
 
-            // Create new options
-            html += '<div class="combo-section-header">Cr\u00e9er</div>';
-            html += '<div class="contact-combo-item" onclick="createNewClientContact()" style="color:var(--stele-green);">+ Nouveau contact</div>';
-            html += '<div class="contact-combo-item" onclick="createNewClientCompany()" style="color:var(--stele-green);">+ Nouvelle entreprise</div>';
-
-            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun r\u00e9sultat</div>';
+            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun contact trouv\u00e9</div>';
         }
 
         function selectClient(el) {
@@ -12282,11 +12277,7 @@
                 }
             }
 
-            // Create new
-            html += '<div class="combo-section-header">Cr\u00e9er</div>';
-            html += '<div class="contact-combo-item" onclick="createNewContactFromCombo()" style="color:var(--stele-green);">+ Nouveau contact</div>';
-
-            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun r\u00e9sultat</div>';
+            dd.innerHTML = html || '<div class="contact-combo-item" style="color:#999;">Aucun contact trouv\u00e9</div>';
         }
 
         function selectComboContact(el) {

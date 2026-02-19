@@ -1459,6 +1459,14 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+                <!-- Présentation client -->
+                <div class="form-group">
+                    <div class="cp-section-title">Pr&eacute;sentation client</div>
+                    <label class="form-label" style="margin-top:8px;">Texte FR</label>
+                    <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
+                    <label class="form-label" style="margin-top:8px;">Texte EN</label>
+                    <input type="text" class="form-input" id="editClientTextEn" placeholder="Ex: white oak FC veneer">
+                </div>
                 <!-- Règles de calcul (admin only) -->
                 <div class="form-group" id="calcRuleGroup" style="display:none;">
                     <div class="cp-section-title">R&egrave;gles de calcul</div>
@@ -1467,6 +1475,14 @@
                     <div class="calc-rule-error" id="calcRuleError"></div>
                     <label class="form-label" style="margin-top:8px;">R&egrave;gle AI (JSON structur&eacute;)</label>
                     <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="JSON g&eacute;n&eacute;r&eacute; ou saisi manuellement..."></textarea>
+                </div>
+                <!-- Règles de présentation (admin only) -->
+                <div class="form-group" id="presRuleGroup" style="display:none;">
+                    <div class="cp-section-title">R&egrave;gles de pr&eacute;sentation</div>
+                    <label class="form-label" style="margin-top:8px;">R&egrave;gle pr&eacute;sentation (texte libre)</label>
+                    <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes au client."></textarea>
+                    <label class="form-label" style="margin-top:8px;">R&egrave;gle pr&eacute;sentation (JSON)</label>
+                    <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder='{"ordre": 1, "prefixe": "en", "separateur": ", ", "inclure_quantite": false}'></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
@@ -2072,7 +2088,7 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule&or=(status.eq.approved,status.is.null)&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -2300,12 +2316,21 @@
             document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
 
+            // Présentation client
+            document.getElementById('editClientText').value = item.client_text || '';
+            document.getElementById('editClientTextEn').value = item.client_text_en || '';
+
             // Règles de calcul (admin only)
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
             document.getElementById('editCalcRuleAi').value = item.calculation_rule_ai ? JSON.stringify(item.calculation_rule_ai, null, 2) : '';
             document.getElementById('calcRuleGroup').style.display = isAdmin ? '' : 'none';
             document.getElementById('calcRuleError').style.display = 'none';
             updateGenerateRuleBtn();
+
+            // Règles de présentation (admin only)
+            document.getElementById('editPresRuleHuman').value = item.presentation_rule_human || '';
+            document.getElementById('editPresRuleAi').value = item.presentation_rule ? JSON.stringify(item.presentation_rule, null, 2) : '';
+            document.getElementById('presRuleGroup').style.display = isAdmin ? '' : 'none';
 
             document.getElementById('editInCalculator').checked = item.in_calculator !== false;
             document.getElementById('editIsDefault').checked = item.is_default === true;
@@ -3042,6 +3067,14 @@
                     calculation_rule_human: document.getElementById('editCalcRuleHuman').value || null,
                     calculation_rule_ai: (function() {
                         var v = document.getElementById('editCalcRuleAi').value.trim();
+                        if (!v) return null;
+                        try { return JSON.parse(v); } catch(e) { return null; }
+                    })(),
+                    client_text: document.getElementById('editClientText').value || null,
+                    client_text_en: document.getElementById('editClientTextEn').value || null,
+                    presentation_rule_human: document.getElementById('editPresRuleHuman').value || null,
+                    presentation_rule: (function() {
+                        var v = document.getElementById('editPresRuleAi').value.trim();
                         if (!v) return null;
                         try { return JSON.parse(v); } catch(e) { return null; }
                     })()

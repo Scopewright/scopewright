@@ -211,6 +211,24 @@ ${DESCRIPTION_FORMAT_RULES}
 - Orthographe, accents, pluriels, concordances simples
 - Garder le ton original, pas de reformulation marketing
 - Pas de créativité non demandée, pas de contenu inventé
+
+## Descriptions client à partir du catalogue
+Chaque article du catalogue peut avoir un texte de présentation client (champ client_text).
+Quand tu génères une description client pour un élément :
+1. Prends le client_text de chaque article/sous-composante utilisé
+2. Si l'article a une règle de présentation (presentation_rule), suis-la pour l'ordre, le préfixe et les inclusions/exclusions
+3. Assemble les fragments dans l'ordre logique : Matériau → Finition → Quincaillerie → Détails
+4. Sépare par le séparateur défini (virgule par défaut)
+5. Commence par le type d'élément : "Caisson en [matériau], [finition], [détails]"
+6. Le résultat doit être une phrase naturelle et professionnelle
+
+Exemples :
+- "Caisson bas en mélamine blanche thermofusionnée, chants PVC assortis, 2 tablettes ajustables, ouverture par pression"
+- "Armoire haute en placage de chêne blanc FC, laque au polyuréthane clair, 4 tablettes ajustables, charnières à fermeture douce"
+- "Panneau décoratif en placage de noyer naturel, vernis mat"
+
+Si un article n'a pas de client_text, utilise sa description du catalogue reformulée pour le client.
+Les fragments sont en minuscule sans point final — c'est toi qui assembles la phrase complète.
 ${benchmarks}${defaultMaterials}${clientFile}${calcRulesStr}
 
 ## Contexte actuel

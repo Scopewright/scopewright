@@ -1351,137 +1351,230 @@
             border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
         }
 
-        /* ═══ Import Drawer (AI Chat) ═══ */
+        /* ═══ Import Drawer (AI Chat) — Premium Redesign ═══ */
+
+        @keyframes ciMsgFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ciCardStagger {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .ci-drawer-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: transparent; z-index: 8700; pointer-events: none;
         }
         .ci-drawer-overlay.active { display: block; }
+
         .ci-drawer {
             position: fixed; top: 0; right: -460px; width: 440px; height: 100%;
-            background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
-            z-index: 8800; transition: right 0.3s ease;
+            background: #fff; box-shadow: -2px 0 24px rgba(0,0,0,0.08);
+            z-index: 8800; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex; flex-direction: column;
         }
         .ci-drawer.active { right: 0; }
+
         .ci-drawer-header {
             display: flex; align-items: center; gap: 10px;
-            padding: 14px 20px; border-bottom: 2px solid var(--stele-green);
-            background: #fafafa; flex-shrink: 0;
+            padding: 16px 20px; border-bottom: 1px solid #f0f0f0;
+            background: #fff; flex-shrink: 0;
         }
-        .ci-drawer-header h3 { font-size: 15px; font-weight: 700; margin: 0; color: var(--stele-black); flex: 1; }
+        .ci-drawer-header h3 {
+            font-size: 14px; font-weight: 600; margin: 0;
+            color: #1A1A2E; flex: 1; letter-spacing: -0.01em;
+        }
         .ci-drawer-close {
-            background: none; border: none; font-size: 20px; cursor: pointer; color: #666; padding: 0 4px;
+            background: none; border: none; font-size: 18px;
+            cursor: pointer; color: #9ca3af; padding: 2px 4px;
+            transition: color 0.15s; border-radius: 6px;
         }
-        .ci-drawer-close:hover { color: var(--stele-black); }
+        .ci-drawer-close:hover { color: #1A1A2E; }
+
         .ci-messages {
-            flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end;
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 16px; justify-content: flex-end;
             overscroll-behavior: contain;
-            scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
+            scrollbar-width: thin; scrollbar-color: #e5e7eb transparent;
         }
-        .ci-messages::-webkit-scrollbar { width: 6px; }
+        .ci-messages::-webkit-scrollbar { width: 5px; }
         .ci-messages::-webkit-scrollbar-track { background: transparent; }
-        .ci-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        .ci-messages::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .ci-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+        .ci-messages::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
         .ci-messages:empty::after {
             content: 'Collez un screenshot Excel, tapez une liste de prix, ou d\e9crivez les articles \e0 importer.';
-            color: #aaa; font-size: 13px; text-align: center; padding: 40px 20px;
-            font-style: italic; line-height: 1.5;
+            color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 24px;
+            line-height: 1.6;
         }
-        .ci-msg { max-width: 88%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.55; word-wrap: break-word; }
-        .ci-msg p { margin: 0 0 6px 0; }
+
+        .ci-msg {
+            max-width: 85%; padding: 0; border-radius: 0;
+            font-size: 14px; line-height: 1.5; word-wrap: break-word;
+            color: #1A1A2E;
+            animation: ciMsgFadeIn 180ms ease-out both;
+        }
+        .ci-msg p { margin: 0 0 8px 0; }
         .ci-msg p:last-child { margin-bottom: 0; }
-        .ci-msg ul, .ci-msg ol { margin: 4px 0; padding-left: 18px; }
-        .ci-msg li { margin-bottom: 2px; }
-        .ci-msg strong { font-weight: 700; }
-        .ci-msg code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
-        .ci-msg table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
-        .ci-msg th, .ci-msg td { padding: 4px 8px; border: 1px solid #ddd; text-align: left; }
-        .ci-msg th { background: #f5f5f5; font-weight: 600; }
-        .ci-msg-user { align-self: flex-end; background: transparent; color: var(--stele-black); border-bottom-right-radius: 4px; }
-        .ci-msg-assistant { align-self: flex-start; background: transparent; color: var(--stele-black); border-bottom-left-radius: 4px; }
-        .ci-msg-confirm {
-            align-self: flex-start; background: #fff; border: 1.5px solid var(--stele-green);
-            border-radius: 10px; padding: 12px 14px; max-width: 92%;
+        .ci-msg ul, .ci-msg ol { margin: 6px 0; padding-left: 20px; }
+        .ci-msg li { margin-bottom: 4px; }
+        .ci-msg strong { font-weight: 600; }
+        .ci-msg code {
+            background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
+            font-size: 13px; font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
         }
-        .ci-msg-confirm .ci-confirm-text { font-size: 13px; color: #333; margin-bottom: 10px; line-height: 1.5; }
-        .ci-confirm-actions { display: flex; gap: 8px; }
+        .ci-msg pre {
+            background: #f8f9fa; padding: 12px 14px; border-radius: 8px;
+            overflow-x: auto; font-size: 12px; margin: 8px 0;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            line-height: 1.5;
+        }
+
+        /* Cards — replace tables */
+        .ci-msg .ci-card-stack { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+        .ci-msg .ci-card {
+            background: #F8FAFC; border-radius: 10px; padding: 12px 14px;
+            animation: ciCardStagger 180ms ease-out both;
+        }
+        .ci-msg .ci-card-row {
+            display: flex; justify-content: space-between; align-items: baseline;
+        }
+        .ci-msg .ci-card-code {
+            font-size: 12px; font-weight: 600; color: #6B7280;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            letter-spacing: 0.02em;
+        }
+        .ci-msg .ci-card-price {
+            font-size: 13px; font-weight: 600; color: #1A1A2E;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+        }
+        .ci-msg .ci-card-desc {
+            font-size: 13px; color: #374151; margin-top: 2px; line-height: 1.4;
+        }
+        .ci-msg .ci-card-meta {
+            font-size: 11px; color: #9ca3af; margin-top: 4px;
+        }
+
+        /* Legacy table fallback — soft styling */
+        .ci-msg table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            margin: 8px 0; font-size: 13px; border-radius: 8px;
+            overflow: hidden; background: #F8FAFC;
+        }
+        .ci-msg th, .ci-msg td {
+            padding: 8px 12px; border: none; text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .ci-msg th {
+            background: #f1f5f9; font-weight: 600; font-size: 11px;
+            color: #6B7280; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .ci-msg tr:last-child td { border-bottom: none; }
+
+        .ci-msg-user {
+            align-self: flex-end; background: #F1F5F9;
+            padding: 10px 14px; border-radius: 12px; border-bottom-right-radius: 4px;
+        }
+        .ci-msg-assistant {
+            align-self: flex-start; background: transparent;
+            padding: 2px 0;
+        }
+
+        .ci-msg-confirm {
+            align-self: flex-start; background: #fff; border: none;
+            border-radius: 12px; padding: 14px 16px; max-width: 92%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+        }
+        .ci-msg-confirm .ci-confirm-text {
+            font-size: 14px; color: #1A1A2E; margin-bottom: 12px; line-height: 1.5;
+        }
+        .ci-confirm-actions { display: flex; gap: 8px; align-items: center; }
         .ci-confirm-actions button {
-            padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
             cursor: pointer; border: none; transition: all 0.15s;
         }
-        .btn-ci-apply { background: var(--stele-green); color: #fff; }
-        .btn-ci-apply:hover { background: #3d4f41; }
-        .btn-ci-dismiss { background: #f0f0f0; color: #666; }
-        .btn-ci-dismiss:hover { background: #e0e0e0; color: #333; }
-        .ci-confirm-applied { font-size: 11px; color: var(--stele-green); font-weight: 600; }
+        .btn-ci-apply { background: #1B2B4B; color: #fff; }
+        .btn-ci-apply:hover { background: #15223b; }
+        .btn-ci-dismiss { background: transparent; color: #6B7280; padding: 8px 12px; }
+        .btn-ci-dismiss:hover { color: #1A1A2E; }
+        .ci-confirm-applied { font-size: 12px; color: #4b6050; font-weight: 500; }
+
         .ci-typing {
-            align-self: flex-start; padding: 10px 18px;
-            background: #f5f5f5; border-radius: 12px; border-bottom-left-radius: 4px;
-            display: none;
+            padding: 12px 0 0 0; display: none;
         }
-        .ci-typing.active { display: flex; gap: 4px; align-items: center; }
+        .ci-typing.active { display: flex; gap: 5px; align-items: center; }
         .ci-typing-dot {
-            width: 7px; height: 7px; border-radius: 50%; background: #aaa;
+            width: 6px; height: 6px; border-radius: 50%; background: #d1d5db;
             animation: ciTypingBounce 1.2s infinite;
         }
         .ci-typing-dot:nth-child(2) { animation-delay: 0.15s; }
         .ci-typing-dot:nth-child(3) { animation-delay: 0.3s; }
         @keyframes ciTypingBounce {
             0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-4px); opacity: 1; }
+            30% { transform: translateY(-3px); opacity: 1; }
         }
+
         .ci-quick-actions {
-            display: flex; gap: 6px; padding: 8px 16px; flex-wrap: wrap;
-            border-top: 1px solid #f0f0f0; flex-shrink: 0;
+            display: flex; gap: 6px; padding: 10px 20px; flex-wrap: wrap;
+            border-top: 1px solid #f5f5f5; flex-shrink: 0;
         }
         .ci-quick-btn {
-            padding: 5px 10px; border-radius: 14px; font-size: 11px;
-            background: #f5f5f5; border: 1px solid #e0e0e0; color: #555;
+            padding: 6px 12px; border-radius: 8px; font-size: 12px;
+            background: #fff; border: 1px solid #e5e7eb; color: #6B7280;
             cursor: pointer; transition: all 0.15s; white-space: nowrap;
+            font-weight: 500;
         }
-        .ci-quick-btn:hover { background: #e8f0e9; border-color: var(--stele-green); color: var(--stele-green); }
+        .ci-quick-btn:hover { background: #f9fafb; border-color: #d1d5db; color: #374151; }
+
         .ci-input-area {
-            display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e0e0e0;
-            background: #fafafa; flex-shrink: 0; align-items: flex-end;
+            display: flex; gap: 8px; padding: 12px 16px 14px;
+            border-top: 1px solid #f0f0f0;
+            background: #fff; flex-shrink: 0; align-items: flex-end;
         }
         .ci-input-area textarea {
-            flex: 1; resize: none; border: 1px solid #ddd; border-radius: 10px;
-            padding: 10px 14px; font-size: 13px; font-family: inherit; line-height: 1.4;
-            max-height: 120px; min-height: 40px; outline: none; transition: border-color 0.15s;
+            flex: 1; resize: none; border: 1px solid #e5e7eb; border-radius: 10px;
+            padding: 10px 14px; font-size: 14px; font-family: inherit; line-height: 1.4;
+            max-height: 120px; min-height: 40px; outline: none;
+            transition: border-color 0.15s; background: #fafbfc;
+            color: #1A1A2E;
         }
-        .ci-input-area textarea:focus { border-color: var(--stele-green); }
-        .ci-input-area textarea::placeholder { color: #aaa; }
+        .ci-input-area textarea:focus { border-color: #d1d5db; background: #fff; }
+        .ci-input-area textarea::placeholder { color: #9ca3af; }
+
         .ci-send-btn {
-            width: 38px; height: 38px; border-radius: 50%; border: none;
-            background: var(--stele-green); color: #fff; font-size: 18px;
+            width: 36px; height: 36px; border-radius: 10px; border: none;
+            background: #1B2B4B; color: #fff; font-size: 16px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             transition: background 0.15s; flex-shrink: 0;
         }
-        .ci-send-btn:hover { background: #3d4f41; }
-        .ci-send-btn:disabled { background: #ccc; cursor: default; }
+        .ci-send-btn:hover { background: #15223b; }
+        .ci-send-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: default; }
+
         .ci-drop-zone {
-            display: none; position: absolute; inset: 0; background: rgba(75,96,80,0.08);
-            border: 2px dashed var(--stele-green); border-radius: 8px;
+            display: none; position: absolute; inset: 0; background: rgba(27,43,75,0.04);
+            border: 2px dashed #d1d5db; border-radius: 10px;
             z-index: 10; align-items: center; justify-content: center;
-            font-size: 13px; color: var(--stele-green); font-weight: 600;
+            font-size: 13px; color: #6B7280; font-weight: 500;
         }
         .ci-drop-zone.active { display: flex; }
+
         .ci-img-preview {
-            display: flex; gap: 6px; padding: 4px 16px; flex-wrap: wrap; flex-shrink: 0;
+            display: flex; gap: 6px; padding: 6px 20px; flex-wrap: wrap; flex-shrink: 0;
         }
         .ci-img-preview:empty { display: none; }
         .ci-img-thumb {
-            position: relative; width: 56px; height: 56px; border-radius: 6px;
-            overflow: hidden; border: 1px solid #ddd;
+            position: relative; width: 52px; height: 52px; border-radius: 8px;
+            overflow: hidden; border: 1px solid #e5e7eb;
         }
         .ci-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .ci-img-thumb .ci-img-remove {
             position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
-            border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff;
-            border: none; font-size: 12px; cursor: pointer; display: flex;
+            border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff;
+            border: none; font-size: 11px; cursor: pointer; display: flex;
             align-items: center; justify-content: center; line-height: 1;
+            transition: background 0.15s;
         }
+        .ci-img-thumb .ci-img-remove:hover { background: rgba(0,0,0,0.7); }
         /* ═══ Pending badge ═══ */
         .item-pending-badge {
             font-size: 10px; font-weight: 600; padding: 2px 8px;
@@ -3583,14 +3676,54 @@
         function renderCiMarkdown(text) {
             if (!text) return '';
             var s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            s = s.replace(/```([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px;">$1</pre>');
+            // Code blocks
+            s = s.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+            // Inline code
             s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Bold
             s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic
             s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-            // Tables
+            // Tables → cards (with stagger animation)
             s = s.replace(/((?:\|.*\|\n?)+)/g, function(table) {
                 var rows = table.trim().split('\n').filter(function(r) { return r.trim() && !/^\|[\s\-:]+\|$/.test(r); });
                 if (rows.length === 0) return table;
+                var headers = rows[0].split('|').filter(function(c) { return c.trim() !== ''; }).map(function(c) { return c.trim().toLowerCase(); });
+                var codeIdx = -1, descIdx = -1, priceIdx = -1;
+                headers.forEach(function(h, i) {
+                    var hl = h.toLowerCase();
+                    if (codeIdx < 0 && (hl === 'code' || hl === 'id' || hl.indexOf('code') >= 0)) codeIdx = i;
+                    if (descIdx < 0 && (hl === 'description' || hl.indexOf('desc') >= 0 || hl === 'article' || hl === 'nom')) descIdx = i;
+                    if (priceIdx < 0 && (hl === 'prix' || hl === 'price' || hl.indexOf('prix') >= 0 || hl.indexOf('total') >= 0 || hl === 'montant')) priceIdx = i;
+                });
+                if (descIdx >= 0 && rows.length > 1) {
+                    var cards = '';
+                    for (var ri = 1; ri < rows.length; ri++) {
+                        var cells = rows[ri].split('|').filter(function(c) { return c.trim() !== ''; }).map(function(c) { return c.trim(); });
+                        var code = codeIdx >= 0 && cells[codeIdx] ? cells[codeIdx] : '';
+                        var desc = cells[descIdx] || '';
+                        var price = priceIdx >= 0 && cells[priceIdx] ? cells[priceIdx] : '';
+                        var meta = [];
+                        headers.forEach(function(h, i) {
+                            if (i !== codeIdx && i !== descIdx && i !== priceIdx && cells[i] && cells[i].trim()) {
+                                meta.push(h.charAt(0).toUpperCase() + h.slice(1) + ': ' + cells[i]);
+                            }
+                        });
+                        var delay = (ri - 1) * 40;
+                        cards += '<div class="ci-card" style="animation-delay:' + delay + 'ms">';
+                        if (code || price) {
+                            cards += '<div class="ci-card-row">';
+                            cards += code ? '<span class="ci-card-code">' + code + '</span>' : '<span></span>';
+                            cards += price ? '<span class="ci-card-price">' + price + '</span>' : '';
+                            cards += '</div>';
+                        }
+                        if (desc) cards += '<div class="ci-card-desc">' + desc + '</div>';
+                        if (meta.length) cards += '<div class="ci-card-meta">' + meta.join(' &middot; ') + '</div>';
+                        cards += '</div>';
+                    }
+                    return '<div class="ci-card-stack">' + cards + '</div>';
+                }
+                // Fallback: soft-styled table
                 var html = '<table>';
                 rows.forEach(function(row, i) {
                     var cells = row.split('|').filter(function(c) { return c.trim() !== ''; });
@@ -3600,8 +3733,10 @@
                 html += '</table>';
                 return html;
             });
+            // Unordered lists
             s = s.replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>');
             s = s.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+            // Paragraphs
             s = s.replace(/\n{2,}/g, '</p><p>');
             s = s.replace(/\n/g, '<br>');
             s = '<p>' + s + '</p>';

@@ -919,6 +919,12 @@
                 totalMatMarkup += cost * ((c.markup || 0) / 100);
                 totalMatWaste += cost * ((c.waste || 0) / 100);
             });
+
+            // Fallback: si pas de données composées, utiliser item.price
+            var composedPrice = computeComposedPrice(item, includeInstall);
+            if (composedPrice === null) {
+                totalPrixVente += (item.price || 0) * qty;
+            }
         });
 
         totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
@@ -7269,7 +7275,13 @@
                 }
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
-                if (item && item.price) return item.price * qty;
+                if (item) {
+                    var installCb = document.getElementById(row.id + '-install');
+                    var includeInstall = installCb ? installCb.checked : true;
+                    var composed = computeComposedPrice(item, includeInstall);
+                    var eff = composed !== null ? composed : (item.price || 0);
+                    return eff * qty;
+                }
             }
             return 0;
         }

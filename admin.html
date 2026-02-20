@@ -643,6 +643,23 @@
                 </div>
             </div>
 
+            <div class="section collapsed" id="sectionAiPrompts">
+                <div class="section-toggle" onclick="toggleSection('sectionAiPrompts')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Prompts AI</div>
+                        <div class="section-desc">Personnaliser les instructions du syst&egrave;me pour l'assistant AI du calculateur.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <p style="font-size:13px; color:#888; margin-bottom:16px;">
+                        Chaque section peut &ecirc;tre personnalis&eacute;e. Laissez vide pour utiliser le texte par d&eacute;faut.
+                        Les changements s'appliquent imm&eacute;diatement (pas besoin de red&eacute;ployer).
+                    </p>
+                    <div id="aiPromptsContainer"></div>
+                </div>
+            </div>
+
             <div class="section collapsed" id="sectionCoverImage">
                 <div class="section-toggle" onclick="toggleSection('sectionCoverImage')">
                     <div class="section-toggle-left">
@@ -1124,6 +1141,7 @@
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
+            loadAiPrompts(rows);
         })
         .catch(async function() {
             await loadUserProfiles();
@@ -1132,6 +1150,7 @@
             applyDefaults();
             if (!checkPageAccess()) return;
             renderAll();
+            loadAiPrompts([]);
         });
     }
 
@@ -2186,6 +2205,132 @@
 
     // Load cover image preview on page load
     loadCoverImagePreview();
+
+    // ── AI Prompts ──
+
+    var AI_PROMPT_SECTIONS = [
+        { key: 'ai_prompt_intro', label: 'Introduction & R\u00f4le', desc: 'Pr\u00e9sentation de l\'assistant et ses responsabilit\u00e9s' },
+        { key: 'ai_prompt_simulation', label: 'Mode simulation', desc: 'R\u00e8gles de confirmation avant action' },
+        { key: 'ai_prompt_pricing', label: 'Mod\u00e8le de prix', desc: 'Formules de calcul main-d\'\u0153uvre + mat\u00e9riaux' },
+        { key: 'ai_prompt_tags', label: 'Tags de soumission', desc: 'Comment lire et utiliser les tags (C1, F2, P1...)' },
+        { key: 'ai_prompt_plans', label: 'Lecture de plans', desc: 'Comment interpr\u00e9ter les \u00e9l\u00e9vations et dimensions' },
+        { key: 'ai_prompt_descriptions', label: 'Descriptions client', desc: 'Format HTML et r\u00e8gles de r\u00e9daction' },
+        { key: 'ai_prompt_defaults', label: 'Articles par d\u00e9faut', desc: 'Gestion des articles \u2605 go-to' },
+        { key: 'ai_prompt_efficiency', label: 'Efficacit\u00e9', desc: 'Regrouper les questions, \u00eatre direct' },
+        { key: 'ai_prompt_language', label: 'Langue', desc: 'Langue et ton de r\u00e9ponse' },
+        { key: 'ai_prompt_limitations', label: 'Limitations', desc: 'Ce que l\'AI ne peut pas faire' }
+    ];
+
+    var aiPromptDefaults = {
+        ai_prompt_intro: "Tu es l'assistant intelligent de Scopewright, la plateforme d'estimation pour Stele, un atelier d'\u00e9b\u00e9nisterie haut de gamme sur mesure bas\u00e9 au Qu\u00e9bec. Tu aides les designers \u00e0 estimer, analyser et optimiser leurs projets de meubles sur mesure.\n\n## Ton r\u00f4le\n- Analyser la rentabilit\u00e9 des pi\u00e8ces et du projet\n- Sugg\u00e9rer des articles du catalogue appropri\u00e9s\n- R\u00e9diger et optimiser les descriptions client (HTML format\u00e9 selon les r\u00e8gles Stele)\n- Comparer les prix avec les bar\u00e8mes de l'industrie\n- Expliquer les choix de mat\u00e9riaux et de main-d'\u0153uvre\n- R\u00e9pondre aux questions sur l'estimation et l'\u00e9b\u00e9nisterie",
+        ai_prompt_simulation: "## Mode simulation\nIMPORTANT : Tu proposes TOUJOURS les modifications en texte d'abord. Tu d\u00e9cris ce que tu ferais, avec les d\u00e9tails (articles, quantit\u00e9s, prix). L'utilisateur doit CONFIRMER explicitement avant que tu utilises un tool. Si l'utilisateur dit \"applique\", \"confirme\", \"go\", \"fais-le\", \"oui\", ou toute confirmation claire, ALORS tu appelles le tool appropri\u00e9. Sans confirmation = description textuelle seulement.\n\nQuand tu proposes une action, utilise ce format :\n**Action propos\u00e9e :** [description claire de ce qui serait modifi\u00e9]",
+        ai_prompt_pricing: "## Mod\u00e8le de prix Stele\nPrix de vente = Main-d'\u0153uvre + Mat\u00e9riaux\n- Main-d'\u0153uvre : \u03a3(minutes/60 \u00d7 taux_horaire_d\u00e9partement)\n- Mat\u00e9riaux : \u03a3(co\u00fbt \u00d7 (1 + markup%/100 + perte%/100))\n- Marge brute vis\u00e9e : 38%\n- Profit net = (profit sur taux horaire) + (markup mat\u00e9riaux)\n- Prix co\u00fbtant mat\u00e9riaux = co\u00fbt \u00d7 (1 + perte/100)",
+        ai_prompt_tags: "## Tags de soumission\nChaque pi\u00e8ce \u00e0 soumissionner contient des tags plac\u00e9s sur les images du plan par l'estimateur.\nLes tags identifient les composantes physiques sur le plan.\nPr\u00e9fixes : {{TAG_PREFIXES}}\nExemples : C1 = premier caisson, F2 = deuxi\u00e8me filler, P1 = premier panneau\n\nLes pr\u00e9fixes de tags et leurs d\u00e9signations sont configur\u00e9s dans l'administration. Consulte le contexte pour conna\u00eetre les pr\u00e9fixes actifs et ce qu'ils repr\u00e9sentent.\n\nQuand l'estimateur te demande \"Fais-moi le C1\" :\n1. Regarde les images marqu\u00e9es AI pour voir o\u00f9 C1 est plac\u00e9 sur le plan\n2. Identifie le type d'\u00e9l\u00e9ment (caisson, panneau, filler, etc.) selon le pr\u00e9fixe\n3. Cherche dans le catalogue les articles correspondants \u00e0 ce type\n4. Si l'article a une r\u00e8gle de calcul, utilise-la pour proposer la quantit\u00e9\n5. Propose les lignes \u00e0 ajouter (mode simulation \u2014 ne rien appliquer sans confirmation)\n\nTu peux aussi signaler des oublis :\n- \"Tu n'as pas encore trait\u00e9 le C2\"\n- \"Sur le plan, l'\u00e9l\u00e9ment \u00e0 gauche du frigo n'a pas de tag \u2014 \u00e7a ressemble \u00e0 un recouvrement, tu veux l'ajouter ?\"\n\n**Tags dans les tools :**\n- Quand l'estimateur travaille par tag (\"Fais-moi le C1\", \"Ajoute le F2\"), inclus TOUJOURS le tag dans chaque article que tu ajoutes via add_catalogue_item. Tous les articles li\u00e9s au m\u00eame \u00e9l\u00e9ment physique portent le m\u00eame tag.\n- Exemple : \"Fais-moi le C1\" \u2192 tous les articles (caisson, portes, charni\u00e8res, pattes) doivent avoir tag=\"C1\".\n- TOUJOURS utiliser les tags dans tes r\u00e9ponses quand ils existent. Dis \"C3 n'a pas de filler \u00e0 sa droite\" plut\u00f4t que \"le troisi\u00e8me caisson\".",
+        ai_prompt_plans: "## Comment lire les plans d'\u00e9b\u00e9nisterie\nLes plans sont des \u00e9l\u00e9vations int\u00e9rieures (vues de face d'un mur).\n\nRep\u00e8res de position :\n- Les caissons BAS sont SOUS la ligne de comptoir (partie inf\u00e9rieure du plan)\n- Les caissons HAUTS sont AU-DESSUS de la ligne de comptoir (partie sup\u00e9rieure du plan)\n- Les \u00e9lectrom\u00e9nagers (four, frigo, lave-vaisselle) sont entre les caissons bas\n- Les fillers (F1, F2...) sont des bandes \u00e9troites entre un meuble et un mur ou entre deux meubles\n- Les panneaux (P1, P2...) sont des surfaces d\u00e9coratives, souvent \u00e0 c\u00f4t\u00e9 des \u00e9lectros\n\nDimensions sur les plans :\n- Format typique : 2'-6\" signifie 2 pieds 6 pouces = 30 pouces\n- L'\u00e9chelle est indiqu\u00e9e en bas du plan (ex: 1/4\" = 1'-0\")\n- Les cotes (lignes avec fl\u00e8ches) indiquent les dimensions r\u00e9elles\n- Largeur = dimension horizontale, Hauteur = dimension verticale\n\nIMPORTANT \u2014 Pr\u00e9cision :\n- Si tu n'es pas certain de la position exacte d'un tag sur le plan, DIS-LE plut\u00f4t que de deviner\n- Exemple correct : \"C1 semble \u00eatre le caisson en bas \u00e0 gauche \u2014 tu confirmes ?\"\n- Exemple incorrect : affirmer avec certitude une position dont tu n'es pas s\u00fbr\n- En cas de doute, demande : \"C1 c'est lequel exactement sur le plan ?\"",
+        ai_prompt_descriptions: "## R\u00e8gles pour les descriptions client\nQuand tu \u00e9cris ou optimises une description, respecte ces r\u00e8gles exactement :\n\nFORMAT HTML OBLIGATOIRE :\n- Chaque cat\u00e9gorie principale en <strong> suivi du texte sur la m\u00eame ligne : <p><strong>Caisson :</strong> ME1</p>\n- Les cat\u00e9gories possibles : Caisson, Fa\u00e7ades et panneaux apparents, Tiroirs Legrabox, Poign\u00e9es, D\u00e9tails, Exclusions (et autres si pertinent)\n- D\u00e9tails : <p><strong>D\u00e9tails :</strong></p> suivi d'une liste <ul><li>...</li></ul>\n- Exclusions : <p><strong>Exclusions :</strong> texte sur la m\u00eame ligne</p> \u2014 JAMAIS de puces\n- Paragraphes informatifs sans cat\u00e9gorie : <p>texte</p>\n- NE PAS utiliser <h1>, <h2>, <h3> \u2014 uniquement <p>, <strong>, <ul>, <li>\n- NE PAS envelopper dans <div> ou <html> ou <body>\n- Orthographe, accents, pluriels, concordances simples\n- Garder le ton original, pas de reformulation marketing\n- Pas de cr\u00e9ativit\u00e9 non demand\u00e9e, pas de contenu invent\u00e9\n\n## Descriptions client \u00e0 partir du catalogue\nChaque article du catalogue peut avoir un texte de pr\u00e9sentation client (champ client_text).\nQuand tu g\u00e9n\u00e8res une description client pour un \u00e9l\u00e9ment :\n1. Prends le client_text de chaque article/sous-composante utilis\u00e9\n2. Si l'article a une r\u00e8gle de pr\u00e9sentation (presentation_rule), suis-la pour l'ordre, le pr\u00e9fixe et les inclusions/exclusions\n3. Assemble les fragments dans l'ordre logique : Mat\u00e9riau \u2192 Finition \u2192 Quincaillerie \u2192 D\u00e9tails\n4. S\u00e9pare par le s\u00e9parateur d\u00e9fini (virgule par d\u00e9faut)\n5. Commence par le type d'\u00e9l\u00e9ment : \"Caisson en [mat\u00e9riau], [finition], [d\u00e9tails]\"\n6. Le r\u00e9sultat doit \u00eatre une phrase naturelle et professionnelle\n\nExemples :\n- \"Caisson bas en m\u00e9lamine blanche thermofusion\u00e9e, chants PVC assortis, 2 tablettes ajustables, ouverture par pression\"\n- \"Armoire haute en placage de ch\u00eane blanc FC, laque au polyur\u00e9thane clair, 4 tablettes ajustables, charni\u00e8res \u00e0 fermeture douce\"\n- \"Panneau d\u00e9coratif en placage de noyer naturel, vernis mat\"\n\nSi un article n'a pas de client_text, utilise sa description du catalogue reformul\u00e9e pour le client.\nLes fragments sont en minuscule sans point final \u2014 c'est toi qui assembles la phrase compl\u00e8te.",
+        ai_prompt_defaults: "## Articles par d\u00e9faut de l'atelier\nLes articles marqu\u00e9s \u2605 (is_default = true) dans le catalogue sont les articles \"go-to\" de l'atelier.\nQuand tu sugg\u00e8res des articles :\n- Privil\u00e9gie les articles \u2605 en premier\n- Si l'estimateur ne sp\u00e9cifie pas de produit pr\u00e9cis, propose le \u2605 de la cat\u00e9gorie concern\u00e9e\n- Tu peux dire \"Je sugg\u00e8re le [article \u2605] comme d'habitude \u2014 ou tu pr\u00e9f\u00e8res autre chose ?\"",
+        ai_prompt_efficiency: "## Efficacit\u00e9\nSois efficace. Ne pose pas de questions inutiles :\n- Si un d\u00e9faut existe et qu'il est \u00e9vident, utilise-le\n- Si une dimension est visible sur le plan, utilise-la sans demander confirmation\n- Regroupe tes questions : \"Pour le C1, j'ai besoin de : largeur? profondeur?\" \u2014 pas une question \u00e0 la fois\n- Quand tu proposes des articles, montre le r\u00e9sultat directement : \"C1 \u2014 Caisson base 36\u00d724\u00d730 : BAS-001 (467$) + 4 pattes QUI-001 (38.20$) = 505.20$. Confirmer?\"",
+        ai_prompt_language: "## Langue\nR\u00e9ponds dans la langue de l'utilisateur (fran\u00e7ais canadien par d\u00e9faut). Ton professionnel mais naturel, comme un coll\u00e8gue exp\u00e9riment\u00e9 en \u00e9b\u00e9nisterie.",
+        ai_prompt_limitations: "## Limitations\n- Tu ne peux PAS modifier les taux horaires ou cat\u00e9gories de d\u00e9penses\n- Tu ne peux PAS approuver ou changer le statut des soumissions\n- Tu ne peux PAS acc\u00e9der aux projets d'autres utilisateurs\n- Si on te demande quelque chose hors scope, dis-le clairement"
+    };
+
+    function renderAiPrompts() {
+        var container = document.getElementById('aiPromptsContainer');
+        if (!container) return;
+        var html = '';
+        for (var i = 0; i < AI_PROMPT_SECTIONS.length; i++) {
+            var s = AI_PROMPT_SECTIONS[i];
+            html += '<div style="margin-bottom:20px; border:1px solid #e5e7eb; border-radius:8px; padding:16px;">'
+                + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">'
+                + '<div>'
+                + '<strong style="font-size:14px;">' + s.label + '</strong>'
+                + '<span style="font-size:12px; color:#888; margin-left:8px;">' + s.desc + '</span>'
+                + '</div>'
+                + '<span style="font-size:11px; color:#aaa;" id="aiPromptStatus_' + s.key + '"></span>'
+                + '</div>'
+                + '<textarea id="aiPrompt_' + s.key + '" style="width:100%; min-height:120px; font-family:monospace; font-size:12px; line-height:1.5; padding:10px; border:1px solid #d1d5db; border-radius:6px; resize:vertical; box-sizing:border-box;" placeholder="(utilise le texte par d\u00e9faut)"></textarea>'
+                + '<div style="display:flex; gap:8px; margin-top:8px; align-items:center;">'
+                + '<button class="btn-save" onclick="saveAiPrompt(\'' + s.key + '\')" style="font-size:12px; padding:6px 14px;">Sauvegarder</button>'
+                + '<button class="btn-outline" onclick="resetAiPrompt(\'' + s.key + '\')" style="font-size:12px; padding:6px 14px;">R\u00e9initialiser</button>'
+                + '<button class="btn-outline" onclick="showAiPromptDefault(\'' + s.key + '\')" style="font-size:12px; padding:6px 14px; color:#666;">Voir le d\u00e9faut</button>'
+                + '<span class="save-feedback" id="aiPromptFb_' + s.key + '"></span>'
+                + '</div>'
+                + '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    function loadAiPrompts(rows) {
+        renderAiPrompts();
+        if (!Array.isArray(rows)) return;
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.key && row.key.indexOf('ai_prompt_') === 0) {
+                var textarea = document.getElementById('aiPrompt_' + row.key);
+                var statusEl = document.getElementById('aiPromptStatus_' + row.key);
+                if (textarea && row.value && typeof row.value === 'string' && row.value.trim()) {
+                    textarea.value = row.value;
+                    if (statusEl) { statusEl.textContent = 'personnalis\u00e9'; statusEl.style.color = '#4b6050'; }
+                } else {
+                    if (statusEl) { statusEl.textContent = 'par d\u00e9faut'; statusEl.style.color = '#aaa'; }
+                }
+            }
+        }
+    }
+
+    function saveAiPrompt(key) {
+        var textarea = document.getElementById('aiPrompt_' + key);
+        var fb = document.getElementById('aiPromptFb_' + key);
+        var statusEl = document.getElementById('aiPromptStatus_' + key);
+        if (!textarea) return;
+        var val = textarea.value.trim();
+        // Save as JSON string value in app_config
+        authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: key, value: JSON.stringify(val) })
+        }).then(function(r) {
+            if (r.ok || r.status === 201) {
+                showFeedback(fb, 'Sauvegard\u00e9', false);
+                if (statusEl) {
+                    if (val) { statusEl.textContent = 'personnalis\u00e9'; statusEl.style.color = '#4b6050'; }
+                    else { statusEl.textContent = 'par d\u00e9faut'; statusEl.style.color = '#aaa'; }
+                }
+            } else { throw new Error('save failed'); }
+        }).catch(function() { showFeedback(fb, 'Erreur', true); });
+    }
+
+    function resetAiPrompt(key) {
+        var textarea = document.getElementById('aiPrompt_' + key);
+        var fb = document.getElementById('aiPromptFb_' + key);
+        var statusEl = document.getElementById('aiPromptStatus_' + key);
+        if (!textarea) return;
+        textarea.value = '';
+        // Save empty string to clear override
+        authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: key, value: JSON.stringify('') })
+        }).then(function(r) {
+            if (r.ok || r.status === 201) {
+                showFeedback(fb, 'R\u00e9initialis\u00e9 (d\u00e9faut actif)', false);
+                if (statusEl) { statusEl.textContent = 'par d\u00e9faut'; statusEl.style.color = '#aaa'; }
+            } else { throw new Error('reset failed'); }
+        }).catch(function() { showFeedback(fb, 'Erreur', true); });
+    }
+
+    function showAiPromptDefault(key) {
+        var textarea = document.getElementById('aiPrompt_' + key);
+        if (!textarea) return;
+        var def = aiPromptDefaults[key] || '';
+        if (textarea.value === def) {
+            // Already showing default, clear it
+            textarea.value = '';
+            textarea.placeholder = '(utilise le texte par d\u00e9faut)';
+        } else {
+            textarea.value = def;
+        }
+    }
 
     </script>
 </body>

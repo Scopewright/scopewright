@@ -197,10 +197,6 @@
                 margin: 0.75in;
             }
 
-            .cover-page {
-                page-break-after: always;
-            }
-
             .content-page {
                 page-break-after: always;
             }
@@ -210,70 +206,42 @@
             }
         }
 
-        /* Cover page */
-        .cover-page {
-            background-color: var(--stele-green);
-            min-height: 100vh;
-            padding: 60px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .cover-logo {
-            font-size: 48px;
-            font-weight: 400;
-            color: var(--stele-white);
-            letter-spacing: -1px;
-        }
-
-        .cover-content {
-            margin-top: auto;
-            margin-bottom: 120px;
-        }
-
-        .cover-title {
-            font-size: 48px;
-            font-weight: 400;
-            color: var(--stele-white);
-            margin-bottom: 16px;
-        }
-
-        .cover-subtitle {
-            font-size: 18px;
-            font-weight: 400;
-            color: var(--stele-white);
-            opacity: 0.9;
-        }
-
-        .cover-scroll-arrow {
-            position: absolute;
-            bottom: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 32px;
-            height: 52px;
-            cursor: pointer;
-            animation: coverBounce 2s ease infinite;
-        }
-
-        .cover-scroll-arrow svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        @keyframes coverBounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
-            40% { transform: translateX(-50%) translateY(10px); }
-            60% { transform: translateX(-50%) translateY(5px); }
-        }
-
         /* Content pages */
         .content-page {
-            min-height: 100vh;
-            padding: 60px;
+            padding: 40px 60px;
             background: var(--stele-white);
         }
+
+        /* Search bar */
+        .catalogue-search-bar {
+            position: sticky; top: 56px; z-index: 100;
+            background: #fff; padding: 12px 60px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-top: 56px;
+        }
+        .catalogue-search-bar input {
+            width: 100%; padding: 10px 16px;
+            border: 1px solid #d1d5db; border-radius: 10px;
+            font-size: 14px; background: #f9fafb;
+            outline: none; transition: border-color 0.15s;
+        }
+        .catalogue-search-bar input:focus {
+            border-color: var(--stele-green); background: #fff;
+        }
+        .catalogue-search-bar input::placeholder { color: #9ca3af; }
+
+        /* Sortable column headers */
+        .price-table th.sortable {
+            cursor: pointer; user-select: none; position: relative;
+            padding-right: 18px;
+        }
+        .price-table th.sortable:hover { color: var(--stele-green); }
+        .price-table th.sortable::after {
+            content: '\u2195'; position: absolute; right: 4px; top: 50%;
+            transform: translateY(-50%); font-size: 10px; color: #aaa;
+        }
+        .price-table th.sortable.sort-asc::after { content: '\u25B2'; color: var(--stele-green); }
+        .price-table th.sortable.sort-desc::after { content: '\u25BC'; color: var(--stele-green); }
 
         /* Header */
         .page-header {
@@ -299,24 +267,6 @@
             margin-bottom: 24px;
         }
 
-        /* Disclaimer */
-        .disclaimer {
-            max-width: 800px;
-        }
-
-        .disclaimer p {
-            margin-bottom: 16px;
-            line-height: 1.7;
-        }
-
-        .disclaimer-note {
-            font-style: italic;
-            color: #555;
-        }
-
-        .legend {
-            margin-top: 24px;
-        }
 
         .legend-title {
             font-weight: 700;
@@ -480,24 +430,12 @@
         }
 
         @media print {
-            .nav-bar {
+            .nav-bar, .catalogue-search-bar {
                 display: none;
-            }
-
-            .cover-page {
-                min-height: auto;
-                height: 100vh;
             }
 
             .content-page {
                 min-height: auto;
-            }
-        }
-
-        /* Spacing for fixed nav */
-        @media screen {
-            .cover-page {
-                margin-top: 56px;
             }
         }
 
@@ -1597,7 +1535,6 @@
         <span class="nav-logo">stele</span>
         <div class="nav-links" id="navLinks">
             <a href="app.html" class="nav-back">&larr; Menu</a>
-            <a href="#disclaimer">Avis</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
             <button class="nav-filter-btn" id="navImportBtn" style="display:none;" onclick="toggleImportDrawer()">&#x2728; Assistant</button>
@@ -1613,45 +1550,10 @@
         </div>
     </nav>
 
-    <!-- Cover Page -->
-    <section class="cover-page">
-        <div class="cover-logo">stele</div>
-        <div class="cover-content">
-            <h1 class="cover-title">Catalogue de prix</h1>
-            <p class="cover-subtitle">Guide de référence pour chargés de projet</p>
-        </div>
-        <a href="#disclaimer" class="cover-scroll-arrow" aria-label="D&eacute;filer vers le bas">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 48" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="2" x2="12" y2="44"/>
-                <polyline points="4 36 12 44 20 36"/>
-            </svg>
-        </a>
-    </section>
-
-    <!-- Disclaimer Page -->
-    <section class="content-page" id="disclaimer">
-        <header class="page-header">
-            <span class="header-logo">stele</span>
-        </header>
-
-        <h2 class="section-title">Avis important</h2>
-
-        <div class="disclaimer">
-            <p>Les prix indiqués dans ce document sont fournis à titre indicatif uniquement et peuvent varier selon les spécifications finales du projet, les conditions d'installation, la complexité des ouvrages et la disponibilité des matériaux.</p>
-
-            <p>Ce catalogue sert de référence pour donner une idée de prix lors des discussions préliminaires avec les clients. Une soumission détaillée sera toujours requise pour confirmer les prix finaux.</p>
-
-            <div class="legend">
-                <p class="legend-title">Légende des unités</p>
-                <ul>
-                    <li>pi² : Prix au pied carré</li>
-                    <li>linéaire : Prix au pied linéaire</li>
-                    <li>unitaire : Prix à l'unité</li>
-                    <li>% : Pourcentage applicable sur le prix du mobilier</li>
-                </ul>
-            </div>
-        </div>
-    </section>
+    <!-- Barre de recherche -->
+    <div class="catalogue-search-bar no-print" id="catalogueSearchBar">
+        <input type="text" id="catalogueSearchInput" placeholder="Rechercher un article (code, description, cat&#233;gorie...)" oninput="filterCatalogueSearch()">
+    </div>
 
     <!-- Conteneur pour les sections de catégories (générées dynamiquement) -->
     <div id="dynamicSections"></div>
@@ -2080,6 +1982,27 @@
             return type;
         }
 
+        // ═══ Search + Sort state ═══
+        var catalogueSearchQuery = '';
+        var catalogueSortCol = null; // 'code', 'type', 'description', 'price'
+        var catalogueSortDir = 'asc'; // 'asc' or 'desc'
+
+        function filterCatalogueSearch() {
+            var input = document.getElementById('catalogueSearchInput');
+            catalogueSearchQuery = (input ? input.value : '').toLowerCase().trim();
+            generatePriceTables();
+        }
+
+        function sortCatalogueBy(col) {
+            if (catalogueSortCol === col) {
+                catalogueSortDir = catalogueSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                catalogueSortCol = col;
+                catalogueSortDir = 'asc';
+            }
+            generatePriceTables();
+        }
+
         // Générer les tableaux de prix dynamiquement
         function generatePriceTables() {
             // Grouper par catégorie (en conservant l'ordre d'apparition)
@@ -2093,12 +2016,39 @@
                 if (filterPendingOnly && item.status !== 'pending') return;
                 if (!canEditCatalogue && item.status === 'pending') return;
 
+                // Search filter
+                if (catalogueSearchQuery) {
+                    var q = catalogueSearchQuery;
+                    var match = (item.id || '').toLowerCase().indexOf(q) !== -1
+                        || (item.description || '').toLowerCase().indexOf(q) !== -1
+                        || (item.category || '').toLowerCase().indexOf(q) !== -1
+                        || (item.instruction || '').toLowerCase().indexOf(q) !== -1
+                        || (item.type || '').toLowerCase().indexOf(q) !== -1;
+                    if (!match) return;
+                }
+
                 if (!grouped[item.category]) {
                     grouped[item.category] = [];
                     categoryOrder.push(item.category);
                 }
                 grouped[item.category].push(item);
             });
+
+            // Sort items within each category
+            if (catalogueSortCol) {
+                Object.keys(grouped).forEach(function(cat) {
+                    grouped[cat].sort(function(a, b) {
+                        var va, vb;
+                        if (catalogueSortCol === 'code') { va = a.id || ''; vb = b.id || ''; }
+                        else if (catalogueSortCol === 'description') { va = a.description || ''; vb = b.description || ''; }
+                        else if (catalogueSortCol === 'type') { va = a.type || ''; vb = b.type || ''; }
+                        else if (catalogueSortCol === 'price') { va = a.price || 0; vb = b.price || 0; }
+                        else { return 0; }
+                        var cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb, 'fr');
+                        return catalogueSortDir === 'desc' ? -cmp : cmp;
+                    });
+                });
+            }
 
             // Générer les liens de navigation
             const navLinks = document.getElementById('navLinks');
@@ -2143,11 +2093,11 @@
                 let html = `
                     <thead>
                         <tr>
-                            <th class="col-code">Code</th>
+                            <th class="col-code sortable${catalogueSortCol==='code'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('code')">Code</th>
                             <th class="col-fiche"></th>
-                            <th class="col-type">Type</th>
-                            <th class="col-description">Description</th>
-                            <th class="col-price">Prix</th>
+                            <th class="col-type sortable${catalogueSortCol==='type'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('type')">Type</th>
+                            <th class="col-description sortable${catalogueSortCol==='description'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('description')">Description</th>
+                            <th class="col-price sortable${catalogueSortCol==='price'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('price')">Prix</th>
                             ${canEditCatalogue ? `<th class="col-edit"><button class="btn-add-item" onclick="createNewItem('${escapeAttr(category).replace(/'/g, "&#39;")}')" title="Ajouter un article">+</button></th>` : ''}
                         </tr>
                     </thead>

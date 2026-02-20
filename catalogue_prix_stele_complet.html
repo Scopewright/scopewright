@@ -212,6 +212,48 @@
             background: var(--stele-white);
         }
 
+        /* Catalogue header bar (title + dropdown) */
+        .catalogue-header-bar {
+            display: flex; align-items: center; gap: 16px;
+            padding: 24px 60px 16px;
+        }
+        .catalogue-title {
+            font-size: 24px; font-weight: 700; color: var(--stele-black);
+            margin: 0;
+        }
+        .catalogue-cat-dropdown {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border: 1px solid #ddd; border-radius: 8px;
+            font-size: 13px; color: #555; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            user-select: none;
+        }
+        .catalogue-cat-dropdown:hover { border-color: #999; background: #fafafa; }
+        .catalogue-cat-dropdown.active { border-color: #0B1220; color: #0B1220; }
+        .cat-dd-chevron { font-size: 10px; color: #999; }
+        /* Category grouping row */
+        .cat-group-row td {
+            background: #F1F5F9; color: #475569; font-weight: 600;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 8px 16px !important; border-bottom: 1px solid #e2e8f0;
+        }
+        /* Category dropdown popover */
+        .cat-dd-popover {
+            position: fixed; z-index: 9999;
+            background: #fff; border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+            min-width: 200px; max-height: 320px; overflow-y: auto;
+            padding: 4px 0;
+            animation: sdFadeIn 120ms ease-out;
+        }
+        .cat-dd-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; cursor: pointer; font-size: 13px; color: #0f172a;
+            transition: background 0.1s;
+        }
+        .cat-dd-item:hover, .cat-dd-item.focused { background: #f1f5f9; }
+        .cat-dd-item .cat-dd-check { color: #64748b; font-size: 14px; }
+
         /* Search bar */
         .catalogue-search-bar {
             position: sticky; top: 56px; z-index: 100;
@@ -303,13 +345,13 @@
 
         /* Tables */
         .price-table {
-            width: 100%;
+            width: calc(100% - 120px);
+            margin: 0 60px;
             border-collapse: collapse;
-            margin-top: 16px;
         }
 
         .price-table thead {
-            background-color: var(--stele-black);
+            background-color: #0B1220;
         }
 
         .price-table th {
@@ -1536,7 +1578,7 @@
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
         .ai-trigger-btn {
             width: 28px; height: 28px; border-radius: 50%;
-            background: #0F1C2D; opacity: 0.5;
+            background: #0F1C2D; opacity: 0.6;
             border: none; cursor: pointer;
             transition: opacity 0.2s, box-shadow 0.2s;
             position: relative; vertical-align: middle;
@@ -1566,7 +1608,6 @@
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
             <button class="ai-trigger-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
-            <!-- Les liens des catégories sont générés dynamiquement -->
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
                 <div class="nav-add-dd" id="navAddDd"></div>
@@ -1584,8 +1625,15 @@
     </div>
     <div class="ai-filter-badge no-print" id="aiFilterBadge" style="display:none;" onclick="resetAiFilter()">Filtre AI actif &mdash; Tout afficher</div>
 
-    <!-- Conteneur pour les sections de catégories (générées dynamiquement) -->
-    <div id="dynamicSections"></div>
+    <!-- Titre + dropdown catégorie + table unique -->
+    <div class="catalogue-header-bar no-print">
+        <h2 class="catalogue-title">Catalogue</h2>
+        <div class="catalogue-cat-dropdown" id="catDropdownTrigger" onclick="openCatDropdown(event)">
+            <span id="catDropdownLabel">Toutes les cat&eacute;gories</span>
+            <span class="cat-dd-chevron">&#9662;</span>
+        </div>
+    </div>
+    <table class="price-table" id="mainCatalogueTable"></table>
 
 
     <!-- Modal Édition catalogue -->
@@ -2017,6 +2065,7 @@
         var catalogueSortDir = 'asc'; // 'asc' or 'desc'
         var aiFilterActive = false;
         var aiFilterCategory = null;
+        var selectedCategory = null; // null = all categories
 
         function filterCatalogueSearch() {
             var input = document.getElementById('catalogueSearchInput');
@@ -2034,20 +2083,67 @@
             generatePriceTables();
         }
 
-        // Générer les tableaux de prix dynamiquement
+        // ═══ Category dropdown ═══
+        var _catDdPopover = null;
+        function openCatDropdown(e) {
+            e.stopPropagation();
+            if (_catDdPopover) { closeCatDropdown(); return; }
+            var trigger = document.getElementById('catDropdownTrigger');
+            var rect = trigger.getBoundingClientRect();
+            // Get all categories from CATALOGUE_DATA
+            var cats = [];
+            CATALOGUE_DATA.forEach(function(item) {
+                if (!isExcludedCategory(item.category) && cats.indexOf(item.category) === -1) cats.push(item.category);
+            });
+            var pop = document.createElement('div');
+            pop.className = 'cat-dd-popover';
+            pop.style.top = (rect.bottom + 4) + 'px';
+            pop.style.left = rect.left + 'px';
+            // "All" option
+            pop.innerHTML = '<div class="cat-dd-item' + (!selectedCategory ? ' focused' : '') + '" data-val="">' +
+                'Toutes les cat\u00e9gories' + (!selectedCategory ? '<span class="cat-dd-check">\u2713</span>' : '') + '</div>';
+            cats.forEach(function(cat) {
+                var isSel = selectedCategory && selectedCategory.toLowerCase() === cat.toLowerCase();
+                pop.innerHTML += '<div class="cat-dd-item' + (isSel ? ' focused' : '') + '" data-val="' + escapeAttr(cat) + '">' +
+                    escapeHtml(cat) + (isSel ? '<span class="cat-dd-check">\u2713</span>' : '') + '</div>';
+            });
+            document.body.appendChild(pop);
+            _catDdPopover = pop;
+            pop.addEventListener('click', function(ev) {
+                var item = ev.target.closest('.cat-dd-item');
+                if (!item) return;
+                var val = item.getAttribute('data-val');
+                selectedCategory = val || null;
+                var label = document.getElementById('catDropdownLabel');
+                label.textContent = val || 'Toutes les cat\u00e9gories';
+                var trigger2 = document.getElementById('catDropdownTrigger');
+                trigger2.classList.toggle('active', !!val);
+                closeCatDropdown();
+                generatePriceTables();
+            });
+            setTimeout(function() { document.addEventListener('click', _catDdOutsideClick); }, 0);
+        }
+        function _catDdOutsideClick(e) {
+            if (_catDdPopover && !_catDdPopover.contains(e.target)) closeCatDropdown();
+        }
+        function closeCatDropdown() {
+            if (_catDdPopover) { _catDdPopover.remove(); _catDdPopover = null; }
+            document.removeEventListener('click', _catDdOutsideClick);
+        }
+
+        // Générer la table de prix unique
         function generatePriceTables() {
             // Grouper par catégorie (en conservant l'ordre d'apparition)
             const grouped = {};
             const categoryOrder = [];
+            var activeCat = selectedCategory || aiFilterCategory || null;
 
             CATALOGUE_DATA.forEach(item => {
-                // Exclure les catégories Temps et Ajouts des tableaux
                 if (isExcludedCategory(item.category)) return;
                 if (filterDefaultsOnly && !item.is_default) return;
                 if (filterPendingOnly && item.status !== 'pending') return;
                 if (!canEditCatalogue && item.status === 'pending') return;
 
-                // Search filter
                 if (catalogueSearchQuery) {
                     var q = catalogueSearchQuery;
                     var match = (item.id || '').toLowerCase().indexOf(q) !== -1
@@ -2058,9 +2154,8 @@
                     if (!match) return;
                 }
 
-                // AI category filter
-                if (aiFilterCategory) {
-                    if ((item.category || '').toLowerCase() !== aiFilterCategory.toLowerCase()) return;
+                if (activeCat) {
+                    if ((item.category || '').toLowerCase() !== activeCat.toLowerCase()) return;
                 }
 
                 if (!grouped[item.category]) {
@@ -2086,106 +2181,62 @@
                 });
             }
 
-            // Générer les liens de navigation
-            const navLinks = document.getElementById('navLinks');
+            // Build single table HTML
+            var colCount = canEditCatalogue ? 6 : 5;
+            var html = '<thead><tr>' +
+                '<th class="col-code sortable' + (catalogueSortCol==='code'? ' sort-'+catalogueSortDir:'') + '" onclick="sortCatalogueBy(\'code\')">Code</th>' +
+                '<th class="col-fiche"></th>' +
+                '<th class="col-type sortable' + (catalogueSortCol==='type'? ' sort-'+catalogueSortDir:'') + '" onclick="sortCatalogueBy(\'type\')">Type</th>' +
+                '<th class="col-description sortable' + (catalogueSortCol==='description'? ' sort-'+catalogueSortDir:'') + '" onclick="sortCatalogueBy(\'description\')">Description</th>' +
+                '<th class="col-price sortable' + (catalogueSortCol==='price'? ' sort-'+catalogueSortDir:'') + '" onclick="sortCatalogueBy(\'price\')">Prix</th>' +
+                (canEditCatalogue ? '<th class="col-edit"></th>' : '') +
+                '</tr></thead><tbody>';
 
-            // Supprimer les anciens liens dynamiques
-            const existingLinks = navLinks.querySelectorAll('a.dynamic-nav-link');
-            existingLinks.forEach(link => link.remove());
+            categoryOrder.forEach(function(category) {
+                // Category grouping row (hide when single category selected)
+                if (!activeCat) {
+                    html += '<tr class="cat-group-row"><td colspan="' + colCount + '">' + escapeHtml(category) +
+                        (canEditCatalogue ? ' <button class="btn-add-item" onclick="createNewItem(\'' + escapeAttr(category).replace(/'/g, "&#39;") + '\')" title="Ajouter un article" style="float:right;margin-top:-2px;">+</button>' : '') +
+                        '</td></tr>';
+                }
 
-            // Ajouter les nouveaux liens
-            categoryOrder.forEach(category => {
-                const link = document.createElement('a');
-                link.href = '#' + categoryToId(category);
-                link.textContent = category;
-                link.className = 'dynamic-nav-link';
-                navLinks.appendChild(link);
-            });
-
-            // Générer les sections HTML
-            const sectionsContainer = document.getElementById('dynamicSections');
-            sectionsContainer.innerHTML = '';
-
-            categoryOrder.forEach(category => {
-                const sectionId = categoryToId(category);
-                const tableId = 'table-' + sectionId;
-
-                const section = document.createElement('section');
-                section.className = 'content-page';
-                section.id = sectionId;
-
-                section.innerHTML = `
-                    <header class="page-header">
-                        <span class="header-logo">stele</span>
-                    </header>
-                    <h2 class="section-title">${escapeHtml(category)}</h2>
-                    <table class="price-table" id="${tableId}"></table>
-                `;
-
-                sectionsContainer.appendChild(section);
-
-                // Remplir le tableau
-                const table = document.getElementById(tableId);
-                let html = `
-                    <thead>
-                        <tr>
-                            <th class="col-code sortable${catalogueSortCol==='code'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('code')">Code</th>
-                            <th class="col-fiche"></th>
-                            <th class="col-type sortable${catalogueSortCol==='type'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('type')">Type</th>
-                            <th class="col-description sortable${catalogueSortCol==='description'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('description')">Description</th>
-                            <th class="col-price sortable${catalogueSortCol==='price'? ' sort-'+catalogueSortDir:''}" onclick="sortCatalogueBy('price')">Prix</th>
-                            ${canEditCatalogue ? `<th class="col-edit"><button class="btn-add-item" onclick="createNewItem('${escapeAttr(category).replace(/'/g, "&#39;")}')" title="Ajouter un article">+</button></th>` : ''}
-                        </tr>
-                    </thead>
-                    <tbody>
-                `;
-
-                grouped[category].forEach(item => {
-                    const imgHtml = item.image_url
-                        ? `<img class="tooltip-image" src="${escapeAttr(item.image_url)}" alt="">`
+                grouped[category].forEach(function(item) {
+                    var imgHtml = item.image_url
+                        ? '<img class="tooltip-image" src="' + escapeAttr(item.image_url) + '" alt="">'
                         : '';
-                    const tooltipClass = item.image_url ? 'tooltip has-image' : 'tooltip';
+                    var tooltipClass = item.image_url ? 'tooltip has-image' : 'tooltip';
 
-                    html += `
-                        <tr data-item-id="${escapeAttr(item.id)}">
-                            <td>
-                                <span class="tooltip-container tooltip-table">
-                                    ${escapeHtml(item.id)}
-                                    <div class="${tooltipClass}">
-                                        ${imgHtml}
-                                        <div class="tooltip-title">${escapeHtml(item.description)}</div>
-                                        <div class="tooltip-text">${escapeHtml(item.instruction || '')}</div>
-                                    </div>
-                                </span>
-                            </td>
-                            <td>${item.has_sales_sheet ? `<a class="fiche-link" href="fiche.html?code=${encodeURIComponent(item.id)}" target="_blank">fiche client</a>` : ''}</td>
-                            <td>${formatType(item.type)}</td>
-                            <td>
-                                ${canEditCatalogue ? `<span class="default-star${item.is_default ? ' active' : ''}" onclick="event.stopPropagation();toggleDefault('${escapeAttr(item.id)}',this)" title="Article par d\u00e9faut">\u2605</span> ` : (item.is_default ? '<span class="default-star active" style="cursor:default;" title="Article par d\u00e9faut">\u2605</span> ' : '')}
-                                <span class="tooltip-container tooltip-table tooltip-left">
-                                    ${escapeHtml(item.description)}
-                                    <div class="${tooltipClass}">
-                                        ${imgHtml}
-                                        <div class="tooltip-title">${escapeHtml(item.id)}</div>
-                                        <div class="tooltip-text">${escapeHtml(item.instruction || '')}</div>
-                                    </div>
-                                </span>
-                                ${(item.supplier_name || item.supplier_sku) ? '<div class="item-supplier-sub">' + [item.supplier_name, item.supplier_sku].filter(Boolean).map(escapeHtml).join(' \u2022 ') + '</div>' : ''}
-                                ${item.status === 'pending' ? '<span class="item-pending-badge" onclick="approveItem(\'' + escapeAttr(item.id) + '\', event)" title="Cliquer pour approuver">en attente</span>' : ''}
-                            </td>
-                            <td>${formatPrice(item.price)}</td>
-                            ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${escapeAttr(item.id)}')" title="Modifier">&#9998;</button></td>` : ''}
-                        </tr>
-                    `;
+                    html += '<tr data-item-id="' + escapeAttr(item.id) + '">' +
+                        '<td><span class="tooltip-container tooltip-table">' +
+                            escapeHtml(item.id) +
+                            '<div class="' + tooltipClass + '">' + imgHtml +
+                                '<div class="tooltip-title">' + escapeHtml(item.description) + '</div>' +
+                                '<div class="tooltip-text">' + escapeHtml(item.instruction || '') + '</div>' +
+                            '</div></span></td>' +
+                        '<td>' + (item.has_sales_sheet ? '<a class="fiche-link" href="fiche.html?code=' + encodeURIComponent(item.id) + '" target="_blank">fiche client</a>' : '') + '</td>' +
+                        '<td>' + formatType(item.type) + '</td>' +
+                        '<td>' +
+                            (canEditCatalogue ? '<span class="default-star' + (item.is_default ? ' active' : '') + '" onclick="event.stopPropagation();toggleDefault(\'' + escapeAttr(item.id) + '\',this)" title="Article par d\u00e9faut">\u2605</span> ' : (item.is_default ? '<span class="default-star active" style="cursor:default;" title="Article par d\u00e9faut">\u2605</span> ' : '')) +
+                            '<span class="tooltip-container tooltip-table tooltip-left">' + escapeHtml(item.description) +
+                                '<div class="' + tooltipClass + '">' + imgHtml +
+                                    '<div class="tooltip-title">' + escapeHtml(item.id) + '</div>' +
+                                    '<div class="tooltip-text">' + escapeHtml(item.instruction || '') + '</div>' +
+                                '</div></span>' +
+                            ((item.supplier_name || item.supplier_sku) ? '<div class="item-supplier-sub">' + [item.supplier_name, item.supplier_sku].filter(Boolean).map(escapeHtml).join(' \u2022 ') + '</div>' : '') +
+                            (item.status === 'pending' ? '<span class="item-pending-badge" onclick="approveItem(\'' + escapeAttr(item.id) + '\', event)" title="Cliquer pour approuver">en attente</span>' : '') +
+                        '</td>' +
+                        '<td>' + formatPrice(item.price) + '</td>' +
+                        (canEditCatalogue ? '<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal(\'' + escapeAttr(item.id) + '\')" title="Modifier">&#9998;</button></td>' : '') +
+                        '</tr>';
                 });
-
-                html += '</tbody>';
-                table.innerHTML = html;
             });
+
+            html += '</tbody>';
+            document.getElementById('mainCatalogueTable').innerHTML = html;
 
             // Stagger animation on rows if AI filter is active
             if (aiFilterActive) {
-                var allRows = sectionsContainer.querySelectorAll('.price-table tbody tr');
+                var allRows = document.querySelectorAll('#mainCatalogueTable tbody tr:not(.cat-group-row)');
                 allRows.forEach(function(row, i) {
                     row.classList.add('ai-row-animate');
                     row.style.animationDelay = Math.min(i * 30, 300) + 'ms';
@@ -3835,6 +3886,8 @@
             };
         }
 
+        var ciStreamEl = null; // live-updating message element during streaming
+
         async function callCatalogueImport(messages, context) {
             var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/catalogue-import', {
                 method: 'POST',
@@ -3846,7 +3899,92 @@
                 try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
                 catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
             }
-            return await resp.json();
+
+            var contentType = resp.headers.get('content-type') || '';
+            // Non-streaming fallback (error responses come as JSON)
+            if (contentType.indexOf('text/event-stream') === -1) {
+                return await resp.json();
+            }
+
+            // Parse SSE stream
+            var reader = resp.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+            var contentBlocks = [];
+            var currentBlockIdx = -1;
+            var currentText = '';
+            var currentToolName = '';
+            var currentToolId = '';
+            var currentToolInput = '';
+            var stopReason = null;
+            var usage = null;
+
+            // Create live message element
+            document.getElementById('ciTyping').classList.remove('active');
+            ciStreamEl = document.createElement('div');
+            ciStreamEl.className = 'ci-msg ci-msg-assistant';
+            document.getElementById('ciMessages').appendChild(ciStreamEl);
+
+            while (true) {
+                var chunk = await reader.read();
+                if (chunk.done) break;
+                buffer += decoder.decode(chunk.value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (var li = 0; li < lines.length; li++) {
+                    var line = lines[li];
+                    if (!line.startsWith('data: ')) continue;
+                    var jsonStr = line.slice(6).trim();
+                    if (!jsonStr || jsonStr === '[DONE]') continue;
+                    try {
+                        var evt = JSON.parse(jsonStr);
+                        if (evt.type === 'content_block_start') {
+                            currentBlockIdx = evt.index;
+                            if (evt.content_block.type === 'text') {
+                                currentText = '';
+                            } else if (evt.content_block.type === 'tool_use') {
+                                currentToolName = evt.content_block.name;
+                                currentToolId = evt.content_block.id;
+                                currentToolInput = '';
+                            }
+                        } else if (evt.type === 'content_block_delta') {
+                            if (evt.delta.type === 'text_delta') {
+                                currentText += evt.delta.text;
+                                // Live update the message
+                                if (ciStreamEl) {
+                                    ciStreamEl.innerHTML = renderCiMarkdown(currentText);
+                                    var container = document.getElementById('ciMessages');
+                                    if (container.scrollHeight - container.scrollTop - container.clientHeight < 80) {
+                                        container.scrollTop = container.scrollHeight;
+                                    }
+                                }
+                            } else if (evt.delta.type === 'input_json_delta') {
+                                currentToolInput += evt.delta.partial_json;
+                            }
+                        } else if (evt.type === 'content_block_stop') {
+                            if (currentToolName) {
+                                var parsedInput = {};
+                                try { parsedInput = JSON.parse(currentToolInput); } catch(e2) {}
+                                contentBlocks.push({ type: 'tool_use', id: currentToolId, name: currentToolName, input: parsedInput });
+                                currentToolName = '';
+                                currentToolId = '';
+                                currentToolInput = '';
+                            } else {
+                                contentBlocks.push({ type: 'text', text: currentText });
+                                currentText = '';
+                            }
+                        } else if (evt.type === 'message_delta') {
+                            if (evt.delta && evt.delta.stop_reason) stopReason = evt.delta.stop_reason;
+                            if (evt.usage) usage = evt.usage;
+                        }
+                    } catch(parseErr) {}
+                }
+            }
+
+            // Remove the streaming element — it'll be re-added by ciHandleResponse
+            if (ciStreamEl) { ciStreamEl.remove(); ciStreamEl = null; }
+
+            return { content: contentBlocks, stop_reason: stopReason, usage: usage };
         }
 
         function ciSearchCatalogue(query) {
@@ -3909,7 +4047,7 @@
         }
 
         function countVisibleItems() {
-            return document.querySelectorAll('#dynamicSections .price-table tbody tr').length;
+            return document.querySelectorAll('#mainCatalogueTable tbody tr:not(.cat-group-row)').length;
         }
 
         async function sendImportMessage() {
@@ -3993,9 +4131,10 @@
             var textParts = [];
             var actionTools = [];
 
+            var readOnlyNames = ['search_catalogue', 'filter_catalogue'];
             contentBlocks.forEach(function(block) {
                 if (block.type === 'text') textParts.push(block.text);
-                if (block.type === 'tool_use' && block.name !== 'search_catalogue') actionTools.push(block);
+                if (block.type === 'tool_use' && readOnlyNames.indexOf(block.name) === -1) actionTools.push(block);
             });
 
             // Add to conversation if not already added (when no read-only tools were processed)

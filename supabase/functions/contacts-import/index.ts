@@ -157,8 +157,8 @@ async function loadPromptOverride(supabase: any): Promise<string | null> {
 function buildSystemPrompt(context: any, staticOverride: string | null): string {
   const staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
-  const contactCount = (context.contacts || []).length;
-  const companyCount = (context.companies || []).length;
+  const contactCount = context.contactCount || (context.contacts || []).length;
+  const companyCount = context.companyCount || (context.companies || []).length;
   const companyTypesStr = (context.companyTypes || []).join(", ");
   const contactRolesStr = (context.contactRoles || []).join(", ");
 
@@ -378,6 +378,7 @@ serve(async (req) => {
       system: systemPrompt,
       messages: messages,
       tools: TOOLS,
+      stream: true,
     };
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -390,23 +391,55 @@ serve(async (req) => {
       body: JSON.stringify(body),
     });
 
-    const data = await resp.json();
-
-    if (data.error) {
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
       return new Response(
-        JSON.stringify({ error: data.error.message || JSON.stringify(data.error) }),
+        JSON.stringify({ error: "Anthropic API error: " + resp.status + " " + errText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        content: data.content,
-        stop_reason: data.stop_reason,
-        usage: data.usage,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Relay SSE stream from Anthropic to client
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    (async () => {
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ") || line.startsWith("event: ")) {
+              await writer.write(encoder.encode(line + "\n"));
+            } else if (line.trim() === "") {
+              await writer.write(encoder.encode("\n"));
+            }
+          }
+        }
+        if (buffer.trim()) {
+          await writer.write(encoder.encode(buffer + "\n\n"));
+        }
+      } catch (e) {
+        await writer.write(encoder.encode("data: " + JSON.stringify({ type: "error", error: { message: (e as Error).message } }) + "\n\n"));
+      } finally {
+        writer.close();
+      }
+    })();
+
+    return new Response(readable, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),

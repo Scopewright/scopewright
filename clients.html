@@ -301,7 +301,7 @@
         .ct-img-thumb .ct-img-remove:hover { background: rgba(0,0,0,0.7); }
         .ai-trigger-btn {
             width: 28px; height: 28px; border-radius: 50%;
-            background: #0F1C2D; opacity: 0.5;
+            background: #0F1C2D; opacity: 0.6;
             border: none; cursor: pointer;
             transition: opacity 0.2s, box-shadow 0.2s;
             position: relative; vertical-align: middle;
@@ -1513,24 +1513,28 @@
     }
 
     function collectContactsContext() {
+        // Limit payload: send at most 100 contacts, 50 companies (minimal fields)
+        var ctxContacts = allContacts.slice(0, 100).map(function(c) {
+            var co = (c.contact_companies || []).map(function(cc) {
+                return cc.companies ? cc.companies.name : null;
+            }).filter(Boolean);
+            return { id: c.id, name: c.first_name + ' ' + c.last_name, email: c.email, companies: co };
+        });
+        var ctxCompanies = allCompanies.slice(0, 50).map(function(co) {
+            return { id: co.id, name: co.name, type: co.company_type };
+        });
         return {
-            contacts: allContacts.map(function(c) {
-                return {
-                    id: c.id, first_name: c.first_name, last_name: c.last_name,
-                    email: c.email, phone: c.phone,
-                    companies: (c.contact_companies || []).map(function(cc) {
-                        return { name: cc.companies ? cc.companies.name : null, role: cc.role };
-                    })
-                };
-            }),
-            companies: allCompanies.map(function(co) {
-                return { id: co.id, name: co.name, company_type: co.company_type, phone: co.phone, email: co.email };
-            }),
+            contacts: ctxContacts,
+            companies: ctxCompanies,
+            contactCount: allContacts.length,
+            companyCount: allCompanies.length,
             companyTypes: configCompanyTypes,
             contactRoles: configContactRoles,
             userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase()
         };
     }
+
+    var ctStreamEl = null;
 
     async function callContactsImport(messages, context) {
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/contacts-import', {
@@ -1543,7 +1547,83 @@
             try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
             catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
         }
-        return await resp.json();
+
+        var contentType = resp.headers.get('content-type') || '';
+        if (contentType.indexOf('text/event-stream') === -1) {
+            return await resp.json();
+        }
+
+        // Parse SSE stream
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        var contentBlocks = [];
+        var currentText = '';
+        var currentToolName = '';
+        var currentToolId = '';
+        var currentToolInput = '';
+        var stopReason = null;
+        var usage = null;
+
+        document.getElementById('ctTyping').classList.remove('active');
+        ctStreamEl = document.createElement('div');
+        ctStreamEl.className = 'ct-msg ct-msg-assistant';
+        document.getElementById('ctMessages').appendChild(ctStreamEl);
+
+        while (true) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+            buffer += decoder.decode(chunk.value, { stream: true });
+            var lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (var li = 0; li < lines.length; li++) {
+                var line = lines[li];
+                if (!line.startsWith('data: ')) continue;
+                var jsonStr = line.slice(6).trim();
+                if (!jsonStr || jsonStr === '[DONE]') continue;
+                try {
+                    var evt = JSON.parse(jsonStr);
+                    if (evt.type === 'content_block_start') {
+                        if (evt.content_block.type === 'text') {
+                            currentText = '';
+                        } else if (evt.content_block.type === 'tool_use') {
+                            currentToolName = evt.content_block.name;
+                            currentToolId = evt.content_block.id;
+                            currentToolInput = '';
+                        }
+                    } else if (evt.type === 'content_block_delta') {
+                        if (evt.delta.type === 'text_delta') {
+                            currentText += evt.delta.text;
+                            if (ctStreamEl) {
+                                ctStreamEl.innerHTML = renderCtMarkdown(currentText);
+                                var cont = document.getElementById('ctMessages');
+                                if (cont.scrollHeight - cont.scrollTop - cont.clientHeight < 80) cont.scrollTop = cont.scrollHeight;
+                            }
+                        } else if (evt.delta.type === 'input_json_delta') {
+                            currentToolInput += evt.delta.partial_json;
+                        }
+                    } else if (evt.type === 'content_block_stop') {
+                        if (currentToolName) {
+                            var parsedInput = {};
+                            try { parsedInput = JSON.parse(currentToolInput); } catch(e2) {}
+                            contentBlocks.push({ type: 'tool_use', id: currentToolId, name: currentToolName, input: parsedInput });
+                            currentToolName = '';
+                            currentToolId = '';
+                            currentToolInput = '';
+                        } else {
+                            contentBlocks.push({ type: 'text', text: currentText });
+                            currentText = '';
+                        }
+                    } else if (evt.type === 'message_delta') {
+                        if (evt.delta && evt.delta.stop_reason) stopReason = evt.delta.stop_reason;
+                        if (evt.usage) usage = evt.usage;
+                    }
+                } catch(parseErr) {}
+            }
+        }
+
+        if (ctStreamEl) { ctStreamEl.remove(); ctStreamEl = null; }
+        return { content: contentBlocks, stop_reason: stopReason, usage: usage };
     }
 
     function ctSearchContacts(query) {
@@ -1684,9 +1764,10 @@
         var textParts = [];
         var actionTools = [];
 
+        var readOnlyNames = ['search_contacts', 'filter_contacts'];
         contentBlocks.forEach(function(block) {
             if (block.type === 'text') textParts.push(block.text);
-            if (block.type === 'tool_use' && block.name !== 'search_contacts') actionTools.push(block);
+            if (block.type === 'tool_use' && readOnlyNames.indexOf(block.name) === -1) actionTools.push(block);
         });
 
         var lastMsg = ctConversation[ctConversation.length - 1];

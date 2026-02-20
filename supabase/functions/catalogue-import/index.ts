@@ -141,6 +141,16 @@ Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains art
 - NE PAS utiliser de listes à bullets pour les articles
 - Les tableaux seront automatiquement convertis en cards visuelles côté client
 
+## Mode reverse pricing (prix inversé)
+Quand l'utilisateur donne un prix de vente cible (ex: "un compétiteur vend ça 485$") et veut bâtir le coûtant :
+1. Utilise les barèmes de l'atelier (taux horaires, markups, waste factors) fournis dans le contexte
+2. Utilise tes connaissances en ébénisterie pour proposer une répartition réaliste des minutes par département et des coûts matériaux
+3. Calcule : Prix = Σ(minutes/60 × taux_horaire) + Σ(coût_mat × (1 + markup/100 + waste/100))
+4. Itère avec l'utilisateur : "Avec ces minutes et matériaux, le prix calculé est 478$. Écart : -7$ (1.4%). Tu veux ajuster ?"
+5. Une fois validé, crée l'article avec create_catalogue_item incluant labor_minutes et material_costs
+
+Tu connais les temps typiques de production (coupe, assemblage, machinage, sablage, finition), les coûts matériaux courants (MDF, érable, placage, quincaillerie), et les standards industriels. Propose un point de départ réaliste, l'estimateur ajustera à sa réalité.
+
 ## Ton ton
 - Direct et efficace — pas de bavardage
 - "J'ai trouvé 12 tiroirs Legrabox. Voici la liste :" pas "Super ! Je vais analyser tes données..."
@@ -391,6 +401,7 @@ serve(async (req) => {
       system: systemPrompt,
       messages: messages,
       tools: TOOLS,
+      stream: true,
     };
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -403,23 +414,56 @@ serve(async (req) => {
       body: JSON.stringify(body),
     });
 
-    const data = await resp.json();
-
-    if (data.error) {
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
       return new Response(
-        JSON.stringify({ error: data.error.message || JSON.stringify(data.error) }),
+        JSON.stringify({ error: "Anthropic API error: " + resp.status + " " + errText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        content: data.content,
-        stop_reason: data.stop_reason,
-        usage: data.usage,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Relay SSE stream from Anthropic to client
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    (async () => {
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ") || line.startsWith("event: ")) {
+              await writer.write(encoder.encode(line + "\n"));
+            } else if (line.trim() === "") {
+              await writer.write(encoder.encode("\n"));
+            }
+          }
+        }
+        if (buffer.trim()) {
+          await writer.write(encoder.encode(buffer + "\n\n"));
+        }
+      } catch (e) {
+        // Stream error — write error event
+        await writer.write(encoder.encode("data: " + JSON.stringify({ type: "error", error: { message: (e as Error).message } }) + "\n\n"));
+      } finally {
+        writer.close();
+      }
+    })();
+
+    return new Response(readable, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
@@ -427,3 +471,4 @@ serve(async (req) => {
     );
   }
 });
+

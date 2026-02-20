@@ -607,8 +607,9 @@
             container.appendChild(div);
         }
 
-        // Auto scroll
-        container.scrollTop = container.scrollHeight;
+        // Auto scroll — only if user is near the bottom (not scrolled up to read history)
+        var isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+        if (isNearBottom) container.scrollTop = container.scrollHeight;
     }
 
     // ── Markdown minimal : gras, italique, listes, code, tableaux ──
@@ -1222,11 +1223,19 @@
 
         try {
             var toolResults = [];
+            var addItemIndex = 0;
             for (var i = 0; i < aiPendingToolCalls.tools.length; i++) {
                 var tc = aiPendingToolCalls.tools[i];
+                if (tc.name === 'add_catalogue_item') {
+                    tc.input._staggerIndex = addItemIndex++;
+                }
                 var result = await executeAiTool(tc.name, tc.input);
                 toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
                 appendAiMessage('action', toolActionLabel(tc.name, tc.input));
+            }
+            // Pulse on totals after batch
+            if (addItemIndex > 0) {
+                setTimeout(function() { pulseTotals(); }, addItemIndex * 50 + 250);
             }
 
             // Continue conversation with tool results
@@ -1297,7 +1306,7 @@
             case 'add_catalogue_item': {
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
-                var rowId = addRow(gid);
+                var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0 });
                 // Wait for Supabase item creation (async in addRow) before updating
                 var waitAttempts = 0;
                 while (!itemMap[rowId] && waitAttempts < 50) {
@@ -2075,6 +2084,28 @@
 
         .calc-row:nth-child(even) { background: #fafafa; }
         .calc-row:last-child { border-bottom: none; }
+
+        /* ── Row insertion animation ── */
+        @keyframes rowEnter {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes rowHighlight {
+            from { background-color: #F8FAFC; }
+            to   { background-color: inherit; }
+        }
+        .calc-row.row-entering {
+            animation: rowEnter 200ms ease-out forwards, rowHighlight 600ms ease-out 200ms forwards;
+        }
+        /* Total pulse after batch insert */
+        @keyframes totalPulse {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        .total-pulse {
+            animation: totalPulse 300ms ease-out;
+        }
         .calc-row:hover { background: #f5f5f5; }
 
         .btn-add {
@@ -4575,7 +4606,12 @@
         .ai-messages {
             flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end;
             overscroll-behavior: contain;
+            scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
         }
+        .ai-messages::-webkit-scrollbar { width: 6px; }
+        .ai-messages::-webkit-scrollbar-track { background: transparent; }
+        .ai-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .ai-messages::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .ai-messages:empty::after {
             content: 'Posez une question sur votre projet, demandez une analyse de rentabilité, ou décrivez ce que vous voulez ajouter.';
             color: #aaa; font-size: 13px; text-align: center; padding: 40px 20px;
@@ -6487,6 +6523,20 @@
             const addContainer = container.querySelector('.add-row-container');
             container.insertBefore(row, addContainer);
 
+            // ── Insertion animation (skip when loading existing data) ──
+            if (!opts.existingId) {
+                var staggerMs = (opts.staggerIndex || 0) * 50;
+                row.style.opacity = '0';
+                setTimeout(function() {
+                    row.style.opacity = '';
+                    row.classList.add('row-entering');
+                    row.addEventListener('animationend', function handler() {
+                        row.classList.remove('row-entering');
+                        row.removeEventListener('animationend', handler);
+                    }, { once: true });
+                }, staggerMs);
+            }
+
             // Persistance Supabase
             if (opts.existingId) {
                 itemMap[rowId] = opts.existingId;
@@ -7232,14 +7282,16 @@
             if (!container) return;
             container.querySelectorAll('.calc-row').forEach(row => { subtotal += getRowTotal(row); });
             const subtotalEl = document.getElementById(`${groupId}-subtotal`);
-            if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal);
+            if (subtotalEl) animateValue(subtotalEl, subtotal, 'price');
         }
 
         function updateGrandTotal() {
             let total = 0;
             document.querySelectorAll('.calc-row').forEach(row => { total += getRowTotal(row); });
-            document.getElementById('grandTotal').textContent = formatPrice(total);
-            updateHeaderTotal();
+            var grandEl = document.getElementById('grandTotal');
+            if (grandEl) animateValue(grandEl, total, 'price');
+            var headerEl = document.getElementById('headerTotal');
+            if (headerEl) animateValue(headerEl, total, 'currency');
         }
 
         function calculerGrandTotal() {
@@ -7253,6 +7305,58 @@
             if (!el) return;
             var total = calculerGrandTotal();
             el.textContent = total.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+        }
+
+        // ── Animated value interpolation ──
+        function _formatAnimPrice(val) {
+            // Always format as currency during animation (bypass formatPrice % detection)
+            return val.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $';
+        }
+        function animateValue(el, targetVal, mode) {
+            // Parse current displayed value — handle fr-CA formatting (spaces, commas)
+            var currentText = el.textContent.replace(/[^0-9.,-]/g, '').replace(/\u00a0/g, '').replace(',', '.');
+            var fromVal = parseFloat(currentText) || 0;
+            targetVal = Math.round(targetVal * 100) / 100;
+            if (Math.abs(fromVal - targetVal) < 0.01) {
+                if (mode === 'currency') el.textContent = targetVal.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+                else el.textContent = formatPrice(targetVal);
+                return;
+            }
+            if (el._animId) cancelAnimationFrame(el._animId);
+            var duration = 500;
+            var start = performance.now();
+            function tick(now) {
+                var t = Math.min((now - start) / duration, 1);
+                var ease = 1 - Math.pow(1 - t, 3);
+                var val = fromVal + (targetVal - fromVal) * ease;
+                if (t >= 1) {
+                    // Final frame — use canonical formatters
+                    if (mode === 'currency') el.textContent = targetVal.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+                    else el.textContent = formatPrice(targetVal);
+                    el._animId = null;
+                } else {
+                    // Intermediate — always format as dollar amount
+                    if (mode === 'currency') el.textContent = val.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+                    else el.textContent = _formatAnimPrice(val);
+                    el._animId = requestAnimationFrame(tick);
+                }
+            }
+            el._animId = requestAnimationFrame(tick);
+        }
+
+        // ── Pulse on totals after batch insert ──
+        function pulseTotals() {
+            ['grandTotal', 'headerTotal'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.classList.remove('total-pulse');
+                void el.offsetWidth; // force reflow to restart animation
+                el.classList.add('total-pulse');
+                el.addEventListener('animationend', function handler() {
+                    el.classList.remove('total-pulse');
+                    el.removeEventListener('animationend', handler);
+                }, { once: true });
+            });
         }
 
         // ═══════════════════════════════════════════════════════════════════════

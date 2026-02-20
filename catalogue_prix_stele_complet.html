@@ -1580,7 +1580,9 @@
             font-size: 10px; font-weight: 600; padding: 2px 8px;
             border-radius: 10px; background: #FFF3E0; color: #E65100;
             margin-left: 8px; text-transform: uppercase;
+            cursor: pointer; transition: background 0.15s;
         }
+        .item-pending-badge:hover { background: #E8F5E9; color: #2E7D32; }
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
         @media (max-width: 600px) {
             .ci-drawer { width: 100%; right: -100%; }
@@ -2183,7 +2185,7 @@
                                     </div>
                                 </span>
                                 ${(item.supplier_name || item.supplier_sku) ? '<div class="item-supplier-sub">' + [item.supplier_name, item.supplier_sku].filter(Boolean).map(escapeHtml).join(' \u2022 ') + '</div>' : ''}
-                                ${item.status === 'pending' ? '<span class="item-pending-badge">en attente</span>' : ''}
+                                ${item.status === 'pending' ? '<span class="item-pending-badge" onclick="approveItem(\'' + escapeAttr(item.id) + '\', event)" title="Cliquer pour approuver">en attente</span>' : ''}
                             </td>
                             <td>${formatPrice(item.price)}</td>
                             ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${escapeAttr(item.id)}')" title="Modifier">&#9998;</button></td>` : ''}
@@ -2526,6 +2528,29 @@
             isNewItem = false;
             newItemData = null;
             openEditModal(navItemList[newIdx]);
+        }
+
+        async function approveItem(itemId, event) {
+            event.stopPropagation();
+            var badge = event.target;
+            badge.textContent = '...';
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ status: 'approved' })
+                });
+                if (!resp.ok) throw new Error(await resp.text());
+                // Update local data
+                for (var i = 0; i < CATALOGUE_DATA.length; i++) {
+                    if (CATALOGUE_DATA[i].id === itemId) { CATALOGUE_DATA[i].status = 'approved'; break; }
+                }
+                badge.remove();
+                updatePendingBadge();
+            } catch (e) {
+                badge.textContent = 'en attente';
+                alert('Erreur: ' + e.message);
+            }
         }
 
         async function openEditModal(itemId) {

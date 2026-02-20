@@ -2435,6 +2435,157 @@
             return { error: 'Mode inconnu: ' + mode };
         }
 
+        // ═══ Audit noms clients (détection incohérences) ═══
+
+        function _stripAccents(s) {
+            return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        function _levenshtein(a, b) {
+            if (a.length === 0) return b.length;
+            if (b.length === 0) return a.length;
+            var matrix = [];
+            for (var i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (var j = 0; j <= a.length; j++) matrix[0][j] = j;
+            for (var i = 1; i <= b.length; i++) {
+                for (var j = 1; j <= a.length; j++) {
+                    var cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j - 1] + cost
+                    );
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        function ciAuditClientNames(input) {
+            var field = input.field || 'client_text';
+            var catFilter = input.category || null;
+            var items = CATALOGUE_DATA || [];
+
+            // Filter by category if specified
+            if (catFilter) {
+                items = items.filter(function(i) { return (i.category || '').toLowerCase() === catFilter.toLowerCase(); });
+            }
+
+            // Collect items with non-empty field values
+            var entries = [];
+            items.forEach(function(item) {
+                var val = item[field];
+                if (val && val.trim()) {
+                    entries.push({ id: item.id, text: val.trim(), category: item.category });
+                }
+            });
+
+            if (entries.length === 0) {
+                return { groups: [], total_groups: 0, total_items_affected: 0, message: 'Aucun article avec ' + field + ' rempli' };
+            }
+
+            // Normalize: lowercase + strip accents + collapse whitespace
+            function normalize(s) {
+                return _stripAccents(s).toLowerCase().replace(/\s+/g, ' ').trim();
+            }
+
+            // Phase 1: Group by exact normalized form
+            var normMap = {}; // normalized → [{ id, text, category }]
+            entries.forEach(function(e) {
+                var norm = normalize(e.text);
+                if (!normMap[norm]) normMap[norm] = [];
+                normMap[norm].push(e);
+            });
+
+            // Phase 2: Find groups with actual text variations
+            var exactGroups = [];
+            Object.keys(normMap).forEach(function(norm) {
+                var group = normMap[norm];
+                // Check if there are different original texts
+                var variants = {};
+                group.forEach(function(e) {
+                    if (!variants[e.text]) variants[e.text] = [];
+                    variants[e.text].push(e.id);
+                });
+                if (Object.keys(variants).length > 1) {
+                    // Find canonical (most frequent variant)
+                    var best = null, bestCount = 0;
+                    Object.keys(variants).forEach(function(v) {
+                        if (variants[v].length > bestCount) { best = v; bestCount = variants[v].length; }
+                    });
+                    exactGroups.push({
+                        canonical: best,
+                        type: 'case_accent',
+                        variants: Object.keys(variants).map(function(v) {
+                            return { text: v, items: variants[v], count: variants[v].length };
+                        }).sort(function(a, b) { return b.count - a.count; })
+                    });
+                }
+            });
+
+            // Phase 3: Fuzzy matching (Levenshtein ≤ 2) between unique normalized forms
+            var normKeys = Object.keys(normMap);
+            var fuzzyMerged = {}; // track which norms are already grouped
+            var fuzzyGroups = [];
+
+            for (var i = 0; i < normKeys.length; i++) {
+                if (fuzzyMerged[normKeys[i]]) continue;
+                var cluster = [normKeys[i]];
+                for (var j = i + 1; j < normKeys.length; j++) {
+                    if (fuzzyMerged[normKeys[j]]) continue;
+                    // Only compare if lengths are close enough
+                    if (Math.abs(normKeys[i].length - normKeys[j].length) > 2) continue;
+                    if (_levenshtein(normKeys[i], normKeys[j]) <= 2) {
+                        cluster.push(normKeys[j]);
+                        fuzzyMerged[normKeys[j]] = true;
+                    }
+                }
+                if (cluster.length > 1) {
+                    fuzzyMerged[normKeys[i]] = true;
+                    // Build variant list from all items in the cluster
+                    var variants = {};
+                    cluster.forEach(function(norm) {
+                        normMap[norm].forEach(function(e) {
+                            if (!variants[e.text]) variants[e.text] = [];
+                            variants[e.text].push(e.id);
+                        });
+                    });
+                    var best = null, bestCount = 0;
+                    Object.keys(variants).forEach(function(v) {
+                        if (variants[v].length > bestCount) { best = v; bestCount = variants[v].length; }
+                    });
+                    fuzzyGroups.push({
+                        canonical: best,
+                        type: 'typo',
+                        variants: Object.keys(variants).map(function(v) {
+                            return { text: v, items: variants[v], count: variants[v].length };
+                        }).sort(function(a, b) { return b.count - a.count; })
+                    });
+                }
+            }
+
+            // Merge results, deduplicate (exact groups may overlap with fuzzy)
+            var allGroups = exactGroups.concat(fuzzyGroups);
+            var totalAffected = 0;
+            allGroups.forEach(function(g) {
+                var count = 0;
+                g.variants.forEach(function(v) { count += v.count; });
+                g.total_items = count;
+                totalAffected += count;
+            });
+
+            // Sort by total items descending
+            allGroups.sort(function(a, b) { return b.total_items - a.total_items; });
+
+            return {
+                field: field,
+                groups: allGroups,
+                total_groups: allGroups.length,
+                total_items_affected: totalAffected,
+                items_with_field: entries.length,
+                items_without_field: items.length - entries.length
+            };
+        }
+
         // Charger les données de secours (cache ou défaut)
         function loadFallbackData() {
             const cached = loadFromLocalStorage();
@@ -4166,7 +4317,7 @@
             for (var loop = 0; loop < maxLoops; loop++) {
                 var contentBlocks = data.content || [];
                 var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
-                var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage'];
+                var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage', 'audit_client_names'];
                 var readOnlyTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) !== -1; });
                 var actionTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) === -1; });
 
@@ -4183,6 +4334,8 @@
                         result = ciExecuteFilterCatalogue(tc.input);
                     } else if (tc.name === 'check_usage') {
                         result = ciCheckUsage(tc.input);
+                    } else if (tc.name === 'audit_client_names') {
+                        result = ciAuditClientNames(tc.input);
                     } else {
                         result = ciSearchCatalogue(tc.input.query);
                     }
@@ -4210,7 +4363,7 @@
             var textParts = [];
             var actionTools = [];
 
-            var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage'];
+            var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage', 'audit_client_names'];
             contentBlocks.forEach(function(block) {
                 if (block.type === 'text') textParts.push(block.text);
                 if (block.type === 'tool_use' && readOnlyNames.indexOf(block.name) === -1) actionTools.push(block);

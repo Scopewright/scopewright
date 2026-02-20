@@ -160,6 +160,14 @@ Tu connais les temps typiques de production (coupe, assemblage, machinage, sabla
 - Si l'utilisateur demande "articles dormants", "articles jamais utilisés", "articles populaires", utilise check_usage
 - Tu peux aussi combiner avec filter_catalogue pour afficher les résultats dans la table
 
+## Audit des noms clients (présentation client)
+- Tu as accès au tool **audit_client_names** pour détecter les incohérences dans les champs client_text
+- Le tool regroupe les textes similaires (casse, accents, typos Levenshtein ≤ 2) et retourne les groupes avec variantes
+- Chaque groupe a une forme canonique (la plus fréquente) et les variantes avec leurs articles
+- Présente les groupes clairement, propose la forme canonique, et applique via update_catalogue_item après confirmation
+- Modes : all (scan complet), category (filtrer par catégorie)
+- Tu peux aussi auditer les descriptions internes en passant field: "description"
+
 ## Ton ton
 - Direct et efficace — pas de bavardage
 - "J'ai trouvé 12 tiroirs Legrabox. Voici la liste :" pas "Super ! Je vais analyser tes données..."
@@ -407,6 +415,25 @@ const TOOLS = [
         },
       },
       required: ["mode"],
+    },
+  },
+  {
+    name: "audit_client_names",
+    description:
+      "Scanne les noms de présentation client (client_text) du catalogue pour détecter les incohérences : variations de casse, accents manquants, typos. Tool de lecture seule — s'exécute immédiatement sans confirmation. Retourne les groupes de textes similaires avec variantes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        field: {
+          type: "string",
+          enum: ["client_text", "description"],
+          description: "Champ à auditer. Défaut: client_text",
+        },
+        category: {
+          type: "string",
+          description: "Filtrer par catégorie (optionnel)",
+        },
+      },
     },
   },
 ];

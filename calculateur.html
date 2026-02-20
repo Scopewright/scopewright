@@ -1632,10 +1632,16 @@
         var typeOptions = DM_TYPES.map(function(t) {
             return '<option value="' + escapeAttr(t) + '"' + (entry.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
         }).join('');
+        // Show client_text if the catalogue item has one, otherwise fall back to stored description
+        var displayLabel = entry.description || '';
+        if (entry.catalogue_item_id) {
+            var catItem = (CATALOGUE_DATA || []).find(function(i) { return i.id === entry.catalogue_item_id; });
+            if (catItem && catItem.client_text) displayLabel = catItem.client_text;
+        }
         return '<div class="dm-row" data-dm-idx="' + idx + '">' +
             '<select onchange="updateDmType(' + idx + ',this.value)">' + typeOptions + '</select>' +
             '<div class="dm-search-wrap">' +
-                '<input type="text" value="' + escapeAttr(entry.description || '') + '" placeholder="Rechercher dans le catalogue..." ' +
+                '<input type="text" value="' + escapeAttr(displayLabel) + '" placeholder="Rechercher dans le catalogue..." ' +
                     'oninput="dmSearchCatalogue(' + idx + ',this)" ' +
                     'onfocus="dmSearchCatalogue(' + idx + ',this)" ' +
                     'onkeydown="dmSearchKeydown(event,' + idx + ')" ' +
@@ -1682,11 +1688,12 @@
             // No query: show all items grouped by category (browseable)
             results = items.slice(0, 50);
         } else {
-            // Filter by query
+            // Filter by query — search client_text, description, and category
             results = items.filter(function(item) {
                 var desc = (item.description || '').toLowerCase();
+                var ct = (item.client_text || '').toLowerCase();
                 var cat = (item.category || '').toLowerCase();
-                return desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
+                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
             }).slice(0, 30);
         }
 
@@ -1710,9 +1717,12 @@
         Object.keys(grouped).forEach(function(cat) {
             html += '<div style="padding:4px 10px;font-size:10px;font-weight:700;color:#888;background:#f9f9f9;text-transform:uppercase;letter-spacing:0.3px;position:sticky;top:0;">' + escapeHtml(cat) + '</div>';
             grouped[cat].forEach(function(item) {
+                var displayName = item.client_text || item.description;
+                var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
                 html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
-                    'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(item.description) + '\')">' +
-                    '<span>' + escapeHtml(item.description) + '</span>' +
+                    'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
+                    '<span>' + escapeHtml(displayName) + '</span>' +
+                    (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
                     '</div>';
                 globalIdx++;
             });
@@ -4172,6 +4182,7 @@
         }
         .dm-ac-item:hover, .dm-ac-item.active { background: #edf1f7; }
         .dm-ac-item .dm-ac-cat { font-size: 10px; color: #999; }
+        .dm-ac-item .dm-ac-secondary { font-size: 10px; color: #999; margin-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
         .dm-row .dm-remove {
             background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px;
             padding: 0 4px; flex-shrink: 0; line-height: 1;

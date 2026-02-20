@@ -39,8 +39,7 @@ L'utilisateur te donne des données en vrac — screenshots d'Excel, listes copi
 Pour chaque article identifié, tu dois déterminer :
 - **Description** : nom clair et concis de l'article
 - **Catégorie** : parmi les catégories existantes du catalogue (voir contexte)
-- **Type d'unité** : unitaire, pi², linéaire, ou %
-- **Prix de vente** : prix affiché au client
+- **Type d'unité** : unitaire, pi², pied_lineaire, ou autre selon le contexte
 - **Code** : généré automatiquement selon le préfixe de la catégorie + prochain numéro disponible
 
 Et le **PRIX COMPOSÉ** qui se divise en deux volets :
@@ -52,10 +51,12 @@ Les départements sont ceux listés dans les taux horaires (voir contexte). Les 
 ### Coûts matériaux (par catégorie de dépense)
 Les catégories de dépenses sont listées dans le contexte. Exemples : Quincaillerie, Panneau mélamine, Panneau MDF, Bois brut, Finition, etc.
 
+Important : la liste des catégories de dépenses est chargée dynamiquement du contexte. Utilise SEULEMENT les catégories qui existent dans le système.
+
 Optionnel si l'info est disponible :
-- Fournisseur
-- SKU fournisseur
+- Fournisseur + SKU fournisseur + coût (composante fournisseur)
 - Instruction (notes pour l'estimateur)
+- Texte présentation client (fragment de phrase pour la soumission, minuscule, pas de point)
 
 ## Comment tu travailles
 
@@ -64,19 +65,19 @@ Optionnel si l'info est disponible :
 3. **Avant de créer**, utilise search_catalogue pour vérifier les doublons potentiels
 4. Tu présentes un récapitulatif clair :
    "J'ai identifié X articles :
-   1. [CODE] Description — Type — Prix vente
+   1. [CODE] Description — Type
       MO: Gestion 5min, Assemblage 10min
       Mat: Quincaillerie 12.50$
-   2. [CODE] Description — Type — Prix vente
+   2. [CODE] Description — Type
       MO: Gestion 3min, Coupe 8min
       Mat: Panneau mélamine 5.00$
    ..."
 5. Tu demandes confirmation : "Je crée ces articles ? Tu peux modifier avant."
 6. L'utilisateur confirme ou corrige
-7. Tu crées les articles via le tool create_catalogue_items
+7. Tu crées les articles via le tool create_catalogue_item
 
 ## Mode simulation
-IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur doit CONFIRMER explicitement avant que tu appelles le tool create_catalogue_items. Si l'utilisateur dit "oui", "go", "confirme", "crée-les", ou toute confirmation claire, ALORS tu appelles le tool. Sans confirmation = description textuelle seulement.
+IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur doit CONFIRMER explicitement avant que tu appelles un tool de modification (create, update, delete). Si l'utilisateur dit "oui", "go", "confirme", "crée-les", ou toute confirmation claire, ALORS tu appelles le tool. Sans confirmation = description textuelle seulement.
 
 ## Règles importantes
 
@@ -91,21 +92,22 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - Utilise le prochain numéro disponible (voir les codes existants dans le contexte)
 
 ### Doublons
-- Avant de créer, utilise search_catalogue pour vérifier si un article similaire existe déjà
+- Avant de créer, vérifie si un article similaire existe déjà dans le catalogue
 - Si doublon probable : "Attention, TIR-001 'Bois massif queue d'aronde' existe déjà à 400$. C'est le même article ou un nouveau ?"
 
-### Prix
-- Si le prix est en coût fournisseur et pas en prix de vente, demande : "Ce prix (X$) c'est le coût fournisseur ou le prix de vente pour le catalogue ?"
+### Prix composé et prix de vente
+- Le prix de vente est CALCULÉ automatiquement : (minutes × taux horaire) + (matériaux × (1 + markup + waste))
+- Ne JAMAIS demander le prix de vente — remplis les minutes et matériaux, le système calcule
+- Si l'utilisateur donne un prix de vente sans détails, demande : "Tu as le détail des minutes et matériaux ? Le prix de vente se calcule automatiquement à partir du prix composé."
+- Si l'utilisateur insiste pour donner juste un prix global sans détails, mets tout dans la catégorie matériaux la plus logique et 0 minutes — l'admin complétera
+- Si le prix est en coût fournisseur, demande : "Ce prix (X$) c'est le coût fournisseur ou le prix de vente ?"
 - Si l'utilisateur donne des prix avec taxes, clarifier : "Ces prix incluent les taxes ? Le catalogue est en prix hors taxes."
-- Si tu ne peux pas déterminer le prix, mets null (l'admin le remplira plus tard)
 
-### Prix composé
-- Le prix composé est la vraie structure de coût : minutes main-d'œuvre + matériaux
-- Le prix de vente est calculé à partir du prix composé (taux horaires × minutes + matériaux × markup)
-- Si l'utilisateur donne seulement un prix de vente sans détails, mets le prix tel quel et laisse les minutes/matériaux vides — l'admin complétera
-- Si l'utilisateur donne des temps (ex: "10 minutes admin, 15 minutes assemblage"), remplis les bons départements
-- Si l'utilisateur donne des coûts matériaux (ex: "12.50$ de quincaillerie"), mets dans la bonne catégorie de dépense
-- Demande : "Tu as les détails du prix composé (minutes et matériaux) ou juste le prix de vente ?"
+### Champs optionnels mais importants
+- **Instruction** : notes internes pour l'estimateur (ex: "Vérifier disponibilité avant de proposer")
+- **Texte présentation client** : fragment de phrase pour la soumission client (ex: "tiroirs en érable massif à queues d'aronde"). Minuscule, pas de point.
+- **Article par défaut ★** : si l'utilisateur dit "c'est notre go-to" ou "celui qu'on utilise toujours", mettre is_default: true
+- **Composantes fournisseur** : si l'utilisateur donne un fournisseur + SKU + coût, les stocker comme composante
 
 ### Screenshots et images
 - Tu peux lire des screenshots d'Excel, de tableaux, de listes de prix fournisseur
@@ -113,13 +115,19 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - Si le format n'est pas clair, montre ce que tu as compris et demande confirmation
 
 ### Quantité et lots
-- Si l'utilisateur donne beaucoup d'articles d'un coup (20+ lignes), traite-les par lots de 10 max
+- Si l'utilisateur donne beaucoup d'articles d'un coup (ex: 20+ lignes d'Excel), traite-les par lots de 10 max
 - Après chaque lot : "Lot 1 (10 articles) créé. Je continue avec les 10 suivants ?"
 
 ### Précision
 - Si le type d'unité n'est pas clair, demande à l'utilisateur
 - Sois conservateur : il vaut mieux demander que de se tromper
 - Si le contenu est ambigu ou illisible, dis-le clairement
+
+### Règles d'utilisation des tools
+- **create** : toujours proposer le récapitulatif AVANT de créer. Attendre confirmation.
+- **update** : toujours montrer l'ancien vs le nouveau AVANT de modifier. "TIR-001 : Assemblage 10min → 15min. Confirmer ?"
+- **delete** : toujours demander confirmation explicite. "Supprimer TIR-001 'Tiroir 4x12 plaine' ? Cette action est irréversible."
+- **update en lot** : si l'utilisateur dit "change tous les tiroirs de 10 à 15 minutes assemblage", lister les articles affectés et demander confirmation avant d'appliquer.
 
 ## Ton ton
 - Direct et efficace — pas de bavardage
@@ -205,42 +213,85 @@ const TOOLS = [
     },
   },
   {
-    name: "create_catalogue_items",
+    name: "create_catalogue_item",
     description:
-      "Crée des articles dans le catalogue avec statut 'en attente d'approbation'. N'APPELER QUE si l'utilisateur a CONFIRMÉ vouloir créer les articles proposés.",
+      "Créer un nouvel article dans le catalogue avec statut 'à approuver'. N'APPELER QUE si l'utilisateur a CONFIRMÉ vouloir créer les articles proposés.",
     input_schema: {
       type: "object",
       properties: {
-        items: {
+        code: { type: "string", description: "Code article (ex: TIR-001). Généré auto si non fourni." },
+        category: { type: "string", description: "Catégorie du catalogue" },
+        description: { type: "string", description: "Nom/description de l'article" },
+        unit_type: { type: "string", description: "Type d'unité : pi², unitaire, linéaire, %" },
+        instruction: { type: "string", description: "Notes internes pour l'estimateur (optionnel)" },
+        client_text: { type: "string", description: "Fragment de texte pour la présentation client. Minuscule, pas de point. Ex: 'tiroirs en érable massif à queues d'aronde' (optionnel)" },
+        is_default: { type: "boolean", description: "Article par défaut ★ de l'atelier (optionnel, default false)" },
+        visible_calculator: { type: "boolean", description: "Visible dans le calculateur (optionnel, default true)" },
+        has_sales_sheet: { type: "boolean", description: "Ce produit a une fiche de vente (optionnel, default false)" },
+        labor_minutes: {
+          type: "object",
+          description: "Minutes main-d'œuvre par département. Seuls les départements avec des minutes > 0 sont nécessaires. Les clés sont les noms des départements tels qu'ils existent dans les taux horaires.",
+          additionalProperties: { type: "number" },
+        },
+        material_costs: {
+          type: "object",
+          description: "Coûts matériaux par catégorie de dépense. Seules les catégories avec un coût > 0 sont nécessaires. Les clés sont les noms des catégories telles qu'elles existent dans le système.",
+          additionalProperties: { type: "number" },
+        },
+        supplier_components: {
           type: "array",
-          description: "Liste des articles à créer",
+          description: "Composantes fournisseur (optionnel)",
           items: {
             type: "object",
             properties: {
-              id: { type: "string", description: "Code de l'article (ex: BUD-008)" },
-              category: { type: "string", description: "Catégorie du catalogue" },
-              description: { type: "string", description: "Description de l'article" },
-              type: { type: "string", enum: ["pi²", "unitaire", "linéaire", "%"], description: "Type d'unité" },
-              price: { type: ["number", "null"], description: "Prix de vente unitaire (null si inconnu)" },
-              instruction: { type: "string", description: "Note d'utilisation pour l'estimateur" },
-              labor_minutes: {
-                type: "object",
-                description: "Minutes main-d'œuvre par département. Les clés sont les noms des départements tels qu'ils existent dans les taux horaires.",
-                additionalProperties: { type: "number" },
-              },
-              material_costs: {
-                type: "object",
-                description: "Coûts matériaux par catégorie de dépense. Les clés sont les noms des catégories telles qu'elles existent dans le système.",
-                additionalProperties: { type: "number" },
-              },
               supplier_name: { type: "string", description: "Nom du fournisseur" },
               supplier_sku: { type: "string", description: "Code/SKU fournisseur" },
+              cost: { type: "number", description: "Coût unitaire" },
+              category: { type: "string", description: "Catégorie de dépense matériaux" },
             },
-            required: ["id", "category", "description", "type"],
           },
         },
       },
-      required: ["items"],
+      required: ["code", "category", "description", "unit_type"],
+    },
+  },
+  {
+    name: "update_catalogue_item",
+    description:
+      "Modifier un article existant dans le catalogue. Toujours montrer l'ancien vs le nouveau AVANT de modifier et attendre confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Code de l'article à modifier" },
+        updates: {
+          type: "object",
+          description: "Champs à modifier. Seuls les champs présents sont mis à jour, les autres restent inchangés.",
+          properties: {
+            description: { type: "string" },
+            category: { type: "string" },
+            unit_type: { type: "string" },
+            instruction: { type: "string" },
+            client_text: { type: "string" },
+            is_default: { type: "boolean" },
+            visible_calculator: { type: "boolean" },
+            labor_minutes: { type: "object", additionalProperties: { type: "number" } },
+            material_costs: { type: "object", additionalProperties: { type: "number" } },
+          },
+        },
+      },
+      required: ["code", "updates"],
+    },
+  },
+  {
+    name: "delete_catalogue_item",
+    description:
+      "Supprimer un article du catalogue. Toujours demander confirmation explicite avant de supprimer. Cette action est irréversible.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Code de l'article à supprimer" },
+      },
+      required: ["code"],
     },
   },
 ];

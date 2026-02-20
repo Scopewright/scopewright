@@ -3856,7 +3856,7 @@
                 var contentBlocks = data.content || [];
                 var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
                 var readOnlyTools = toolCalls.filter(function(tc) { return tc.name === 'search_catalogue'; });
-                var createTools = toolCalls.filter(function(tc) { return tc.name === 'create_catalogue_items'; });
+                var actionTools = toolCalls.filter(function(tc) { return tc.name !== 'search_catalogue'; });
 
                 // If no read-only tools to auto-execute, return as-is
                 if (readOnlyTools.length === 0) return data;
@@ -3870,12 +3870,11 @@
                     toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
                 });
 
-                // If there are also create tools, we need to return them for confirmation
+                // If there are also action tools, we need to return them for confirmation
                 // but first send the search results back
-                if (createTools.length > 0) {
-                    // Add tool results for search, but keep create tools pending
+                if (actionTools.length > 0) {
                     conversation.push({ role: 'user', content: toolResults });
-                    return data; // The create tools will be handled by ciHandleResponse
+                    return data; // The action tools will be handled by ciHandleResponse
                 }
 
                 // Only read-only tools — send results back and get next response
@@ -3889,11 +3888,11 @@
         function ciHandleResponse(data) {
             var contentBlocks = data.content || [];
             var textParts = [];
-            var createTools = [];
+            var actionTools = [];
 
             contentBlocks.forEach(function(block) {
                 if (block.type === 'text') textParts.push(block.text);
-                if (block.type === 'tool_use' && block.name === 'create_catalogue_items') createTools.push(block);
+                if (block.type === 'tool_use' && block.name !== 'search_catalogue') actionTools.push(block);
             });
 
             // Add to conversation if not already added (when no read-only tools were processed)
@@ -3902,12 +3901,12 @@
                 ciConversation.push({ role: 'assistant', content: contentBlocks });
             }
 
-            if (createTools.length > 0) {
+            if (actionTools.length > 0) {
                 var fullText = textParts.join('\n');
                 if (fullText) appendCiMessage('assistant', fullText);
 
-                ciPendingToolCalls = { tools: createTools };
-                var summary = formatCiPendingActions(createTools);
+                ciPendingToolCalls = { tools: actionTools };
+                var summary = formatCiPendingActions(actionTools);
                 appendCiMessage('confirm', summary);
             } else {
                 var fullText = textParts.join('\n');
@@ -3917,30 +3916,49 @@
 
         function formatCiPendingActions(toolCalls) {
             var lines = [];
+            var createCount = 0, updateCount = 0, deleteCount = 0;
             toolCalls.forEach(function(tc) {
-                if (tc.name === 'create_catalogue_items' && tc.input && tc.input.items) {
-                    lines.push('**' + tc.input.items.length + ' article(s) \u00e0 cr\u00e9er :**');
-                    tc.input.items.forEach(function(item) {
-                        var price = item.price != null ? item.price + '$' : 'N/A';
-                        lines.push('- **' + item.id + '** ' + item.description + ' \u2014 ' + item.type + ' \u2014 ' + price);
-                        // Show composed price details if present
-                        var moParts = [];
-                        if (item.labor_minutes) {
-                            Object.keys(item.labor_minutes).forEach(function(dept) {
-                                if (item.labor_minutes[dept] > 0) moParts.push(dept + ' ' + item.labor_minutes[dept] + 'min');
-                            });
-                        }
-                        if (moParts.length) lines.push('  MO: ' + moParts.join(', '));
-                        var matParts = [];
-                        if (item.material_costs) {
-                            Object.keys(item.material_costs).forEach(function(cat) {
-                                if (item.material_costs[cat] > 0) matParts.push(cat + ' ' + item.material_costs[cat].toFixed(2) + '$');
-                            });
-                        }
-                        if (matParts.length) lines.push('  Mat: ' + matParts.join(', '));
-                    });
+                if (tc.name === 'create_catalogue_item') createCount++;
+                else if (tc.name === 'update_catalogue_item') updateCount++;
+                else if (tc.name === 'delete_catalogue_item') deleteCount++;
+            });
+            if (createCount > 0) lines.push('**' + createCount + ' article(s) \u00e0 cr\u00e9er :**');
+            toolCalls.forEach(function(tc) {
+                if (tc.name === 'create_catalogue_item' && tc.input) {
+                    lines.push('- **' + (tc.input.code || '?') + '** ' + (tc.input.description || '') + ' \u2014 ' + (tc.input.unit_type || ''));
+                    var moParts = [];
+                    if (tc.input.labor_minutes) {
+                        Object.keys(tc.input.labor_minutes).forEach(function(dept) {
+                            if (tc.input.labor_minutes[dept] > 0) moParts.push(dept + ' ' + tc.input.labor_minutes[dept] + 'min');
+                        });
+                    }
+                    if (moParts.length) lines.push('  MO: ' + moParts.join(', '));
+                    var matParts = [];
+                    if (tc.input.material_costs) {
+                        Object.keys(tc.input.material_costs).forEach(function(cat) {
+                            if (tc.input.material_costs[cat] > 0) matParts.push(cat + ' ' + tc.input.material_costs[cat].toFixed(2) + '$');
+                        });
+                    }
+                    if (matParts.length) lines.push('  Mat: ' + matParts.join(', '));
                 }
             });
+            if (updateCount > 0) {
+                lines.push('**' + updateCount + ' article(s) \u00e0 modifier :**');
+                toolCalls.forEach(function(tc) {
+                    if (tc.name === 'update_catalogue_item' && tc.input) {
+                        var fields = tc.input.updates ? Object.keys(tc.input.updates).join(', ') : '';
+                        lines.push('- **' + tc.input.code + '** \u2192 ' + fields);
+                    }
+                });
+            }
+            if (deleteCount > 0) {
+                lines.push('**' + deleteCount + ' article(s) \u00e0 supprimer :**');
+                toolCalls.forEach(function(tc) {
+                    if (tc.name === 'delete_catalogue_item' && tc.input) {
+                        lines.push('- **' + tc.input.code + '**');
+                    }
+                });
+            }
             return lines.join('\n') || 'Action propos\u00e9e';
         }
 
@@ -3948,7 +3966,7 @@
             if (!ciPendingToolCalls) return;
             var confirmEl = document.getElementById(confirmId);
             var actionsDiv = confirmEl ? confirmEl.querySelector('.ci-confirm-actions') : null;
-            if (actionsDiv) actionsDiv.innerHTML = '<span class="ci-confirm-applied">Cr\u00e9ation en cours...</span>';
+            if (actionsDiv) actionsDiv.innerHTML = '<span class="ci-confirm-applied">Ex\u00e9cution en cours...</span>';
 
             var results = [];
             for (var i = 0; i < ciPendingToolCalls.tools.length; i++) {
@@ -3962,13 +3980,19 @@
 
             ciPendingToolCalls = null;
 
-            var totalCreated = results.reduce(function(sum, r) { return sum + (r.created || []).length; }, 0);
-            var totalErrors = results.reduce(function(sum, r) { return sum + (r.errors || []).length; }, 0);
+            // Build summary from results
+            var parts = [];
+            var totalErrors = 0;
+            results.forEach(function(r) {
+                if (r.errors && r.errors.length) totalErrors += r.errors.length;
+                if (r.action === 'created') parts.push(r.code + ' cr\u00e9\u00e9');
+                else if (r.action === 'updated') parts.push(r.code + ' modifi\u00e9');
+                else if (r.action === 'deleted') parts.push(r.code + ' supprim\u00e9');
+            });
 
             if (actionsDiv) {
-                var msg = totalCreated + ' article(s) cr\u00e9\u00e9(s)';
-                if (totalErrors > 0) msg += ', ' + totalErrors + ' erreur(s)';
-                msg += ' \u2014 en attente d\u2019approbation';
+                var msg = parts.join(', ') || (results.length + ' action(s)');
+                if (totalErrors > 0) msg += ' \u2014 ' + totalErrors + ' erreur(s)';
                 actionsDiv.innerHTML = '<span class="ci-confirm-applied">\u2713 ' + msg + '</span>';
             }
 
@@ -3978,32 +4002,27 @@
         }
 
         async function executeCiTool(name, input) {
-            if (name !== 'create_catalogue_items') return { success: false, message: 'Outil inconnu: ' + name };
-
-            var items = input.items || [];
-            var created = [];
-            var errors = [];
             var userEmail = (localStorage.getItem('sb_user_email') || '').toLowerCase();
 
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i];
+            // ── CREATE ──
+            if (name === 'create_catalogue_item') {
                 try {
                     var maxSort = CATALOGUE_DATA.reduce(function(max, ci) { return Math.max(max, ci.sort_order || 0); }, 0);
                     var payload = {
-                        id: item.id,
-                        category: item.category,
-                        description: item.description,
-                        type: item.type,
-                        price: item.price,
-                        instruction: item.instruction || null,
-                        labor_minutes: item.labor_minutes || null,
-                        material_costs: item.material_costs || null,
-                        supplier_name: item.supplier_name || null,
-                        supplier_sku: item.supplier_sku || null,
+                        id: input.code,
+                        category: input.category,
+                        description: input.description,
+                        type: input.unit_type,
+                        instruction: input.instruction || null,
+                        client_text: input.client_text || null,
+                        is_default: input.is_default || false,
+                        has_sales_sheet: input.has_sales_sheet || false,
+                        labor_minutes: input.labor_minutes || null,
+                        material_costs: input.material_costs || null,
                         status: 'pending',
                         proposed_by: userEmail,
-                        in_calculator: true,
-                        sort_order: maxSort + 1 + i
+                        in_calculator: input.visible_calculator !== false,
+                        sort_order: maxSort + 1
                     };
 
                     var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
@@ -4012,23 +4031,96 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!resp.ok) {
-                        var errText = await resp.text();
-                        throw new Error(errText);
-                    }
+                    if (!resp.ok) throw new Error(await resp.text());
 
                     var createdItems = await resp.json();
                     var createdItem = Array.isArray(createdItems) ? createdItems[0] : createdItems;
-
-                    // Add to local data
                     CATALOGUE_DATA.push(createdItem);
-                    created.push(item.id);
+
+                    // Insert supplier components if provided
+                    if (input.supplier_components && input.supplier_components.length > 0) {
+                        for (var sc = 0; sc < input.supplier_components.length; sc++) {
+                            var comp = input.supplier_components[sc];
+                            await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_item_components', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    catalogue_item_id: input.code,
+                                    supplier_name: comp.supplier_name || null,
+                                    supplier_sku: comp.supplier_sku || null,
+                                    unit_cost: comp.cost || 0,
+                                    expense_category: comp.category || null,
+                                    sort_order: sc
+                                })
+                            });
+                        }
+                    }
+
+                    return { success: true, action: 'created', code: input.code, errors: [], message: input.code + ' cr\u00e9\u00e9' };
                 } catch (e) {
-                    errors.push({ id: item.id, error: e.message });
+                    return { success: false, action: 'created', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
                 }
             }
 
-            return { success: errors.length === 0, created: created, errors: errors, message: created.length + ' cr\u00e9\u00e9(s)' + (errors.length > 0 ? ', ' + errors.length + ' erreur(s)' : '') };
+            // ── UPDATE ──
+            if (name === 'update_catalogue_item') {
+                try {
+                    var updates = input.updates || {};
+                    var patchPayload = {};
+                    if (updates.description !== undefined) patchPayload.description = updates.description;
+                    if (updates.category !== undefined) patchPayload.category = updates.category;
+                    if (updates.unit_type !== undefined) patchPayload.type = updates.unit_type;
+                    if (updates.instruction !== undefined) patchPayload.instruction = updates.instruction;
+                    if (updates.client_text !== undefined) patchPayload.client_text = updates.client_text;
+                    if (updates.is_default !== undefined) patchPayload.is_default = updates.is_default;
+                    if (updates.visible_calculator !== undefined) patchPayload.in_calculator = updates.visible_calculator;
+                    if (updates.labor_minutes !== undefined) patchPayload.labor_minutes = updates.labor_minutes;
+                    if (updates.material_costs !== undefined) patchPayload.material_costs = updates.material_costs;
+
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(input.code), {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(patchPayload)
+                    });
+
+                    if (!resp.ok) throw new Error(await resp.text());
+
+                    var updatedItems = await resp.json();
+                    var updatedItem = Array.isArray(updatedItems) ? updatedItems[0] : updatedItems;
+
+                    // Update local data
+                    for (var idx = 0; idx < CATALOGUE_DATA.length; idx++) {
+                        if (CATALOGUE_DATA[idx].id === input.code) {
+                            CATALOGUE_DATA[idx] = updatedItem;
+                            break;
+                        }
+                    }
+
+                    return { success: true, action: 'updated', code: input.code, errors: [], message: input.code + ' modifi\u00e9' };
+                } catch (e) {
+                    return { success: false, action: 'updated', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
+                }
+            }
+
+            // ── DELETE ──
+            if (name === 'delete_catalogue_item') {
+                try {
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(input.code), {
+                        method: 'DELETE'
+                    });
+
+                    if (!resp.ok) throw new Error(await resp.text());
+
+                    // Remove from local data
+                    CATALOGUE_DATA = CATALOGUE_DATA.filter(function(ci) { return ci.id !== input.code; });
+
+                    return { success: true, action: 'deleted', code: input.code, errors: [], message: input.code + ' supprim\u00e9' };
+                } catch (e) {
+                    return { success: false, action: 'deleted', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
+                }
+            }
+
+            return { success: false, errors: [], message: 'Outil inconnu: ' + name };
         }
 
         function ciDismissPending(confirmId) {

@@ -2377,6 +2377,64 @@
             });
         }
 
+        // ═══ Usage stats (articles dormants / jamais utilisés) ═══
+        var USAGE_STATS = [];
+
+        function loadUsageStats() {
+            return authenticatedFetch(SUPABASE_URL + '/rest/v1/v_catalogue_usage_stats?select=id,category,description,usage_count,submission_count,last_used_at,days_since_used', {})
+                .then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(data) { USAGE_STATS = data || []; })
+                .catch(function() { USAGE_STATS = []; });
+        }
+
+        function ciCheckUsage(input) {
+            var mode = input.mode || 'dormant';
+            var limit = input.limit || 20;
+            var cat = input.category || null;
+            var stats = USAGE_STATS;
+
+            // Filter by category if specified
+            if (cat) {
+                stats = stats.filter(function(s) { return (s.category || '').toLowerCase() === cat.toLowerCase(); });
+            }
+
+            if (mode === 'never_used') {
+                var results = stats.filter(function(s) { return s.usage_count === 0; });
+                results.sort(function(a, b) { return (a.category || '').localeCompare(b.category || '') || (a.id || '').localeCompare(b.id || ''); });
+                return { results: results.slice(0, limit), total: results.length, mode: 'never_used' };
+            }
+
+            if (mode === 'dormant') {
+                var threshold = input.days_threshold || 60;
+                var results = stats.filter(function(s) {
+                    // Never used OR not used in threshold days
+                    return s.usage_count === 0 || (s.days_since_used !== null && s.days_since_used > threshold);
+                });
+                results.sort(function(a, b) {
+                    // Never used first, then by most dormant
+                    if (a.usage_count === 0 && b.usage_count > 0) return -1;
+                    if (a.usage_count > 0 && b.usage_count === 0) return 1;
+                    return (b.days_since_used || 9999) - (a.days_since_used || 9999);
+                });
+                return { results: results.slice(0, limit), total: results.length, mode: 'dormant', days_threshold: threshold };
+            }
+
+            if (mode === 'most_used') {
+                var results = stats.filter(function(s) { return s.usage_count > 0; });
+                results.sort(function(a, b) { return b.usage_count - a.usage_count; });
+                return { results: results.slice(0, limit), total: results.length, mode: 'most_used' };
+            }
+
+            if (mode === 'by_item') {
+                var itemId = input.catalogue_item_id || '';
+                var found = stats.find(function(s) { return s.id === itemId; });
+                if (!found) return { error: 'Article ' + itemId + ' non trouv\u00e9' };
+                return { item: found, mode: 'by_item' };
+            }
+
+            return { error: 'Mode inconnu: ' + mode };
+        }
+
         // Charger les données de secours (cache ou défaut)
         function loadFallbackData() {
             const cached = loadFromLocalStorage();
@@ -3857,6 +3915,11 @@
             var pendingCount = CATALOGUE_DATA.filter(function(i) { return i.status === 'pending'; }).length;
             var approvedCount = CATALOGUE_DATA.filter(function(i) { return !i.status || i.status === 'approved'; }).length;
 
+            // Usage stats summary
+            var neverUsed = USAGE_STATS.filter(function(s) { return s.usage_count === 0; }).length;
+            var dormant60 = USAGE_STATS.filter(function(s) { return s.usage_count > 0 && s.days_since_used !== null && s.days_since_used > 60; }).length;
+            var activeMonth = USAGE_STATS.filter(function(s) { return s.days_since_used !== null && s.days_since_used <= 30; }).length;
+
             return {
                 categories: Array.from(cats),
                 existingCodes: existingCodes,
@@ -3867,7 +3930,12 @@
                 pendingCount: pendingCount,
                 approvedCount: approvedCount,
                 userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase(),
-                openArticle: openArticle
+                openArticle: openArticle,
+                usageSummary: {
+                    neverUsed: neverUsed,
+                    dormant60days: dormant60,
+                    activeLastMonth: activeMonth
+                }
             };
         }
 
@@ -4098,7 +4166,7 @@
             for (var loop = 0; loop < maxLoops; loop++) {
                 var contentBlocks = data.content || [];
                 var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
-                var readOnlyNames = ['search_catalogue', 'filter_catalogue'];
+                var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage'];
                 var readOnlyTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) !== -1; });
                 var actionTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) === -1; });
 
@@ -4113,6 +4181,8 @@
                     var result;
                     if (tc.name === 'filter_catalogue') {
                         result = ciExecuteFilterCatalogue(tc.input);
+                    } else if (tc.name === 'check_usage') {
+                        result = ciCheckUsage(tc.input);
                     } else {
                         result = ciSearchCatalogue(tc.input.query);
                     }
@@ -4140,7 +4210,7 @@
             var textParts = [];
             var actionTools = [];
 
-            var readOnlyNames = ['search_catalogue', 'filter_catalogue'];
+            var readOnlyNames = ['search_catalogue', 'filter_catalogue', 'check_usage'];
             contentBlocks.forEach(function(block) {
                 if (block.type === 'text') textParts.push(block.text);
                 if (block.type === 'tool_use' && readOnlyNames.indexOf(block.name) === -1) actionTools.push(block);
@@ -4412,6 +4482,9 @@
 
             // Charger les données du catalogue depuis Supabase (ou cache/défaut)
             await loadCatalogueData();
+
+            // Charger les stats d'utilisation (articles dormants)
+            await loadUsageStats();
 
             // Générer les tableaux avec les données chargées
             generatePriceTables();

@@ -153,6 +153,13 @@ Quand l'utilisateur donne un prix de vente cible (ex: "un compétiteur vend ça 
 
 Tu connais les temps typiques de production (coupe, assemblage, machinage, sablage, finition), les coûts matériaux courants (MDF, érable, placage, quincaillerie), et les standards industriels. Propose un point de départ réaliste, l'estimateur ajustera à sa réalité.
 
+## Articles dormants et utilisation
+- Tu as accès au tool **check_usage** pour analyser l'utilisation des articles dans les soumissions envoyées
+- Modes : dormant (pas utilisé depuis N jours), never_used (jamais inclus dans une soumission envoyée), most_used (les plus populaires), by_item (stats d'un article)
+- Seules les soumissions ENVOYÉES au client comptent — les brouillons sont exclus
+- Si l'utilisateur demande "articles dormants", "articles jamais utilisés", "articles populaires", utilise check_usage
+- Tu peux aussi combiner avec filter_catalogue pour afficher les résultats dans la table
+
 ## Ton ton
 - Direct et efficace — pas de bavardage
 - "J'ai trouvé 12 tiroirs Legrabox. Voici la liste :" pas "Super ! Je vais analyser tes données..."
@@ -226,12 +233,17 @@ L'utilisateur a cet article ouvert. Si il dit "celui-ci", "cet article", "change
   const pendingCount = context.pendingCount || 0;
   const approvedCount = context.approvedCount || 0;
 
+  const usage = context.usageSummary || {};
+  const usageStr = usage.neverUsed != null
+    ? `\n- ${usage.neverUsed} articles jamais utilisés dans une soumission envoyée\n- ${usage.dormant60days || 0} articles dormants (pas utilisés depuis 60+ jours)\n- ${usage.activeLastMonth || 0} articles actifs (utilisés dans les 30 derniers jours)`
+    : '';
+
   const dynamicContext = `
 
 ## Catalogue actuel
 - ${totalItems} articles au total
 - ${approvedCount} approuvés
-- ${pendingCount} en attente d'approbation
+- ${pendingCount} en attente d'approbation${usageStr}
 
 ## Catégories existantes
 ${categoriesStr || 'Aucune'}
@@ -363,6 +375,38 @@ const TOOLS = [
         sort_dir: { type: "string", enum: ["asc", "desc"], description: "Direction du tri" },
         reset: { type: "boolean", description: "Remettre la table à son état initial (enlever tous les filtres AI)" },
       },
+    },
+  },
+  {
+    name: "check_usage",
+    description:
+      "Vérifie l'utilisation des articles du catalogue dans les soumissions envoyées aux clients. Tool de lecture seule — s'exécute immédiatement sans confirmation. Utilise ce tool pour identifier les articles dormants, jamais utilisés, ou les plus populaires.",
+    input_schema: {
+      type: "object",
+      properties: {
+        mode: {
+          type: "string",
+          enum: ["dormant", "never_used", "most_used", "by_item"],
+          description: "Mode de recherche : dormant = pas utilisé depuis N jours, never_used = jamais utilisé dans une soumission envoyée, most_used = les plus utilisés, by_item = stats d'un article spécifique",
+        },
+        days_threshold: {
+          type: "number",
+          description: "Seuil en jours pour le mode 'dormant' (ex: 60 = pas utilisé depuis 60 jours). Défaut: 60.",
+        },
+        catalogue_item_id: {
+          type: "string",
+          description: "Code de l'article pour le mode 'by_item' (ex: TIR-001)",
+        },
+        category: {
+          type: "string",
+          description: "Filtrer par catégorie (optionnel, applicable à tous les modes sauf by_item)",
+        },
+        limit: {
+          type: "number",
+          description: "Nombre max de résultats (défaut: 20)",
+        },
+      },
+      required: ["mode"],
     },
   },
 ];

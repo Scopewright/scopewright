@@ -1506,19 +1506,8 @@
     }
 
     function collectContactsContext() {
-        // Limit payload: send at most 100 contacts, 50 companies (minimal fields)
-        var ctxContacts = allContacts.slice(0, 100).map(function(c) {
-            var co = (c.contact_companies || []).map(function(cc) {
-                return cc.companies ? cc.companies.name : null;
-            }).filter(Boolean);
-            return { id: c.id, name: c.first_name + ' ' + c.last_name, email: c.email, companies: co };
-        });
-        var ctxCompanies = allCompanies.slice(0, 50).map(function(co) {
-            return { id: co.id, name: co.name, type: co.company_type };
-        });
+        // Summary only — full lists are accessed via search_contacts tool
         return {
-            contacts: ctxContacts,
-            companies: ctxCompanies,
             contactCount: allContacts.length,
             companyCount: allCompanies.length,
             companyTypes: configCompanyTypes,
@@ -1529,7 +1518,9 @@
 
     var ctStreamEl = null;
 
-    async function callContactsImport(messages, context) {
+    async function callContactsImport(messages, context, _retryCount) {
+        var retryCount = _retryCount || 0;
+        var maxRetries = 2;
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/contacts-import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1537,6 +1528,15 @@
         });
         if (!resp.ok) {
             var errText = await resp.text().catch(function() { return ''; });
+            // Auto-retry on 429 rate limit
+            if ((resp.status === 429 || errText.indexOf('429') !== -1 || errText.indexOf('rate') !== -1) && retryCount < maxRetries) {
+                appendCtMessage('assistant', 'Rate limit atteint \u2014 r\u00e9essai dans 5 secondes...');
+                await new Promise(function(r) { setTimeout(r, 5000); });
+                // Remove the retry notice
+                var msgs = document.getElementById('ctMessages');
+                if (msgs && msgs.lastChild) msgs.removeChild(msgs.lastChild);
+                return callContactsImport(messages, context, retryCount + 1);
+            }
             try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
             catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
         }

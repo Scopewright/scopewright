@@ -381,21 +381,31 @@ serve(async (req) => {
       stream: true,
     };
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-    });
+    // Call Anthropic with retry on 429 rate limit
+    let resp: Response | null = null;
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(body),
+      });
+      if (resp.status === 429 && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      break;
+    }
 
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => "");
+    if (!resp!.ok) {
+      const errText = await resp!.text().catch(() => "");
       return new Response(
-        JSON.stringify({ error: "Anthropic API error: " + resp.status + " " + errText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Anthropic API error: " + resp!.status + " " + errText }),
+        { status: resp!.status === 429 ? 429 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -405,7 +415,7 @@ serve(async (req) => {
     const encoder = new TextEncoder();
 
     (async () => {
-      const reader = resp.body!.getReader();
+      const reader = resp!.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       try {

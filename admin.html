@@ -17,6 +17,7 @@
     <style>html { visibility: hidden; }</style>
 
     <style>
+        :root { --stele-black: #0A0203; --stele-green: #1B2B4B; --stele-gray: #C8C8C8; }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
@@ -140,7 +141,7 @@
             transition: transform 0.25s;
             box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
-        .toggle input:checked + .slider { background: #4b6050; }
+        .toggle input:checked + .slider { background: #1B2B4B; }
         .toggle input:checked + .slider::before { transform: translateX(16px); }
 
         /* Roles table */
@@ -162,14 +163,14 @@
             font-family: inherit; font-size: 13px;
             transition: border-color 0.2s;
         }
-        .input-email:focus { outline: none; border-color: #4b6050; }
+        .input-email:focus { outline: none; border-color: #1B2B4B; }
 
         .select-role {
             padding: 8px 12px; border: 1px solid #e0e0e0;
             border-radius: 4px; font-family: inherit; font-size: 13px;
             background: #fff; cursor: pointer;
         }
-        .select-role:focus { outline: none; border-color: #4b6050; }
+        .select-role:focus { outline: none; border-color: #1B2B4B; }
 
         .btn-remove {
             background: none; border: none; color: #ccc;
@@ -194,7 +195,7 @@
             border-top: 1px solid #f0f0f0;
         }
         .btn-save {
-            background: #4b6050; color: #fff; border: none;
+            background: #1B2B4B; color: #fff; border: none;
             padding: 10px 28px; font-size: 14px; font-weight: 500;
             cursor: pointer; border-radius: 4px; font-family: inherit;
             transition: opacity 0.2s;
@@ -202,7 +203,7 @@
         .btn-save:hover { opacity: 0.9; }
 
         .save-feedback {
-            font-size: 13px; color: #4b6050;
+            font-size: 13px; color: #1B2B4B;
             opacity: 0; transition: opacity 0.3s;
         }
         .save-feedback.visible { opacity: 1; }
@@ -216,7 +217,7 @@
             text-align: right;
             transition: border-color 0.2s;
         }
-        .input-number:focus { outline: none; border-color: #4b6050; }
+        .input-number:focus { outline: none; border-color: #1B2B4B; }
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
@@ -274,7 +275,7 @@
             font-family: inherit; font-size: 14px;
         }
         .role-form-input:focus {
-            outline: none; border-color: #4b6050;
+            outline: none; border-color: #1B2B4B;
         }
         .role-form-textarea {
             min-height: 60px; resize: vertical;
@@ -306,7 +307,7 @@
             background: #f5f5f5; color: #555;
         }
         .btn-modal-save {
-            background: #4b6050; color: #fff;
+            background: #1B2B4B; color: #fff;
         }
 
         @media (max-width: 768px) {
@@ -1310,7 +1311,7 @@
                     '<td style="color:#666; font-size:13px;">' + escapeHtml(role.description || '—') + '</td>' +
                     '<td><span style="background:' + typeBg + '; padding:3px 8px; border-radius:3px; font-size:11px; color:' + typeColor + ';">' + typeLabel + '</span></td>' +
                     '<td style="text-align:right;">' +
-                        '<button class="btn-remove" onclick="editRole(\'' + role.id + '\')" title="Modifier" style="color:#4b6050;">&bull;&bull;&bull;</button>' +
+                        '<button class="btn-remove" onclick="editRole(\'' + role.id + '\')" title="Modifier" style="color:#1B2B4B;">&bull;&bull;&bull;</button>' +
                         (isSystem ? '' : '<button class="btn-remove" onclick="deleteRole(\'' + role.id + '\')" title="Supprimer">&times;</button>') +
                     '</td>' +
                     '</tr>';
@@ -2164,7 +2165,7 @@
                 });
                 showCoverPreview(publicUrl);
                 feedback.textContent = 'Image sauvegard\u00e9e!';
-                feedback.style.color = 'var(--stele-green, #4b6050)';
+                feedback.style.color = 'var(--stele-green, #1B2B4B)';
             } else {
                 var errText = await r.text();
                 console.error('Upload error:', errText);
@@ -2245,7 +2246,7 @@
         if (aiPromptOverrides[currentPromptKey]) {
             textarea.value = aiPromptOverrides[currentPromptKey];
             statusEl.textContent = 'personnalis\u00e9';
-            statusEl.style.color = '#4b6050';
+            statusEl.style.color = '#1B2B4B';
         } else {
             textarea.value = AI_PROMPT_DEFAULTS[currentPromptKey] || '';
             statusEl.textContent = 'par d\u00e9faut';
@@ -2283,7 +2284,7 @@
             if (r.ok || r.status === 201) {
                 aiPromptOverrides[currentPromptKey] = val;
                 showFeedback(fb, 'Sauvegard\u00e9', false);
-                if (statusEl) { statusEl.textContent = 'personnalis\u00e9'; statusEl.style.color = '#4b6050'; }
+                if (statusEl) { statusEl.textContent = 'personnalis\u00e9'; statusEl.style.color = '#1B2B4B'; }
             } else { throw new Error('save failed'); }
         }).catch(function() { showFeedback(fb, 'Erreur', true); });
     }

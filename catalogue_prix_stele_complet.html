@@ -229,6 +229,18 @@
             border-color: var(--stele-green); background: #fff;
         }
         .catalogue-search-bar input::placeholder { color: #9ca3af; }
+        .ai-filter-badge {
+            max-width: 1060px; margin: 0 auto; padding: 6px 16px;
+            background: #EEF2FF; color: #3B5998; font-size: 12px; font-weight: 500;
+            border-radius: 0 0 8px 8px; cursor: pointer; text-align: center;
+            transition: background 0.15s;
+        }
+        .ai-filter-badge:hover { background: #DBEAFE; }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .ai-row-animate { animation: fadeSlideIn 200ms ease-out both; }
 
         /* Sortable column headers */
         .price-table th.sortable {
@@ -1522,6 +1534,22 @@
         }
         .item-pending-badge:hover { background: #E8F5E9; color: #2E7D32; }
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
+        .ai-trigger-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #0F1C2D; opacity: 0.5;
+            border: none; cursor: pointer;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            position: relative; vertical-align: middle;
+            margin-left: 8px;
+        }
+        .ai-trigger-btn:hover {
+            opacity: 1;
+            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        }
+        .ai-trigger-btn::after {
+            content: ''; position: absolute; inset: 6px;
+            border-radius: 50%; background: rgba(255,255,255,0.15);
+        }
         @media (max-width: 600px) {
             .ci-drawer { width: 100%; right: -100%; }
         }
@@ -1537,7 +1565,7 @@
             <a href="app.html" class="nav-back">&larr; Menu</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
-            <button class="nav-filter-btn" id="navImportBtn" style="display:none;" onclick="toggleImportDrawer()">&#x2728; Assistant</button>
+            <button class="ai-trigger-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
             <!-- Les liens des catégories sont générés dynamiquement -->
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
@@ -1554,6 +1582,7 @@
     <div class="catalogue-search-bar no-print" id="catalogueSearchBar">
         <input type="text" id="catalogueSearchInput" placeholder="Rechercher un article (code, description, cat&#233;gorie...)" oninput="filterCatalogueSearch()">
     </div>
+    <div class="ai-filter-badge no-print" id="aiFilterBadge" style="display:none;" onclick="resetAiFilter()">Filtre AI actif &mdash; Tout afficher</div>
 
     <!-- Conteneur pour les sections de catégories (générées dynamiquement) -->
     <div id="dynamicSections"></div>
@@ -1986,6 +2015,8 @@
         var catalogueSearchQuery = '';
         var catalogueSortCol = null; // 'code', 'type', 'description', 'price'
         var catalogueSortDir = 'asc'; // 'asc' or 'desc'
+        var aiFilterActive = false;
+        var aiFilterCategory = null;
 
         function filterCatalogueSearch() {
             var input = document.getElementById('catalogueSearchInput');
@@ -2025,6 +2056,11 @@
                         || (item.instruction || '').toLowerCase().indexOf(q) !== -1
                         || (item.type || '').toLowerCase().indexOf(q) !== -1;
                     if (!match) return;
+                }
+
+                // AI category filter
+                if (aiFilterCategory) {
+                    if ((item.category || '').toLowerCase() !== aiFilterCategory.toLowerCase()) return;
                 }
 
                 if (!grouped[item.category]) {
@@ -2146,6 +2182,15 @@
                 html += '</tbody>';
                 table.innerHTML = html;
             });
+
+            // Stagger animation on rows if AI filter is active
+            if (aiFilterActive) {
+                var allRows = sectionsContainer.querySelectorAll('.price-table tbody tr');
+                allRows.forEach(function(row, i) {
+                    row.classList.add('ai-row-animate');
+                    row.style.animationDelay = Math.min(i * 30, 300) + 'ms';
+                });
+            }
         }
 
 
@@ -3816,6 +3861,57 @@
             return { results: results, count: results.length };
         }
 
+        function ciExecuteFilterCatalogue(input) {
+            if (input.reset) {
+                aiFilterActive = false;
+                aiFilterCategory = null;
+                catalogueSearchQuery = '';
+                catalogueSortCol = null;
+                document.getElementById('catalogueSearchInput').value = '';
+                removeAiFilterBadge();
+            } else {
+                aiFilterActive = true;
+                if (input.search) {
+                    catalogueSearchQuery = input.search.toLowerCase();
+                    document.getElementById('catalogueSearchInput').value = input.search;
+                }
+                if (input.category) {
+                    aiFilterCategory = input.category;
+                }
+                if (input.sort_by) {
+                    catalogueSortCol = input.sort_by;
+                    catalogueSortDir = input.sort_dir || 'asc';
+                }
+                showAiFilterBadge();
+            }
+            generatePriceTables();
+            return { filtered_count: countVisibleItems(), message: 'Filtre appliqué' };
+        }
+
+        function resetAiFilter() {
+            aiFilterActive = false;
+            aiFilterCategory = null;
+            catalogueSearchQuery = '';
+            catalogueSortCol = null;
+            document.getElementById('catalogueSearchInput').value = '';
+            removeAiFilterBadge();
+            generatePriceTables();
+        }
+
+        function showAiFilterBadge() {
+            var badge = document.getElementById('aiFilterBadge');
+            if (badge) badge.style.display = '';
+        }
+
+        function removeAiFilterBadge() {
+            var badge = document.getElementById('aiFilterBadge');
+            if (badge) badge.style.display = 'none';
+        }
+
+        function countVisibleItems() {
+            return document.querySelectorAll('#dynamicSections .price-table tbody tr').length;
+        }
+
         async function sendImportMessage() {
             var input = document.getElementById('ciInput');
             var text = input.value.trim();
@@ -3856,8 +3952,9 @@
             for (var loop = 0; loop < maxLoops; loop++) {
                 var contentBlocks = data.content || [];
                 var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
-                var readOnlyTools = toolCalls.filter(function(tc) { return tc.name === 'search_catalogue'; });
-                var actionTools = toolCalls.filter(function(tc) { return tc.name !== 'search_catalogue'; });
+                var readOnlyNames = ['search_catalogue', 'filter_catalogue'];
+                var readOnlyTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) !== -1; });
+                var actionTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) === -1; });
 
                 // If no read-only tools to auto-execute, return as-is
                 if (readOnlyTools.length === 0) return data;
@@ -3867,7 +3964,12 @@
 
                 var toolResults = [];
                 readOnlyTools.forEach(function(tc) {
-                    var result = ciSearchCatalogue(tc.input.query);
+                    var result;
+                    if (tc.name === 'filter_catalogue') {
+                        result = ciExecuteFilterCatalogue(tc.input);
+                    } else {
+                        result = ciSearchCatalogue(tc.input.query);
+                    }
                     toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
                 });
 

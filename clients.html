@@ -116,6 +116,18 @@
             .form-row { grid-template-columns: 1fr; }
         }
 
+        .ct-ai-filter-badge {
+            padding: 6px 16px; background: #EEF2FF; color: #3B5998;
+            font-size: 12px; font-weight: 500; border-radius: 0 0 8px 8px;
+            cursor: pointer; text-align: center; transition: background 0.15s;
+        }
+        .ct-ai-filter-badge:hover { background: #DBEAFE; }
+        @keyframes ctCardFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .ct-card-animate { animation: ctCardFadeIn 200ms ease-out both; }
+
         /* ═══ AI Chat Drawer ═══ */
         @keyframes ctMsgFadeIn {
             from { opacity: 0; transform: translateY(6px); }
@@ -287,12 +299,21 @@
             transition: background 0.15s;
         }
         .ct-img-thumb .ct-img-remove:hover { background: rgba(0,0,0,0.7); }
-        .nav-assistant-btn {
-            background: none; border: 1px solid #e0e0e0; color: var(--stele-black);
-            padding: 5px 14px; font-size: 12px; cursor: pointer; font-family: inherit;
-            border-radius: 3px; transition: all 0.15s; white-space: nowrap;
+        .ai-trigger-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #0F1C2D; opacity: 0.5;
+            border: none; cursor: pointer;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            position: relative; vertical-align: middle;
         }
-        .nav-assistant-btn:hover { background: #f5f5f5; border-color: #999; }
+        .ai-trigger-btn:hover {
+            opacity: 1;
+            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        }
+        .ai-trigger-btn::after {
+            content: ''; position: absolute; inset: 6px;
+            border-radius: 50%; background: rgba(255,255,255,0.15);
+        }
         @media (max-width: 600px) {
             .ct-drawer { width: 100%; right: -100%; }
         }
@@ -306,7 +327,7 @@
                 <a href="app.html" class="nav-back">&larr; Menu</a>
             </div>
             <div class="nav-user">
-                <button class="nav-assistant-btn" id="navAssistantBtn" onclick="toggleCtDrawer()">&#x2728; Assistant</button>
+                <button class="ai-trigger-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
                 <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
@@ -320,6 +341,7 @@
                 <button class="tab active" id="tabContacts" onclick="switchTab('contacts')">Contacts</button>
                 <button class="tab" id="tabCompanies" onclick="switchTab('companies')">Entreprises</button>
             </div>
+            <div class="ct-ai-filter-badge" id="ctAiFilterBadge" style="display:none;" onclick="resetCtAiFilter()">Filtre AI actif &mdash; Tout afficher</div>
 
             <!-- Contacts view -->
             <div id="viewContacts">
@@ -667,6 +689,8 @@
     var configCompanyTypes = ['Designer', 'Architecte', 'Entrepreneur', 'Promoteur', 'Particulier', 'Autre'];
     var configContactRoles = ['Propri\u00e9taire', 'Designer principal', 'Architecte', 'Charg\u00e9 de projet', 'Adjoint(e)', 'Comptabilit\u00e9', 'Autre'];
     var configCommTypes = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
+    var ctAiFilterActive = false;
+    var ctAiFilterCompanyType = null;
 
     var _steleDialogResolve = null;
     function steleDialogResolve(val) {
@@ -803,6 +827,10 @@
                 '</div>';
         }
         grid.innerHTML = html;
+        if (ctAiFilterActive) {
+            var cards = grid.querySelectorAll('.card');
+            cards.forEach(function(card, i) { card.classList.add('ct-card-animate'); card.style.animationDelay = Math.min(i * 30, 300) + 'ms'; });
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -815,6 +843,9 @@
         var query = (document.getElementById('searchCompanies').value || '').toLowerCase().trim();
 
         var filtered = allCompanies.filter(function(co) {
+            if (ctAiFilterCompanyType) {
+                if ((co.company_type || '').toLowerCase() !== ctAiFilterCompanyType.toLowerCase()) return false;
+            }
             if (!query) return true;
             var full = (co.name + ' ' + (co.company_type || '') + ' ' + (co.email || '')).toLowerCase();
             return full.indexOf(query) !== -1;
@@ -844,6 +875,10 @@
                 '</div>';
         }
         grid.innerHTML = html;
+        if (ctAiFilterActive) {
+            var cards = grid.querySelectorAll('.card');
+            cards.forEach(function(card, i) { card.classList.add('ct-card-animate'); card.style.animationDelay = Math.min(i * 30, 300) + 'ms'; });
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1530,6 +1565,51 @@
         return { contacts: contactResults, companies: companyResults, total: contactResults.length + companyResults.length };
     }
 
+    function ctExecuteFilterContacts(input) {
+        if (input.reset) {
+            ctAiFilterActive = false;
+            ctAiFilterCompanyType = null;
+            document.getElementById('searchContacts').value = '';
+            document.getElementById('searchCompanies').value = '';
+            document.getElementById('ctAiFilterBadge').style.display = 'none';
+            renderContacts();
+            renderCompanies();
+        } else {
+            ctAiFilterActive = true;
+            if (input.tab) switchTab(input.tab);
+            if (input.search) {
+                var activeTab = document.getElementById('viewContacts').style.display !== 'none' ? 'contacts' : 'companies';
+                if (activeTab === 'contacts') {
+                    document.getElementById('searchContacts').value = input.search;
+                } else {
+                    document.getElementById('searchCompanies').value = input.search;
+                }
+            }
+            if (input.company_type) {
+                ctAiFilterCompanyType = input.company_type;
+                switchTab('companies');
+            }
+            document.getElementById('ctAiFilterBadge').style.display = '';
+            renderContacts();
+            renderCompanies();
+        }
+        var activeTab = document.getElementById('viewContacts').style.display !== 'none' ? 'contacts' : 'companies';
+        var count = activeTab === 'contacts'
+            ? document.querySelectorAll('#contactGrid .card').length
+            : document.querySelectorAll('#companyGrid .card').length;
+        return { filtered_count: count, message: 'Filtre appliqué' };
+    }
+
+    function resetCtAiFilter() {
+        ctAiFilterActive = false;
+        ctAiFilterCompanyType = null;
+        document.getElementById('searchContacts').value = '';
+        document.getElementById('searchCompanies').value = '';
+        document.getElementById('ctAiFilterBadge').style.display = 'none';
+        renderContacts();
+        renderCompanies();
+    }
+
     async function sendCtMessage() {
         var input = document.getElementById('ctInput');
         var text = input.value.trim();
@@ -1568,8 +1648,9 @@
         for (var loop = 0; loop < maxLoops; loop++) {
             var contentBlocks = data.content || [];
             var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
-            var readOnlyTools = toolCalls.filter(function(tc) { return tc.name === 'search_contacts'; });
-            var actionTools = toolCalls.filter(function(tc) { return tc.name !== 'search_contacts'; });
+            var readOnlyNames = ['search_contacts', 'filter_contacts'];
+            var readOnlyTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) !== -1; });
+            var actionTools = toolCalls.filter(function(tc) { return readOnlyNames.indexOf(tc.name) === -1; });
 
             if (readOnlyTools.length === 0) return data;
 
@@ -1577,7 +1658,12 @@
 
             var toolResults = [];
             readOnlyTools.forEach(function(tc) {
-                var result = ctSearchContacts(tc.input.query);
+                var result;
+                if (tc.name === 'filter_contacts') {
+                    result = ctExecuteFilterContacts(tc.input);
+                } else {
+                    result = ctSearchContacts(tc.input.query);
+                }
                 toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
             });
 

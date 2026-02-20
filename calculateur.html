@@ -4327,6 +4327,21 @@
             transition: color 0.15s;
         }
         .btn-header-link:hover { color: var(--stele-green); }
+        .ai-trigger-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #0F1C2D; opacity: 0.5;
+            border: none; cursor: pointer;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            position: relative; vertical-align: middle;
+        }
+        .ai-trigger-btn:hover {
+            opacity: 1;
+            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        }
+        .ai-trigger-btn::after {
+            content: ''; position: absolute; inset: 6px;
+            border-radius: 50%; background: rgba(255,255,255,0.15);
+        }
         .ph-project-name {
             font-size: 26px; font-weight: 700; border: none; outline: none;
             background: transparent; font-family: inherit; color: var(--stele-black);
@@ -5193,7 +5208,7 @@
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
                         <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
-                        <button class="btn-header-link" id="btnAiAssistant" onclick="openAiDrawer()">AI</button>
+                        <button class="ai-trigger-btn" id="btnAiAssistant" title="Assistant Scopewright" onclick="openAiDrawer()"></button>
                         <button class="btn-header-link" id="btnContacts" onclick="openContactsModal()">Contacts</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>

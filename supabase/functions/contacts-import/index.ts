@@ -116,6 +116,17 @@ Les doublons sont le problème #1. Avant chaque création :
 - Plus de 15 contacts : traite par lots de 10 max
 - Après chaque lot : "Lot 1 (10 contacts) créé. Je continue ?"
 
+## Filtrage de la table
+Quand l'utilisateur demande de chercher ou filtrer des contacts/entreprises dans la table :
+- Utilise le tool filter_contacts — il met à jour la table directement
+- Ne liste PAS les résultats dans le chat
+- Réponds juste : "Filtré : 8 contacts affichés" ou "Entreprises de type Architecte affichées"
+- Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
+
+## Format de réponse
+- Quand tu listes des contacts ou entreprises (hors filtrage), utilise le format tableau markdown
+- NE PAS utiliser de listes à bullets
+
 ## Ton
 
 - Direct et efficace, pas de bavardage
@@ -307,6 +318,20 @@ const TOOLS = [
         is_primary_contact: { type: "boolean", description: "Contact principal de l'entreprise" },
       },
       required: ["contact_id", "company_id"],
+    },
+  },
+  {
+    name: "filter_contacts",
+    description:
+      "Filtrer et trier les contacts ou entreprises dans la table. Tool de lecture seule — s'exécute immédiatement sans confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        search: { type: "string", description: "Terme de recherche" },
+        tab: { type: "string", enum: ["contacts", "companies"], description: "Onglet à afficher" },
+        company_type: { type: "string", description: "Filtrer les entreprises par type" },
+        reset: { type: "boolean", description: "Enlever les filtres AI" },
+      },
     },
   },
 ];

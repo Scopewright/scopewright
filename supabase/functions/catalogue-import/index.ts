@@ -129,6 +129,18 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - **delete** : toujours demander confirmation explicite. "Supprimer TIR-001 'Tiroir 4x12 plaine' ? Cette action est irréversible."
 - **update en lot** : si l'utilisateur dit "change tous les tiroirs de 10 à 15 minutes assemblage", lister les articles affectés et demander confirmation avant d'appliquer.
 
+## Filtrage de la table
+Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains articles :
+- Utilise le tool filter_catalogue — il met à jour la table directement
+- Ne liste PAS les résultats dans le chat
+- Réponds juste un court message de confirmation : "Filtré : 11 tiroirs affichés" ou "Trié par prix décroissant"
+- Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
+
+## Format de réponse
+- Quand tu listes des articles (hors filtrage), utilise TOUJOURS le format tableau markdown avec colonnes Code, Description, Prix
+- NE PAS utiliser de listes à bullets pour les articles
+- Les tableaux seront automatiquement convertis en cards visuelles côté client
+
 ## Ton ton
 - Direct et efficace — pas de bavardage
 - "J'ai trouvé 12 tiroirs Legrabox. Voici la liste :" pas "Super ! Je vais analyser tes données..."
@@ -314,6 +326,21 @@ const TOOLS = [
         code: { type: "string", description: "Code de l'article à supprimer" },
       },
       required: ["code"],
+    },
+  },
+  {
+    name: "filter_catalogue",
+    description:
+      "Filtrer et trier la table du catalogue. Tool de lecture seule — s'exécute immédiatement sans confirmation. Utilise ce tool quand l'utilisateur demande de chercher, filtrer, trier ou montrer certains articles dans la table.",
+    input_schema: {
+      type: "object",
+      properties: {
+        search: { type: "string", description: "Terme de recherche textuel (cherche dans code, description, catégorie)" },
+        category: { type: "string", description: "Filtrer par catégorie exacte" },
+        sort_by: { type: "string", enum: ["code", "description", "type", "price"], description: "Colonne de tri" },
+        sort_dir: { type: "string", enum: ["asc", "desc"], description: "Direction du tri" },
+        reset: { type: "boolean", description: "Remettre la table à son état initial (enlever tous les filtres AI)" },
+      },
     },
   },
 ];

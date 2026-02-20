@@ -1558,10 +1558,9 @@
         var stopReason = null;
         var usage = null;
 
-        document.getElementById('ctTyping').classList.remove('active');
+        // Create live message element (not appended yet — typing dots stay until first text arrives)
         ctStreamEl = document.createElement('div');
         ctStreamEl.className = 'ct-msg ct-msg-assistant';
-        document.getElementById('ctMessages').appendChild(ctStreamEl);
 
         while (true) {
             var chunk = await reader.read();
@@ -1587,6 +1586,11 @@
                     } else if (evt.type === 'content_block_delta') {
                         if (evt.delta.type === 'text_delta') {
                             currentText += evt.delta.text;
+                            // Hide typing dots on first text, show streaming element
+                            document.getElementById('ctTyping').classList.remove('active');
+                            if (ctStreamEl && !ctStreamEl.parentNode) {
+                                document.getElementById('ctMessages').appendChild(ctStreamEl);
+                            }
                             if (ctStreamEl) {
                                 ctStreamEl.innerHTML = renderCtMarkdown(currentText);
                                 var cont = document.getElementById('ctMessages');
@@ -1615,7 +1619,7 @@
             }
         }
 
-        if (ctStreamEl) { ctStreamEl.remove(); ctStreamEl = null; }
+        if (ctStreamEl) { if (ctStreamEl.parentNode) ctStreamEl.remove(); ctStreamEl = null; }
         return { content: contentBlocks, stop_reason: stopReason, usage: usage };
     }
 
@@ -1746,6 +1750,7 @@
             }
 
             conversation.push({ role: 'user', content: toolResults });
+            document.getElementById('ctTyping').classList.add('active');
             data = await callContactsImport(conversation, context);
         }
 

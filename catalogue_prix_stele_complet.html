@@ -3903,11 +3903,9 @@
             var stopReason = null;
             var usage = null;
 
-            // Create live message element
-            document.getElementById('ciTyping').classList.remove('active');
+            // Create live message element (not appended yet — typing dots stay until first text arrives)
             ciStreamEl = document.createElement('div');
             ciStreamEl.className = 'ci-msg ci-msg-assistant';
-            document.getElementById('ciMessages').appendChild(ciStreamEl);
 
             while (true) {
                 var chunk = await reader.read();
@@ -3934,6 +3932,11 @@
                         } else if (evt.type === 'content_block_delta') {
                             if (evt.delta.type === 'text_delta') {
                                 currentText += evt.delta.text;
+                                // Hide typing dots on first text, show streaming element
+                                document.getElementById('ciTyping').classList.remove('active');
+                                if (ciStreamEl && !ciStreamEl.parentNode) {
+                                    document.getElementById('ciMessages').appendChild(ciStreamEl);
+                                }
                                 // Live update the message
                                 if (ciStreamEl) {
                                     ciStreamEl.innerHTML = renderCiMarkdown(currentText);
@@ -3966,7 +3969,7 @@
             }
 
             // Remove the streaming element — it'll be re-added by ciHandleResponse
-            if (ciStreamEl) { ciStreamEl.remove(); ciStreamEl = null; }
+            if (ciStreamEl) { if (ciStreamEl.parentNode) ciStreamEl.remove(); ciStreamEl = null; }
 
             return { content: contentBlocks, stop_reason: stopReason, usage: usage };
         }
@@ -4109,6 +4112,7 @@
 
                 // Only read-only tools — send results back and get next response
                 conversation.push({ role: 'user', content: toolResults });
+                document.getElementById('ciTyping').classList.add('active');
                 data = await callCatalogueImport(conversation, context);
             }
 

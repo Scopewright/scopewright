@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fiche de vente — Scopewright</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="scopewright-tokens.css">
 
     <script>
         const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
@@ -12,14 +13,6 @@
     </script>
 
     <style>
-        :root {
-            --stele-black: #0A0203;
-            --stele-green: #0B1220;
-            --stele-gray: #C8C8C8;
-            --stele-light-gray: #F8F8F8;
-            --stele-white: #FFFFFF;
-        }
-
         *, *::before, *::after {
             margin: 0;
             padding: 0;
@@ -27,17 +20,16 @@
         }
 
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 16px;
             line-height: 1.5;
-            color: var(--stele-black);
-            background: var(--stele-white);
+            color: var(--sw-text);
+            background: var(--sw-surface);
         }
 
         /* HEADER SCOPEWRIGHT STANDARD */
-        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #C8C8C8; padding: 0 60px; display: flex; align-items: center; gap: 24px; z-index: 100; }
-        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: #0B1220; text-decoration: none; }
-        .nav-back { color: #1F2937; text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity 0.2s; white-space: nowrap; }
+        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--sw-surface); border-bottom: 1px solid var(--sw-border); padding: 0 60px; display: flex; align-items: center; gap: var(--sw-space-3); z-index: 100; }
+        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: var(--sw-navy); text-decoration: none; }
+        .nav-back { color: var(--sw-text); text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity var(--sw-ease); white-space: nowrap; }
         .nav-back:hover { opacity: 0.8; }
 
         .btn-edit-fiche {
@@ -45,7 +37,7 @@
             padding: 6px 16px;
             font-size: 13px;
             font-family: inherit;
-            background: var(--stele-green);
+            background: var(--sw-navy);
             color: #fff;
             border: none;
             border-radius: 4px;
@@ -71,7 +63,7 @@
             font-size: 24px;
             font-weight: 400;
             margin-bottom: 12px;
-            color: var(--stele-black);
+            color: var(--sw-text);
         }
 
         .state-view p {
@@ -81,7 +73,7 @@
         }
 
         .state-view a {
-            color: var(--stele-green);
+            color: var(--sw-navy);
             text-decoration: underline;
             font-size: 14px;
         }
@@ -109,7 +101,7 @@
         .btn-print svg {
             width: 20px;
             height: 20px;
-            fill: var(--stele-black);
+            fill: var(--sw-text);
         }
 
         /* ═══ Page subtitle ═══ */
@@ -161,7 +153,7 @@
             display: inline-block;
             margin-top: 12px;
             font-size: 13px;
-            color: var(--stele-green);
+            color: var(--sw-navy);
             text-decoration: underline;
             cursor: pointer;
         }
@@ -170,7 +162,7 @@
         .fiche-title {
             font-size: 24px;
             font-weight: 400;
-            color: var(--stele-black);
+            color: var(--sw-text);
             margin-bottom: 16px;
             line-height: 1.3;
         }
@@ -202,7 +194,7 @@
 
         .credit-line {
             font-size: 14px;
-            color: var(--stele-black);
+            color: var(--sw-text);
             margin-bottom: 4px;
         }
 
@@ -235,7 +227,7 @@
         }
 
         .info-value {
-            color: var(--stele-black);
+            color: var(--sw-text);
         }
 
         .info-usage {
@@ -256,7 +248,7 @@
         .fiche-footer .footer-logo {
             font-size: 20px;
             font-weight: 400;
-            color: var(--stele-black);
+            color: var(--sw-text);
             opacity: 0.15;
         }
 
@@ -300,7 +292,7 @@
         }
 
         .editor-modal {
-            background: var(--stele-white);
+            background: var(--sw-surface);
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             max-width: 600px;
@@ -310,7 +302,7 @@
 
         .editor-header {
             padding: 20px 24px;
-            border-bottom: 1px solid var(--stele-gray);
+            border-bottom: 1px solid var(--sw-border);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -335,7 +327,7 @@
 
         .editor-footer {
             padding: 16px 24px;
-            border-top: 1px solid var(--stele-gray);
+            border-top: 1px solid var(--sw-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -361,16 +353,16 @@
             padding: 10px 12px;
             font-size: 14px;
             font-family: inherit;
-            border: 1px solid var(--stele-gray);
+            border: 1px solid var(--sw-border);
             border-radius: 4px;
-            background: var(--stele-white);
-            color: var(--stele-black);
+            background: var(--sw-surface);
+            color: var(--sw-text);
             transition: border-color 0.2s;
         }
 
         .ed-input:focus, .ed-textarea:focus {
             outline: none;
-            border-color: var(--stele-green);
+            border-color: var(--sw-navy);
         }
 
         .ed-textarea {
@@ -422,7 +414,7 @@
         }
 
         .ed-toggle input:checked + .ed-slider {
-            background: var(--stele-green);
+            background: var(--sw-navy);
         }
 
         .ed-toggle input:checked + .ed-slider:before {
@@ -431,7 +423,7 @@
 
         .ed-toggle-label {
             font-size: 13px;
-            color: var(--stele-black);
+            color: var(--sw-text);
         }
 
         /* Buttons */
@@ -439,7 +431,7 @@
             padding: 8px 20px;
             font-size: 14px;
             font-family: inherit;
-            background: var(--stele-green);
+            background: var(--sw-navy);
             color: #fff;
             border: none;
             border-radius: 4px;
@@ -456,13 +448,13 @@
             font-family: inherit;
             background: none;
             color: #666;
-            border: 1px solid var(--stele-gray);
+            border: 1px solid var(--sw-border);
             border-radius: 4px;
             cursor: pointer;
             transition: background 0.15s;
         }
 
-        .btn-close-editor:hover { background: var(--stele-light-gray); }
+        .btn-close-editor:hover { background: var(--sw-border-2); }
 
         .ed-status {
             font-size: 13px;

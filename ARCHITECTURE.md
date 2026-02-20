@@ -1,6 +1,6 @@
 # ARCHITECTURE — Scopewright (Stele)
 
-> Documentation de référence du projet. Dernière mise à jour : 2026-02-15.
+> Documentation de référence du projet. Dernière mise à jour : 2026-02-20.
 > Dernier audit complet : 2026-02-10.
 
 ---
@@ -47,6 +47,8 @@
 |---------|------|
 | `google_apps_script.gs` | Cloud function Google Apps Script : génère l'email HTML + PDF d'estimation |
 | `supabase/functions/ai-assistant/index.ts` | Edge Function Supabase : assistant AI avec Claude Sonnet 4.5 + tools |
+| `supabase/functions/catalogue-import/index.ts` | Edge Function Supabase : assistant AI catalogue (streaming SSE, CRUD items) |
+| `supabase/functions/contacts-import/index.ts` | Edge Function Supabase : assistant AI contacts (filtrage, actions) |
 | `supabase/functions/translate/index.ts` | Edge Function Supabase : traduction FR↔EN + optimisation descriptions via Claude Haiku |
 | `catalogue.json` | Données de catalogue en JSON (export/fallback) |
 
@@ -81,6 +83,8 @@
 - **Email** : Google Apps Script (déploiement manuel requis après chaque modification du `.gs`)
 - **Edge Functions** : Supabase Edge Functions (Deno) — déployées via `npx supabase functions deploy <nom>`
   - `ai-assistant` : assistant AI via Anthropic Claude Sonnet 4.5 — **DÉPLOYÉ**
+  - `catalogue-import` : assistant AI catalogue (streaming SSE, CRUD) — **DÉPLOYÉ**
+  - `contacts-import` : assistant AI contacts (filtrage, actions) — **DÉPLOYÉ**
   - `translate` : traduction FR↔EN + optimisation via Anthropic Claude Haiku — **DÉPLOYÉ**
 - **Secret requis** : `ANTHROPIC_API_KEY` configuré dans Supabase Secrets Dashboard
 
@@ -835,11 +839,41 @@ Voir §8 pour les détails complets.
 
 **Batch** : supporte le traitement groupé via séparateur `===SEPARATOR===` en un seul appel API.
 
-### 7.3 Déploiement
+### 7.3 `catalogue-import` — Assistant AI catalogue
+
+| Propriété | Valeur |
+|-----------|--------|
+| **Fichier** | `supabase/functions/catalogue-import/index.ts` |
+| **Modèle** | Claude (configuré via prompts) |
+| **Transport** | Streaming SSE (Server-Sent Events) |
+| **JWT** | Vérifié (défaut) |
+| **Statut** | DÉPLOYÉ |
+
+- Assistant intégré à la page catalogue (drawer latéral)
+- Outils CRUD : créer, modifier, supprimer des items catalogue
+- Streaming en temps réel (réponses partielles affichées progressivement)
+- Prompts personnalisables via `app_config` clé `ai_prompt_overrides`
+
+### 7.4 `contacts-import` — Assistant AI contacts
+
+| Propriété | Valeur |
+|-----------|--------|
+| **Fichier** | `supabase/functions/contacts-import/index.ts` |
+| **Modèle** | Claude |
+| **Transport** | Streaming SSE |
+| **JWT** | Vérifié (défaut) |
+| **Statut** | DÉPLOYÉ |
+
+- Assistant intégré à la page contacts
+- Outils de filtrage et d'action sur les contacts/entreprises
+
+### 7.5 Déploiement
 
 ```bash
 # Déployer une Edge Function
 npx supabase functions deploy ai-assistant
+npx supabase functions deploy catalogue-import
+npx supabase functions deploy contacts-import
 npx supabase functions deploy translate
 
 # Configurer le secret API (une seule fois)

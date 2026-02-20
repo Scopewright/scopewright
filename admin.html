@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administration — Scopewright</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="scopewright-tokens.css">
 
     <!-- Auth guard -->
     <script>
@@ -17,22 +18,20 @@
     <style>html { visibility: hidden; }</style>
 
     <style>
-        :root { --stele-black: #0A0203; --stele-green: #0B1220; --stele-gray: #C8C8C8; }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
             height: 100%;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background: #ffffff;
-            color: #0A0203;
+            background: var(--sw-surface);
+            color: var(--sw-text);
         }
 
         .app-wrapper { display: flex; min-height: 100vh; flex-direction: column; }
 
         /* HEADER SCOPEWRIGHT STANDARD */
-        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #C8C8C8; padding: 0 60px; display: flex; align-items: center; gap: 24px; z-index: 100; }
-        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: #0B1220; text-decoration: none; }
-        .nav-back { color: #1F2937; text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity 0.2s; white-space: nowrap; }
+        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--sw-surface); border-bottom: 1px solid var(--sw-border); padding: 0 60px; display: flex; align-items: center; gap: var(--sw-space-3); z-index: 100; }
+        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: var(--sw-navy); text-decoration: none; }
+        .nav-back { color: var(--sw-text); text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity var(--sw-ease); white-space: nowrap; }
         .nav-back:hover { opacity: 0.8; }
         .data-status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 12px; border-radius: 20px; background: #f5f5f5; }
         .data-status.online { background: #e8f5e9; color: #2e7d32; }
@@ -109,7 +108,7 @@
             transition: transform 0.25s;
             box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
-        .toggle input:checked + .slider { background: #0B1220; }
+        .toggle input:checked + .slider { background: var(--sw-navy); }
         .toggle input:checked + .slider::before { transform: translateX(16px); }
 
         /* Roles table */
@@ -131,14 +130,14 @@
             font-family: inherit; font-size: 13px;
             transition: border-color 0.2s;
         }
-        .input-email:focus { outline: none; border-color: #0B1220; }
+        .input-email:focus { outline: none; border-color: var(--sw-navy); }
 
         .select-role {
             padding: 8px 12px; border: 1px solid #e0e0e0;
             border-radius: 4px; font-family: inherit; font-size: 13px;
             background: #fff; cursor: pointer;
         }
-        .select-role:focus { outline: none; border-color: #0B1220; }
+        .select-role:focus { outline: none; border-color: var(--sw-navy); }
 
         .btn-remove {
             background: none; border: none; color: #ccc;
@@ -163,7 +162,7 @@
             border-top: 1px solid #f0f0f0;
         }
         .btn-save {
-            background: #0B1220; color: #fff; border: none;
+            background: var(--sw-navy); color: #fff; border: none;
             padding: 10px 28px; font-size: 14px; font-weight: 500;
             cursor: pointer; border-radius: 4px; font-family: inherit;
             transition: opacity 0.2s;
@@ -171,7 +170,7 @@
         .btn-save:hover { opacity: 0.9; }
 
         .save-feedback {
-            font-size: 13px; color: #0B1220;
+            font-size: 13px; color: var(--sw-navy);
             opacity: 0; transition: opacity 0.3s;
         }
         .save-feedback.visible { opacity: 1; }
@@ -185,7 +184,7 @@
             text-align: right;
             transition: border-color 0.2s;
         }
-        .input-number:focus { outline: none; border-color: #0B1220; }
+        .input-number:focus { outline: none; border-color: var(--sw-navy); }
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
@@ -243,7 +242,7 @@
             font-family: inherit; font-size: 14px;
         }
         .role-form-input:focus {
-            outline: none; border-color: #0B1220;
+            outline: none; border-color: var(--sw-navy);
         }
         .role-form-textarea {
             min-height: 60px; resize: vertical;
@@ -275,7 +274,7 @@
             background: #f5f5f5; color: #555;
         }
         .btn-modal-save {
-            background: #0B1220; color: #fff;
+            background: var(--sw-navy); color: #fff;
         }
 
         @media (max-width: 768px) {
@@ -297,7 +296,7 @@
             max-width: 440px; width: 90%; overflow: hidden;
         }
         .stele-dialog-header { padding: 18px 24px 0; }
-        .stele-dialog-header h3 { font-size: 15px; font-weight: 700; color: var(--stele-black); margin: 0; }
+        .stele-dialog-header h3 { font-size: 15px; font-weight: 700; color: var(--sw-text); margin: 0; }
         .stele-dialog-body { padding: 12px 24px 20px; }
         .stele-dialog-body p { font-size: 14px; color: #444; margin: 0; }
         .stele-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 18px; }
@@ -307,7 +306,7 @@
         }
         .stele-dialog-btn-cancel { background: #f5f5f5; color: #333; }
         .stele-dialog-btn-cancel:hover { background: #e8e8e8; }
-        .stele-dialog-btn-ok { background: var(--stele-green); color: #fff; border-color: var(--stele-green); }
+        .stele-dialog-btn-ok { background: var(--sw-navy); color: #fff; border-color: var(--sw-navy); }
         .stele-dialog-btn-ok:hover { opacity: 0.9; }
     </style>
 </head>
@@ -2132,7 +2131,7 @@
                 });
                 showCoverPreview(publicUrl);
                 feedback.textContent = 'Image sauvegard\u00e9e!';
-                feedback.style.color = 'var(--stele-green, #0B1220)';
+                feedback.style.color = 'var(--sw-navy)';
             } else {
                 var errText = await r.text();
                 console.error('Upload error:', errText);

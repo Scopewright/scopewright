@@ -2,6 +2,34 @@
 
 ---
 
+## 2026-02-20
+
+### Features — Rebranding & AI assistants
+- **Rebranding visuel** — Passage du vert Stele au bleu marine Scopewright (#0B1220) sur toutes les pages internes
+- **Header uniforme** — 56px, logo Scopewright + lien "← Menu", identique sur toutes les pages
+- **Dashboard split screen** — Panneau gauche (cartes), panneau droit (branding Scopewright)
+- **Login split screen** — Même pattern que le dashboard
+- **Assistant AI catalogue** — Drawer latéral avec streaming SSE, CRUD items, reverse pricing
+- **Assistant AI contacts** — Drawer latéral sur la page contacts
+- **AI prompt editor** — Section dans admin.html pour personnaliser les prompts AI (app_config `ai_prompt_overrides`)
+- **Catalogue single table** — Refonte : table unique avec dropdown catégorie (plus d'onglets), barre de recherche, tri colonnes
+- **Bouton AI uniforme** — Cercle subtil avec breathing animation sur toutes les pages
+- **Clients → Contacts** — Renommage global
+- **Approbation directe** — Badge pending cliquable pour approuver les items catalogue
+
+### Edge Functions
+- **Deployed `catalogue-import`** — Streaming SSE, CRUD catalogue items
+- **Deployed `contacts-import`** — Streaming SSE, actions contacts
+
+### Bug Fixes
+- **Fix: AI approval status** — L'assistant catalogue voit maintenant le statut d'approbation des articles
+- **Fix: Preview band color** — La bande de l'aperçu soumission reste verte (client-facing)
+- **Fix: Dashboard layout** — Marges 48px égales, centrage vertical du contenu
+- **Fix: Rentability modal total** — Correction du calcul total
+- **Fix: AI filter action** — Le filtrage AI agit directement sur la table au lieu d'afficher dans le chat
+
+---
+
 ## 2026-02-17
 
 ### Features — Pipeline commercial

@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion — Scopewright</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="scopewright-tokens.css">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
             height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
-            background: #F7F8FA;
-            color: #0B1220;
-            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -26,19 +23,19 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 48px 56px;
+            padding: var(--sw-space-6) 56px;
             position: relative;
         }
 
         .back-link {
             position: absolute;
-            top: 32px;
+            top: var(--sw-space-4);
             left: 56px;
             font-size: 13px;
-            color: #0B1220;
+            color: var(--sw-text);
             text-decoration: none;
             opacity: 0.5;
-            transition: opacity 0.2s;
+            transition: opacity var(--sw-ease);
         }
 
         .back-link:hover { opacity: 1; }
@@ -46,16 +43,16 @@
         .logo-text {
             font-size: 28px;
             font-weight: 600;
-            color: #0B1220;
+            color: var(--sw-text);
             letter-spacing: -0.02em;
-            margin-bottom: 8px;
+            margin-bottom: var(--sw-space-1);
         }
 
         .subtitle {
             font-size: 15px;
-            color: #0B1220;
+            color: var(--sw-text);
             opacity: 0.6;
-            margin-bottom: 40px;
+            margin-bottom: var(--sw-space-5);
         }
 
         .form-group {
@@ -67,7 +64,7 @@
             display: block;
             font-size: 13px;
             font-weight: 500;
-            color: #0B1220;
+            color: var(--sw-text);
             margin-bottom: 6px;
         }
 
@@ -76,16 +73,16 @@
             padding: 14px 18px;
             font-size: 15px;
             font-family: inherit;
-            border: 1px solid #E1E4E8;
-            border-radius: 12px;
-            background: #FFFFFF;
-            color: #0B1220;
-            transition: border-color 0.2s;
+            border: 1px solid var(--sw-border);
+            border-radius: var(--sw-radius-dropdown);
+            background: var(--sw-surface);
+            color: var(--sw-text);
+            transition: border-color var(--sw-ease);
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #0B1220;
+            border-color: var(--sw-navy);
         }
 
         .login-btn {
@@ -93,54 +90,48 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            background: #0B1220;
-            color: #FFFFFF;
+            background: var(--sw-navy);
+            color: var(--sw-surface);
             border: none;
             padding: 12px 32px;
             font-size: 14px;
             font-weight: 500;
             font-family: inherit;
             cursor: pointer;
-            border-radius: 12px;
-            transition: background 0.2s;
-            margin-top: 8px;
+            border-radius: var(--sw-radius-dropdown);
+            transition: background var(--sw-ease);
+            margin-top: var(--sw-space-1);
         }
 
-        .login-btn:hover { background: #000000; }
+        .login-btn:hover { background: var(--sw-navy-hover); }
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .error-msg {
             display: none;
-            margin-top: 16px;
-            padding: 12px 16px;
+            margin-top: var(--sw-space-2);
+            padding: var(--sw-space-1h) var(--sw-space-2);
             background: #FEF2F2;
             color: #DC2626;
             font-size: 13px;
-            border-radius: 12px;
+            border-radius: var(--sw-radius-dropdown);
             border: 1px solid #FECACA;
             max-width: 360px;
         }
 
         .right {
             flex: 1;
-            background: #0B1220;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .right-content {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.7);
-            padding: 48px;
+            padding: var(--sw-space-6);
         }
 
         .right-logo {
             font-size: 24px;
             font-weight: 600;
-            color: #FFFFFF;
+            color: rgba(255,255,255,0.4);
             letter-spacing: -0.02em;
-            margin-bottom: 16px;
+            margin-bottom: var(--sw-space-2);
         }
 
         .right-tagline {
@@ -152,7 +143,7 @@
         @media (max-width: 768px) {
             .container { flex-direction: column-reverse; }
             .right { min-height: 120px; flex: none; }
-            .right-content { padding: 24px; }
+            .right-content { padding: var(--sw-space-3); }
             .left { flex: 1; padding: 36px 28px; }
             .back-link { top: 20px; left: 28px; }
         }
@@ -182,10 +173,10 @@
             <div class="error-msg" id="errorMsg"></div>
         </div>
 
-        <div class="right">
+        <div class="right sw-split-panel">
             <div class="right-content">
-                <div class="right-logo">scopewright</div>
-                <div class="right-tagline">Infrastructure d'estimation pour<br>ateliers d'&eacute;b&eacute;nisterie haut de gamme.</div>
+                <div class="right-logo sw-brand-name">scopewright</div>
+                <div class="right-tagline sw-brand-tagline">Infrastructure d'estimation pour<br>ateliers d'&eacute;b&eacute;nisterie haut de gamme.</div>
             </div>
         </div>
     </div>

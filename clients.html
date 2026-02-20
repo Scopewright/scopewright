@@ -22,10 +22,15 @@
         .nav-links { display: flex; align-items: center; gap: 16px; }
         .nav-back { color: var(--stele-black); text-decoration: none; font-size: 13px; opacity: 0.6; transition: opacity 0.15s; }
         .nav-back:hover { opacity: 1; }
-        .nav-user { margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: 13px; }
-        .nav-user-email { color: var(--stele-black); opacity: 0.5; }
-        .btn-logout { background: transparent; color: var(--stele-black); border: 1px solid var(--stele-gray); padding: 5px 14px; font-size: 12px; cursor: pointer; font-family: inherit; border-radius: 3px; transition: all 0.15s; }
-        .btn-logout:hover { background: #f5f5f5; border-color: #999; }
+        .data-status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 12px; border-radius: 20px; background: #f5f5f5; }
+        .data-status.online { background: #e8f5e9; color: #2e7d32; }
+        .data-status.offline { background: #fff3e0; color: #ef6c00; }
+        .data-status.error { background: #ffebee; color: #c62828; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+        .data-status.online .status-dot { background: #4caf50; }
+        .data-status.offline .status-dot { background: #ff9800; }
+        .data-status.error .status-dot { background: #f44336; }
+        .status-text { white-space: nowrap; }
 
         /* Content */
         .app-content { flex: 1; padding: 40px; padding-top: 96px; max-width: 1100px; margin: 0 auto; width: 100%; }
@@ -335,10 +340,10 @@
             <div class="nav-links">
                 <a href="app.html" class="nav-back">&larr; Menu</a>
             </div>
-            <div class="nav-user">
-                <button class="ai-assistant-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
-                <span class="nav-user-email" id="userEmail"></span>
-                <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
+            <button class="ai-assistant-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
+            <div class="data-status" id="dataStatus">
+                <span class="status-dot"></span>
+                <span class="status-text" id="statusText">Chargement...</span>
             </div>
         </nav>
 
@@ -678,10 +683,11 @@
         return resp;
     }
 
-    function handleLogout() {
-        localStorage.removeItem('sb_access_token'); localStorage.removeItem('sb_refresh_token');
-        localStorage.removeItem('sb_user_email'); localStorage.removeItem('sb_user_id');
-        window.location.href = 'login.html';
+    function updateStatus(status, message) {
+        var statusEl = document.getElementById('dataStatus');
+        var textEl = document.getElementById('statusText');
+        statusEl.className = 'data-status ' + status;
+        textEl.textContent = message;
     }
 
     function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
@@ -2052,14 +2058,13 @@
     // INIT
     // ═══════════════════════════════════════════════════════════════
 
-    document.getElementById('userEmail').textContent = localStorage.getItem('sb_user_email') || '';
-
     (async function() {
         if (!(await checkPageAccess())) return;
         await loadConfig();
         await Promise.all([loadContacts(), loadCompanies()]);
         renderContacts();
         renderCompanies();
+        updateStatus('online', 'Donn\u00e9es \u00e0 jour');
 
         // Hash detection: open contact or company modal from deep link
         var hash = window.location.hash;

@@ -2072,6 +2072,7 @@
         var catalogueSortDir = 'asc'; // 'asc' or 'desc'
         var aiFilterActive = false;
         var aiFilterCategory = null;
+        var aiFilterStatus = null;
         var selectedCategory = null; // null = all categories
 
         function filterCatalogueSearch() {
@@ -2163,6 +2164,11 @@
 
                 if (activeCat) {
                     if ((item.category || '').toLowerCase() !== activeCat.toLowerCase()) return;
+                }
+
+                if (aiFilterStatus) {
+                    var itemStatus = item.status || 'approved';
+                    if (itemStatus !== aiFilterStatus) return;
                 }
 
                 if (!grouped[item.category]) {
@@ -3884,12 +3890,18 @@
                 }
             }
 
+            var pendingCount = CATALOGUE_DATA.filter(function(i) { return i.status === 'pending'; }).length;
+            var approvedCount = CATALOGUE_DATA.filter(function(i) { return !i.status || i.status === 'approved'; }).length;
+
             return {
                 categories: Array.from(cats),
                 existingCodes: existingCodes,
                 unitTypes: unitTypes,
                 expenseCategories: expenseCategories,
                 tauxHoraires: tauxHoraires,
+                totalItems: CATALOGUE_DATA.length,
+                pendingCount: pendingCount,
+                approvedCount: approvedCount,
                 userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase(),
                 openArticle: openArticle
             };
@@ -4003,7 +4015,7 @@
                        (item.category || '').toLowerCase().indexOf(q) !== -1 ||
                        (item.id || '').toLowerCase().indexOf(q) !== -1;
             }).slice(0, 15).map(function(item) {
-                return { id: item.id, description: item.description, category: item.category, type: item.type, price: item.price };
+                return { id: item.id, description: item.description, category: item.category, type: item.type, price: item.price, status: item.status || 'approved' };
             });
             return { results: results, count: results.length };
         }
@@ -4012,6 +4024,7 @@
             if (input.reset) {
                 aiFilterActive = false;
                 aiFilterCategory = null;
+                aiFilterStatus = null;
                 catalogueSearchQuery = '';
                 catalogueSortCol = null;
                 document.getElementById('catalogueSearchInput').value = '';
@@ -4024,6 +4037,9 @@
                 }
                 if (input.category) {
                     aiFilterCategory = input.category;
+                }
+                if (input.status) {
+                    aiFilterStatus = input.status;
                 }
                 if (input.sort_by) {
                     catalogueSortCol = input.sort_by;
@@ -4038,6 +4054,7 @@
         function resetAiFilter() {
             aiFilterActive = false;
             aiFilterCategory = null;
+            aiFilterStatus = null;
             catalogueSearchQuery = '';
             catalogueSortCol = null;
             document.getElementById('catalogueSearchInput').value = '';

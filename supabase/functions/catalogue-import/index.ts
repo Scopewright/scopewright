@@ -131,10 +131,12 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 
 ## Filtrage de la table
 Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains articles :
-- Utilise le tool filter_catalogue — il met à jour la table directement
-- Ne liste PAS les résultats dans le chat
+- TOUJOURS utiliser le tool filter_catalogue — il met à jour la table directement
+- Ne JAMAIS lister les résultats dans le chat — le tool filtre la table visible
 - Réponds juste un court message de confirmation : "Filtré : 11 tiroirs affichés" ou "Trié par prix décroissant"
 - Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
+- Pour les articles en attente d'approbation : utilise filter_catalogue avec status: "pending"
+- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"})
 
 ## Format de réponse
 - Quand tu listes des articles (hors filtrage), utilise TOUJOURS le format tableau markdown avec colonnes Code, Description, Prix
@@ -220,7 +222,16 @@ L'utilisateur a cet article ouvert. Si il dit "celui-ci", "cet article", "change
 - Par défaut: ${a.is_default ? 'oui ★' : 'non'}`;
   }
 
+  const totalItems = context.totalItems || 0;
+  const pendingCount = context.pendingCount || 0;
+  const approvedCount = context.approvedCount || 0;
+
   const dynamicContext = `
+
+## Catalogue actuel
+- ${totalItems} articles au total
+- ${approvedCount} approuvés
+- ${pendingCount} en attente d'approbation
 
 ## Catégories existantes
 ${categoriesStr || 'Aucune'}
@@ -347,6 +358,7 @@ const TOOLS = [
       properties: {
         search: { type: "string", description: "Terme de recherche textuel (cherche dans code, description, catégorie)" },
         category: { type: "string", description: "Filtrer par catégorie exacte" },
+        status: { type: "string", enum: ["pending", "approved"], description: "Filtrer par statut d'approbation" },
         sort_by: { type: "string", enum: ["code", "description", "type", "price"], description: "Colonne de tri" },
         sort_dir: { type: "string", enum: ["asc", "desc"], description: "Direction du tri" },
         reset: { type: "boolean", description: "Remettre la table à son état initial (enlever tous les filtres AI)" },

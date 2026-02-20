@@ -3417,7 +3417,7 @@
         /* Room page — landscape layout */
         .pv-page-room-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 16px; background: var(--stele-green); color: #fff;
+            padding: 10px 16px; background: #4b6050; color: #fff;
             border-radius: 0; margin: 0 0 38px 0; flex-shrink: 0;
         }
         .pv-room-separator {
@@ -3461,13 +3461,13 @@
         /* Clauses page — compact */
         .pv-page-clauses-header {
             font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-            color: var(--stele-green); font-weight: 700; margin-bottom: 14px;
-            padding-bottom: 6px; border-bottom: 2px solid var(--stele-green);
+            color: #4b6050; font-weight: 700; margin-bottom: 14px;
+            padding-bottom: 6px; border-bottom: 2px solid #4b6050;
         }
         .pv-page-clauses-body { flex: 1; overflow: hidden; }
         .pv-page-clause {
             margin-bottom: 8px; padding: 6px 14px;
-            border-left: 3px solid var(--stele-green); background: #fafafa;
+            border-left: 3px solid #4b6050; background: #fafafa;
             border-radius: 0 3px 3px 0;
         }
         .pv-page-clause-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
@@ -3476,7 +3476,7 @@
             padding: 2px 4px; font-size: 12px; line-height: 1.3; color: #555;
             font-family: inherit; resize: none; background: transparent;
         }
-        .pv-page-clause-text:focus { outline: none; border-color: var(--stele-green); background: #fff; }
+        .pv-page-clause-text:focus { outline: none; border-color: #4b6050; background: #fff; }
         .pv-page-clause-text:disabled { border-color: transparent; background: transparent; }
         .pv-page-clause-actions { display: flex; gap: 6px; margin-top: 2px; justify-content: flex-end; }
 
@@ -3494,8 +3494,8 @@
         .pv-page-steps { padding: 32px 32px; }
         .pv-steps-title {
             font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-            color: var(--stele-green); font-weight: 700; margin-bottom: 20px;
-            padding-bottom: 6px; border-bottom: 2px solid var(--stele-green);
+            color: #4b6050; font-weight: 700; margin-bottom: 20px;
+            padding-bottom: 6px; border-bottom: 2px solid #4b6050;
         }
         .pv-steps-grid {
             flex: 1; display: grid; grid-template-columns: 1fr 1fr;
@@ -3570,14 +3570,23 @@
         .pv-toolbar .btn-client-view.active { background: #333; color: #fff; }
         .pv-optimize-btn {
             position: absolute; top: 6px; right: 6px; z-index: 2;
-            background: var(--stele-green); color: #fff; border: none; border-radius: 4px;
-            padding: 3px 10px; font-size: 11px; cursor: pointer; font-weight: 500; opacity: 0.8;
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; padding: 0;
+            background: transparent; border: none; cursor: pointer;
+            font-size: 0; color: transparent;
         }
-        .pv-optimize-btn:hover { opacity: 1; }
+        .pv-optimize-btn::after {
+            content: ''; display: block; width: 9px; height: 9px;
+            border-radius: 50%; background: #0B1220;
+            opacity: 0.6; box-shadow: 0 0 0 3px rgba(11,18,32,0.06);
+            transition: all 200ms ease;
+            animation: ai-breathe 3s ease-in-out infinite;
+        }
+        .pv-optimize-btn:hover::after { opacity: 1; transform: scale(1.05); }
         .pv-client-mode .pv-optimize-btn { display: none !important; }
         .pv-client-mode .pv-right { display: none; }
         .pv-client-mode .pv-page-room-desc { border-color: transparent; background: transparent; padding: 0; flex: initial; min-height: auto; }
-        .pv-client-mode .pv-page-clause { background: transparent; border-left: 3px solid var(--stele-green); border: 1px solid #e0e0e0; border-left: 3px solid var(--stele-green); }
+        .pv-client-mode .pv-page-clause { background: transparent; border-left: 3px solid #4b6050; border: 1px solid #e0e0e0; border-left: 3px solid #4b6050; }
         .pv-client-mode .pv-page-clause-text { border-color: transparent; background: transparent; padding: 0; height: auto !important; overflow: visible; }
         .pv-client-mode .pv-page-clause-actions,
         .pv-client-mode .pv-clause-dropzone,
@@ -3617,7 +3626,7 @@
             aspect-ratio: auto;
         }
         .pv-fullscreen .pv-page-room-desc { border-color: transparent; background: transparent; padding: 0; flex: initial; min-height: auto; }
-        .pv-fullscreen .pv-page-clause { background: transparent; border: 1px solid #e0e0e0; border-left: 3px solid var(--stele-green); }
+        .pv-fullscreen .pv-page-clause { background: transparent; border: 1px solid #e0e0e0; border-left: 3px solid #4b6050; }
         .pv-fullscreen .pv-page-clause-text { border-color: transparent; background: transparent; padding: 0; height: auto !important; overflow: visible; }
         .pv-fullscreen .pv-page-clause-actions,
         .pv-fullscreen .pv-clause-dropzone,
@@ -4542,12 +4551,23 @@
         }
         .btn-rentab:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
         .btn-ai-focus {
-            background: none; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85);
-            padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap;
-            font-family: inherit; transition: all 0.15s;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; padding: 0; border: none;
+            background: transparent; cursor: pointer; position: relative;
+            vertical-align: middle;
         }
-        .btn-ai-focus:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.7); }
-        .btn-ai-focus.active { background: rgba(255,255,255,0.25); border-color: #fff; color: #fff; }
+        .btn-ai-focus::after {
+            content: ''; display: block; width: 9px; height: 9px;
+            border-radius: 50%; background: #fff;
+            opacity: 0.6; box-shadow: 0 0 0 3px rgba(255,255,255,0.12);
+            transition: all 200ms ease;
+            animation: ai-breathe 3s ease-in-out infinite;
+        }
+        .btn-ai-focus:hover::after { opacity: 1; transform: scale(1.05); }
+        .btn-ai-focus.active::after {
+            opacity: 1; box-shadow: 0 0 0 4px rgba(255,255,255,0.25);
+            animation: none;
+        }
         /* Print */
         @media print {
             .nav-bar { display: none; }
@@ -6564,7 +6584,7 @@
                         <span class="install-label">Installation</span>
                     </label>
                     <button class="btn-rentab" onclick="openRentab('group','${groupId}')">Rentabilit&eacute;</button>
-                    <button class="btn-ai-focus" id="${groupId}-aiFocus" onclick="toggleAiFocus('${groupId}')" title="Cibler l'AI sur cette pi&egrave;ce">AI</button>
+                    <button class="btn-ai-focus" id="${groupId}-aiFocus" onclick="toggleAiFocus('${groupId}')" title="Cibler l'AI sur cette pi&egrave;ce"></button>
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="client-description-section">

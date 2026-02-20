@@ -495,7 +495,6 @@
 
         /* Indicateur de statut des données */
         .data-status {
-            margin-left: auto;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1580,7 +1579,7 @@
             display: inline-flex; align-items: center; justify-content: center;
             width: 32px; height: 32px; padding: 0; border: none;
             background: transparent; cursor: pointer; position: relative;
-            vertical-align: middle; margin-left: 8px;
+            vertical-align: middle; margin-left: auto;
         }
         .ai-assistant-btn::after {
             content: ''; display: block; width: 11px; height: 11px;
@@ -1615,12 +1614,12 @@
             <a href="app.html" class="nav-back">&larr; Menu</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
-            <button class="ai-assistant-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
                 <div class="nav-add-dd" id="navAddDd"></div>
             </div>
         </div>
+        <button class="ai-assistant-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
         <div class="data-status" id="dataStatus">
             <span class="status-dot"></span>
             <span class="status-text" id="statusText">Chargement...</span>

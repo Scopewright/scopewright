@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clients &mdash; Stele</title>
+    <title>Contacts &mdash; Stele</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script>
         if (!localStorage.getItem('sb_access_token')) { window.location.href = 'login.html'; }
@@ -115,6 +115,187 @@
             .card-grid { grid-template-columns: 1fr; }
             .form-row { grid-template-columns: 1fr; }
         }
+
+        /* ═══ AI Chat Drawer ═══ */
+        @keyframes ctMsgFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .ct-drawer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: transparent; z-index: 8700; pointer-events: none;
+        }
+        .ct-drawer-overlay.active { display: block; }
+        .ct-drawer {
+            position: fixed; top: 0; right: -460px; width: 440px; height: 100%;
+            background: #fff; box-shadow: -2px 0 24px rgba(0,0,0,0.08);
+            z-index: 8800; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+        }
+        .ct-drawer.active { right: 0; }
+        .ct-drawer-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 16px 20px; border-bottom: 1px solid #f0f0f0;
+            background: #fff; flex-shrink: 0;
+        }
+        .ct-drawer-header h3 {
+            font-size: 14px; font-weight: 600; margin: 0;
+            color: #1A1A2E; flex: 1; letter-spacing: -0.01em;
+        }
+        .ct-drawer-close {
+            background: none; border: none; font-size: 18px;
+            cursor: pointer; color: #9ca3af; padding: 2px 4px;
+            transition: color 0.15s; border-radius: 6px;
+        }
+        .ct-drawer-close:hover { color: #1A1A2E; }
+        .ct-messages {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 16px; justify-content: flex-end;
+            overscroll-behavior: contain;
+            scrollbar-width: thin; scrollbar-color: #e5e7eb transparent;
+        }
+        .ct-messages::-webkit-scrollbar { width: 5px; }
+        .ct-messages::-webkit-scrollbar-track { background: transparent; }
+        .ct-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+        .ct-messages::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+        .ct-messages:empty::after {
+            content: 'Collez un screenshot de contacts, une carte d\27affaires, ou d\e9crivez les contacts \e0 importer.';
+            color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 24px;
+            line-height: 1.6;
+        }
+        .ct-msg {
+            max-width: 85%; padding: 0; border-radius: 0;
+            font-size: 14px; line-height: 1.5; word-wrap: break-word;
+            color: #1A1A2E; animation: ctMsgFadeIn 180ms ease-out both;
+        }
+        .ct-msg p { margin: 0 0 8px 0; }
+        .ct-msg p:last-child { margin-bottom: 0; }
+        .ct-msg ul, .ct-msg ol { margin: 6px 0; padding-left: 20px; }
+        .ct-msg li { margin-bottom: 4px; }
+        .ct-msg strong { font-weight: 600; }
+        .ct-msg code {
+            background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
+            font-size: 13px; font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+        }
+        .ct-msg pre {
+            background: #f8f9fa; padding: 12px 14px; border-radius: 8px;
+            overflow-x: auto; font-size: 12px; margin: 8px 0;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            line-height: 1.5;
+        }
+        .ct-msg table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            margin: 8px 0; font-size: 13px; border-radius: 8px;
+            overflow: hidden; background: #F8FAFC;
+        }
+        .ct-msg th, .ct-msg td {
+            padding: 8px 12px; border: none; text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .ct-msg th {
+            background: #f1f5f9; font-weight: 600; font-size: 11px;
+            color: #6B7280; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .ct-msg tr:last-child td { border-bottom: none; }
+        .ct-msg-user {
+            align-self: flex-end; background: #F1F5F9;
+            padding: 10px 14px; border-radius: 12px; border-bottom-right-radius: 4px;
+        }
+        .ct-msg-assistant { align-self: flex-start; background: transparent; padding: 2px 0; }
+        .ct-msg-confirm {
+            align-self: flex-start; background: #fff; border: none;
+            border-radius: 12px; padding: 14px 16px; max-width: 92%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+        }
+        .ct-msg-confirm .ct-confirm-text {
+            font-size: 14px; color: #1A1A2E; margin-bottom: 12px; line-height: 1.5;
+        }
+        .ct-confirm-actions { display: flex; gap: 8px; align-items: center; }
+        .ct-confirm-actions button {
+            padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .btn-ct-apply { background: #1B2B4B; color: #fff; }
+        .btn-ct-apply:hover { background: #15223b; }
+        .btn-ct-dismiss { background: transparent; color: #6B7280; padding: 8px 12px; }
+        .btn-ct-dismiss:hover { color: #1A1A2E; }
+        .ct-confirm-applied { font-size: 12px; color: #4b6050; font-weight: 500; }
+        .ct-typing { padding: 12px 0 0 0; display: none; }
+        .ct-typing.active { display: flex; gap: 5px; align-items: center; }
+        .ct-typing-dot {
+            width: 6px; height: 6px; border-radius: 50%; background: #d1d5db;
+            animation: ctTypingBounce 1.2s infinite;
+        }
+        .ct-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .ct-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes ctTypingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-3px); opacity: 1; }
+        }
+        .ct-quick-actions {
+            display: flex; gap: 6px; padding: 10px 20px; flex-wrap: wrap;
+            border-top: 1px solid #f5f5f5; flex-shrink: 0;
+        }
+        .ct-quick-btn {
+            padding: 6px 12px; border-radius: 8px; font-size: 12px;
+            background: #fff; border: 1px solid #e5e7eb; color: #6B7280;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap; font-weight: 500;
+        }
+        .ct-quick-btn:hover { background: #f9fafb; border-color: #d1d5db; color: #374151; }
+        .ct-input-area {
+            display: flex; gap: 8px; padding: 12px 16px 14px;
+            border-top: 1px solid #f0f0f0;
+            background: #fff; flex-shrink: 0; align-items: flex-end;
+        }
+        .ct-input-area textarea {
+            flex: 1; resize: none; border: 1px solid #e5e7eb; border-radius: 10px;
+            padding: 10px 14px; font-size: 14px; font-family: inherit; line-height: 1.4;
+            max-height: 120px; min-height: 40px; outline: none;
+            transition: border-color 0.15s; background: #fafbfc; color: #1A1A2E;
+        }
+        .ct-input-area textarea:focus { border-color: #d1d5db; background: #fff; }
+        .ct-input-area textarea::placeholder { color: #9ca3af; }
+        .ct-send-btn {
+            width: 36px; height: 36px; border-radius: 10px; border: none;
+            background: #1B2B4B; color: #fff; font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; flex-shrink: 0;
+        }
+        .ct-send-btn:hover { background: #15223b; }
+        .ct-send-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: default; }
+        .ct-drop-zone {
+            display: none; position: absolute; inset: 0; background: rgba(27,43,75,0.04);
+            border: 2px dashed #d1d5db; border-radius: 10px;
+            z-index: 10; align-items: center; justify-content: center;
+            font-size: 13px; color: #6B7280; font-weight: 500;
+        }
+        .ct-drop-zone.active { display: flex; }
+        .ct-img-preview {
+            display: flex; gap: 6px; padding: 6px 20px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .ct-img-preview:empty { display: none; }
+        .ct-img-thumb {
+            position: relative; width: 52px; height: 52px; border-radius: 8px;
+            overflow: hidden; border: 1px solid #e5e7eb;
+        }
+        .ct-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .ct-img-thumb .ct-img-remove {
+            position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+            border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff;
+            border: none; font-size: 11px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; line-height: 1;
+            transition: background 0.15s;
+        }
+        .ct-img-thumb .ct-img-remove:hover { background: rgba(0,0,0,0.7); }
+        .nav-assistant-btn {
+            background: none; border: 1px solid #e0e0e0; color: var(--stele-black);
+            padding: 5px 14px; font-size: 12px; cursor: pointer; font-family: inherit;
+            border-radius: 3px; transition: all 0.15s; white-space: nowrap;
+        }
+        .nav-assistant-btn:hover { background: #f5f5f5; border-color: #999; }
+        @media (max-width: 600px) {
+            .ct-drawer { width: 100%; right: -100%; }
+        }
     </style>
 </head>
 <body>
@@ -125,13 +306,14 @@
                 <a href="app.html" class="nav-back">&larr; Menu</a>
             </div>
             <div class="nav-user">
+                <button class="nav-assistant-btn" id="navAssistantBtn" onclick="toggleCtDrawer()">&#x2728; Assistant</button>
                 <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
         </nav>
 
         <main class="app-content">
-            <div class="page-title">Clients</div>
+            <div class="page-title">Contacts</div>
             <div class="page-sub">G&eacute;rez vos contacts, entreprises et communications.</div>
 
             <div class="tabs">
@@ -1107,6 +1289,550 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // AI CHAT DRAWER
+    // ═══════════════════════════════════════════════════════════════
+
+    var ctConversation = [];
+    var ctPendingImages = [];
+    var ctPendingToolCalls = null;
+    var ctPendingConfirmId = 0;
+
+    function toggleCtDrawer() {
+        var drawer = document.getElementById('ctDrawer');
+        if (drawer.classList.contains('active')) closeCtDrawer();
+        else openCtDrawer();
+    }
+
+    function openCtDrawer() {
+        document.getElementById('ctDrawer').classList.add('active');
+        document.getElementById('ctOverlay').classList.add('active');
+        setupCtDrawerHandlers();
+        setTimeout(function() { document.getElementById('ctInput').focus(); }, 300);
+    }
+
+    function closeCtDrawer() {
+        document.getElementById('ctDrawer').classList.remove('active');
+        document.getElementById('ctOverlay').classList.remove('active');
+    }
+
+    function setupCtDrawerHandlers() {
+        var input = document.getElementById('ctInput');
+        var drawer = document.getElementById('ctDrawer');
+        var dropZone = document.getElementById('ctDropZone');
+
+        // Paste handler
+        if (!input._ctPasteSetup) {
+            input._ctPasteSetup = true;
+            input.addEventListener('paste', function(e) {
+                var items = (e.clipboardData || {}).items || [];
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        ctProcessImage(items[i].getAsFile());
+                        return;
+                    }
+                }
+            });
+        }
+
+        // Drag-drop handlers
+        if (!drawer._ctDragSetup) {
+            drawer._ctDragSetup = true;
+            var dragCounter = 0;
+            drawer.addEventListener('dragenter', function(e) { e.preventDefault(); dragCounter++; dropZone.classList.add('active'); });
+            drawer.addEventListener('dragleave', function(e) { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropZone.classList.remove('active'); } });
+            drawer.addEventListener('dragover', function(e) { e.preventDefault(); });
+            drawer.addEventListener('drop', function(e) {
+                e.preventDefault(); dragCounter = 0; dropZone.classList.remove('active');
+                var files = e.dataTransfer.files;
+                for (var i = 0; i < files.length; i++) {
+                    if (files[i].type.indexOf('image') !== -1) ctProcessImage(files[i]);
+                }
+            });
+        }
+    }
+
+    function ctProcessImage(file) {
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var maxW = 1200;
+                var w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                ctPendingImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                renderCtImagePreviews();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderCtImagePreviews() {
+        var container = document.getElementById('ctImgPreview');
+        container.innerHTML = '';
+        ctPendingImages.forEach(function(src, i) {
+            var div = document.createElement('div');
+            div.className = 'ct-img-thumb';
+            div.innerHTML = '<img src="' + src + '"><button class="ct-img-remove" onclick="ctRemoveImage(' + i + ')">&times;</button>';
+            container.appendChild(div);
+        });
+    }
+
+    function ctRemoveImage(index) {
+        ctPendingImages.splice(index, 1);
+        renderCtImagePreviews();
+    }
+
+    function ctInputKeydown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendCtMessage();
+        }
+    }
+
+    function ctQuickAction(text) {
+        document.getElementById('ctInput').value = text;
+        document.getElementById('ctInput').focus();
+    }
+
+    function appendCtMessage(role, content, opts) {
+        opts = opts || {};
+        var container = document.getElementById('ctMessages');
+        var div = document.createElement('div');
+
+        if (role === 'confirm') {
+            div.className = 'ct-msg ct-msg-confirm';
+            var confirmId = 'ct-confirm-' + (++ctPendingConfirmId);
+            div.id = confirmId;
+            div.innerHTML = '<div class="ct-confirm-text">' + renderCtMarkdown(content) + '</div>' +
+                '<div class="ct-confirm-actions">' +
+                '<button class="btn-ct-apply" onclick="ctApplyPending(\'' + confirmId + '\')">Appliquer</button>' +
+                '<button class="btn-ct-dismiss" onclick="ctDismissPending(\'' + confirmId + '\')">Ignorer</button>' +
+                '</div>';
+            container.appendChild(div);
+        } else {
+            div.className = 'ct-msg ct-msg-' + role;
+            if (role === 'user' && opts.images && opts.images.length > 0) {
+                var imgHtml = opts.images.map(function(src) {
+                    return '<img src="' + src + '" style="max-width:100%;border-radius:8px;margin-bottom:6px;">';
+                }).join('');
+                div.innerHTML = imgHtml + renderCtMarkdown(content);
+            } else {
+                div.innerHTML = renderCtMarkdown(content);
+            }
+            container.appendChild(div);
+        }
+
+        var isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+        if (isNearBottom) container.scrollTop = container.scrollHeight;
+    }
+
+    function renderCtMarkdown(text) {
+        if (!text) return '';
+        var s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        s = s.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+        s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+        s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        // Tables
+        s = s.replace(/((?:\|.*\|\n?)+)/g, function(table) {
+            var rows = table.trim().split('\n').filter(function(r) { return r.trim() && !/^\|[\s\-:]+\|$/.test(r); });
+            if (rows.length === 0) return table;
+            var html = '<table>';
+            rows.forEach(function(row, i) {
+                var cells = row.split('|').filter(function(c) { return c.trim() !== ''; });
+                var tag = i === 0 ? 'th' : 'td';
+                html += '<tr>' + cells.map(function(c) { return '<' + tag + '>' + c.trim() + '</' + tag + '>'; }).join('') + '</tr>';
+            });
+            html += '</table>';
+            return html;
+        });
+        s = s.replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>');
+        s = s.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+        s = s.replace(/\n{2,}/g, '</p><p>');
+        s = s.replace(/\n/g, '<br>');
+        s = '<p>' + s + '</p>';
+        s = s.replace(/<p><\/p>/g, '');
+        return s;
+    }
+
+    function buildCtUserContent(text, images) {
+        if (!images || images.length === 0) return text;
+        var content = [];
+        images.forEach(function(dataUrl) {
+            var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+            if (match) {
+                content.push({
+                    type: 'image',
+                    source: { type: 'base64', media_type: match[1], data: match[2] }
+                });
+            }
+        });
+        if (text) content.push({ type: 'text', text: text });
+        return content;
+    }
+
+    function collectContactsContext() {
+        return {
+            contacts: allContacts.map(function(c) {
+                return {
+                    id: c.id, first_name: c.first_name, last_name: c.last_name,
+                    email: c.email, phone: c.phone,
+                    companies: (c.contact_companies || []).map(function(cc) {
+                        return { name: cc.companies ? cc.companies.name : null, role: cc.role };
+                    })
+                };
+            }),
+            companies: allCompanies.map(function(co) {
+                return { id: co.id, name: co.name, company_type: co.company_type, phone: co.phone, email: co.email };
+            }),
+            companyTypes: configCompanyTypes,
+            contactRoles: configContactRoles,
+            userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase()
+        };
+    }
+
+    async function callContactsImport(messages, context) {
+        var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/contacts-import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages, context: context })
+        });
+        if (!resp.ok) {
+            var errText = await resp.text().catch(function() { return ''; });
+            try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+            catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+        }
+        return await resp.json();
+    }
+
+    function ctSearchContacts(query) {
+        var q = (query || '').toLowerCase();
+        var contactResults = allContacts.filter(function(c) {
+            return (c.first_name + ' ' + c.last_name).toLowerCase().indexOf(q) !== -1 ||
+                   (c.email || '').toLowerCase().indexOf(q) !== -1 ||
+                   (c.phone || '').indexOf(q) !== -1;
+        }).slice(0, 15).map(function(c) {
+            var companies = (c.contact_companies || []).map(function(cc) { return cc.companies ? cc.companies.name : null; }).filter(Boolean);
+            return { id: c.id, name: c.first_name + ' ' + c.last_name, email: c.email, phone: c.phone, companies: companies };
+        });
+        var companyResults = allCompanies.filter(function(co) {
+            return (co.name || '').toLowerCase().indexOf(q) !== -1 ||
+                   (co.email || '').toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 10).map(function(co) {
+            return { id: co.id, name: co.name, type: co.company_type, email: co.email, phone: co.phone };
+        });
+        return { contacts: contactResults, companies: companyResults, total: contactResults.length + companyResults.length };
+    }
+
+    async function sendCtMessage() {
+        var input = document.getElementById('ctInput');
+        var text = input.value.trim();
+        if (!text && ctPendingImages.length === 0) return;
+
+        var images = ctPendingImages.slice();
+        ctPendingImages = [];
+        renderCtImagePreviews();
+        input.value = '';
+        input.style.height = 'auto';
+
+        appendCtMessage('user', text || '(image)', { images: images });
+
+        var userContent = buildCtUserContent(text, images);
+        ctConversation.push({ role: 'user', content: userContent });
+
+        document.getElementById('ctTyping').classList.add('active');
+        document.getElementById('ctSendBtn').disabled = true;
+
+        try {
+            var context = collectContactsContext();
+            var data = await ctProcessResponse(ctConversation, context);
+            ctHandleResponse(data);
+        } catch (err) {
+            appendCtMessage('assistant', 'Erreur : ' + err.message);
+        } finally {
+            document.getElementById('ctTyping').classList.remove('active');
+            document.getElementById('ctSendBtn').disabled = false;
+        }
+    }
+
+    async function ctProcessResponse(conversation, context) {
+        var maxLoops = 5;
+        var data = await callContactsImport(conversation, context);
+
+        for (var loop = 0; loop < maxLoops; loop++) {
+            var contentBlocks = data.content || [];
+            var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
+            var readOnlyTools = toolCalls.filter(function(tc) { return tc.name === 'search_contacts'; });
+            var actionTools = toolCalls.filter(function(tc) { return tc.name !== 'search_contacts'; });
+
+            if (readOnlyTools.length === 0) return data;
+
+            conversation.push({ role: 'assistant', content: contentBlocks });
+
+            var toolResults = [];
+            readOnlyTools.forEach(function(tc) {
+                var result = ctSearchContacts(tc.input.query);
+                toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
+            });
+
+            if (actionTools.length > 0) {
+                conversation.push({ role: 'user', content: toolResults });
+                return data;
+            }
+
+            conversation.push({ role: 'user', content: toolResults });
+            data = await callContactsImport(conversation, context);
+        }
+
+        return data;
+    }
+
+    function ctHandleResponse(data) {
+        var contentBlocks = data.content || [];
+        var textParts = [];
+        var actionTools = [];
+
+        contentBlocks.forEach(function(block) {
+            if (block.type === 'text') textParts.push(block.text);
+            if (block.type === 'tool_use' && block.name !== 'search_contacts') actionTools.push(block);
+        });
+
+        var lastMsg = ctConversation[ctConversation.length - 1];
+        if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.content !== contentBlocks) {
+            ctConversation.push({ role: 'assistant', content: contentBlocks });
+        }
+
+        if (actionTools.length > 0) {
+            var fullText = textParts.join('\n');
+            if (fullText) appendCtMessage('assistant', fullText);
+            ctPendingToolCalls = { tools: actionTools };
+            var summary = formatCtPendingActions(actionTools);
+            appendCtMessage('confirm', summary);
+        } else {
+            var fullText = textParts.join('\n');
+            appendCtMessage('assistant', fullText);
+        }
+    }
+
+    function formatCtPendingActions(tools) {
+        var creates = { contacts: 0, companies: 0 };
+        var updates = { contacts: 0, companies: 0 };
+        var deletes = { contacts: 0, companies: 0 };
+        var links = 0;
+        var details = [];
+
+        tools.forEach(function(tc) {
+            if (tc.name === 'create_contact') {
+                creates.contacts++;
+                details.push('+ ' + (tc.input.first_name || '') + ' ' + (tc.input.last_name || ''));
+            } else if (tc.name === 'create_company') {
+                creates.companies++;
+                details.push('+ ' + (tc.input.name || '') + (tc.input.company_type ? ' (' + tc.input.company_type + ')' : ''));
+            } else if (tc.name === 'update_contact') {
+                updates.contacts++;
+                var fields = Object.keys(tc.input.updates || {}).join(', ');
+                details.push('\u270f Contact ' + (tc.input.contact_id || '').substring(0, 8) + '... \u2192 ' + fields);
+            } else if (tc.name === 'update_company') {
+                updates.companies++;
+                var fields = Object.keys(tc.input.updates || {}).join(', ');
+                details.push('\u270f Entreprise ' + (tc.input.company_id || '').substring(0, 8) + '... \u2192 ' + fields);
+            } else if (tc.name === 'delete_contact') {
+                deletes.contacts++;
+                details.push('\u2717 Contact ' + (tc.input.contact_id || '').substring(0, 8) + '...');
+            } else if (tc.name === 'delete_company') {
+                deletes.companies++;
+                details.push('\u2717 Entreprise ' + (tc.input.company_id || '').substring(0, 8) + '...');
+            } else if (tc.name === 'link_contact_company') {
+                links++;
+                details.push('\u2194 Lier contact \u2192 entreprise');
+            }
+        });
+
+        var parts = [];
+        if (creates.contacts) parts.push(creates.contacts + ' contact' + (creates.contacts > 1 ? 's' : '') + ' \u00e0 cr\u00e9er');
+        if (creates.companies) parts.push(creates.companies + ' entreprise' + (creates.companies > 1 ? 's' : '') + ' \u00e0 cr\u00e9er');
+        if (updates.contacts) parts.push(updates.contacts + ' contact' + (updates.contacts > 1 ? 's' : '') + ' \u00e0 modifier');
+        if (updates.companies) parts.push(updates.companies + ' entreprise' + (updates.companies > 1 ? 's' : '') + ' \u00e0 modifier');
+        if (deletes.contacts) parts.push(deletes.contacts + ' contact' + (deletes.contacts > 1 ? 's' : '') + ' \u00e0 supprimer');
+        if (deletes.companies) parts.push(deletes.companies + ' entreprise' + (deletes.companies > 1 ? 's' : '') + ' \u00e0 supprimer');
+        if (links) parts.push(links + ' lien' + (links > 1 ? 's' : '') + ' \u00e0 cr\u00e9er');
+
+        return '**' + parts.join(', ') + '**\n\n' + details.join('\n');
+    }
+
+    async function ctApplyPending(confirmId) {
+        if (!ctPendingToolCalls) return;
+        var tools = ctPendingToolCalls.tools;
+        ctPendingToolCalls = null;
+
+        var el = document.getElementById(confirmId);
+        if (el) {
+            var actions = el.querySelector('.ct-confirm-actions');
+            if (actions) actions.innerHTML = '<span class="ct-confirm-applied">Application en cours...</span>';
+        }
+
+        var results = [];
+        var created = { contacts: 0, companies: 0 };
+        var updated = { contacts: 0, companies: 0 };
+        var deleted = { contacts: 0, companies: 0 };
+        var linked = 0;
+        var errors = [];
+
+        for (var i = 0; i < tools.length; i++) {
+            try {
+                var result = await executeCtTool(tools[i].name, tools[i].input);
+                results.push({ type: 'tool_result', tool_use_id: tools[i].id, content: JSON.stringify(result) });
+                if (tools[i].name === 'create_contact') created.contacts++;
+                else if (tools[i].name === 'create_company') created.companies++;
+                else if (tools[i].name === 'update_contact') updated.contacts++;
+                else if (tools[i].name === 'update_company') updated.companies++;
+                else if (tools[i].name === 'delete_contact') deleted.contacts++;
+                else if (tools[i].name === 'delete_company') deleted.companies++;
+                else if (tools[i].name === 'link_contact_company') linked++;
+            } catch (err) {
+                errors.push(tools[i].name + ': ' + err.message);
+                results.push({ type: 'tool_result', tool_use_id: tools[i].id, content: JSON.stringify({ error: err.message }), is_error: true });
+            }
+        }
+
+        // Build summary
+        var parts = [];
+        if (created.contacts) parts.push(created.contacts + ' contact' + (created.contacts > 1 ? 's' : '') + ' cr\u00e9\u00e9' + (created.contacts > 1 ? 's' : ''));
+        if (created.companies) parts.push(created.companies + ' entreprise' + (created.companies > 1 ? 's' : '') + ' cr\u00e9\u00e9e' + (created.companies > 1 ? 's' : ''));
+        if (updated.contacts) parts.push(updated.contacts + ' contact' + (updated.contacts > 1 ? 's' : '') + ' modifi\u00e9' + (updated.contacts > 1 ? 's' : ''));
+        if (updated.companies) parts.push(updated.companies + ' entreprise' + (updated.companies > 1 ? 's' : '') + ' modifi\u00e9e' + (updated.companies > 1 ? 's' : ''));
+        if (deleted.contacts) parts.push(deleted.contacts + ' contact' + (deleted.contacts > 1 ? 's' : '') + ' supprim\u00e9' + (deleted.contacts > 1 ? 's' : ''));
+        if (deleted.companies) parts.push(deleted.companies + ' entreprise' + (deleted.companies > 1 ? 's' : '') + ' supprim\u00e9e' + (deleted.companies > 1 ? 's' : ''));
+        if (linked) parts.push(linked + ' lien' + (linked > 1 ? 's' : '') + ' cr\u00e9\u00e9' + (linked > 1 ? 's' : ''));
+
+        var summary = parts.length > 0 ? '\u2705 ' + parts.join(', ') + '.' : '\u2705 Termin\u00e9.';
+        if (errors.length > 0) summary += '\n\u26a0\ufe0f Erreurs : ' + errors.join(', ');
+
+        if (el) {
+            var actions = el.querySelector('.ct-confirm-actions') || el.querySelector('.ct-confirm-applied');
+            if (actions) actions.outerHTML = '<span class="ct-confirm-applied">' + escapeHtml(summary) + '</span>';
+        }
+
+        // Continue conversation with tool results
+        ctConversation.push({ role: 'user', content: results });
+
+        // Reload data
+        await Promise.all([loadContacts(), loadCompanies()]);
+        renderContacts();
+        renderCompanies();
+    }
+
+    function ctDismissPending(confirmId) {
+        ctPendingToolCalls = null;
+        var el = document.getElementById(confirmId);
+        if (el) {
+            var actions = el.querySelector('.ct-confirm-actions');
+            if (actions) actions.innerHTML = '<span class="ct-confirm-applied">Ignor\u00e9</span>';
+        }
+    }
+
+    async function executeCtTool(name, input) {
+        if (name === 'create_contact') {
+            var data = {
+                first_name: input.first_name,
+                last_name: input.last_name,
+                email: input.email || null,
+                phone: input.phone || null,
+                address: input.address || null,
+                preferred_contact: input.preferred_contact || null,
+                notes: input.notes || null,
+                created_by: localStorage.getItem('sb_user_id')
+            };
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify(data)
+            });
+            if (!r.ok) throw new Error('Erreur cr\u00e9ation contact: ' + r.status);
+            var res = await r.json();
+            return { success: true, contact_id: res[0].id, name: input.first_name + ' ' + input.last_name };
+        }
+
+        if (name === 'create_company') {
+            var data = {
+                name: input.name,
+                company_type: input.company_type || null,
+                address: input.address || null,
+                phone: input.phone || null,
+                email: input.email || null,
+                website: input.website || null,
+                notes: input.notes || null,
+                created_by: localStorage.getItem('sb_user_id')
+            };
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify(data)
+            });
+            if (!r.ok) throw new Error('Erreur cr\u00e9ation entreprise: ' + r.status);
+            var res = await r.json();
+            return { success: true, company_id: res[0].id, name: input.name };
+        }
+
+        if (name === 'update_contact') {
+            var updates = input.updates || {};
+            updates.updated_at = new Date().toISOString();
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?id=eq.' + input.contact_id, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify(updates)
+            });
+            if (!r.ok) throw new Error('Erreur modification contact: ' + r.status);
+            return { success: true, contact_id: input.contact_id };
+        }
+
+        if (name === 'update_company') {
+            var updates = input.updates || {};
+            updates.updated_at = new Date().toISOString();
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?id=eq.' + input.company_id, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify(updates)
+            });
+            if (!r.ok) throw new Error('Erreur modification entreprise: ' + r.status);
+            return { success: true, company_id: input.company_id };
+        }
+
+        if (name === 'delete_contact') {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contacts?id=eq.' + input.contact_id, { method: 'DELETE' });
+            if (!r.ok) throw new Error('Erreur suppression contact: ' + r.status);
+            return { success: true, contact_id: input.contact_id };
+        }
+
+        if (name === 'delete_company') {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?id=eq.' + input.company_id, { method: 'DELETE' });
+            if (!r.ok) throw new Error('Erreur suppression entreprise: ' + r.status);
+            return { success: true, company_id: input.company_id };
+        }
+
+        if (name === 'link_contact_company') {
+            var data = {
+                contact_id: input.contact_id,
+                company_id: input.company_id,
+                role: input.role || null,
+                work_email: input.work_email || null,
+                work_phone: input.work_phone || null,
+                is_primary_contact: input.is_primary_contact || false
+            };
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/contact_companies', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+                body: JSON.stringify(data)
+            });
+            if (!r.ok) throw new Error('Erreur liaison contact-entreprise: ' + r.status);
+            return { success: true };
+        }
+
+        return { error: 'Tool inconnu: ' + name };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // PERMISSION CHECK
     // ═══════════════════════════════════════════════════════════════
 
@@ -1168,5 +1894,32 @@
         }
     })();
     </script>
+
+<!-- AI Chat Drawer -->
+<div class="ct-drawer-overlay" id="ctOverlay" onclick="closeCtDrawer()"></div>
+<div class="ct-drawer" id="ctDrawer">
+    <div class="ct-drawer-header">
+        <h3>Assistant Scopewright</h3>
+        <button class="ct-drawer-close" onclick="closeCtDrawer()">&times;</button>
+    </div>
+    <div class="ct-messages" id="ctMessages"></div>
+    <div class="ct-typing" id="ctTyping">
+        <div class="ct-typing-dot"></div>
+        <div class="ct-typing-dot"></div>
+        <div class="ct-typing-dot"></div>
+    </div>
+    <div class="ct-quick-actions" id="ctQuickActions">
+        <button class="ct-quick-btn" onclick="ctQuickAction('Voici un screenshot de mon carnet d\'adresses')">Carnet d'adresses</button>
+        <button class="ct-quick-btn" onclick="ctQuickAction('Voici des cartes d\'affaires')">Cartes d'affaires</button>
+        <button class="ct-quick-btn" onclick="ctQuickAction('Je veux ajouter ces contacts :')">Liste manuelle</button>
+    </div>
+    <div class="ct-img-preview" id="ctImgPreview"></div>
+    <div class="ct-input-area" style="position:relative;">
+        <div class="ct-drop-zone" id="ctDropZone">D&eacute;posez une image ici</div>
+        <textarea id="ctInput" placeholder="Collez un screenshot ou d&eacute;crivez les contacts..." rows="1" onkeydown="ctInputKeydown(event)"></textarea>
+        <button class="ct-send-btn" id="ctSendBtn" onclick="sendCtMessage()" title="Envoyer">&uarr;</button>
+    </div>
+</div>
+
 </body>
 </html>

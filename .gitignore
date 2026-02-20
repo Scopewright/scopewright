@@ -28,6 +28,8 @@
 !supabase/functions/ai-assistant/index.ts
 !supabase/functions/catalogue-import/
 !supabase/functions/catalogue-import/index.ts
+!supabase/functions/contacts-import/
+!supabase/functions/contacts-import/index.ts
 !sql/
 !sql/*
 !landing-page/

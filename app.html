@@ -31,26 +31,40 @@
             display: flex;
         }
 
-        /* ── Nav bar ── */
+        /* HEADER SCOPEWRIGHT STANDARD
+           Utilisé sur toutes les pages internes.
+           Ne pas modifier sans vérifier toutes les pages.
+           Exclure : quote.html, login.html */
         .nav-bar {
             position: fixed;
             top: 0; left: 0; right: 0;
-            background: var(--stele-white);
-            border-bottom: 1px solid var(--stele-gray);
-            padding: 12px 60px;
+            height: 56px;
+            background: #fff;
+            border-bottom: 1px solid #C8C8C8;
+            padding: 0 60px;
             display: flex;
             align-items: center;
-            gap: 32px;
+            gap: 24px;
             z-index: 100;
         }
-
         .nav-logo {
             font-size: 23px;
             font-weight: 650;
             letter-spacing: -0.025em;
             line-height: 1;
             color: #0B1220;
+            text-decoration: none;
         }
+        .nav-back {
+            color: #1F2937;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 400;
+            opacity: 0.45;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+        .nav-back:hover { opacity: 0.8; }
 
         .nav-user {
             margin-left: auto;
@@ -59,16 +73,11 @@
             gap: 16px;
             font-size: 13px;
         }
-
-        .nav-user-email {
-            color: var(--stele-black);
-            opacity: 0.5;
-        }
-
+        .nav-user-email { color: #0B1220; opacity: 0.5; }
         .btn-logout {
             background: transparent;
-            color: var(--stele-black);
-            border: 1px solid var(--stele-gray);
+            color: #0B1220;
+            border: 1px solid #C8C8C8;
             padding: 5px 14px;
             font-size: 12px;
             cursor: pointer;
@@ -76,11 +85,7 @@
             font-family: inherit;
             border-radius: 3px;
         }
-
-        .btn-logout:hover {
-            background: #f5f5f5;
-            border-color: #999;
-        }
+        .btn-logout:hover { background: #f5f5f5; border-color: #999; }
 
         /* ── Split layout ── */
         .main-split {
@@ -293,8 +298,8 @@
             .card-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
-        @media (max-width: 700px) {
-            .nav-bar { padding: 12px 20px; gap: 16px; }
+        @media (max-width: 768px) {
+            .nav-bar { padding: 0 20px; gap: 16px; }
             .main-left { padding: 40px 24px; }
             .card-grid { grid-template-columns: 1fr; }
             .dash-title { font-size: 24px; }

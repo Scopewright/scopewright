@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiche de vente — Stele</title>
+    <title>Fiche de vente — Scopewright</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <script>
@@ -34,45 +34,11 @@
             background: var(--stele-white);
         }
 
-        /* ═══ Nav bar ═══ */
-        .nav-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            background: var(--stele-white);
-            border-bottom: 1px solid var(--stele-gray);
-            padding: 12px 60px;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            height: 72px;
-        }
-
-        .nav-logo {
-            font-size: 23px;
-            font-weight: 650;
-            letter-spacing: -0.025em;
-            line-height: 1;
-            color: #0B1220;
-            text-decoration: none;
-        }
-
-        .nav-back {
-            font-size: 13px;
-            font-weight: 400;
-            color: #1F2937;
-            opacity: 0.45;
-            text-decoration: none;
-            padding-left: 24px;
-            border-left: 1px solid var(--stele-gray);
-            transition: opacity 0.2s;
-        }
-
-        .nav-back:hover {
-            opacity: 0.8;
-        }
+        /* HEADER SCOPEWRIGHT STANDARD */
+        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #C8C8C8; padding: 0 60px; display: flex; align-items: center; gap: 24px; z-index: 100; }
+        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: #0B1220; text-decoration: none; }
+        .nav-back { color: #1F2937; text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity 0.2s; white-space: nowrap; }
+        .nav-back:hover { opacity: 0.8; }
 
         .btn-edit-fiche {
             margin-left: auto;
@@ -92,8 +58,8 @@
 
         /* ═══ Loading & Error states ═══ */
         .state-view {
-            margin-top: 72px;
-            min-height: calc(100vh - 72px);
+            margin-top: 56px;
+            min-height: calc(100vh - 56px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -148,7 +114,7 @@
 
         /* ═══ Page subtitle ═══ */
         .fiche-subtitle {
-            margin-top: 72px;
+            margin-top: 56px;
             padding: 28px 60px 0;
             font-size: 14px;
             color: #888;
@@ -511,7 +477,7 @@
 
         /* ═══ Responsive ═══ */
         @media (max-width: 768px) {
-            .nav-bar { padding: 12px 24px; }
+            .nav-bar { padding: 0 24px; }
             .nav-back { display: none; }
             .fiche-subtitle { padding: 20px 24px 0; }
             .fiche-layout {

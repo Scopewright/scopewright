@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contacts &mdash; Stele</title>
+    <title>Contacts &mdash; Scopewright</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script>
         if (!localStorage.getItem('sb_access_token')) { window.location.href = 'login.html'; }
@@ -16,11 +16,10 @@
         html, body { height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #fff; color: var(--stele-black); }
         .app-wrapper { display: flex; min-height: 100vh; flex-direction: column; }
 
-        /* Nav */
-        .nav-bar { position: fixed; top: 0; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--stele-gray); padding: 12px 60px; display: flex; align-items: center; gap: 32px; z-index: 100; }
-        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: #0B1220; }
-        .nav-links { display: flex; align-items: center; gap: 16px; }
-        .nav-back { color: #1F2937; text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity 0.2s; }
+        /* HEADER SCOPEWRIGHT STANDARD */
+        .nav-bar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #C8C8C8; padding: 0 60px; display: flex; align-items: center; gap: 24px; z-index: 100; }
+        .nav-logo { font-size: 23px; font-weight: 650; letter-spacing: -0.025em; line-height: 1; color: #0B1220; text-decoration: none; }
+        .nav-back { color: #1F2937; text-decoration: none; font-size: 13px; font-weight: 400; opacity: 0.45; transition: opacity 0.2s; white-space: nowrap; }
         .nav-back:hover { opacity: 0.8; }
         .data-status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 12px; border-radius: 20px; background: #f5f5f5; }
         .data-status.online { background: #e8f5e9; color: #2e7d32; }
@@ -115,7 +114,7 @@
         .modal-status.error { color: #c0392b; }
 
         @media (max-width: 768px) {
-            .nav-bar { padding: 12px 20px; gap: 16px; }
+            .nav-bar { padding: 0 20px; gap: 16px; }
             .app-content { padding: 24px 16px; padding-top: 80px; }
             .card-grid { grid-template-columns: 1fr; }
             .form-row { grid-template-columns: 1fr; }
@@ -337,9 +336,7 @@
     <div class="app-wrapper">
         <nav class="nav-bar">
             <span class="nav-logo">scopewright</span>
-            <div class="nav-links">
-                <a href="app.html" class="nav-back">&larr; Menu</a>
-            </div>
+            <a href="app.html" class="nav-back">&larr; Menu</a>
             <button class="ai-assistant-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
             <div class="data-status" id="dataStatus">
                 <span class="status-dot"></span>

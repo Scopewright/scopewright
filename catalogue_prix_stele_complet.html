@@ -1366,10 +1366,11 @@
 
         .ci-messages {
             flex: 1; min-height: 0; overflow-y: auto; padding: 20px;
-            display: flex; flex-direction: column; gap: 16px; justify-content: flex-end;
+            display: flex; flex-direction: column; gap: 16px;
             overscroll-behavior: contain;
             scrollbar-width: thin; scrollbar-color: #e5e7eb transparent;
         }
+        .ci-messages::before { content: ''; flex: 1 1 0; }
         .ci-messages::-webkit-scrollbar { width: 5px; }
         .ci-messages::-webkit-scrollbar-track { background: transparent; }
         .ci-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }

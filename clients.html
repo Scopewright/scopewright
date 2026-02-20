@@ -1533,6 +1533,14 @@
         });
         if (!resp.ok) {
             var errText = await resp.text().catch(function() { return ''; });
+            // Auto-retry on 401 auth error (force token refresh + one more try)
+            if (resp.status === 401 && retryCount === 0) {
+                if (await refreshAccessToken()) {
+                    return callContactsImport(messages, context, 1);
+                }
+                window.location.href = 'login.html';
+                throw new Error('Session expir\u00e9e');
+            }
             // Auto-retry on 429 rate limit
             if ((resp.status === 429 || errText.indexOf('429') !== -1 || errText.indexOf('rate') !== -1) && retryCount < maxRetries) {
                 appendCtMessage('assistant', 'Rate limit atteint \u2014 r\u00e9essai dans 5 secondes...');
@@ -1542,8 +1550,14 @@
                 if (msgs && msgs.lastChild) msgs.removeChild(msgs.lastChild);
                 return callContactsImport(messages, context, retryCount + 1);
             }
-            try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
-            catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+            // Parse error message (Supabase gateway uses 'msg', our function uses 'error')
+            try {
+                var errObj = JSON.parse(errText);
+                throw new Error(errObj.error || errObj.msg || errObj.message || 'Erreur ' + resp.status);
+            } catch(e) {
+                if (e.message) throw e;
+                throw new Error('Erreur ' + resp.status);
+            }
         }
 
         var contentType = resp.headers.get('content-type') || '';

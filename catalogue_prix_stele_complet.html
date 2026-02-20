@@ -3873,6 +3873,7 @@
 
         var ciStreamEl = null; // live-updating message element during streaming
 
+        var _ciRetried401 = false;
         async function callCatalogueImport(messages, context) {
             var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/catalogue-import', {
                 method: 'POST',
@@ -3881,8 +3882,22 @@
             });
             if (!resp.ok) {
                 var errText = await resp.text().catch(function() { return ''; });
-                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
-                catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+                // Auto-retry on 401 auth error (force token refresh + one more try)
+                if (resp.status === 401 && !_ciRetried401) {
+                    _ciRetried401 = true;
+                    if (await refreshAccessToken()) {
+                        var result = await callCatalogueImport(messages, context);
+                        _ciRetried401 = false;
+                        return result;
+                    }
+                    window.location.href = 'login.html';
+                    throw new Error('Session expir\u00e9e');
+                }
+                _ciRetried401 = false;
+                try {
+                    var errObj = JSON.parse(errText);
+                    throw new Error(errObj.error || errObj.msg || errObj.message || 'Erreur ' + resp.status);
+                } catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
             }
 
             var contentType = resp.headers.get('content-type') || '';

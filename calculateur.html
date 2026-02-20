@@ -1121,6 +1121,7 @@
     var aiFocusGroupId = null;
 
     // ── Call AI Edge Function ──
+    var _aiRetried401 = false;
     async function callAiAssistant(messages, context) {
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-assistant', {
             method: 'POST',
@@ -1129,8 +1130,22 @@
         });
         if (!resp.ok) {
             var errText = await resp.text().catch(function() { return ''; });
-            try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
-            catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+            // Auto-retry on 401 auth error (force token refresh + one more try)
+            if (resp.status === 401 && !_aiRetried401) {
+                _aiRetried401 = true;
+                if (await refreshAccessToken()) {
+                    var result = await callAiAssistant(messages, context);
+                    _aiRetried401 = false;
+                    return result;
+                }
+                window.location.href = 'login.html';
+                throw new Error('Session expir\u00e9e');
+            }
+            _aiRetried401 = false;
+            try {
+                var errObj = JSON.parse(errText);
+                throw new Error(errObj.error || errObj.msg || errObj.message || 'Erreur ' + resp.status);
+            } catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
         }
         var data = await resp.json();
         return data;

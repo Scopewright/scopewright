@@ -476,7 +476,6 @@
 
         /* Indicateur de statut des données */
         .data-status {
-            margin-left: auto;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1559,7 +1558,7 @@
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
         /* ai-assistant-btn: styles in scopewright-tokens.css */
         .ai-assistant-btn {
-            vertical-align: middle; margin-left: auto;
+            vertical-align: middle;
         }
         @media (max-width: 600px) {
             .ci-drawer { width: 100%; right: -100%; }
@@ -1581,10 +1580,12 @@
                 <div class="nav-add-dd" id="navAddDd"></div>
             </div>
         </div>
-        <button class="ai-assistant-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
-        <div class="data-status" id="dataStatus">
-            <span class="status-dot"></span>
-            <span class="status-text" id="statusText">Chargement...</span>
+        <div class="nav-right">
+            <button class="ai-assistant-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
+            <div class="data-status" id="dataStatus">
+                <span class="status-dot"></span>
+                <span class="status-text" id="statusText">Chargement...</span>
+            </div>
         </div>
     </nav>
 

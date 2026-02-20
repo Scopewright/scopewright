@@ -173,6 +173,17 @@ body {
 }
 
 /* ========================================
+   NAV-RIGHT (groupe AI btn + status à droite)
+   ======================================== */
+
+.nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ========================================
    BOUTON ASSISTANT AI
    ======================================== */
 

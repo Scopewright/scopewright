@@ -299,20 +299,29 @@
             transition: background 0.15s;
         }
         .ct-img-thumb .ct-img-remove:hover { background: rgba(0,0,0,0.7); }
-        .ai-trigger-btn {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #0F1C2D; opacity: 0.6;
-            border: none; cursor: pointer;
-            transition: opacity 0.2s, box-shadow 0.2s;
-            position: relative; vertical-align: middle;
+        .ai-assistant-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; padding: 0; border: none;
+            background: transparent; cursor: pointer; position: relative;
+            vertical-align: middle;
         }
-        .ai-trigger-btn:hover {
-            opacity: 1;
-            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        .ai-assistant-btn::after {
+            content: ''; display: block; width: 11px; height: 11px;
+            border-radius: 50%; background: #0F1C2D;
+            opacity: 0.85; box-shadow: 0 0 0 4px rgba(15,28,45,0.06);
+            transition: all 200ms ease;
+            animation: ai-breathe 3s ease-in-out infinite;
         }
-        .ai-trigger-btn::after {
-            content: ''; position: absolute; inset: 6px;
-            border-radius: 50%; background: rgba(255,255,255,0.15);
+        .ai-assistant-btn:hover::after {
+            opacity: 1; transform: scale(1.05);
+        }
+        .ai-assistant-btn.active::after {
+            opacity: 1; box-shadow: 0 0 0 4px rgba(15,28,45,0.15);
+            animation: none;
+        }
+        @keyframes ai-breathe {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
         }
         @media (max-width: 600px) {
             .ct-drawer { width: 100%; right: -100%; }
@@ -327,7 +336,7 @@
                 <a href="app.html" class="nav-back">&larr; Menu</a>
             </div>
             <div class="nav-user">
-                <button class="ai-trigger-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
+                <button class="ai-assistant-btn" id="navAssistantBtn" title="Assistant Scopewright" onclick="toggleCtDrawer()"></button>
                 <span class="nav-user-email" id="userEmail"></span>
                 <button class="btn-logout" onclick="handleLogout()">D&eacute;connexion</button>
             </div>
@@ -1341,6 +1350,7 @@
     function openCtDrawer() {
         document.getElementById('ctDrawer').classList.add('active');
         document.getElementById('ctOverlay').classList.add('active');
+        document.getElementById('navAssistantBtn').classList.add('active');
         setupCtDrawerHandlers();
         setTimeout(function() { document.getElementById('ctInput').focus(); }, 300);
     }
@@ -1348,6 +1358,7 @@
     function closeCtDrawer() {
         document.getElementById('ctDrawer').classList.remove('active');
         document.getElementById('ctOverlay').classList.remove('active');
+        document.getElementById('navAssistantBtn').classList.remove('active');
     }
 
     function setupCtDrawerHandlers() {

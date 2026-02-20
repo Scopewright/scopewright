@@ -1576,21 +1576,29 @@
         }
         .item-pending-badge:hover { background: #E8F5E9; color: #2E7D32; }
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
-        .ai-trigger-btn {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #0F1C2D; opacity: 0.6;
-            border: none; cursor: pointer;
-            transition: opacity 0.2s, box-shadow 0.2s;
-            position: relative; vertical-align: middle;
-            margin-left: 8px;
+        .ai-assistant-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; padding: 0; border: none;
+            background: transparent; cursor: pointer; position: relative;
+            vertical-align: middle; margin-left: 8px;
         }
-        .ai-trigger-btn:hover {
-            opacity: 1;
-            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        .ai-assistant-btn::after {
+            content: ''; display: block; width: 11px; height: 11px;
+            border-radius: 50%; background: #0F1C2D;
+            opacity: 0.85; box-shadow: 0 0 0 4px rgba(15,28,45,0.06);
+            transition: all 200ms ease;
+            animation: ai-breathe 3s ease-in-out infinite;
         }
-        .ai-trigger-btn::after {
-            content: ''; position: absolute; inset: 6px;
-            border-radius: 50%; background: rgba(255,255,255,0.15);
+        .ai-assistant-btn:hover::after {
+            opacity: 1; transform: scale(1.05);
+        }
+        .ai-assistant-btn.active::after {
+            opacity: 1; box-shadow: 0 0 0 4px rgba(15,28,45,0.15);
+            animation: none;
+        }
+        @keyframes ai-breathe {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
         }
         @media (max-width: 600px) {
             .ci-drawer { width: 100%; right: -100%; }
@@ -1607,7 +1615,7 @@
             <a href="app.html" class="nav-back">&larr; Menu</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
-            <button class="ai-trigger-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
+            <button class="ai-assistant-btn" id="navImportBtn" style="display:none;" title="Assistant Scopewright" onclick="toggleImportDrawer()"></button>
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
                 <div class="nav-add-dd" id="navAddDd"></div>
@@ -3613,6 +3621,7 @@
         function openImportDrawer() {
             document.getElementById('ciOverlay').classList.add('active');
             document.getElementById('ciDrawer').classList.add('active');
+            document.getElementById('navImportBtn').classList.add('active');
             setTimeout(function() {
                 var inp = document.getElementById('ciInput');
                 if (inp) inp.focus({ preventScroll: true });
@@ -3622,6 +3631,7 @@
         function closeImportDrawer() {
             document.getElementById('ciOverlay').classList.remove('active');
             document.getElementById('ciDrawer').classList.remove('active');
+            document.getElementById('navImportBtn').classList.remove('active');
         }
 
         function setupImportDrawerHandlers() {

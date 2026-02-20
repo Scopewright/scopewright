@@ -526,6 +526,7 @@
     function openAiDrawer() {
         document.getElementById('aiOverlay').classList.add('active');
         document.getElementById('aiDrawer').classList.add('active');
+        document.getElementById('btnAiAssistant').classList.add('active');
         updateAiScope();
         if (!aiChatLoaded && currentSubmission) {
             aiChatLoaded = true;
@@ -540,6 +541,7 @@
     function closeAiDrawer() {
         document.getElementById('aiOverlay').classList.remove('active');
         document.getElementById('aiDrawer').classList.remove('active');
+        document.getElementById('btnAiAssistant').classList.remove('active');
     }
 
     function updateAiScope() {
@@ -4327,20 +4329,29 @@
             transition: color 0.15s;
         }
         .btn-header-link:hover { color: var(--stele-green); }
-        .ai-trigger-btn {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #0F1C2D; opacity: 0.6;
-            border: none; cursor: pointer;
-            transition: opacity 0.2s, box-shadow 0.2s;
-            position: relative; vertical-align: middle;
+        .ai-assistant-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; padding: 0; border: none;
+            background: transparent; cursor: pointer; position: relative;
+            vertical-align: middle;
         }
-        .ai-trigger-btn:hover {
-            opacity: 1;
-            box-shadow: 0 0 0 4px rgba(15,28,45,0.08);
+        .ai-assistant-btn::after {
+            content: ''; display: block; width: 11px; height: 11px;
+            border-radius: 50%; background: #0F1C2D;
+            opacity: 0.85; box-shadow: 0 0 0 4px rgba(15,28,45,0.06);
+            transition: all 200ms ease;
+            animation: ai-breathe 3s ease-in-out infinite;
         }
-        .ai-trigger-btn::after {
-            content: ''; position: absolute; inset: 6px;
-            border-radius: 50%; background: rgba(255,255,255,0.15);
+        .ai-assistant-btn:hover::after {
+            opacity: 1; transform: scale(1.05);
+        }
+        .ai-assistant-btn.active::after {
+            opacity: 1; box-shadow: 0 0 0 4px rgba(15,28,45,0.15);
+            animation: none;
+        }
+        @keyframes ai-breathe {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
         }
         .ph-project-name {
             font-size: 26px; font-weight: 700; border: none; outline: none;
@@ -5208,7 +5219,7 @@
                         <button class="btn-header-link" id="btnPreview" onclick="openPreview()">Aper&ccedil;u</button>
                         <button class="btn-header-link" onclick="openRentab('project')">Rentabilit&eacute;</button>
                         <button class="btn-header-link" id="btnPlans" onclick="openPlansModal()">Plans</button>
-                        <button class="ai-trigger-btn" id="btnAiAssistant" title="Assistant Scopewright" onclick="openAiDrawer()"></button>
+                        <button class="ai-assistant-btn" id="btnAiAssistant" title="Assistant Scopewright" onclick="openAiDrawer()"></button>
                         <button class="btn-header-link" id="btnContacts" onclick="openContactsModal()">Contacts</button>
                         <div class="kebab-menu" id="headerKebab">
                             <button class="btn-kebab" onclick="toggleHeaderKebab(event)">&middot;&middot;&middot;</button>

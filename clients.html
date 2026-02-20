@@ -236,17 +236,17 @@
         .btn-ct-dismiss { background: transparent; color: #6B7280; padding: 8px 12px; }
         .btn-ct-dismiss:hover { color: #1A1A2E; }
         .ct-confirm-applied { font-size: 12px; color: var(--sw-navy); font-weight: 500; }
-        .ct-typing { padding: 12px 0 0 0; display: none; }
-        .ct-typing.active { display: flex; gap: 5px; align-items: center; }
+        .ct-typing { padding: 10px 20px; display: none; }
+        .ct-typing.active { display: flex; gap: 6px; align-items: center; }
         .ct-typing-dot {
-            width: 6px; height: 6px; border-radius: 50%; background: #d1d5db;
-            animation: ctTypingBounce 1.2s infinite;
+            width: 8px; height: 8px; border-radius: 50%; background: var(--sw-navy);
+            animation: ctTypingBounce 1.4s ease-in-out infinite;
         }
-        .ct-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .ct-typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .ct-typing-dot:nth-child(3) { animation-delay: 0.3s; }
         @keyframes ctTypingBounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-3px); opacity: 1; }
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.25; }
+            30% { transform: translateY(-4px); opacity: 0.9; }
         }
         .ct-quick-actions {
             display: flex; gap: 6px; padding: 10px 20px; flex-wrap: wrap;

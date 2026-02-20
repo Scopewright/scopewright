@@ -1472,18 +1472,18 @@
         .ci-confirm-applied { font-size: 12px; color: var(--sw-navy); font-weight: 500; }
 
         .ci-typing {
-            padding: 12px 0 0 0; display: none;
+            padding: 10px 20px; display: none;
         }
-        .ci-typing.active { display: flex; gap: 5px; align-items: center; }
+        .ci-typing.active { display: flex; gap: 6px; align-items: center; }
         .ci-typing-dot {
-            width: 6px; height: 6px; border-radius: 50%; background: #d1d5db;
-            animation: ciTypingBounce 1.2s infinite;
+            width: 8px; height: 8px; border-radius: 50%; background: var(--sw-navy);
+            animation: ciTypingBounce 1.4s ease-in-out infinite;
         }
-        .ci-typing-dot:nth-child(2) { animation-delay: 0.15s; }
-        .ci-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        .ci-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .ci-typing-dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes ciTypingBounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-3px); opacity: 1; }
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.25; }
+            30% { transform: translateY(-4px); opacity: 0.9; }
         }
 
         .ci-quick-actions {

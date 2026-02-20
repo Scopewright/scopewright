@@ -176,6 +176,28 @@ function buildSystemPrompt(context: any, staticOverride: string | null): string 
     .map((t: any) => `${t.department}: ${t.taux_horaire}$/h`)
     .join(", ");
 
+  // Open article context (if user has an article open in the edit modal)
+  let openArticleStr = '';
+  if (context.openArticle) {
+    const a = context.openArticle;
+    const moStr = a.labor_minutes ? Object.entries(a.labor_minutes).filter(([,v]: [string, any]) => v > 0).map(([k,v]: [string, any]) => `${k}: ${v}min`).join(', ') : 'aucune';
+    const matStr = a.material_costs ? Object.entries(a.material_costs).filter(([,v]: [string, any]) => v > 0).map(([k,v]: [string, any]) => `${k}: ${v}$`).join(', ') : 'aucun';
+    openArticleStr = `
+
+## Article actuellement ouvert dans le modal
+L'utilisateur a cet article ouvert. Si il dit "celui-ci", "cet article", "change le prix", etc., c'est de cet article qu'il parle.
+- Code: ${a.code}
+- Description: ${a.description}
+- Catégorie: ${a.category}
+- Type: ${a.type}
+- Prix: ${a.price != null ? a.price + '$' : 'N/A'}
+- MO: ${moStr}
+- Mat: ${matStr}
+- Instruction: ${a.instruction || 'aucune'}
+- Client text: ${a.client_text || 'aucun'}
+- Par défaut: ${a.is_default ? 'oui ★' : 'non'}`;
+  }
+
   const dynamicContext = `
 
 ## Catégories existantes
@@ -191,7 +213,7 @@ ${unitTypesStr || 'pi², unitaire, linéaire, %'}
 ${expStr || 'Non disponible'}
 
 ## Taux horaires
-${tauxStr || 'Non disponible'}`;
+${tauxStr || 'Non disponible'}${openArticleStr}`;
 
   return staticPrompt + dynamicContext;
 }

@@ -1600,7 +1600,7 @@
             <a href="#disclaimer">Avis</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
             <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
-            <button class="nav-filter-btn" id="navImportBtn" style="display:none;" onclick="toggleImportDrawer()">&#x2B06; Importer</button>
+            <button class="nav-filter-btn" id="navImportBtn" style="display:none;" onclick="toggleImportDrawer()">&#x2728; Assistant</button>
             <!-- Les liens des catégories sont générés dynamiquement -->
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
@@ -3540,10 +3540,11 @@
                 input.value = '';
             });
 
-            // Fermer modal au clic extérieur
+            // Fermer modal au clic extérieur (sauf si le drawer AI est ouvert)
             document.getElementById('editModal').addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal-overlay')) {
-                    closeEditModal();
+                    var drawerOpen = document.getElementById('ciDrawer') && document.getElementById('ciDrawer').classList.contains('active');
+                    if (!drawerOpen) closeEditModal();
                 }
             });
         }
@@ -3804,13 +3805,38 @@
             // Unit types
             var unitTypes = ['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%'];
 
+            // Check if an article is currently open in the edit modal
+            var openArticle = null;
+            var editModal = document.getElementById('editModal');
+            if (editModal && editModal.classList.contains('active')) {
+                var editId = document.getElementById('editItemId');
+                if (editId && editId.value) {
+                    var found = CATALOGUE_DATA.find(function(i) { return i.id === editId.value; });
+                    if (found) {
+                        openArticle = {
+                            code: found.id,
+                            category: found.category,
+                            description: found.description,
+                            type: found.type,
+                            price: found.price,
+                            instruction: found.instruction || null,
+                            client_text: found.client_text || null,
+                            is_default: found.is_default || false,
+                            labor_minutes: found.labor_minutes || null,
+                            material_costs: found.material_costs || null
+                        };
+                    }
+                }
+            }
+
             return {
                 categories: Array.from(cats),
                 existingCodes: existingCodes,
                 unitTypes: unitTypes,
                 expenseCategories: expenseCategories,
                 tauxHoraires: tauxHoraires,
-                userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase()
+                userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase(),
+                openArticle: openArticle
             };
         }
 

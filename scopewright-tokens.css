@@ -237,14 +237,14 @@ body {
 }
 
 .sw-split-panel .sw-brand-name {
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.7);
   font-size: 22px;
   font-weight: 600;
   margin-bottom: 12px;
 }
 
 .sw-split-panel .sw-brand-tagline {
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.5);
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;

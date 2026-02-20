@@ -9,18 +9,12 @@ const corsHeaders = {
 };
 
 // Verify JWT via Supabase Auth (algorithm-agnostic, survives key rotations)
-async function verifyAuth(req: Request): Promise<Response | null> {
-  const authHeader = req.headers.get("Authorization");
+async function verifyAuth(authHeader: string, supabase: any): Promise<Response | null> {
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: authHeader } } }
-  );
   const { error } = await supabase.auth.getUser();
   if (error) {
     return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
@@ -30,48 +24,21 @@ async function verifyAuth(req: Request): Promise<Response | null> {
   return null; // Auth OK
 }
 
-function buildSystemPrompt(context: any): string {
-  const categoriesStr = (context.categories || []).join(", ");
+// ═══════════════════════════════════════════════════════════════════════
+// DEFAULT STATIC PROMPT — Single editable block, stored in app_config
+// key: ai_prompt_catalogue_import
+// ═══════════════════════════════════════════════════════════════════════
 
-  const codesStr = Object.entries(context.existingCodes || {})
-    .map(([prefix, nums]: [string, any]) => `${prefix}: ${(nums as string[]).join(", ")}`)
-    .join("\n");
-
-  const unitTypesStr = (context.unitTypes || []).join(", ");
-
-  const expStr = (context.expenseCategories || [])
-    .map((c: any) => `${c.name}: markup ${c.markup}%, perte ${c.waste}%`)
-    .join(", ");
-
-  const tauxStr = (context.tauxHoraires || [])
-    .map((t: any) => `${t.department}: ${t.taux_horaire}$/h`)
-    .join(", ");
-
-  return `Tu es l'assistant d'import du catalogue pour un atelier d'ébénisterie haut de gamme.
+const DEFAULT_STATIC_PROMPT = `Tu es l'assistant d'import du catalogue pour un atelier d'ébénisterie haut de gamme.
 
 ## Ton rôle
 L'utilisateur te donne des données en vrac — screenshots d'Excel, listes copiées-collées, descriptions textuelles, photos de catalogues fournisseur — et tu extrais des articles structurés pour le catalogue interne.
-
-## Catégories existantes
-${categoriesStr || 'Aucune'}
-
-## Codes existants par préfixe
-${codesStr || 'Aucun'}
-
-## Types d'unité disponibles
-${unitTypesStr || 'pi², unitaire, linéaire, %'}
-
-## Catégories de dépenses (matériaux)
-${expStr || 'Non disponible'}
-
-## Taux horaires
-${tauxStr || 'Non disponible'}
 
 ## Ce que tu extrais pour chaque article
 
 Pour chaque article identifié, tu dois déterminer :
 - **Description** : nom clair et concis de l'article
-- **Catégorie** : parmi les catégories existantes du catalogue (voir ci-dessus)
+- **Catégorie** : parmi les catégories existantes du catalogue (voir contexte)
 - **Type d'unité** : unitaire, pi², linéaire, ou %
 - **Prix de vente** : prix affiché au client
 - **Code** : généré automatiquement selon le préfixe de la catégorie + prochain numéro disponible
@@ -79,11 +46,11 @@ Pour chaque article identifié, tu dois déterminer :
 Et le **PRIX COMPOSÉ** qui se divise en deux volets :
 
 ### Minutes main-d'œuvre (par département)
-Les départements sont ceux listés dans les taux horaires ci-dessus. Les plus courants :
+Les départements sont ceux listés dans les taux horaires (voir contexte). Les plus courants :
 - Gestion/dessin, Coupe/edge, Assemblage, Machinage, Sablage, Peinture, Installation
 
 ### Coûts matériaux (par catégorie de dépense)
-Les catégories de dépenses sont listées ci-dessus. Exemples : Quincaillerie, Panneau mélamine, Panneau MDF, Bois brut, Finition, etc.
+Les catégories de dépenses sont listées dans le contexte. Exemples : Quincaillerie, Panneau mélamine, Panneau MDF, Bois brut, Finition, etc.
 
 Optionnel si l'info est disponible :
 - Fournisseur
@@ -121,7 +88,7 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 ### Codes
 - Format : PREFIXE-XXX (ex: TIR-001, PAN-005, QUI-012)
 - Le préfixe dépend de la catégorie
-- Utilise le prochain numéro disponible (voir les codes existants par préfixe ci-dessus)
+- Utilise le prochain numéro disponible (voir les codes existants dans le contexte)
 
 ### Doublons
 - Avant de créer, utilise search_catalogue pour vérifier si un article similaire existe déjà
@@ -161,6 +128,64 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 
 ## Langue
 Réponds en français canadien. Ton professionnel mais naturel.`;
+
+// Load single prompt override from app_config
+async function loadPromptOverride(supabase: any): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "ai_prompt_catalogue_import")
+      .single();
+    if (error || !data) return null;
+    if (data.value && typeof data.value === "string" && data.value.trim()) {
+      return data.value;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function buildSystemPrompt(context: any, staticOverride: string | null): string {
+  // Use override or default for the static instructions
+  const staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
+
+  // Build dynamic context
+  const categoriesStr = (context.categories || []).join(", ");
+
+  const codesStr = Object.entries(context.existingCodes || {})
+    .map(([prefix, nums]: [string, any]) => `${prefix}: ${(nums as string[]).join(", ")}`)
+    .join("\n");
+
+  const unitTypesStr = (context.unitTypes || []).join(", ");
+
+  const expStr = (context.expenseCategories || [])
+    .map((c: any) => `${c.name}: markup ${c.markup}%, perte ${c.waste}%`)
+    .join(", ");
+
+  const tauxStr = (context.tauxHoraires || [])
+    .map((t: any) => `${t.department}: ${t.taux_horaire}$/h`)
+    .join(", ");
+
+  const dynamicContext = `
+
+## Catégories existantes
+${categoriesStr || 'Aucune'}
+
+## Codes existants par préfixe
+${codesStr || 'Aucun'}
+
+## Types d'unité disponibles
+${unitTypesStr || 'pi², unitaire, linéaire, %'}
+
+## Catégories de dépenses (matériaux)
+${expStr || 'Non disponible'}
+
+## Taux horaires
+${tauxStr || 'Non disponible'}`;
+
+  return staticPrompt + dynamicContext;
 }
 
 const TOOLS = [
@@ -226,7 +251,16 @@ serve(async (req) => {
   }
 
   try {
-    const authErr = await verifyAuth(req);
+    // Create Supabase client (reused for auth + config reading)
+    const authHeader = req.headers.get("Authorization") || "";
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify JWT
+    const authErr = await verifyAuth(authHeader, supabase);
     if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
@@ -246,7 +280,10 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(context || {});
+    // Load single prompt override from app_config (fallback to default if missing)
+    const staticOverride = await loadPromptOverride(supabase);
+
+    const systemPrompt = buildSystemPrompt(context || {}, staticOverride);
 
     const body: any = {
       model: "claude-sonnet-4-5-20250929",

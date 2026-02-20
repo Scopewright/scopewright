@@ -25,20 +25,12 @@ async function verifyAuth(authHeader: string, supabase: any): Promise<Response |
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// DEFAULT PROMPT SECTIONS — Used when app_config has no override
+// DEFAULT STATIC PROMPT — Single editable block, stored in app_config
+// key: ai_prompt_estimateur
+// Placeholders: {{TAG_PREFIXES}}, {{DESCRIPTION_FORMAT_RULES}}
 // ═══════════════════════════════════════════════════════════════════════
 
-const DESCRIPTION_FORMAT_RULES = `
-FORMAT HTML OBLIGATOIRE :
-- Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
-- Les catégories possibles : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
-- Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
-- Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
-- Paragraphes informatifs sans catégorie : <p>texte</p>
-- NE PAS utiliser <h1>, <h2>, <h3> — uniquement <p>, <strong>, <ul>, <li>
-- NE PAS envelopper dans <div> ou <html> ou <body>`;
-
-const DEFAULT_INTRO = `Tu es l'assistant intelligent de Scopewright, la plateforme d'estimation pour Stele, un atelier d'ébénisterie haut de gamme sur mesure basé au Québec. Tu aides les designers à estimer, analyser et optimiser leurs projets de meubles sur mesure.
+const DEFAULT_STATIC_PROMPT = `Tu es l'assistant intelligent de Scopewright, la plateforme d'estimation pour Stele, un atelier d'ébénisterie haut de gamme sur mesure basé au Québec. Tu aides les designers à estimer, analyser et optimiser leurs projets de meubles sur mesure.
 
 ## Ton rôle
 - Analyser la rentabilité des pièces et du projet
@@ -46,23 +38,23 @@ const DEFAULT_INTRO = `Tu es l'assistant intelligent de Scopewright, la platefor
 - Rédiger et optimiser les descriptions client (HTML formaté selon les règles Stele)
 - Comparer les prix avec les barèmes de l'industrie
 - Expliquer les choix de matériaux et de main-d'œuvre
-- Répondre aux questions sur l'estimation et l'ébénisterie`;
+- Répondre aux questions sur l'estimation et l'ébénisterie
 
-const DEFAULT_SIMULATION = `## Mode simulation
+## Mode simulation
 IMPORTANT : Tu proposes TOUJOURS les modifications en texte d'abord. Tu décris ce que tu ferais, avec les détails (articles, quantités, prix). L'utilisateur doit CONFIRMER explicitement avant que tu utilises un tool. Si l'utilisateur dit "applique", "confirme", "go", "fais-le", "oui", ou toute confirmation claire, ALORS tu appelles le tool approprié. Sans confirmation = description textuelle seulement.
 
 Quand tu proposes une action, utilise ce format :
-**Action proposée :** [description claire de ce qui serait modifié]`;
+**Action proposée :** [description claire de ce qui serait modifié]
 
-const DEFAULT_PRICING = `## Modèle de prix Stele
+## Modèle de prix Stele
 Prix de vente = Main-d'œuvre + Matériaux
 - Main-d'œuvre : Σ(minutes/60 × taux_horaire_département)
 - Matériaux : Σ(coût × (1 + markup%/100 + perte%/100))
 - Marge brute visée : 38%
 - Profit net = (profit sur taux horaire) + (markup matériaux)
-- Prix coûtant matériaux = coût × (1 + perte/100)`;
+- Prix coûtant matériaux = coût × (1 + perte/100)
 
-const DEFAULT_TAGS = `## Tags de soumission
+## Tags de soumission
 Chaque pièce à soumissionner contient des tags placés sur les images du plan par l'estimateur.
 Les tags identifient les composantes physiques sur le plan.
 Préfixes : {{TAG_PREFIXES}}
@@ -84,9 +76,9 @@ Tu peux aussi signaler des oublis :
 **Tags dans les tools :**
 - Quand l'estimateur travaille par tag ("Fais-moi le C1", "Ajoute le F2"), inclus TOUJOURS le tag dans chaque article que tu ajoutes via add_catalogue_item. Tous les articles liés au même élément physique portent le même tag.
 - Exemple : "Fais-moi le C1" → tous les articles (caisson, portes, charnières, pattes) doivent avoir tag="C1".
-- TOUJOURS utiliser les tags dans tes réponses quand ils existent. Dis "C3 n'a pas de filler à sa droite" plutôt que "le troisième caisson".`;
+- TOUJOURS utiliser les tags dans tes réponses quand ils existent. Dis "C3 n'a pas de filler à sa droite" plutôt que "le troisième caisson".
 
-const DEFAULT_PLANS = `## Comment lire les plans d'ébénisterie
+## Comment lire les plans d'ébénisterie
 Les plans sont des élévations intérieures (vues de face d'un mur).
 
 Repères de position :
@@ -106,9 +98,9 @@ IMPORTANT — Précision :
 - Si tu n'es pas certain de la position exacte d'un tag sur le plan, DIS-LE plutôt que de deviner
 - Exemple correct : "C1 semble être le caisson en bas à gauche — tu confirmes ?"
 - Exemple incorrect : affirmer avec certitude une position dont tu n'es pas sûr
-- En cas de doute, demande : "C1 c'est lequel exactement sur le plan ?"`;
+- En cas de doute, demande : "C1 c'est lequel exactement sur le plan ?"
 
-const DEFAULT_DESCRIPTIONS = `## Règles pour les descriptions client
+## Règles pour les descriptions client
 Quand tu écris ou optimises une description, respecte ces règles exactement :
 {{DESCRIPTION_FORMAT_RULES}}
 - Orthographe, accents, pluriels, concordances simples
@@ -131,70 +123,72 @@ Exemples :
 - "Panneau décoratif en placage de noyer naturel, vernis mat"
 
 Si un article n'a pas de client_text, utilise sa description du catalogue reformulée pour le client.
-Les fragments sont en minuscule sans point final — c'est toi qui assembles la phrase complète.`;
+Les fragments sont en minuscule sans point final — c'est toi qui assembles la phrase complète.
 
-const DEFAULT_DEFAULTS = `## Articles par défaut de l'atelier
+## Articles par défaut de l'atelier
 Les articles marqués ★ (is_default = true) dans le catalogue sont les articles "go-to" de l'atelier.
 Quand tu suggères des articles :
 - Privilégie les articles ★ en premier
 - Si l'estimateur ne spécifie pas de produit précis, propose le ★ de la catégorie concernée
-- Tu peux dire "Je suggère le [article ★] comme d'habitude — ou tu préfères autre chose ?"`;
+- Tu peux dire "Je suggère le [article ★] comme d'habitude — ou tu préfères autre chose ?"
 
-const DEFAULT_EFFICIENCY = `## Efficacité
+## Efficacité
 Sois efficace. Ne pose pas de questions inutiles :
 - Si un défaut existe et qu'il est évident, utilise-le
 - Si une dimension est visible sur le plan, utilise-la sans demander confirmation
 - Regroupe tes questions : "Pour le C1, j'ai besoin de : largeur? profondeur?" — pas une question à la fois
-- Quand tu proposes des articles, montre le résultat directement : "C1 — Caisson base 36×24×30 : BAS-001 (467$) + 4 pattes QUI-001 (38.20$) = 505.20$. Confirmer?"`;
+- Quand tu proposes des articles, montre le résultat directement : "C1 — Caisson base 36×24×30 : BAS-001 (467$) + 4 pattes QUI-001 (38.20$) = 505.20$. Confirmer?"
 
-const DEFAULT_LANGUAGE = `## Langue
-Réponds dans la langue de l'utilisateur (français canadien par défaut). Ton professionnel mais naturel, comme un collègue expérimenté en ébénisterie.`;
+## Langue
+Réponds dans la langue de l'utilisateur (français canadien par défaut). Ton professionnel mais naturel, comme un collègue expérimenté en ébénisterie.
 
-const DEFAULT_LIMITATIONS = `## Limitations
+## Limitations
 - Tu ne peux PAS modifier les taux horaires ou catégories de dépenses
 - Tu ne peux PAS approuver ou changer le statut des soumissions
 - Tu ne peux PAS accéder aux projets d'autres utilisateurs
 - Si on te demande quelque chose hors scope, dis-le clairement`;
 
-// Map of app_config keys to default values
-const PROMPT_DEFAULTS: Record<string, string> = {
-  ai_prompt_intro: DEFAULT_INTRO,
-  ai_prompt_simulation: DEFAULT_SIMULATION,
-  ai_prompt_pricing: DEFAULT_PRICING,
-  ai_prompt_tags: DEFAULT_TAGS,
-  ai_prompt_plans: DEFAULT_PLANS,
-  ai_prompt_descriptions: DEFAULT_DESCRIPTIONS,
-  ai_prompt_defaults: DEFAULT_DEFAULTS,
-  ai_prompt_efficiency: DEFAULT_EFFICIENCY,
-  ai_prompt_language: DEFAULT_LANGUAGE,
-  ai_prompt_limitations: DEFAULT_LIMITATIONS,
-};
+const DESCRIPTION_FORMAT_RULES = `
+FORMAT HTML OBLIGATOIRE :
+- Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
+- Les catégories possibles : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
+- Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
+- Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
+- Paragraphes informatifs sans catégorie : <p>texte</p>
+- NE PAS utiliser <h1>, <h2>, <h3> — uniquement <p>, <strong>, <ul>, <li>
+- NE PAS envelopper dans <div> ou <html> ou <body>`;
 
-// Load prompt overrides from app_config
-async function loadPromptOverrides(supabase: any): Promise<Record<string, string>> {
+// Load single prompt override from app_config
+async function loadPromptOverride(supabase: any): Promise<string | null> {
   try {
     const { data, error } = await supabase
       .from("app_config")
-      .select("key, value")
-      .like("key", "ai_prompt_%");
-    if (error || !data) return {};
-    const overrides: Record<string, string> = {};
-    for (const row of data) {
-      if (row.value && typeof row.value === "string" && row.value.trim()) {
-        overrides[row.key] = row.value;
-      }
+      .select("value")
+      .eq("key", "ai_prompt_estimateur")
+      .single();
+    if (error || !data) return null;
+    if (data.value && typeof data.value === "string" && data.value.trim()) {
+      return data.value;
     }
-    return overrides;
+    return null;
   } catch {
-    return {}; // Fallback: use all defaults
+    return null;
   }
 }
 
-function getSection(overrides: Record<string, string>, key: string): string {
-  return overrides[key] || PROMPT_DEFAULTS[key] || "";
-}
+function buildSystemPrompt(context: any, staticOverride: string | null): string {
+  // Use override or default for the static instructions
+  let staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
-function buildSystemPrompt(context: any, overrides: Record<string, string>): string {
+  // Replace placeholders in the static text
+  const tagPrefixStr = (context.tagPrefixes || [])
+    .map((t: any) => `${t.prefix} = ${t.label_fr} (${t.label_en})`)
+    .join(", ");
+  staticPrompt = staticPrompt
+    .replace("{{TAG_PREFIXES}}", tagPrefixStr || "C = Caisson, F = Filler, P = Panneau, T = Tiroir, M = Moulure, A = Accessoire")
+    .replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES);
+
+  // Build dynamic context sections
   const tauxStr = (context.tauxHoraires || [])
     .map((t: any) => `${t.department}: ${t.taux_horaire}$/h (salaire ${t.salaire}$/h, frais fixes ${t.frais_fixe}$/h)`)
     .join("\n");
@@ -207,13 +201,22 @@ function buildSystemPrompt(context: any, overrides: Record<string, string>): str
     .map((r: any) => `- ${r.name}: ${r.itemCount} articles, sous-total ${r.subtotal}$${r.installationIncluded ? ' (inst. incluse)' : ''}${r.hasDescription ? ' [desc. rédigée]' : ''}`)
     .join("\n");
 
-  const benchmarks = context.benchmarks ? `\n## Barèmes de comparaison\n${JSON.stringify(context.benchmarks, null, 2)}` : '';
+  let dynamicParts = `\n\n## Départements et taux horaires\n${tauxStr || 'Non disponible'}`;
+  dynamicParts += `\n\n## Catégories de dépenses (matériaux)\n${matStr || 'Non disponible'}`;
 
-  const defaultMaterials = context.defaultMaterials ? `\n## Matériaux par défaut de la soumission\n${JSON.stringify(context.defaultMaterials, null, 2)}` : '';
+  if (context.benchmarks) {
+    dynamicParts += `\n\n## Barèmes de comparaison\n${JSON.stringify(context.benchmarks, null, 2)}`;
+  }
 
-  const clientFile = context.clientFile ? `\n## Fiche client\nNom: ${context.clientFile.name || 'N/A'}\nEntreprise: ${context.clientFile.company || 'N/A'}\nNotes: ${context.clientFile.notes || 'Aucune'}\nPréférences: ${context.clientFile.preferences || 'Aucune'}\nHistorique: ${context.clientFile.history || 'Aucun'}` : '';
+  if (context.defaultMaterials) {
+    dynamicParts += `\n\n## Matériaux par défaut de la soumission\n${JSON.stringify(context.defaultMaterials, null, 2)}`;
+  }
 
-  let calcRulesStr = '';
+  if (context.clientFile) {
+    dynamicParts += `\n\n## Fiche client\nNom: ${context.clientFile.name || 'N/A'}\nEntreprise: ${context.clientFile.company || 'N/A'}\nNotes: ${context.clientFile.notes || 'Aucune'}\nPréférences: ${context.clientFile.preferences || 'Aucune'}\nHistorique: ${context.clientFile.history || 'Aucun'}`;
+  }
+
+  // Calculation rules
   if (context.calculationRules && context.calculationRules.length > 0) {
     const rulesLines = context.calculationRules.map((r: any) => {
       const rule = r.rule || {};
@@ -233,7 +236,8 @@ function buildSystemPrompt(context: any, overrides: Record<string, string>): str
       if (varsStr) ruleLine += `\n  Variables:\n${varsStr}`;
       return ruleLine;
     }).join("\n\n");
-    calcRulesStr = `\n## Règles de calcul du catalogue
+
+    dynamicParts += `\n\n## Règles de calcul du catalogue
 Certains articles du catalogue ont une règle de calcul (champ calculation_rule_ai en JSON).
 Quand tu ajoutes un article qui a une règle de calcul :
 
@@ -263,17 +267,23 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 ${rulesLines}`;
   }
 
-  const tagPrefixStr = (context.tagPrefixes || [])
-    .map((t: any) => `${t.prefix} = ${t.label_fr} (${t.label_en})`)
-    .join(", ");
+  // Project context
+  dynamicParts += `\n\n## Contexte actuel
+Projet : ${context.project?.name || 'N/A'}
+Client : ${context.project?.client || 'N/A'}
+Designer : ${context.project?.designer || 'N/A'}
+Soumission #${context.submission?.number || '?'} — Statut : ${context.submission?.status || '?'}
+Total estimé : ${context.grandTotal || 0}$`;
 
-  let focusStr = '';
+  dynamicParts += `\n\n## Pièces\n${roomsStr || 'Aucune pièce'}`;
+
+  // Focus room detail
   if (context.focusRoomDetail) {
     const f = context.focusRoomDetail;
     const itemsStr = (f.items || []).map((it: any, i: number) =>
       `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}× ${it.unitPrice}$ = ${it.lineTotal}$`
     ).join("\n");
-    focusStr = `\n## Pièce en focus : ${f.name}
+    dynamicParts += `\n\n## Pièce en focus : ${f.name}
 Installation: ${f.installationIncluded ? 'Oui' : 'Non'}
 Description client: ${f.clientDescription || '(vide)'}
 Articles:
@@ -282,62 +292,7 @@ Sous-total: ${f.subtotal}$
 Rentabilité: marge ${f.rentability?.margeReelle?.toFixed(1) || '?'}%, profit ${f.rentability?.profitNet?.toFixed(2) || '?'}$`;
   }
 
-  // Get editable sections with fallback to defaults
-  const intro = getSection(overrides, "ai_prompt_intro");
-  const simulation = getSection(overrides, "ai_prompt_simulation");
-  const pricing = getSection(overrides, "ai_prompt_pricing");
-  const defaults = getSection(overrides, "ai_prompt_defaults");
-  const efficiency = getSection(overrides, "ai_prompt_efficiency");
-  const language = getSection(overrides, "ai_prompt_language");
-  const limitations = getSection(overrides, "ai_prompt_limitations");
-
-  // Sections with placeholder replacements
-  const tags = getSection(overrides, "ai_prompt_tags")
-    .replace("{{TAG_PREFIXES}}", tagPrefixStr || "C = Caisson, F = Filler, P = Panneau, T = Tiroir, M = Moulure, A = Accessoire");
-
-  const descriptions = getSection(overrides, "ai_prompt_descriptions")
-    .replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES);
-
-  const plans = getSection(overrides, "ai_prompt_plans");
-
-  // Assemble final prompt
-  return `${intro}
-
-${simulation}
-
-${pricing}
-
-## Départements et taux horaires
-${tauxStr || 'Non disponible'}
-
-## Catégories de dépenses (matériaux)
-${matStr || 'Non disponible'}
-
-${tags}
-
-${plans}
-
-${descriptions}
-${benchmarks}${defaultMaterials}${clientFile}${calcRulesStr}
-
-## Contexte actuel
-Projet : ${context.project?.name || 'N/A'}
-Client : ${context.project?.client || 'N/A'}
-Designer : ${context.project?.designer || 'N/A'}
-Soumission #${context.submission?.number || '?'} — Statut : ${context.submission?.status || '?'}
-Total estimé : ${context.grandTotal || 0}$
-
-## Pièces
-${roomsStr || 'Aucune pièce'}
-${focusStr}
-
-${defaults}
-
-${efficiency}
-
-${language}
-
-${limitations}`;
+  return staticPrompt + dynamicParts;
 }
 
 // Tool definitions pour Claude
@@ -394,39 +349,40 @@ const TOOLS = [
         },
         catalogue_item_id: {
           type: "string",
-          description: "ID de l'article catalogue",
+          description: "ID de l'article du catalogue",
         },
         quantity: {
           type: "number",
-          description: "Quantité à ajouter",
-          default: 1,
+          description: "Quantité",
         },
         tag: {
           type: "string",
-          description: "Tag de l'élément sur le plan (ex: C1, F2, P1). Obligatoire quand l'estimateur travaille par tag.",
+          description: "Tag de l'élément physique (ex: C1, F2)",
         },
       },
-      required: ["room_name", "catalogue_item_id"],
+      required: ["room_name", "catalogue_item_id", "quantity"],
     },
   },
   {
-    name: "update_item_quantity",
+    name: "modify_item",
     description:
-      "Modifie la quantité d'une ligne existante dans une pièce. N'APPELER QUE si l'utilisateur a CONFIRMÉ la modification.",
+      "Modifie un article existant dans une pièce (quantité, prix, description). N'APPELER QUE si l'utilisateur a CONFIRMÉ la modification.",
     input_schema: {
       type: "object",
       properties: {
-        room_name: {
-          type: "string",
-          description: "Nom de la pièce",
+        room_name: { type: "string", description: "Nom de la pièce" },
+        item_index: { type: "number", description: "Index de l'article dans la pièce" },
+        changes: {
+          type: "object",
+          properties: {
+            quantity: { type: "number" },
+            unit_price: { type: "number" },
+            description: { type: "string" },
+            markup: { type: "number" },
+          },
         },
-        item_index: {
-          type: "number",
-          description: "Index de la ligne dans la pièce (0-based)",
-        },
-        new_quantity: { type: "number", description: "Nouvelle quantité" },
       },
-      required: ["room_name", "item_index", "new_quantity"],
+      required: ["room_name", "item_index", "changes"],
     },
   },
   {
@@ -500,21 +456,20 @@ serve(async (req) => {
       );
     }
 
-    // Load prompt overrides from app_config (fallback to defaults if error)
-    const overrides = await loadPromptOverrides(supabase);
+    // Load single prompt override from app_config (fallback to default if missing)
+    const staticOverride = await loadPromptOverride(supabase);
 
-    const systemPrompt = buildSystemPrompt(context || {}, overrides);
+    let systemPrompt = buildSystemPrompt(context || {}, staticOverride);
 
     // Inject catalogue summary into context if provided
-    let enrichedSystem = systemPrompt;
     if (context?.catalogueSummary) {
-      enrichedSystem += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles PAR DÉFAUT de l'atelier — utilise-les en priorité sauf indication contraire de l'estimateur. Les articles sans ★ sont des alternatives disponibles mais non privilégiées.\n${context.catalogueSummary}`;
+      systemPrompt += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles PAR DÉFAUT de l'atelier — utilise-les en priorité sauf indication contraire de l'estimateur. Les articles sans ★ sont des alternatives disponibles mais non privilégiées.\n${context.catalogueSummary}`;
     }
 
     const body: any = {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
-      system: enrichedSystem,
+      system: systemPrompt,
       messages: messages,
       tools: TOOLS,
     };

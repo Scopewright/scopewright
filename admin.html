@@ -2274,7 +2274,7 @@
         authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: currentPromptKey, value: JSON.stringify(val) })
+            body: JSON.stringify({ key: currentPromptKey, value: val })
         }).then(function(r) {
             if (r.ok || r.status === 201) {
                 aiPromptOverrides[currentPromptKey] = val;

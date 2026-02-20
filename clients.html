@@ -1323,6 +1323,7 @@
     var ctPendingImages = [];
     var ctPendingToolCalls = null;
     var ctPendingConfirmId = 0;
+    var ctChatLoaded = false;
 
     function toggleCtDrawer() {
         var drawer = document.getElementById('ctDrawer');
@@ -1335,6 +1336,10 @@
         document.getElementById('ctOverlay').classList.add('active');
         document.getElementById('navAssistantBtn').classList.add('active');
         setupCtDrawerHandlers();
+        if (!ctChatLoaded) {
+            ctChatLoaded = true;
+            loadCtChat();
+        }
         setTimeout(function() {
             var msgs = document.getElementById('ctMessages');
             msgs.scrollTop = msgs.scrollHeight;
@@ -1346,6 +1351,49 @@
         document.getElementById('ctDrawer').classList.remove('active');
         document.getElementById('ctOverlay').classList.remove('active');
         document.getElementById('navAssistantBtn').classList.remove('active');
+    }
+
+    async function saveCtChatMessage(role, content) {
+        try {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ context_type: 'contacts', role: role, content: content || '' })
+            });
+        } catch (e) { console.warn('[CT] Failed to save chat message:', e); }
+    }
+
+    async function loadCtChat() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?context_type=eq.contacts&order=created_at.desc&limit=20&select=role,content,created_at', {});
+            if (!r.ok) return;
+            var msgs = await r.json();
+            if (msgs.length === 0) return;
+
+            msgs.reverse();
+
+            var container = document.getElementById('ctMessages');
+            container.innerHTML = '';
+
+            msgs.forEach(function(msg) {
+                appendCtMessage(msg.role, msg.content);
+            });
+
+            // Rebuild ctConversation from loaded messages
+            ctConversation = [];
+            msgs.forEach(function(msg) {
+                if (msg.role === 'user' || msg.role === 'assistant') {
+                    ctConversation.push({ role: msg.role, content: msg.content });
+                }
+            });
+
+            // Hide quick actions since we have history
+            var qa = document.getElementById('ctQuickActions');
+            if (qa) qa.style.display = 'none';
+
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        } catch (e) { console.warn('[CT] Failed to load chat:', e); }
     }
 
     function setupCtDrawerHandlers() {
@@ -1721,6 +1769,9 @@
 
         var userContent = buildCtUserContent(text, images);
         ctConversation.push({ role: 'user', content: userContent });
+        saveCtChatMessage('user', text);
+        var qa = document.getElementById('ctQuickActions');
+        if (qa) qa.style.display = 'none';
 
         document.getElementById('ctTyping').classList.add('active');
         document.getElementById('ctSendBtn').disabled = true;
@@ -1798,9 +1849,11 @@
             ctPendingToolCalls = { tools: actionTools };
             var summary = formatCtPendingActions(actionTools);
             appendCtMessage('confirm', summary);
+            saveCtChatMessage('assistant', fullText + '\n[Actions proposées]');
         } else {
             var fullText = textParts.join('\n');
             appendCtMessage('assistant', fullText);
+            saveCtChatMessage('assistant', fullText);
         }
     }
 

@@ -3788,6 +3788,7 @@
         var ciConversation = [];
         var ciPendingImages = [];
         var ciPendingToolCalls = null;
+        var ciChatLoaded = false;
         var filterPendingOnly = false;
 
         function toggleImportDrawer() {
@@ -3800,6 +3801,10 @@
             document.getElementById('ciOverlay').classList.add('active');
             document.getElementById('ciDrawer').classList.add('active');
             document.getElementById('navImportBtn').classList.add('active');
+            if (!ciChatLoaded) {
+                ciChatLoaded = true;
+                loadCiChat();
+            }
             setTimeout(function() {
                 var inp = document.getElementById('ciInput');
                 if (inp) inp.focus({ preventScroll: true });
@@ -3810,6 +3815,49 @@
             document.getElementById('ciOverlay').classList.remove('active');
             document.getElementById('ciDrawer').classList.remove('active');
             document.getElementById('navImportBtn').classList.remove('active');
+        }
+
+        async function saveCiChatMessage(role, content) {
+            try {
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ context_type: 'catalogue', role: role, content: content || '' })
+                });
+            } catch (e) { console.warn('[CI] Failed to save chat message:', e); }
+        }
+
+        async function loadCiChat() {
+            try {
+                var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/chat_messages?context_type=eq.catalogue&order=created_at.desc&limit=20&select=role,content,created_at', {});
+                if (!r.ok) return;
+                var msgs = await r.json();
+                if (msgs.length === 0) return;
+
+                msgs.reverse();
+
+                var container = document.getElementById('ciMessages');
+                container.innerHTML = '';
+
+                msgs.forEach(function(msg) {
+                    appendCiMessage(msg.role, msg.content);
+                });
+
+                // Rebuild ciConversation from loaded messages
+                ciConversation = [];
+                msgs.forEach(function(msg) {
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                        ciConversation.push({ role: msg.role, content: msg.content });
+                    }
+                });
+
+                // Hide quick actions since we have history
+                var qa = document.getElementById('ciQuickActions');
+                if (qa) qa.style.display = 'none';
+
+                // Scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (e) { console.warn('[CI] Failed to load chat:', e); }
         }
 
         function setupImportDrawerHandlers() {
@@ -4292,6 +4340,9 @@
 
             var userContent = buildCiUserContent(text, images);
             ciConversation.push({ role: 'user', content: userContent });
+            saveCiChatMessage('user', text);
+            var qa = document.getElementById('ciQuickActions');
+            if (qa) qa.style.display = 'none';
 
             // Show typing
             document.getElementById('ciTyping').classList.add('active');
@@ -4382,9 +4433,11 @@
                 ciPendingToolCalls = { tools: actionTools };
                 var summary = formatCiPendingActions(actionTools);
                 appendCiMessage('confirm', summary);
+                saveCiChatMessage('assistant', fullText + '\n[Actions proposées]');
             } else {
                 var fullText = textParts.join('\n');
                 appendCiMessage('assistant', fullText);
+                saveCiChatMessage('assistant', fullText);
             }
         }
 

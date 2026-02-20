@@ -175,7 +175,7 @@
         .ct-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
         .ct-messages::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
         .ct-messages:empty::after {
-            content: 'Collez un screenshot de contacts, une carte d\27affaires, ou d\e9crivez les contacts \e0 importer.';
+            content: 'Collez un screenshot de contacts, une carte d\27 affaires, ou d\e9 crivez les contacts \e0 importer.';
             color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 24px;
             line-height: 1.6;
         }
@@ -1334,7 +1334,11 @@
         document.getElementById('ctOverlay').classList.add('active');
         document.getElementById('navAssistantBtn').classList.add('active');
         setupCtDrawerHandlers();
-        setTimeout(function() { document.getElementById('ctInput').focus(); }, 300);
+        setTimeout(function() {
+            var msgs = document.getElementById('ctMessages');
+            msgs.scrollTop = msgs.scrollHeight;
+            document.getElementById('ctInput').focus();
+        }, 300);
     }
 
     function closeCtDrawer() {

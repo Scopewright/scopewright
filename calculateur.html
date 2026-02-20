@@ -1973,7 +1973,7 @@
 
         :root {
             --stele-black: #0A0203;
-            --stele-green: #1B2B4B;
+            --stele-green: #0B1220;
             --stele-gray: #C8C8C8;
             --stele-light-gray: #F8F8F8;
             --stele-white: #FFFFFF;
@@ -2588,7 +2588,7 @@
         .image-quote-toggle input[type="checkbox"] { width: 11px; height: 11px; margin: 0; }
         .image-ai-toggle {
             position: absolute; bottom: 2px; right: 2px; display: flex; align-items: center; gap: 2px;
-            background: rgba(27,43,75,0.75); color: #fff; padding: 1px 4px; border-radius: 3px;
+            background: rgba(11,18,32,0.75); color: #fff; padding: 1px 4px; border-radius: 3px;
             font-size: 9px; cursor: pointer;
         }
         .image-ai-toggle input[type="checkbox"] { width: 11px; height: 11px; margin: 0; }
@@ -3320,7 +3320,7 @@
         }
         .annotation-btn {
             position: absolute; top: 2px; left: 2px;
-            background: rgba(27,43,75,0.85); color: #fff; border: none;
+            background: rgba(11,18,32,0.85); color: #fff; border: none;
             width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
             font-size: 12px; display: flex; align-items: center; justify-content: center;
             padding: 0; opacity: 0.7; transition: opacity 0.15s;
@@ -3383,7 +3383,7 @@
         /* Title page — full-screen image + text overlay */
         .pv-page-title { position: relative; padding: 32px; overflow: hidden; background: #fff; }
         .pv-cover-right {
-            position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
+            position: absolute; inset: 32px; z-index: 0; background: #0B1220; overflow: hidden; border-radius: 4px;
         }
         .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv-cover-right .pv-cover-overlay {
@@ -3555,7 +3555,7 @@
         .pv-img-delete:hover { background: rgba(200,0,0,0.85); }
         .pv-img-badge-client {
             position: absolute; bottom: 6px; left: 6px;
-            background: rgba(27,43,75,0.85); color: #fff; font-size: 8px;
+            background: rgba(11,18,32,0.85); color: #fff; font-size: 8px;
             padding: 2px 5px; border-radius: 3px; font-weight: 600;
             letter-spacing: 0.3px; text-transform: uppercase;
         }
@@ -3957,7 +3957,7 @@
         .dp-day:hover { background: #f1f5f9; }
         .dp-day.outside { color: #cbd5e1; }
         .dp-day.today { box-shadow: inset 0 0 0 1.5px #cbd5e1; }
-        .dp-day.selected { background: #0F1C2D; color: #fff; }
+        .dp-day.selected { background: #0B1220; color: #fff; }
         .dp-day.selected.today { box-shadow: none; }
         .dp-footer {
             display: flex; justify-content: space-between; align-items: center;
@@ -4337,8 +4337,8 @@
         }
         .ai-assistant-btn::after {
             content: ''; display: block; width: 11px; height: 11px;
-            border-radius: 50%; background: #0F1C2D;
-            opacity: 0.85; box-shadow: 0 0 0 4px rgba(15,28,45,0.06);
+            border-radius: 50%; background: #0B1220;
+            opacity: 0.85; box-shadow: 0 0 0 4px rgba(11,18,32,0.06);
             transition: all 200ms ease;
             animation: ai-breathe 3s ease-in-out infinite;
         }
@@ -4346,7 +4346,7 @@
             opacity: 1; transform: scale(1.05);
         }
         .ai-assistant-btn.active::after {
-            opacity: 1; box-shadow: 0 0 0 4px rgba(15,28,45,0.15);
+            opacity: 1; box-shadow: 0 0 0 4px rgba(11,18,32,0.15);
             animation: none;
         }
         @keyframes ai-breathe {
@@ -4393,7 +4393,7 @@
             background: #4caf50; color: #fff;
         }
         .timeline-step.active .timeline-circle {
-            background: var(--stele-green); color: #fff; box-shadow: 0 0 0 3px rgba(27,43,75,0.15);
+            background: var(--stele-green); color: #fff; box-shadow: 0 0 0 3px rgba(11,18,32,0.15);
         }
         .timeline-step.active.returned .timeline-circle {
             background: #ff9800; box-shadow: 0 0 0 3px rgba(255,152,0,0.15);
@@ -4460,7 +4460,7 @@
         }
         .timeline-step.clickable:hover .timeline-circle {
             transform: scale(1.1);
-            box-shadow: 0 0 0 4px rgba(27,43,75,0.25);
+            box-shadow: 0 0 0 4px rgba(11,18,32,0.25);
         }
         @keyframes heartbeat {
             0%, 100% { transform: scale(1); }
@@ -4679,7 +4679,7 @@
         }
         .ai-scope-badge {
             font-size: 10px; font-weight: 500; padding: 3px 8px;
-            border-radius: 10px; background: #edf0f5; color: #1B2B4B;
+            border-radius: 10px; background: #edf0f5; color: #0B1220;
             text-transform: uppercase; letter-spacing: 0.3px;
         }
         .ai-drawer-close {
@@ -4808,7 +4808,7 @@
             cursor: pointer; border: none; transition: all 0.15s;
         }
         .btn-ai-apply {
-            background: #1B2B4B; color: #fff;
+            background: #0B1220; color: #fff;
         }
         .btn-ai-apply:hover { background: #15223b; }
         .btn-ai-dismiss {
@@ -4816,7 +4816,7 @@
         }
         .btn-ai-dismiss:hover { color: #1A1A2E; }
         .ai-confirm-applied {
-            font-size: 12px; color: #1B2B4B; font-weight: 500;
+            font-size: 12px; color: #0B1220; font-weight: 500;
         }
 
         /* Typing indicator */
@@ -4866,7 +4866,7 @@
 
         .ai-send-btn {
             width: 36px; height: 36px; border-radius: 10px; border: none;
-            background: #1B2B4B; color: #fff; font-size: 16px;
+            background: #0B1220; color: #fff; font-size: 16px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             transition: background 0.15s; flex-shrink: 0;
         }
@@ -4875,7 +4875,7 @@
 
         /* Drop zone */
         .ai-drop-zone {
-            display: none; position: absolute; inset: 0; background: rgba(27,43,75,0.04);
+            display: none; position: absolute; inset: 0; background: rgba(11,18,32,0.04);
             border: 2px dashed #d1d5db; border-radius: 10px;
             z-index: 10; align-items: center; justify-content: center;
             font-size: 13px; color: #6B7280; font-weight: 500;
@@ -6238,7 +6238,7 @@
                 r.setAttribute('width', tw);
                 r.setAttribute('height', th);
                 r.setAttribute('rx', 4);
-                r.setAttribute('fill', '#1B2B4B');
+                r.setAttribute('fill', '#0B1220');
                 r.setAttribute('stroke', 'none');
                 g.appendChild(r);
 
@@ -8980,7 +8980,7 @@
 '.crop-ratios { display: flex; gap: 6px; }' +
 '.ratio-btn { background: #3a3a3a; border: 1px solid #555; color: #fff; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }' +
 '.ratio-btn:hover { background: #4a4a4a; }' +
-'.ratio-btn.active { border-color: #1B2B4B; background: #1B2B4B; color: #fff; }' +
+'.ratio-btn.active { border-color: #0B1220; background: #0B1220; color: #fff; }' +
 '.crop-actions { display: flex; gap: 8px; }' +
 '.loading-screen { position: fixed; inset: 0; background: #2b2b2b; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 900; transition: opacity .4s ease; }' +
 '.loading-screen.hidden { opacity: 0; pointer-events: none; }' +
@@ -9032,7 +9032,7 @@
 '      </div>' +
 '      <div class="crop-actions">' +
 '        <button class="btn" onclick="cancelCrop()">Annuler</button>' +
-'        <button class="btn" id="btnCropConfirm" style="background:#1B2B4B;" onclick="confirmCrop()">Valider</button>' +
+'        <button class="btn" id="btnCropConfirm" style="background:#0B1220;" onclick="confirmCrop()">Valider</button>' +
 '      </div>' +
 '    </div>' +
 '    <div class="status" id="cropStatus" style="margin:0 20px 16px;"></div>' +

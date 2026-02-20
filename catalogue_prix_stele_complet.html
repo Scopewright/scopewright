@@ -3668,6 +3668,18 @@
             return await resp.json();
         }
 
+        function ciSearchCatalogue(query) {
+            var q = (query || '').toLowerCase();
+            var results = CATALOGUE_DATA.filter(function(item) {
+                return (item.description || '').toLowerCase().indexOf(q) !== -1 ||
+                       (item.category || '').toLowerCase().indexOf(q) !== -1 ||
+                       (item.id || '').toLowerCase().indexOf(q) !== -1;
+            }).slice(0, 15).map(function(item) {
+                return { id: item.id, description: item.description, category: item.category, type: item.type, price: item.price };
+            });
+            return { results: results, count: results.length };
+        }
+
         async function sendImportMessage() {
             var input = document.getElementById('ciInput');
             var text = input.value.trim();
@@ -3690,35 +3702,81 @@
 
             try {
                 var context = collectImportContext();
-                var data = await callCatalogueImport(ciConversation, context);
-
-                var contentBlocks = data.content || [];
-                var textParts = [];
-                var toolCalls = [];
-
-                contentBlocks.forEach(function(block) {
-                    if (block.type === 'text') textParts.push(block.text);
-                    if (block.type === 'tool_use') toolCalls.push(block);
-                });
-
-                ciConversation.push({ role: 'assistant', content: contentBlocks });
-
-                if (toolCalls.length > 0) {
-                    var fullText = textParts.join('\n');
-                    if (fullText) appendCiMessage('assistant', fullText);
-
-                    ciPendingToolCalls = { tools: toolCalls };
-                    var summary = formatCiPendingActions(toolCalls);
-                    appendCiMessage('confirm', summary);
-                } else {
-                    var fullText = textParts.join('\n');
-                    appendCiMessage('assistant', fullText);
-                }
+                var data = await ciProcessResponse(ciConversation, context);
+                ciHandleResponse(data);
             } catch (err) {
                 appendCiMessage('assistant', 'Erreur : ' + err.message);
             } finally {
                 document.getElementById('ciTyping').classList.remove('active');
                 document.getElementById('ciSendBtn').disabled = false;
+            }
+        }
+
+        // Process AI response — auto-execute read-only tools (search_catalogue), loop until text or create tool
+        async function ciProcessResponse(conversation, context) {
+            var maxLoops = 5; // safety limit for tool loops
+            var data = await callCatalogueImport(conversation, context);
+
+            for (var loop = 0; loop < maxLoops; loop++) {
+                var contentBlocks = data.content || [];
+                var toolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
+                var readOnlyTools = toolCalls.filter(function(tc) { return tc.name === 'search_catalogue'; });
+                var createTools = toolCalls.filter(function(tc) { return tc.name === 'create_catalogue_items'; });
+
+                // If no read-only tools to auto-execute, return as-is
+                if (readOnlyTools.length === 0) return data;
+
+                // Auto-execute read-only tools and continue the conversation
+                conversation.push({ role: 'assistant', content: contentBlocks });
+
+                var toolResults = [];
+                readOnlyTools.forEach(function(tc) {
+                    var result = ciSearchCatalogue(tc.input.query);
+                    toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
+                });
+
+                // If there are also create tools, we need to return them for confirmation
+                // but first send the search results back
+                if (createTools.length > 0) {
+                    // Add tool results for search, but keep create tools pending
+                    conversation.push({ role: 'user', content: toolResults });
+                    return data; // The create tools will be handled by ciHandleResponse
+                }
+
+                // Only read-only tools — send results back and get next response
+                conversation.push({ role: 'user', content: toolResults });
+                data = await callCatalogueImport(conversation, context);
+            }
+
+            return data; // safety: return whatever we have after max loops
+        }
+
+        function ciHandleResponse(data) {
+            var contentBlocks = data.content || [];
+            var textParts = [];
+            var createTools = [];
+
+            contentBlocks.forEach(function(block) {
+                if (block.type === 'text') textParts.push(block.text);
+                if (block.type === 'tool_use' && block.name === 'create_catalogue_items') createTools.push(block);
+            });
+
+            // Add to conversation if not already added (when no read-only tools were processed)
+            var lastMsg = ciConversation[ciConversation.length - 1];
+            if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.content !== contentBlocks) {
+                ciConversation.push({ role: 'assistant', content: contentBlocks });
+            }
+
+            if (createTools.length > 0) {
+                var fullText = textParts.join('\n');
+                if (fullText) appendCiMessage('assistant', fullText);
+
+                ciPendingToolCalls = { tools: createTools };
+                var summary = formatCiPendingActions(createTools);
+                appendCiMessage('confirm', summary);
+            } else {
+                var fullText = textParts.join('\n');
+                appendCiMessage('assistant', fullText);
             }
         }
 

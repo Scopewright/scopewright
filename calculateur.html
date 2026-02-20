@@ -14141,6 +14141,14 @@
                     rowProfit += cost * ((c.markup || 0) / 100);
                 });
 
+                // Fallback: si pas de données composées, utiliser item.price
+                var composedPrice = computeComposedPrice(item, includeInstall);
+                if (composedPrice === null) {
+                    var flatTotal = (item.price || 0) * qty;
+                    totalPrixVente += flatTotal;
+                    rowPrixVente += flatTotal;
+                }
+
                 // Accumulate per-tag
                 if (tagPrefix) {
                     if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };

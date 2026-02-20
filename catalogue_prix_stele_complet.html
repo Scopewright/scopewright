@@ -1351,6 +1351,148 @@
             border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
         }
 
+        /* ═══ Import Drawer (AI Chat) ═══ */
+        .ci-drawer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: transparent; z-index: 8700; pointer-events: none;
+        }
+        .ci-drawer-overlay.active { display: block; }
+        .ci-drawer {
+            position: fixed; top: 0; right: -460px; width: 440px; height: 100%;
+            background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            z-index: 8800; transition: right 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        .ci-drawer.active { right: 0; }
+        .ci-drawer-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 20px; border-bottom: 2px solid var(--stele-green);
+            background: #fafafa; flex-shrink: 0;
+        }
+        .ci-drawer-header h3 { font-size: 15px; font-weight: 700; margin: 0; color: var(--stele-black); flex: 1; }
+        .ci-drawer-close {
+            background: none; border: none; font-size: 20px; cursor: pointer; color: #666; padding: 0 4px;
+        }
+        .ci-drawer-close:hover { color: var(--stele-black); }
+        .ci-messages {
+            flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end;
+            overscroll-behavior: contain;
+            scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
+        }
+        .ci-messages::-webkit-scrollbar { width: 6px; }
+        .ci-messages::-webkit-scrollbar-track { background: transparent; }
+        .ci-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .ci-messages::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .ci-messages:empty::after {
+            content: 'Collez un screenshot Excel, tapez une liste de prix, ou d\e9crivez les articles \e0 importer.';
+            color: #aaa; font-size: 13px; text-align: center; padding: 40px 20px;
+            font-style: italic; line-height: 1.5;
+        }
+        .ci-msg { max-width: 88%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.55; word-wrap: break-word; }
+        .ci-msg p { margin: 0 0 6px 0; }
+        .ci-msg p:last-child { margin-bottom: 0; }
+        .ci-msg ul, .ci-msg ol { margin: 4px 0; padding-left: 18px; }
+        .ci-msg li { margin-bottom: 2px; }
+        .ci-msg strong { font-weight: 700; }
+        .ci-msg code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+        .ci-msg table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+        .ci-msg th, .ci-msg td { padding: 4px 8px; border: 1px solid #ddd; text-align: left; }
+        .ci-msg th { background: #f5f5f5; font-weight: 600; }
+        .ci-msg-user { align-self: flex-end; background: transparent; color: var(--stele-black); border-bottom-right-radius: 4px; }
+        .ci-msg-assistant { align-self: flex-start; background: transparent; color: var(--stele-black); border-bottom-left-radius: 4px; }
+        .ci-msg-confirm {
+            align-self: flex-start; background: #fff; border: 1.5px solid var(--stele-green);
+            border-radius: 10px; padding: 12px 14px; max-width: 92%;
+        }
+        .ci-msg-confirm .ci-confirm-text { font-size: 13px; color: #333; margin-bottom: 10px; line-height: 1.5; }
+        .ci-confirm-actions { display: flex; gap: 8px; }
+        .ci-confirm-actions button {
+            padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .btn-ci-apply { background: var(--stele-green); color: #fff; }
+        .btn-ci-apply:hover { background: #3d4f41; }
+        .btn-ci-dismiss { background: #f0f0f0; color: #666; }
+        .btn-ci-dismiss:hover { background: #e0e0e0; color: #333; }
+        .ci-confirm-applied { font-size: 11px; color: var(--stele-green); font-weight: 600; }
+        .ci-typing {
+            align-self: flex-start; padding: 10px 18px;
+            background: #f5f5f5; border-radius: 12px; border-bottom-left-radius: 4px;
+            display: none;
+        }
+        .ci-typing.active { display: flex; gap: 4px; align-items: center; }
+        .ci-typing-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: #aaa;
+            animation: ciTypingBounce 1.2s infinite;
+        }
+        .ci-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .ci-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes ciTypingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+        .ci-quick-actions {
+            display: flex; gap: 6px; padding: 8px 16px; flex-wrap: wrap;
+            border-top: 1px solid #f0f0f0; flex-shrink: 0;
+        }
+        .ci-quick-btn {
+            padding: 5px 10px; border-radius: 14px; font-size: 11px;
+            background: #f5f5f5; border: 1px solid #e0e0e0; color: #555;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .ci-quick-btn:hover { background: #e8f0e9; border-color: var(--stele-green); color: var(--stele-green); }
+        .ci-input-area {
+            display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e0e0e0;
+            background: #fafafa; flex-shrink: 0; align-items: flex-end;
+        }
+        .ci-input-area textarea {
+            flex: 1; resize: none; border: 1px solid #ddd; border-radius: 10px;
+            padding: 10px 14px; font-size: 13px; font-family: inherit; line-height: 1.4;
+            max-height: 120px; min-height: 40px; outline: none; transition: border-color 0.15s;
+        }
+        .ci-input-area textarea:focus { border-color: var(--stele-green); }
+        .ci-input-area textarea::placeholder { color: #aaa; }
+        .ci-send-btn {
+            width: 38px; height: 38px; border-radius: 50%; border: none;
+            background: var(--stele-green); color: #fff; font-size: 18px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; flex-shrink: 0;
+        }
+        .ci-send-btn:hover { background: #3d4f41; }
+        .ci-send-btn:disabled { background: #ccc; cursor: default; }
+        .ci-drop-zone {
+            display: none; position: absolute; inset: 0; background: rgba(75,96,80,0.08);
+            border: 2px dashed var(--stele-green); border-radius: 8px;
+            z-index: 10; align-items: center; justify-content: center;
+            font-size: 13px; color: var(--stele-green); font-weight: 600;
+        }
+        .ci-drop-zone.active { display: flex; }
+        .ci-img-preview {
+            display: flex; gap: 6px; padding: 4px 16px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .ci-img-preview:empty { display: none; }
+        .ci-img-thumb {
+            position: relative; width: 56px; height: 56px; border-radius: 6px;
+            overflow: hidden; border: 1px solid #ddd;
+        }
+        .ci-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .ci-img-thumb .ci-img-remove {
+            position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+            border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff;
+            border: none; font-size: 12px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; line-height: 1;
+        }
+        /* ═══ Pending badge ═══ */
+        .item-pending-badge {
+            font-size: 10px; font-weight: 600; padding: 2px 8px;
+            border-radius: 10px; background: #FFF3E0; color: #E65100;
+            margin-left: 8px; text-transform: uppercase;
+        }
+        .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
+        @media (max-width: 600px) {
+            .ci-drawer { width: 100%; right: -100%; }
+        }
+
     </style>
 </head>
 <body>
@@ -1362,6 +1504,8 @@
             <a href="app.html" class="nav-back">&larr; Menu</a>
             <a href="#disclaimer">Avis</a>
             <button class="nav-filter-btn" id="filterDefaultBtn" onclick="toggleDefaultFilter()" title="Afficher seulement les articles par d&eacute;faut">&#9733; D&eacute;faut</button>
+            <button class="nav-filter-btn" id="filterPendingBtn" style="display:none;" onclick="togglePendingFilter()">&#9679; En attente</button>
+            <button class="nav-filter-btn" id="navImportBtn" style="display:none;" onclick="toggleImportDrawer()">&#x2B06; Importer</button>
             <!-- Les liens des catégories sont générés dynamiquement -->
             <div class="nav-add-wrap" id="navAddWrap" style="display:none;">
                 <button class="nav-add-btn" onclick="toggleAddDropdown()" title="Ajouter un article">+</button>
@@ -1851,6 +1995,8 @@
                 // Exclure les catégories Temps et Ajouts des tableaux
                 if (isExcludedCategory(item.category)) return;
                 if (filterDefaultsOnly && !item.is_default) return;
+                if (filterPendingOnly && item.status !== 'pending') return;
+                if (!canEditCatalogue && item.status === 'pending') return;
 
                 if (!grouped[item.category]) {
                     grouped[item.category] = [];
@@ -1944,6 +2090,7 @@
                                     </div>
                                 </span>
                                 ${(item.supplier_name || item.supplier_sku) ? '<div class="item-supplier-sub">' + [item.supplier_name, item.supplier_sku].filter(Boolean).map(escapeHtml).join(' \u2022 ') + '</div>' : ''}
+                                ${item.status === 'pending' ? '<span class="item-pending-badge">en attente</span>' : ''}
                             </td>
                             <td>${formatPrice(item.price)}</td>
                             ${canEditCatalogue ? `<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal('${escapeAttr(item.id)}')" title="Modifier">&#9998;</button></td>` : ''}
@@ -2086,7 +2233,10 @@
             return new Promise((resolve) => {
                 updateStatus('', 'Chargement...');
 
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule&or=(status.eq.approved,status.is.null)&order=sort_order', {})
+                var statusFilter = canEditCatalogue
+                    ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
+                    : '&or=(status.eq.approved,status.is.null)';
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -3281,6 +3431,424 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // IMPORTATEUR CATALOGUE (AI CHAT)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var ciConversation = [];
+        var ciPendingImages = [];
+        var ciPendingToolCalls = null;
+        var filterPendingOnly = false;
+
+        function toggleImportDrawer() {
+            var drawer = document.getElementById('ciDrawer');
+            if (drawer.classList.contains('active')) closeImportDrawer();
+            else openImportDrawer();
+        }
+
+        function openImportDrawer() {
+            document.getElementById('ciOverlay').classList.add('active');
+            document.getElementById('ciDrawer').classList.add('active');
+            setTimeout(function() {
+                var inp = document.getElementById('ciInput');
+                if (inp) inp.focus({ preventScroll: true });
+            }, 300);
+        }
+
+        function closeImportDrawer() {
+            document.getElementById('ciOverlay').classList.remove('active');
+            document.getElementById('ciDrawer').classList.remove('active');
+        }
+
+        function setupImportDrawerHandlers() {
+            var input = document.getElementById('ciInput');
+            var dropZone = document.getElementById('ciDropZone');
+            var drawer = document.getElementById('ciDrawer');
+
+            if (input) {
+                input.addEventListener('paste', function(e) {
+                    var items = (e.clipboardData || {}).items || [];
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                            e.preventDefault();
+                            ciProcessImage(items[i].getAsFile());
+                            break;
+                        }
+                    }
+                });
+            }
+
+            if (drawer) {
+                drawer.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    dropZone.classList.add('active');
+                });
+                drawer.addEventListener('dragleave', function(e) {
+                    if (!drawer.contains(e.relatedTarget)) dropZone.classList.remove('active');
+                });
+                drawer.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    dropZone.classList.remove('active');
+                    var files = e.dataTransfer.files;
+                    for (var i = 0; i < files.length; i++) {
+                        if (files[i].type.indexOf('image') !== -1) {
+                            ciProcessImage(files[i]);
+                        }
+                    }
+                });
+            }
+        }
+
+        function ciProcessImage(file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var maxDim = 1200;
+                    var w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    ciPendingImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                    renderCiImagePreviews();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderCiImagePreviews() {
+            var container = document.getElementById('ciImgPreview');
+            container.innerHTML = '';
+            ciPendingImages.forEach(function(src, i) {
+                var div = document.createElement('div');
+                div.className = 'ci-img-thumb';
+                div.innerHTML = '<img src="' + src + '"><button class="ci-img-remove" onclick="ciRemoveImage(' + i + ')">&times;</button>';
+                container.appendChild(div);
+            });
+        }
+
+        function ciRemoveImage(index) {
+            ciPendingImages.splice(index, 1);
+            renderCiImagePreviews();
+        }
+
+        function ciInputKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendImportMessage();
+            }
+        }
+
+        function ciQuickAction(text) {
+            document.getElementById('ciInput').value = text;
+            document.getElementById('ciInput').focus();
+        }
+
+        function appendCiMessage(role, content, opts) {
+            opts = opts || {};
+            var container = document.getElementById('ciMessages');
+            var div = document.createElement('div');
+
+            if (role === 'confirm') {
+                div.className = 'ci-msg ci-msg-confirm';
+                var confirmId = 'ci-confirm-' + Date.now();
+                div.id = confirmId;
+                div.innerHTML = '<div class="ci-confirm-text">' + renderCiMarkdown(content) + '</div>' +
+                    '<div class="ci-confirm-actions">' +
+                    '<button class="btn-ci-apply" onclick="ciApplyPending(\'' + confirmId + '\')">Cr\u00e9er les articles</button>' +
+                    '<button class="btn-ci-dismiss" onclick="ciDismissPending(\'' + confirmId + '\')">Ignorer</button>' +
+                    '</div>';
+                container.appendChild(div);
+            } else {
+                div.className = 'ci-msg ci-msg-' + role;
+                if (role === 'user' && opts.images && opts.images.length > 0) {
+                    var imgHtml = opts.images.map(function(src) {
+                        return '<img src="' + src + '" style="max-width:100%;border-radius:8px;margin-bottom:6px;">';
+                    }).join('');
+                    div.innerHTML = imgHtml + renderCiMarkdown(content);
+                } else {
+                    div.innerHTML = renderCiMarkdown(content);
+                }
+                container.appendChild(div);
+            }
+
+            var isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+            if (isNearBottom) container.scrollTop = container.scrollHeight;
+        }
+
+        function renderCiMarkdown(text) {
+            if (!text) return '';
+            var s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            s = s.replace(/```([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px;">$1</pre>');
+            s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            // Tables
+            s = s.replace(/((?:\|.*\|\n?)+)/g, function(table) {
+                var rows = table.trim().split('\n').filter(function(r) { return r.trim() && !/^\|[\s\-:]+\|$/.test(r); });
+                if (rows.length === 0) return table;
+                var html = '<table>';
+                rows.forEach(function(row, i) {
+                    var cells = row.split('|').filter(function(c) { return c.trim() !== ''; });
+                    var tag = i === 0 ? 'th' : 'td';
+                    html += '<tr>' + cells.map(function(c) { return '<' + tag + '>' + c.trim() + '</' + tag + '>'; }).join('') + '</tr>';
+                });
+                html += '</table>';
+                return html;
+            });
+            s = s.replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>');
+            s = s.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+            s = s.replace(/\n{2,}/g, '</p><p>');
+            s = s.replace(/\n/g, '<br>');
+            s = '<p>' + s + '</p>';
+            s = s.replace(/<p><\/p>/g, '');
+            return s;
+        }
+
+        function buildCiUserContent(text, images) {
+            if (!images || images.length === 0) return text;
+            var content = [];
+            images.forEach(function(dataUrl) {
+                var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+                if (match) {
+                    content.push({
+                        type: 'image',
+                        source: { type: 'base64', media_type: match[1], data: match[2] }
+                    });
+                }
+            });
+            if (text) content.push({ type: 'text', text: text });
+            return content;
+        }
+
+        function collectImportContext() {
+            // Categories
+            var cats = new Set(configCategories);
+            CATALOGUE_DATA.forEach(function(i) { if (i.category) cats.add(i.category); });
+
+            // Existing codes grouped by prefix
+            var existingCodes = {};
+            CATALOGUE_DATA.forEach(function(i) {
+                if (!i.id) return;
+                var parts = i.id.split('-');
+                if (parts.length === 2) {
+                    if (!existingCodes[parts[0]]) existingCodes[parts[0]] = [];
+                    existingCodes[parts[0]].push(parts[1]);
+                }
+            });
+
+            // Unit types
+            var unitTypes = ['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%'];
+
+            return {
+                categories: Array.from(cats),
+                existingCodes: existingCodes,
+                unitTypes: unitTypes,
+                expenseCategories: expenseCategories,
+                tauxHoraires: tauxHoraires,
+                userEmail: (localStorage.getItem('sb_user_email') || '').toLowerCase()
+            };
+        }
+
+        async function callCatalogueImport(messages, context) {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/catalogue-import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: messages, context: context })
+            });
+            if (!resp.ok) {
+                var errText = await resp.text().catch(function() { return ''; });
+                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+            }
+            return await resp.json();
+        }
+
+        async function sendImportMessage() {
+            var input = document.getElementById('ciInput');
+            var text = input.value.trim();
+            if (!text && ciPendingImages.length === 0) return;
+
+            var images = ciPendingImages.slice();
+            ciPendingImages = [];
+            renderCiImagePreviews();
+            input.value = '';
+            input.style.height = 'auto';
+
+            appendCiMessage('user', text || '(image)', { images: images });
+
+            var userContent = buildCiUserContent(text, images);
+            ciConversation.push({ role: 'user', content: userContent });
+
+            // Show typing
+            document.getElementById('ciTyping').classList.add('active');
+            document.getElementById('ciSendBtn').disabled = true;
+
+            try {
+                var context = collectImportContext();
+                var data = await callCatalogueImport(ciConversation, context);
+
+                var contentBlocks = data.content || [];
+                var textParts = [];
+                var toolCalls = [];
+
+                contentBlocks.forEach(function(block) {
+                    if (block.type === 'text') textParts.push(block.text);
+                    if (block.type === 'tool_use') toolCalls.push(block);
+                });
+
+                ciConversation.push({ role: 'assistant', content: contentBlocks });
+
+                if (toolCalls.length > 0) {
+                    var fullText = textParts.join('\n');
+                    if (fullText) appendCiMessage('assistant', fullText);
+
+                    ciPendingToolCalls = { tools: toolCalls };
+                    var summary = formatCiPendingActions(toolCalls);
+                    appendCiMessage('confirm', summary);
+                } else {
+                    var fullText = textParts.join('\n');
+                    appendCiMessage('assistant', fullText);
+                }
+            } catch (err) {
+                appendCiMessage('assistant', 'Erreur : ' + err.message);
+            } finally {
+                document.getElementById('ciTyping').classList.remove('active');
+                document.getElementById('ciSendBtn').disabled = false;
+            }
+        }
+
+        function formatCiPendingActions(toolCalls) {
+            var lines = [];
+            toolCalls.forEach(function(tc) {
+                if (tc.name === 'create_catalogue_items' && tc.input && tc.input.items) {
+                    lines.push('**' + tc.input.items.length + ' article(s) \u00e0 cr\u00e9er :**');
+                    tc.input.items.forEach(function(item) {
+                        var price = item.price != null ? item.price + '$' : 'N/A';
+                        lines.push('- ' + item.id + ' \u2014 ' + item.description + ' (' + item.type + ', ' + price + ')');
+                    });
+                }
+            });
+            return lines.join('\n') || 'Action propos\u00e9e';
+        }
+
+        async function ciApplyPending(confirmId) {
+            if (!ciPendingToolCalls) return;
+            var confirmEl = document.getElementById(confirmId);
+            var actionsDiv = confirmEl ? confirmEl.querySelector('.ci-confirm-actions') : null;
+            if (actionsDiv) actionsDiv.innerHTML = '<span class="ci-confirm-applied">Cr\u00e9ation en cours...</span>';
+
+            var results = [];
+            for (var i = 0; i < ciPendingToolCalls.tools.length; i++) {
+                var tc = ciPendingToolCalls.tools[i];
+                var result = await executeCiTool(tc.name, tc.input);
+                results.push(result);
+
+                // Add tool_result to conversation for proper API flow
+                ciConversation.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) }] });
+            }
+
+            ciPendingToolCalls = null;
+
+            var totalCreated = results.reduce(function(sum, r) { return sum + (r.created || []).length; }, 0);
+            var totalErrors = results.reduce(function(sum, r) { return sum + (r.errors || []).length; }, 0);
+
+            if (actionsDiv) {
+                var msg = totalCreated + ' article(s) cr\u00e9\u00e9(s)';
+                if (totalErrors > 0) msg += ', ' + totalErrors + ' erreur(s)';
+                msg += ' \u2014 en attente d\u2019approbation';
+                actionsDiv.innerHTML = '<span class="ci-confirm-applied">\u2713 ' + msg + '</span>';
+            }
+
+            // Refresh display
+            generatePriceTables();
+            updatePendingBadge();
+        }
+
+        async function executeCiTool(name, input) {
+            if (name !== 'create_catalogue_items') return { success: false, message: 'Outil inconnu: ' + name };
+
+            var items = input.items || [];
+            var created = [];
+            var errors = [];
+            var userEmail = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                try {
+                    var maxSort = CATALOGUE_DATA.reduce(function(max, ci) { return Math.max(max, ci.sort_order || 0); }, 0);
+                    var payload = {
+                        id: item.id,
+                        category: item.category,
+                        description: item.description,
+                        type: item.type,
+                        price: item.price,
+                        instruction: item.instruction || null,
+                        supplier_name: item.supplier_name || null,
+                        supplier_sku: item.supplier_sku || null,
+                        status: 'pending',
+                        proposed_by: userEmail,
+                        in_calculator: true,
+                        sort_order: maxSort + 1 + i
+                    };
+
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!resp.ok) {
+                        var errText = await resp.text();
+                        throw new Error(errText);
+                    }
+
+                    var createdItems = await resp.json();
+                    var createdItem = Array.isArray(createdItems) ? createdItems[0] : createdItems;
+
+                    // Add to local data
+                    CATALOGUE_DATA.push(createdItem);
+                    created.push(item.id);
+                } catch (e) {
+                    errors.push({ id: item.id, error: e.message });
+                }
+            }
+
+            return { success: errors.length === 0, created: created, errors: errors, message: created.length + ' cr\u00e9\u00e9(s)' + (errors.length > 0 ? ', ' + errors.length + ' erreur(s)' : '') };
+        }
+
+        function ciDismissPending(confirmId) {
+            ciPendingToolCalls = null;
+            var confirmEl = document.getElementById(confirmId);
+            if (confirmEl) {
+                var actionsDiv = confirmEl.querySelector('.ci-confirm-actions');
+                if (actionsDiv) actionsDiv.innerHTML = '<span style="font-size:11px;color:#999;">Ignor\u00e9</span>';
+            }
+        }
+
+        // ═══ Pending filter ═══
+
+        function togglePendingFilter() {
+            filterPendingOnly = !filterPendingOnly;
+            var btn = document.getElementById('filterPendingBtn');
+            if (btn) btn.classList.toggle('pending-active', filterPendingOnly);
+            generatePriceTables();
+        }
+
+        function updatePendingBadge() {
+            var count = CATALOGUE_DATA.filter(function(i) { return i.status === 'pending'; }).length;
+            var btn = document.getElementById('filterPendingBtn');
+            if (btn) {
+                btn.textContent = '\u25CF En attente' + (count > 0 ? ' (' + count + ')' : '');
+                btn.style.display = canEditCatalogue ? '' : 'none';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // INITIALISATION
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -3299,9 +3867,39 @@
             if (canEditCatalogue) {
                 setupEditModalHandlers();
                 document.getElementById('navAddWrap').style.display = '';
+                document.getElementById('navImportBtn').style.display = '';
+                document.getElementById('filterPendingBtn').style.display = '';
+                setupImportDrawerHandlers();
+                updatePendingBadge();
             }
         });
     </script>
+
+<!-- Import Drawer (AI Chat) -->
+<div class="ci-drawer-overlay" id="ciOverlay" onclick="closeImportDrawer()"></div>
+<div class="ci-drawer" id="ciDrawer">
+    <div class="ci-drawer-header">
+        <h3>Importateur catalogue</h3>
+        <button class="ci-drawer-close" onclick="closeImportDrawer()">&times;</button>
+    </div>
+    <div class="ci-messages" id="ciMessages"></div>
+    <div class="ci-typing" id="ciTyping">
+        <div class="ci-typing-dot"></div>
+        <div class="ci-typing-dot"></div>
+        <div class="ci-typing-dot"></div>
+    </div>
+    <div class="ci-quick-actions" id="ciQuickActions">
+        <button class="ci-quick-btn" onclick="ciQuickAction('Voici un screenshot de ma liste de prix Excel')">Screenshot Excel</button>
+        <button class="ci-quick-btn" onclick="ciQuickAction('Voici une liste de prix fournisseur')">Prix fournisseur</button>
+        <button class="ci-quick-btn" onclick="ciQuickAction('Je veux ajouter ces articles :')">Liste manuelle</button>
+    </div>
+    <div class="ci-img-preview" id="ciImgPreview"></div>
+    <div class="ci-input-area" style="position:relative;">
+        <div class="ci-drop-zone" id="ciDropZone">D&eacute;posez une image ici</div>
+        <textarea id="ciInput" placeholder="Collez un screenshot ou d&eacute;crivez les articles..." rows="1" onkeydown="ciInputKeydown(event)"></textarea>
+        <button class="ci-send-btn" id="ciSendBtn" onclick="sendImportMessage()" title="Envoyer">&uarr;</button>
+    </div>
+</div>
 
 </body>
 </html>

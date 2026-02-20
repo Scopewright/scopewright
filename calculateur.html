@@ -526,19 +526,20 @@
     function openAiDrawer() {
         document.getElementById('aiOverlay').classList.add('active');
         document.getElementById('aiDrawer').classList.add('active');
-        document.documentElement.classList.add('ai-drawer-open');
         updateAiScope();
         if (!aiChatLoaded && currentSubmission) {
             aiChatLoaded = true;
             loadAiChat(currentSubmission.id);
         }
-        setTimeout(function() { document.getElementById('aiInput').focus(); }, 300);
+        setTimeout(function() {
+            var inp = document.getElementById('aiInput');
+            if (inp) inp.focus({ preventScroll: true });
+        }, 300);
     }
 
     function closeAiDrawer() {
         document.getElementById('aiOverlay').classList.remove('active');
         document.getElementById('aiDrawer').classList.remove('active');
-        document.documentElement.classList.remove('ai-drawer-open');
     }
 
     function updateAiScope() {
@@ -4571,13 +4572,10 @@
         /* ═══════════════════════════════════════════════════════════════
            AI ASSISTANT DRAWER
            ═══════════════════════════════════════════════════════════════ */
-        html.ai-drawer-open, html.ai-drawer-open body {
-            overflow: hidden !important;
-            height: 100%;
-        }
+        /* No body scroll lock — user needs to see calculator while chatting */
         .ai-drawer-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.3); z-index: 8700;
+            background: transparent; z-index: 8700; pointer-events: none;
         }
         .ai-drawer-overlay.active { display: block; }
         .ai-drawer {
@@ -4628,8 +4626,8 @@
         .ai-msg th, .ai-msg td { padding: 4px 8px; border: 1px solid #ddd; text-align: left; }
         .ai-msg th { background: #f5f5f5; font-weight: 600; }
 
-        .ai-msg-user { align-self: flex-end; background: #e8f0e9; color: var(--stele-black); border-bottom-right-radius: 4px; }
-        .ai-msg-assistant { align-self: flex-start; background: #f5f5f5; color: var(--stele-black); border-bottom-left-radius: 4px; }
+        .ai-msg-user { align-self: flex-end; background: transparent; color: var(--stele-black); border-bottom-right-radius: 4px; }
+        .ai-msg-assistant { align-self: flex-start; background: transparent; color: var(--stele-black); border-bottom-left-radius: 4px; }
 
         .ai-msg-action {
             align-self: center; background: #fff8e1; border: 1px solid #ffe082;

@@ -523,6 +523,8 @@
     var aiPendingImages = [];     // base64 images waiting to send
     var aiCurrentScope = 'project';
     var aiChatLoaded = false;     // whether we loaded from DB for this submission
+    var aiScopeObserver = null;
+    var _aiScopeDebounceTimer = null;
 
     function openAiDrawer() {
         document.getElementById('aiOverlay').classList.add('active');
@@ -576,6 +578,65 @@
             openAiDrawer();
         }
         updateAiScope();
+    }
+
+    function setAiScopeFromScroll(groupId) {
+        // groupId = null means project scope, otherwise room scope
+        if (groupId === aiFocusGroupId) return; // no change
+
+        // Update focus buttons
+        document.querySelectorAll('.btn-ai-focus.active').forEach(function(btn) { btn.classList.remove('active'); });
+
+        if (groupId) {
+            aiFocusGroupId = groupId;
+            aiCurrentScope = 'room';
+            var btn = document.getElementById(groupId + '-aiFocus');
+            if (btn) btn.classList.add('active');
+        } else {
+            aiFocusGroupId = null;
+            aiCurrentScope = 'project';
+        }
+
+        updateAiScope();
+
+        // Flash the badge
+        var badge = document.getElementById('aiScopeBadge');
+        if (badge) {
+            badge.classList.remove('flash');
+            void badge.offsetWidth;
+            badge.classList.add('flash');
+        }
+    }
+
+    function initAiScopeObserver() {
+        if (aiScopeObserver) return;
+        var visibleHeaders = new Set();
+        aiScopeObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                var group = entry.target.closest('.furniture-group');
+                if (!group) return;
+                if (entry.isIntersecting) {
+                    visibleHeaders.add(group.id);
+                } else {
+                    visibleHeaders.delete(group.id);
+                }
+            });
+            clearTimeout(_aiScopeDebounceTimer);
+            _aiScopeDebounceTimer = setTimeout(function() {
+                if (visibleHeaders.size === 0) {
+                    setAiScopeFromScroll(null);
+                } else {
+                    // Pick the first visible header in DOM order
+                    var allGroups = document.querySelectorAll('#calculatorView .furniture-group');
+                    for (var i = 0; i < allGroups.length; i++) {
+                        if (visibleHeaders.has(allGroups[i].id)) {
+                            setAiScopeFromScroll(allGroups[i].id);
+                            break;
+                        }
+                    }
+                }
+            }, 300);
+        }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
     }
 
     // ── Render un message dans le chat ──
@@ -4457,6 +4518,17 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        @keyframes ai-breathe {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        @keyframes scope-flash {
+            0% { background: rgba(75, 96, 80, 0.25); }
+            100% { background: #edf0f5; }
+        }
+        .ai-scope-badge.flash {
+            animation: scope-flash 500ms ease-out;
+        }
 
         /* Modal Rentabilité */
         /* ── Rentabilité modal ── */
@@ -6628,6 +6700,12 @@
                 }
             });
 
+            // Observe header for AI scope tracking
+            if (aiScopeObserver) {
+                var header = group.querySelector('.furniture-group-header');
+                if (header) aiScopeObserver.observe(header);
+            }
+
             return groupId;
         }
 
@@ -6649,7 +6727,15 @@
             delete groupImages[groupId];
 
             const group = document.getElementById(groupId);
-            if (group) { group.remove(); updateGrandTotal(); }
+            if (group) {
+                // Unobserve header before removing
+                if (aiScopeObserver) {
+                    var header = group.querySelector('.furniture-group-header');
+                    if (header) aiScopeObserver.unobserve(header);
+                }
+                group.remove();
+                updateGrandTotal();
+            }
         }
 
         function addRow(groupId, opts) {
@@ -12017,6 +12103,13 @@
             var isEditable = isSubmissionCurrentlyEditable();
             setEditable(isEditable);
             showCalculator();
+
+            // Init AI scope observer and observe all rendered group headers
+            initAiScopeObserver();
+            document.querySelectorAll('#calculatorView .furniture-group-header').forEach(function(h) {
+                aiScopeObserver.observe(h);
+            });
+
             if (isApprovalMode) {
                 // Hide submission panel and project name edit in approval mode
                 document.getElementById('headerSubPanel').style.display = 'none';

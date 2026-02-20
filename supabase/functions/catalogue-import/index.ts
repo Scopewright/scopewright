@@ -73,8 +73,17 @@ Pour chaque article identifié, tu dois déterminer :
 - **Description** : nom clair et concis de l'article
 - **Catégorie** : parmi les catégories existantes du catalogue (voir ci-dessus)
 - **Type d'unité** : unitaire, pi², linéaire, ou %
-- **Prix** : prix de vente unitaire
+- **Prix de vente** : prix affiché au client
 - **Code** : généré automatiquement selon le préfixe de la catégorie + prochain numéro disponible
+
+Et le **PRIX COMPOSÉ** qui se divise en deux volets :
+
+### Minutes main-d'œuvre (par département)
+Les départements sont ceux listés dans les taux horaires ci-dessus. Les plus courants :
+- Gestion/dessin, Coupe/edge, Assemblage, Machinage, Sablage, Peinture, Installation
+
+### Coûts matériaux (par catégorie de dépense)
+Les catégories de dépenses sont listées ci-dessus. Exemples : Quincaillerie, Panneau mélamine, Panneau MDF, Bois brut, Finition, etc.
 
 Optionnel si l'info est disponible :
 - Fournisseur
@@ -88,8 +97,12 @@ Optionnel si l'info est disponible :
 3. **Avant de créer**, utilise search_catalogue pour vérifier les doublons potentiels
 4. Tu présentes un récapitulatif clair :
    "J'ai identifié X articles :
-   | Code | Catégorie | Description | Type | Prix | Fournisseur |
-   |------|-----------|-------------|------|------|-------------|
+   1. [CODE] Description — Type — Prix vente
+      MO: Gestion 5min, Assemblage 10min
+      Mat: Quincaillerie 12.50$
+   2. [CODE] Description — Type — Prix vente
+      MO: Gestion 3min, Coupe 8min
+      Mat: Panneau mélamine 5.00$
    ..."
 5. Tu demandes confirmation : "Je crée ces articles ? Tu peux modifier avant."
 6. L'utilisateur confirme ou corrige
@@ -118,6 +131,14 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - Si le prix est en coût fournisseur et pas en prix de vente, demande : "Ce prix (X$) c'est le coût fournisseur ou le prix de vente pour le catalogue ?"
 - Si l'utilisateur donne des prix avec taxes, clarifier : "Ces prix incluent les taxes ? Le catalogue est en prix hors taxes."
 - Si tu ne peux pas déterminer le prix, mets null (l'admin le remplira plus tard)
+
+### Prix composé
+- Le prix composé est la vraie structure de coût : minutes main-d'œuvre + matériaux
+- Le prix de vente est calculé à partir du prix composé (taux horaires × minutes + matériaux × markup)
+- Si l'utilisateur donne seulement un prix de vente sans détails, mets le prix tel quel et laisse les minutes/matériaux vides — l'admin complétera
+- Si l'utilisateur donne des temps (ex: "10 minutes admin, 15 minutes assemblage"), remplis les bons départements
+- Si l'utilisateur donne des coûts matériaux (ex: "12.50$ de quincaillerie"), mets dans la bonne catégorie de dépense
+- Demande : "Tu as les détails du prix composé (minutes et matériaux) ou juste le prix de vente ?"
 
 ### Screenshots et images
 - Tu peux lire des screenshots d'Excel, de tableaux, de listes de prix fournisseur
@@ -177,6 +198,16 @@ const TOOLS = [
               type: { type: "string", enum: ["pi²", "unitaire", "linéaire", "%"], description: "Type d'unité" },
               price: { type: ["number", "null"], description: "Prix de vente unitaire (null si inconnu)" },
               instruction: { type: "string", description: "Note d'utilisation pour l'estimateur" },
+              labor_minutes: {
+                type: "object",
+                description: "Minutes main-d'œuvre par département. Les clés sont les noms des départements tels qu'ils existent dans les taux horaires.",
+                additionalProperties: { type: "number" },
+              },
+              material_costs: {
+                type: "object",
+                description: "Coûts matériaux par catégorie de dépense. Les clés sont les noms des catégories telles qu'elles existent dans le système.",
+                additionalProperties: { type: "number" },
+              },
               supplier_name: { type: "string", description: "Nom du fournisseur" },
               supplier_sku: { type: "string", description: "Code/SKU fournisseur" },
             },

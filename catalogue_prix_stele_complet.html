@@ -3922,7 +3922,22 @@
                     lines.push('**' + tc.input.items.length + ' article(s) \u00e0 cr\u00e9er :**');
                     tc.input.items.forEach(function(item) {
                         var price = item.price != null ? item.price + '$' : 'N/A';
-                        lines.push('- ' + item.id + ' \u2014 ' + item.description + ' (' + item.type + ', ' + price + ')');
+                        lines.push('- **' + item.id + '** ' + item.description + ' \u2014 ' + item.type + ' \u2014 ' + price);
+                        // Show composed price details if present
+                        var moParts = [];
+                        if (item.labor_minutes) {
+                            Object.keys(item.labor_minutes).forEach(function(dept) {
+                                if (item.labor_minutes[dept] > 0) moParts.push(dept + ' ' + item.labor_minutes[dept] + 'min');
+                            });
+                        }
+                        if (moParts.length) lines.push('  MO: ' + moParts.join(', '));
+                        var matParts = [];
+                        if (item.material_costs) {
+                            Object.keys(item.material_costs).forEach(function(cat) {
+                                if (item.material_costs[cat] > 0) matParts.push(cat + ' ' + item.material_costs[cat].toFixed(2) + '$');
+                            });
+                        }
+                        if (matParts.length) lines.push('  Mat: ' + matParts.join(', '));
                     });
                 }
             });
@@ -3981,6 +3996,8 @@
                         type: item.type,
                         price: item.price,
                         instruction: item.instruction || null,
+                        labor_minutes: item.labor_minutes || null,
+                        material_costs: item.material_costs || null,
                         supplier_name: item.supplier_name || null,
                         supplier_sku: item.supplier_sku || null,
                         status: 'pending',

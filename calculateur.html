@@ -4730,17 +4730,23 @@
 
         .ai-drawer {
             position: fixed; top: 0; right: -460px; width: 440px; height: 100%;
-            background: #fff; box-shadow: -2px 0 24px rgba(0,0,0,0.08);
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4);
             z-index: 8800; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex; flex-direction: column;
         }
         .ai-drawer.active { right: 0; }
+        .ai-drawer:hover, .ai-drawer:focus-within {
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
 
         /* Header — minimal */
         .ai-drawer-header {
             display: flex; align-items: center; gap: 10px;
-            padding: 16px 20px; border-bottom: 1px solid #f0f0f0;
-            background: #fff; flex-shrink: 0;
+            padding: 16px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            background: transparent; flex-shrink: 0;
         }
         .ai-drawer-header h3 {
             font-size: 14px; font-weight: 600; margin: 0;
@@ -4973,6 +4979,12 @@
 
         @media (max-width: 600px) {
             .ai-drawer { width: 100%; right: -100%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ai-drawer, .ai-drawer:hover, .ai-drawer:focus-within {
+                transition: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+                background: #fff;
+            }
         }
 
         /* Loading & Error Overlay */

@@ -2251,13 +2251,13 @@
                 // has_field / missing_field filters
                 if (aiFilterHasField) {
                     var fv = item[aiFilterHasField];
-                    var hasIt = fv !== null && fv !== undefined && fv !== '' && fv !== 0;
+                    var hasIt = fv !== null && fv !== undefined && fv !== '' && fv !== 0 && fv !== false;
                     if (typeof fv === 'object' && fv !== null) hasIt = Object.keys(fv).length > 0;
                     if (!hasIt) return;
                 }
                 if (aiFilterMissingField) {
                     var mv = item[aiFilterMissingField];
-                    var missing = mv === null || mv === undefined || mv === '' || mv === 0;
+                    var missing = mv === null || mv === undefined || mv === '' || mv === 0 || mv === false;
                     if (typeof mv === 'object' && mv !== null) missing = Object.keys(mv).length === 0;
                     if (!missing) return;
                 }

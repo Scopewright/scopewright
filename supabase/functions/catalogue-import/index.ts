@@ -138,7 +138,8 @@ Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains art
 - Pour les articles en attente d'approbation : utilise filter_catalogue avec status: "pending"
 - Pour "commence par X", "les articles en B", "montre les M" → utilise starts_with (PAS search)
 - Pour "articles sans prix", "sans texte client" → utilise missing_field. Pour "articles avec image", "qui ont un fournisseur" → utilise has_field
-- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"}), "qui commence par B" → filter_catalogue({starts_with: "B"}), "articles sans texte client" → filter_catalogue({missing_field: "client_text"}), "avec image" → filter_catalogue({has_field: "image_url"}), "les matériaux" → filter_catalogue({item_type: "materiau"})
+- "avec fiche client", "qui ont une fiche" → has_field: "has_sales_sheet". "sans fiche client" → missing_field: "has_sales_sheet"
+- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"}), "qui commence par B" → filter_catalogue({starts_with: "B"}), "articles sans texte client" → filter_catalogue({missing_field: "client_text"}), "avec image" → filter_catalogue({has_field: "image_url"}), "les matériaux" → filter_catalogue({item_type: "materiau"}), "avec fiche client" → filter_catalogue({has_field: "has_sales_sheet"})
 
 ## Classification des articles
 Chaque article est classé :
@@ -399,8 +400,8 @@ const TOOLS = [
         category: { type: "string", description: "Filtrer par catégorie exacte" },
         status: { type: "string", enum: ["pending", "approved"], description: "Filtrer par statut d'approbation" },
         item_type: { type: "string", enum: ["fabrication", "materiau"], description: "Filtrer par classification (fabrication = ce qu'on fabrique, materiau = ce qu'on utilise)" },
-        has_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name"], description: "Garder les articles où ce champ est rempli (non vide/non null)" },
-        missing_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name"], description: "Garder les articles où ce champ est vide/null/0" },
+        has_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name", "has_sales_sheet"], description: "Garder les articles où ce champ est rempli (non vide/non null/true)" },
+        missing_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name", "has_sales_sheet"], description: "Garder les articles où ce champ est vide/null/0/false" },
         sort_by: { type: "string", enum: ["code", "description", "type", "price"], description: "Colonne de tri" },
         sort_dir: { type: "string", enum: ["asc", "desc"], description: "Direction du tri" },
         reset: { type: "boolean", description: "Remettre la table à son état initial (enlever tous les filtres AI)" },

@@ -136,7 +136,8 @@ Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains art
 - Réponds juste un court message de confirmation : "Filtré : 11 tiroirs affichés" ou "Trié par prix décroissant"
 - Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
 - Pour les articles en attente d'approbation : utilise filter_catalogue avec status: "pending"
-- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"})
+- Pour "commence par X", "les articles en B", "montre les M" → utilise starts_with (PAS search)
+- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"}), "qui commence par B" → filter_catalogue({starts_with: "B"})
 
 ## Format de réponse
 - Quand tu listes des articles (hors filtrage), utilise TOUJOURS le format tableau markdown avec colonnes Code, Description, Prix
@@ -377,6 +378,7 @@ const TOOLS = [
       type: "object",
       properties: {
         search: { type: "string", description: "Terme de recherche textuel (cherche dans code, description, catégorie)" },
+        starts_with: { type: "string", description: "Filtrer les articles dont le code OU la description commence par cette lettre/préfixe (ex: 'A', 'BUD')" },
         category: { type: "string", description: "Filtrer par catégorie exacte" },
         status: { type: "string", enum: ["pending", "approved"], description: "Filtrer par statut d'approbation" },
         sort_by: { type: "string", enum: ["code", "description", "type", "price"], description: "Colonne de tri" },

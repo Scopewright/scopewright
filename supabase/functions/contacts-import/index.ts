@@ -121,6 +121,7 @@ Quand l'utilisateur demande de chercher ou filtrer des contacts/entreprises dans
 - Utilise le tool filter_contacts — il met à jour la table directement
 - Ne liste PAS les résultats dans le chat
 - Réponds juste : "Filtré : 8 contacts affichés" ou "Entreprises de type Architecte affichées"
+- Pour "commence par A", "les contacts en M", "montre les B" → utilise starts_with (PAS search)
 - Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
 
 ## Format de réponse
@@ -328,6 +329,7 @@ const TOOLS = [
       type: "object",
       properties: {
         search: { type: "string", description: "Terme de recherche" },
+        starts_with: { type: "string", description: "Filtrer les noms qui commencent par cette lettre/préfixe (ex: 'A', 'Mar')" },
         tab: { type: "string", enum: ["contacts", "companies"], description: "Onglet à afficher" },
         company_type: { type: "string", description: "Filtrer les entreprises par type" },
         reset: { type: "boolean", description: "Enlever les filtres AI" },

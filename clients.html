@@ -695,6 +695,7 @@
     var configCommTypes = ['Appel', 'Courriel', 'Texto', 'Rencontre', 'Note'];
     var ctAiFilterActive = false;
     var ctAiFilterCompanyType = null;
+    var ctAiFilterStartsWith = null; // prefix filter (starts_with)
 
     var _steleDialogResolve = null;
     function steleDialogResolve(val) {
@@ -803,6 +804,12 @@
         var query = (document.getElementById('searchContacts').value || '').toLowerCase().trim();
 
         var filtered = allContacts.filter(function(c) {
+            // Prefix filter (starts_with)
+            if (ctAiFilterStartsWith) {
+                var name = (c.first_name + ' ' + c.last_name).toLowerCase();
+                var lastName = (c.last_name || '').toLowerCase();
+                if (!name.startsWith(ctAiFilterStartsWith) && !lastName.startsWith(ctAiFilterStartsWith)) return false;
+            }
             if (!query) return true;
             var full = (c.first_name + ' ' + c.last_name + ' ' + (c.email || '') + ' ' + (c.phone || '')).toLowerCase();
             return full.indexOf(query) !== -1;
@@ -849,6 +856,10 @@
         var filtered = allCompanies.filter(function(co) {
             if (ctAiFilterCompanyType) {
                 if ((co.company_type || '').toLowerCase() !== ctAiFilterCompanyType.toLowerCase()) return false;
+            }
+            // Prefix filter (starts_with)
+            if (ctAiFilterStartsWith) {
+                if (!(co.name || '').toLowerCase().startsWith(ctAiFilterStartsWith)) return false;
             }
             if (!query) return true;
             var full = (co.name + ' ' + (co.company_type || '') + ' ' + (co.email || '')).toLowerCase();
@@ -1725,6 +1736,7 @@
         if (input.reset) {
             ctAiFilterActive = false;
             ctAiFilterCompanyType = null;
+            ctAiFilterStartsWith = null;
             document.getElementById('searchContacts').value = '';
             document.getElementById('searchCompanies').value = '';
             document.getElementById('ctAiFilterBadge').style.display = 'none';
@@ -1732,6 +1744,10 @@
             renderCompanies();
         } else {
             ctAiFilterActive = true;
+            ctAiFilterStartsWith = null; // reset prefix on new filter
+            if (input.starts_with) {
+                ctAiFilterStartsWith = input.starts_with.toLowerCase();
+            }
             if (input.tab) switchTab(input.tab);
             if (input.search) {
                 var activeTab = document.getElementById('viewContacts').style.display !== 'none' ? 'contacts' : 'companies';
@@ -1759,6 +1775,7 @@
     function resetCtAiFilter() {
         ctAiFilterActive = false;
         ctAiFilterCompanyType = null;
+        ctAiFilterStartsWith = null;
         document.getElementById('searchContacts').value = '';
         document.getElementById('searchCompanies').value = '';
         document.getElementById('ctAiFilterBadge').style.display = 'none';

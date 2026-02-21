@@ -2108,6 +2108,7 @@
         var aiFilterActive = false;
         var aiFilterCategory = null;
         var aiFilterStatus = null;
+        var aiFilterStartsWith = null; // prefix filter (starts_with)
         var aiBatchCodes = null; // codes inserted by AI (batch animation)
         var selectedCategory = null; // null = all categories
 
@@ -2196,6 +2197,14 @@
                         || (item.instruction || '').toLowerCase().indexOf(q) !== -1
                         || (item.type || '').toLowerCase().indexOf(q) !== -1;
                     if (!match) return;
+                }
+
+                // Prefix filter (starts_with)
+                if (aiFilterStartsWith) {
+                    var pfx = aiFilterStartsWith;
+                    var pfxMatch = (item.id || '').toLowerCase().startsWith(pfx)
+                        || (item.description || '').toLowerCase().startsWith(pfx);
+                    if (!pfxMatch) return;
                 }
 
                 if (activeCat) {
@@ -4502,12 +4511,17 @@
                 aiFilterActive = false;
                 aiFilterCategory = null;
                 aiFilterStatus = null;
+                aiFilterStartsWith = null;
                 catalogueSearchQuery = '';
                 catalogueSortCol = null;
                 document.getElementById('catalogueSearchInput').value = '';
                 removeAiFilterBadge();
             } else {
                 aiFilterActive = true;
+                aiFilterStartsWith = null; // reset prefix on new filter
+                if (input.starts_with) {
+                    aiFilterStartsWith = input.starts_with.toLowerCase();
+                }
                 if (input.search) {
                     catalogueSearchQuery = input.search.toLowerCase();
                     document.getElementById('catalogueSearchInput').value = input.search;
@@ -4532,6 +4546,7 @@
             aiFilterActive = false;
             aiFilterCategory = null;
             aiFilterStatus = null;
+            aiFilterStartsWith = null;
             aiBatchCodes = null;
             catalogueSearchQuery = '';
             catalogueSortCol = null;

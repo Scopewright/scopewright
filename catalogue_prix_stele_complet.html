@@ -5084,6 +5084,20 @@
                 setupImportDrawerHandlers();
                 updatePendingBadge();
             }
+
+            // Auto-open edit modal if URL has ?edit=ITEM_ID
+            var urlParams = new URLSearchParams(window.location.search);
+            var editId = urlParams.get('edit');
+            if (editId) {
+                var item = catalogueData.find(function(i) { return i.id === editId; });
+                if (item && canEditCatalogue) {
+                    openEditModal(item);
+                } else if (item) {
+                    // Scroll to the item row
+                    var row = document.querySelector('tr[data-id="' + CSS.escape(editId) + '"]');
+                    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         });
     </script>
 

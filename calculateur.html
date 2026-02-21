@@ -2417,6 +2417,54 @@
         .cell-tag input:focus { border-color: var(--sw-navy); outline: none; }
         .cell-tag input::placeholder { color: #ccc; font-weight: 400; }
 
+        /* ── Combobox autocomplete ── */
+        .combobox { position: relative; display: flex; align-items: center; gap: 3px; }
+        .combobox-input {
+            width: 100%; padding: 5px 8px; font-size: 11px; border: 1px solid #e0e0e0;
+            border-radius: 4px; background: #fff; cursor: text;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .combobox-input:focus { border-color: var(--sw-navy); outline: none; }
+        .combobox-input::placeholder { color: #aaa; }
+        .combobox-input.has-value { font-weight: 500; color: var(--sw-navy); }
+        .btn-edit-cat {
+            flex-shrink: 0; width: 22px; height: 22px; border: none; background: none;
+            cursor: pointer; font-size: 12px; color: #94a3b8; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-edit-cat:hover { background: #f1f5f9; color: var(--sw-navy); }
+
+        .cb-dropdown {
+            position: fixed; z-index: 9999; background: #fff;
+            border: 1px solid #e2e8f0; border-radius: 10px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-height: 340px;
+            overflow-y: auto; min-width: 320px;
+            animation: sdFadeIn 120ms ease-out;
+        }
+        .cb-dropdown .cb-search {
+            position: sticky; top: 0; background: #fff; padding: 8px; border-bottom: 1px solid #f1f5f9;
+        }
+        .cb-dropdown .cb-search input {
+            width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #e2e8f0;
+            border-radius: 6px; outline: none;
+        }
+        .cb-dropdown .cb-search input:focus { border-color: var(--sw-navy); }
+        .cb-group-label {
+            padding: 6px 12px 3px; font-size: 10px; font-weight: 600;
+            color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .cb-item {
+            padding: 6px 12px; cursor: pointer; font-size: 12px;
+            display: flex; align-items: center; gap: 8px;
+            border-radius: 6px; margin: 1px 4px;
+        }
+        .cb-item:hover, .cb-item.cb-active { background: #f1f5f9; }
+        .cb-item-code { color: #94a3b8; font-size: 10px; font-family: monospace; min-width: 60px; }
+        .cb-item-desc { flex: 1; color: #0f172a; }
+        .cb-item-type { color: #94a3b8; font-size: 10px; }
+        .cb-item-special { color: var(--sw-navy); font-weight: 500; }
+        .cb-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
+
         .calc-row:nth-child(even) { background: #fafafa; }
         .calc-row:last-child { border-bottom: none; }
 
@@ -6800,31 +6848,194 @@
         let rowCounter = 0;
         let groupCounter = 0;
 
-        function buildSelectOptions() {
-            let options = '<option value="">— Sélectionner un article —</option>';
-            let currentCategory = '';
+        // ── Combobox autocomplete ──
+        var _cbActiveRowId = null;
+        var _cbIdx = -1; // keyboard navigation index
 
-            const itemsWithPrice = CATALOGUE_DATA.filter(item =>
-                (item.price !== null || item.labor_minutes || item.material_costs) &&
-                item.type !== '%' &&
-                item.in_calculator !== false
-            ).sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+        function getCatalogueItems() {
+            return CATALOGUE_DATA.filter(function(item) {
+                return (item.price !== null || item.labor_minutes || item.material_costs) &&
+                       item.type !== '%' && item.in_calculator !== false;
+            }).sort(function(a, b) { return (a.category || '').localeCompare(b.category || ''); });
+        }
 
-            itemsWithPrice.forEach(item => {
-                if (item.category !== currentCategory) {
-                    if (currentCategory !== '') options += '</optgroup>';
-                    options += `<optgroup label="${escapeAttr(item.category)}">`;
-                    currentCategory = item.category;
+        function openCombobox(rowId) {
+            if (_cbActiveRowId === rowId) return; // already open
+            closeCombobox();
+            _cbActiveRowId = rowId;
+            _cbIdx = -1;
+            var cbInput = document.getElementById(rowId + '-cb');
+            if (!cbInput) return;
+
+            // Clear display for search mode
+            cbInput.dataset.prevValue = cbInput.value;
+            cbInput.value = '';
+            cbInput.classList.remove('has-value');
+
+            // Create dropdown
+            var dd = document.getElementById('cbDropdown');
+            if (!dd) {
+                dd = document.createElement('div');
+                dd.id = 'cbDropdown';
+                dd.className = 'cb-dropdown';
+                document.body.appendChild(dd);
+            }
+            dd.style.display = '';
+            dd.innerHTML = '';
+            renderComboboxItems(dd, '');
+            positionCombobox(dd, cbInput);
+
+            // Keyboard
+            cbInput.onkeydown = function(e) { handleComboboxKey(e, rowId); };
+            cbInput.oninput = function() { renderComboboxItems(dd, cbInput.value); _cbIdx = -1; };
+
+            // Click outside
+            setTimeout(function() {
+                document.addEventListener('mousedown', _cbOutsideClick);
+            }, 0);
+        }
+
+        function _cbOutsideClick(e) {
+            var dd = document.getElementById('cbDropdown');
+            if (dd && dd.contains(e.target)) return;
+            var cbInput = _cbActiveRowId ? document.getElementById(_cbActiveRowId + '-cb') : null;
+            if (cbInput && cbInput.contains(e.target)) return;
+            closeCombobox();
+        }
+
+        function closeCombobox() {
+            document.removeEventListener('mousedown', _cbOutsideClick);
+            var dd = document.getElementById('cbDropdown');
+            if (dd) dd.style.display = 'none';
+            // Restore display value if no selection was made
+            if (_cbActiveRowId) {
+                syncComboboxDisplay(_cbActiveRowId);
+            }
+            _cbActiveRowId = null;
+            _cbIdx = -1;
+        }
+
+        function positionCombobox(dd, anchor) {
+            var r = anchor.getBoundingClientRect();
+            var spaceBelow = window.innerHeight - r.bottom;
+            dd.style.left = r.left + 'px';
+            dd.style.width = Math.max(r.width, 360) + 'px';
+            if (spaceBelow < 200) {
+                dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+                dd.style.top = 'auto';
+            } else {
+                dd.style.top = (r.bottom + 4) + 'px';
+                dd.style.bottom = 'auto';
+            }
+        }
+
+        function renderComboboxItems(dd, query) {
+            var q = (query || '').toLowerCase().trim();
+            var items = getCatalogueItems();
+            if (q) {
+                items = items.filter(function(item) {
+                    return (item.description || '').toLowerCase().indexOf(q) !== -1 ||
+                           (item.id || '').toLowerCase().indexOf(q) !== -1 ||
+                           (item.client_text || '').toLowerCase().indexOf(q) !== -1;
+                });
+            }
+            var html = '';
+            var currentCat = '';
+            items.forEach(function(item, idx) {
+                if (item.category !== currentCat) {
+                    currentCat = item.category;
+                    html += '<div class="cb-group-label">' + escapeHtml(currentCat || 'Autre') + '</div>';
                 }
-                const pendingLabel = (item.status === 'pending') ? ' (en attente)' : '';
-                options += `<option value="${escapeAttr(item.id)}">${escapeHtml(item.description)}${pendingLabel}</option>`;
+                var pending = (item.status === 'pending') ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
+                html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + idx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + idx + '">'
+                    + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
+                    + '<span class="cb-item-desc">' + escapeHtml(item.description) + pending + '</span>'
+                    + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
+                    + '</div>';
             });
-            options += '</optgroup>';
-            options += '<optgroup label="Autre">';
-            options += '<option value="__PROPOSER__">📋 Proposer un nouvel article...</option>';
-            options += '<option value="__AJOUT__">➕ Ajout personnalisé...</option>';
-            options += '</optgroup>';
-            return options;
+            // Special options
+            html += '<div class="cb-group-label">Autre</div>';
+            html += '<div class="cb-item" onclick="selectComboboxItem(\'__PROPOSER__\')"><span class="cb-item-special">\ud83d\udccb Proposer un nouvel article...</span></div>';
+            html += '<div class="cb-item" onclick="selectComboboxItem(\'__AJOUT__\')"><span class="cb-item-special">\u2795 Ajout personnalis\u00e9...</span></div>';
+
+            if (items.length === 0 && q) {
+                html = '<div class="cb-empty">Aucun article trouv\u00e9 pour \u00ab ' + escapeHtml(q) + ' \u00bb</div>' + html;
+            }
+            dd.innerHTML = html;
+        }
+
+        function selectComboboxItem(itemId) {
+            if (!_cbActiveRowId) return;
+            var rowId = _cbActiveRowId;
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var hidden = row.querySelector('.item-select');
+            if (hidden) hidden.value = itemId;
+            closeCombobox();
+            updateRow(rowId);
+        }
+
+        function handleComboboxKey(e, rowId) {
+            var dd = document.getElementById('cbDropdown');
+            if (!dd) return;
+            var allItems = dd.querySelectorAll('.cb-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _cbIdx = Math.min(_cbIdx + 1, allItems.length - 1);
+                allItems.forEach(function(el, i) { el.classList.toggle('cb-active', i === _cbIdx); });
+                if (allItems[_cbIdx]) allItems[_cbIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _cbIdx = Math.max(_cbIdx - 1, 0);
+                allItems.forEach(function(el, i) { el.classList.toggle('cb-active', i === _cbIdx); });
+                if (allItems[_cbIdx]) allItems[_cbIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (_cbIdx >= 0 && allItems[_cbIdx]) {
+                    allItems[_cbIdx].click();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeCombobox();
+            }
+        }
+
+        function syncComboboxDisplay(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var hidden = row.querySelector('.item-select');
+            var cbInput = document.getElementById(rowId + '-cb');
+            var editBtn = document.getElementById(rowId + '-edit-btn');
+            if (!hidden || !cbInput) return;
+            var val = hidden.value;
+            if (val && val !== '__PROPOSER__' && val !== '__AJOUT__') {
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === val; });
+                cbInput.value = item ? item.description : val;
+                cbInput.classList.add('has-value');
+                if (editBtn) editBtn.style.display = '';
+            } else if (val === '__AJOUT__') {
+                cbInput.value = 'Ajout personnalis\u00e9';
+                cbInput.classList.add('has-value');
+                if (editBtn) editBtn.style.display = 'none';
+            } else if (val === '__PROPOSER__') {
+                cbInput.value = 'Proposer un article';
+                cbInput.classList.add('has-value');
+                if (editBtn) editBtn.style.display = 'none';
+            } else {
+                cbInput.value = '';
+                cbInput.classList.remove('has-value');
+                if (editBtn) editBtn.style.display = 'none';
+            }
+        }
+
+        function openCatalogueItem(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var hidden = row.querySelector('.item-select');
+            var val = hidden ? hidden.value : '';
+            if (val && val !== '__PROPOSER__' && val !== '__AJOUT__') {
+                window.open('catalogue_prix_stele_complet.html?edit=' + encodeURIComponent(val), '_blank');
+            }
         }
 
         function toggleGroup(groupId) {
@@ -7018,9 +7229,12 @@
                     <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
                 </div>
                 <div class="cell-select">
-                    <select class="item-select" onchange="updateRow('${rowId}')">
-                        ${buildSelectOptions()}
-                    </select>
+                    <div class="combobox">
+                        <input type="hidden" class="item-select" value="">
+                        <input type="text" class="combobox-input" id="${rowId}-cb" placeholder="Rechercher un article..."
+                               autocomplete="off" onclick="openCombobox('${rowId}')" onfocus="openCombobox('${rowId}')">
+                        <button class="btn-edit-cat" id="${rowId}-edit-btn" onclick="openCatalogueItem('${rowId}')" title="Ouvrir dans le catalogue" style="display:none;">&#9998;</button>
+                    </div>
                 </div>
                 <div class="cell-code" id="${rowId}-code">—</div>
                 <div class="cell-type" id="${rowId}-type">—</div>
@@ -7066,7 +7280,7 @@
                 });
             }
 
-            if (!opts.skipFocus) row.querySelector('.item-select').focus();
+            if (!opts.skipFocus) { var cbFocus = document.getElementById(rowId + '-cb'); if (cbFocus) cbFocus.focus(); }
             return rowId;
         }
 
@@ -7624,11 +7838,10 @@
         }
 
         function refreshAllSelects() {
-            const newOptions = buildSelectOptions();
-            document.querySelectorAll('.item-select').forEach(select => {
-                const currentValue = select.value;
-                select.innerHTML = newOptions;
-                if (currentValue) select.value = currentValue;
+            // Combobox reads from CATALOGUE_DATA live — no rebuild needed
+            // Just sync all displays
+            document.querySelectorAll('.calc-row').forEach(function(row) {
+                syncComboboxDisplay(row.id);
             });
         }
 
@@ -7766,6 +7979,9 @@
                     debouncedCascade(rowId);
                 }
             }
+
+            // Sync combobox display
+            syncComboboxDisplay(rowId);
         }
 
         const debouncedSaveItem = debounce(function(rowId, row) {

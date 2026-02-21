@@ -92,8 +92,8 @@
             padding: 0 var(--sw-space-6);
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            height: calc(100vh - 56px);
+            justify-content: space-evenly;
+            min-height: calc(100vh - 56px);
             overflow-y: auto;
         }
 
@@ -189,11 +189,10 @@
             font-size: 15px;
             color: var(--sw-text);
             opacity: 0.6;
-            margin-bottom: var(--sw-space-4);
         }
 
-        /* ── Grille de cartes — 3 colonnes ── */
-        .card-grid {
+        /* ── Rangée de cartes — 3 colonnes ── */
+        .card-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: var(--sw-space-3);
@@ -338,13 +337,13 @@
         }
 
         @media (max-width: 900px) {
-            .card-grid { grid-template-columns: repeat(2, 1fr); }
+            .card-row { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
             .nav-bar { padding: 0 20px; gap: var(--sw-space-2); }
             .main-left { padding: 0 var(--sw-space-3); }
-            .card-grid { grid-template-columns: 1fr; }
+            .card-row { grid-template-columns: 1fr; }
             .dash-title { font-size: 24px; }
         }
     </style>
@@ -364,10 +363,12 @@
         <!-- Split layout -->
         <div class="main-split">
             <div class="main-left">
-                <h1 class="dash-title">Tableau de bord</h1>
-                <p class="dash-subtitle">S&eacute;lectionnez un outil pour commencer.</p>
+                <div class="dash-header">
+                    <h1 class="dash-title">Tableau de bord</h1>
+                    <p class="dash-subtitle">S&eacute;lectionnez un outil pour commencer.</p>
+                </div>
 
-                <div class="card-grid">
+                <div class="card-row">
                     <!-- Catalogue de prix -->
                     <a href="catalogue_prix_stele_complet.html" class="tool-card" data-page="catalogue">
                         <div class="tool-icon">
@@ -405,7 +406,9 @@
                         <div class="tool-desc">G&eacute;rez vos contacts, entreprises et communications clients.</div>
                         <span class="tool-badge">Disponible</span>
                     </a>
+                </div>
 
+                <div class="card-row">
                     <!-- Assistant vente -->
                     <div class="tool-card tool-card--disabled" data-page="assistant">
                         <div class="tool-icon tool-icon--grey">

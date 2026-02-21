@@ -787,6 +787,32 @@
             0%,100% { opacity:0.6; transform:scale(1); }
             50% { opacity:1; transform:scale(1.1); }
         }
+        .comp-import-zone {
+            border: 1.5px dashed #d1d5db; border-radius: 8px;
+            padding: 10px 12px; margin-bottom: 10px; background: #fafbfc;
+            transition: border-color 0.2s;
+        }
+        .comp-import-zone.drag-over { border-color: #0B1220; background: rgba(11,18,32,0.03); }
+        .comp-import-textarea {
+            width: 100%; border: none; background: transparent; font-family: inherit;
+            font-size: 12px; resize: vertical; min-height: 36px; outline: none; color: #333;
+            box-sizing: border-box;
+        }
+        .comp-import-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 6px; gap: 8px;
+        }
+        .comp-import-thumbs { display: flex; gap: 4px; flex-wrap: wrap; }
+        .comp-import-thumb {
+            position: relative; width: 40px; height: 40px; border-radius: 4px;
+            overflow: hidden; border: 1px solid #e0e0e0;
+        }
+        .comp-import-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .comp-import-thumb .comp-img-remove {
+            position: absolute; top: -2px; right: -2px; width: 14px; height: 14px;
+            border-radius: 50%; background: #333; color: #fff; border: none;
+            font-size: 10px; line-height: 14px; text-align: center; cursor: pointer; padding: 0;
+        }
         .cp-section-title {
             font-size: 12px;
             font-weight: 600;
@@ -1818,6 +1844,17 @@
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
                     <div class="cp-section-title">Composantes fournisseur</div>
+                    <div class="comp-import-zone" id="compImportZone">
+                        <textarea class="comp-import-textarea" id="compImportInput"
+                            placeholder="Coller un screenshot de liste de prix, glisser une image, ou taper les donn&eacute;es en vrac..."
+                            rows="2"></textarea>
+                        <div class="comp-import-footer">
+                            <div class="comp-import-thumbs" id="compImportThumbs"></div>
+                            <button class="btn-ai-inline" id="btnAiImportComp" onclick="aiImportComponents()" title="Extraire les composantes avec l'AI">
+                                <span class="ai-dot"></span> Importer
+                            </button>
+                        </div>
+                    </div>
                     <div id="componentsList"></div>
                     <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
                 </div>
@@ -3077,6 +3114,11 @@
             var realItemId = (isNewItem && newItemData) ? null : item.id;
             loadComponents(realItemId);
             loadSupplierCompanies();
+            compImportImages = [];
+            var compInput = document.getElementById('compImportInput');
+            if (compInput) compInput.value = '';
+            renderCompImportThumbs();
+            initCompImportZone();
 
             // Médias
             editMedia = [];
@@ -4734,6 +4776,162 @@
             } catch (err) {
                 errEl.textContent = 'Erreur AI : ' + (err.message || 'Erreur inconnue');
                 errEl.style.display = '';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+
+        // ── Import composantes AI (paste/drop images + text) ──
+
+        var compImportImages = [];
+
+        function initCompImportZone() {
+            var zone = document.getElementById('compImportZone');
+            var input = document.getElementById('compImportInput');
+            if (!zone || !input || zone.dataset.init) return;
+            zone.dataset.init = '1';
+
+            input.addEventListener('paste', function(e) {
+                var items = (e.clipboardData || {}).items || [];
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        compProcessImage(items[i].getAsFile());
+                        break;
+                    }
+                }
+            });
+
+            zone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', function() {
+                zone.classList.remove('drag-over');
+            });
+            zone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                var files = e.dataTransfer.files;
+                for (var i = 0; i < files.length; i++) {
+                    if (files[i].type.indexOf('image') !== -1) {
+                        compProcessImage(files[i]);
+                    }
+                }
+            });
+        }
+
+        function compProcessImage(file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var maxDim = 1200;
+                    var w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    compImportImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                    renderCompImportThumbs();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderCompImportThumbs() {
+            var container = document.getElementById('compImportThumbs');
+            if (!container) return;
+            container.innerHTML = '';
+            compImportImages.forEach(function(src, i) {
+                var div = document.createElement('div');
+                div.className = 'comp-import-thumb';
+                div.innerHTML = '<img src="' + src + '"><button class="comp-img-remove" onclick="compRemoveImage(' + i + ')">&times;</button>';
+                container.appendChild(div);
+            });
+        }
+
+        function compRemoveImage(index) {
+            compImportImages.splice(index, 1);
+            renderCompImportThumbs();
+        }
+
+        async function aiImportComponents() {
+            var btn = document.getElementById('btnAiImportComp');
+            var input = document.getElementById('compImportInput');
+            var text = input.value.trim();
+            var images = compImportImages.slice();
+
+            if (!text && images.length === 0) {
+                alert('Collez une image ou tapez les données fournisseur.');
+                return;
+            }
+
+            var catNames = expenseCategories.map(function(c) { return c.name; }).join(', ');
+            var contextText = catNames;
+            if (text) contextText += '\n\nDonnées fournisseur :\n' + text;
+
+            var imagePayload = images.map(function(dataUrl) {
+                var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+                return match ? { media_type: match[1], data: match[2] } : null;
+            }).filter(Boolean);
+
+            btn.disabled = true;
+            var origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="ai-dot"></span> ...';
+
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        texts: [{ key: 'import', text: contextText }],
+                        action: 'import_components',
+                        images: imagePayload.length > 0 ? imagePayload : undefined
+                    })
+                });
+                if (!resp.ok) {
+                    var errText = await resp.text().catch(function() { return ''; });
+                    try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                    catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
+                }
+                var data = await resp.json();
+                var result = data.translations && data.translations['import'];
+                if (result) {
+                    var jsonStr = result.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+                    var parsed = JSON.parse(jsonStr);
+                    if (parsed.components && Array.isArray(parsed.components)) {
+                        parsed.components.forEach(function(comp) {
+                            editComponents.push({
+                                id: null,
+                                supplier_name: comp.supplier_name || '',
+                                supplier_sku: comp.supplier_sku || '',
+                                description: comp.description || '',
+                                expense_category: comp.expense_category || '',
+                                qty_per_unit: comp.qty_per_unit || 1,
+                                unit_cost: comp.unit_cost || 0,
+                                notes: '',
+                                sort_order: editComponents.length + 1,
+                                isNew: true
+                            });
+                        });
+                        renderComponents();
+                        syncComponentsToMaterials();
+                        input.value = '';
+                        compImportImages = [];
+                        renderCompImportThumbs();
+                        if (parsed.notes) alert('Note AI : ' + parsed.notes);
+                    } else {
+                        alert('L\'AI n\'a pas retourné de composantes valides.');
+                    }
+                }
+            } catch (err) {
+                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = origHTML;

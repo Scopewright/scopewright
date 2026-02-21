@@ -39,7 +39,8 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
       .in("key", [
         "ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr",
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
-        "ai_prompt_json_catalogue", "ai_prompt_description_calculateur"
+        "ai_prompt_json_catalogue", "ai_prompt_description_calculateur",
+        "ai_prompt_import_components"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -148,6 +149,34 @@ MODE RÉVISION (description existante) :
 
 Retourne UNIQUEMENT le HTML de la description, sans explication.`;
 
+const IMPORT_COMPONENTS_SYSTEM = `Tu es un assistant d'import pour Stele, un atelier d'ébénisterie haut de gamme.
+Tu reçois des données fournisseur (screenshot de liste de prix, photo de catalogue, ou texte en vrac) et tu extrais les composantes structurées.
+
+Tu dois retourner un JSON valide avec un tableau de composantes :
+{
+  "components": [
+    {
+      "supplier_name": "Nom du fournisseur (si identifiable)",
+      "supplier_sku": "Code produit fournisseur",
+      "description": "Description de la composante",
+      "expense_category": "Catégorie de dépense la plus appropriée",
+      "qty_per_unit": 1,
+      "unit_cost": 12.50
+    }
+  ],
+  "notes": "Notes optionnelles (ex: prix en USD, taxes incluses, etc.)"
+}
+
+RÈGLES :
+- Extraire TOUTES les composantes visibles dans les données
+- Les prix doivent être en nombres (pas de symbole $)
+- Si le fournisseur est identifiable (logo, en-tête), le mettre dans supplier_name
+- Si un code produit/SKU est visible, le mettre dans supplier_sku
+- qty_per_unit = 1 par défaut sauf si une quantité est indiquée
+- expense_category doit correspondre à une des catégories fournies dans le contexte
+- Si les données sont ambiguës ou illisibles, ajouter une note explicative
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
 // Prompt map for action → override key + default prompt
 const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   optimize:                { key: "ai_prompt_fiche_optimize", prompt: OPTIMIZE_SYSTEM },
@@ -157,6 +186,7 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   catalogue_explication:   { key: "ai_prompt_explication_catalogue", prompt: CATALOGUE_EXPLICATION_SYSTEM },
   catalogue_json:          { key: "ai_prompt_json_catalogue", prompt: CATALOGUE_JSON_SYSTEM },
   calculateur_description: { key: "ai_prompt_description_calculateur", prompt: CALCULATEUR_DESCRIPTION_SYSTEM },
+  import_components:       { key: "ai_prompt_import_components", prompt: IMPORT_COMPONENTS_SYSTEM },
 };
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
@@ -197,7 +227,7 @@ serve(async (req) => {
       );
     }
 
-    const { texts, action = "translate" } = await req.json();
+    const { texts, action = "translate", images } = await req.json();
 
     if (!texts || texts.length === 0) {
       return new Response(JSON.stringify({ translations: {} }), {
@@ -219,8 +249,8 @@ serve(async (req) => {
     const mapping = PROMPT_MAP[action] || PROMPT_MAP.translate;
     const systemPrompt = overrides[mapping.key] || mapping.prompt;
 
-    // Use Sonnet for JSON generation (structured reasoning), Haiku for the rest (speed)
-    const model = (action === "catalogue_json")
+    // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
+    const model = (action === "catalogue_json" || action === "import_components")
       ? "claude-sonnet-4-20250514"
       : "claude-haiku-4-5-20251001";
 
@@ -245,7 +275,25 @@ serve(async (req) => {
           ? `Voici l'explication de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
           : action === "calculateur_description"
           ? nonEmpty[0].text
+          : action === "import_components"
+          ? `Extrais les composantes fournisseur depuis ces données.\n\nCatégories de dépenses disponibles : ${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
+
+      // Build multimodal content when images are provided (for import_components with vision)
+      let userContent: any = userMsg;
+      if (images && Array.isArray(images) && images.length > 0) {
+        const contentParts: any[] = [];
+        for (const img of images) {
+          if (img.media_type && img.data) {
+            contentParts.push({
+              type: "image",
+              source: { type: "base64", media_type: img.media_type, data: img.data }
+            });
+          }
+        }
+        contentParts.push({ type: "text", text: userMsg });
+        userContent = contentParts;
+      }
 
       const resp = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -254,7 +302,7 @@ serve(async (req) => {
           model: model,
           max_tokens: 4096,
           system: systemPrompt,
-          messages: [{ role: "user", content: userMsg }],
+          messages: [{ role: "user", content: userContent }],
         }),
       });
 

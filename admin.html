@@ -635,6 +635,7 @@
                             <option value="ai_prompt_explication_catalogue">Catalogue &mdash; Explication</option>
                             <option value="ai_prompt_json_catalogue">Catalogue &mdash; G&eacute;n&eacute;ration JSON</option>
                             <option value="ai_prompt_description_calculateur">Calculateur &mdash; Description client</option>
+                            <option value="ai_prompt_import_components">Catalogue &mdash; Import composantes</option>
                         </select>
                         <span id="aiPromptStatus" style="font-size:11px; color:#aaa;"></span>
                     </div>
@@ -2224,6 +2225,9 @@
     // Default for Calculateur — Description client — must match CALCULATEUR_DESCRIPTION_SYSTEM in translate/index.ts
     AI_PROMPT_DEFAULTS['ai_prompt_description_calculateur'] = "Tu es un r\u00e9dacteur technique pour Stele, un atelier d'\u00e9b\u00e9nisterie haut de gamme sur mesure au Qu\u00e9bec.\nTu r\u00e9diges ou am\u00e9liores les descriptions client des pi\u00e8ces/meubles dans les soumissions.\n\nFORMAT HTML OBLIGATOIRE :\n- Chaque cat\u00e9gorie en <strong> suivi du texte : <p><strong>Caisson :</strong> ME1</p>\n- Cat\u00e9gories : Caisson, Fa\u00e7ades et panneaux apparents, Tiroirs Legrabox, Poign\u00e9es, D\u00e9tails, Exclusions\n- D\u00e9tails : <p><strong>D\u00e9tails :</strong></p> suivi de <ul><li>...</li></ul>\n- Exclusions : <p><strong>Exclusions :</strong> texte</p> \u2014 JAMAIS de puces\n- Uniquement <p>, <strong>, <ul>, <li> \u2014 pas de <h1-h3>, <div>, <html>\n\nMODE G\u00c9N\u00c9RATION (description vide) :\n- Analyse les articles de la pi\u00e8ce fournis en contexte\n- Utilise les client_text et presentation_rule des articles du catalogue\n- Assemble une description professionnelle et structur\u00e9e\n\nMODE R\u00c9VISION (description existante) :\n- Corrige orthographe, accents, pluriels, concordances\n- Am\u00e9liore la structure et la clart\u00e9\n- Ne change PAS le sens ni n'invente de contenu\n\nRetourne UNIQUEMENT le HTML de la description, sans explication.";
 
+    // Default for Catalogue — Import composantes — must match IMPORT_COMPONENTS_SYSTEM in translate/index.ts
+    AI_PROMPT_DEFAULTS['ai_prompt_import_components'] = "Tu es un assistant d'import pour Stele, un atelier d'\u00e9b\u00e9nisterie haut de gamme.\nTu re\u00e7ois des donn\u00e9es fournisseur (screenshot de liste de prix, photo de catalogue, ou texte en vrac) et tu extrais les composantes structur\u00e9es.\n\nTu dois retourner un JSON valide avec un tableau de composantes :\n{\n  \"components\": [\n    {\n      \"supplier_name\": \"Nom du fournisseur (si identifiable)\",\n      \"supplier_sku\": \"Code produit fournisseur\",\n      \"description\": \"Description de la composante\",\n      \"expense_category\": \"Cat\u00e9gorie de d\u00e9pense la plus appropri\u00e9e\",\n      \"qty_per_unit\": 1,\n      \"unit_cost\": 12.50\n    }\n  ],\n  \"notes\": \"Notes optionnelles (ex: prix en USD, taxes incluses, etc.)\"\n}\n\nR\u00c8GLES :\n- Extraire TOUTES les composantes visibles dans les donn\u00e9es\n- Les prix doivent \u00eatre en nombres (pas de symbole $)\n- Si le fournisseur est identifiable (logo, en-t\u00eate), le mettre dans supplier_name\n- Si un code produit/SKU est visible, le mettre dans supplier_sku\n- qty_per_unit = 1 par d\u00e9faut sauf si une quantit\u00e9 est indiqu\u00e9e\n- expense_category doit correspondre \u00e0 une des cat\u00e9gories fournies dans le contexte\n- Si les donn\u00e9es sont ambigu\u00ebs ou illisibles, ajouter une note explicative\n- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks";
+
     var currentPromptKey = 'ai_prompt_estimateur';
 
     function switchAiPrompt() {
@@ -2251,7 +2255,8 @@
                 if (row.key === 'ai_prompt_estimateur' || row.key === 'ai_prompt_catalogue_import' || row.key === 'ai_prompt_contacts'
                     || row.key === 'ai_prompt_fiche_optimize' || row.key === 'ai_prompt_fiche_translate_fr_en' || row.key === 'ai_prompt_fiche_translate_en_fr'
                     || row.key === 'ai_prompt_client_text_catalogue' || row.key === 'ai_prompt_explication_catalogue'
-                    || row.key === 'ai_prompt_json_catalogue' || row.key === 'ai_prompt_description_calculateur') {
+                    || row.key === 'ai_prompt_json_catalogue' || row.key === 'ai_prompt_description_calculateur'
+                    || row.key === 'ai_prompt_import_components') {
                     if (row.value && typeof row.value === 'string' && row.value.trim()) {
                         aiPromptOverrides[row.key] = row.value;
                     }

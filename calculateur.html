@@ -1966,6 +1966,209 @@
         });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // MOTEUR CASCADE — Phase 3
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var cascadeParentMap = {};   // cascadeParentMap[childRowId] = parentRowId
+    var _cascadeRunning = false; // guard against re-entrancy
+
+    /**
+     * Évaluateur de formules sécurisé.
+     * Variables : L, H, P (dimensions en pouces), QTY (quantité du parent)
+     * Fonctions : ceil, floor, round, min, max
+     */
+    function evalFormula(expr, vars) {
+        if (!expr) return null;
+        var safe = String(expr).replace(/\b(L|H|P|QTY)\b/g, function(m) {
+            return (vars[m] != null) ? Number(vars[m]) : 0;
+        });
+        safe = safe.replace(/\bceil\b/g, 'Math.ceil')
+                   .replace(/\bfloor\b/g, 'Math.floor')
+                   .replace(/\bround\b/g, 'Math.round')
+                   .replace(/\bmin\b/g, 'Math.min')
+                   .replace(/\bmax\b/g, 'Math.max');
+        var check = safe.replace(/Math\.\w+/g, '').replace(/[\d\s+\-*/.(),><=!&|]/g, '');
+        if (check.length > 0) { console.warn('[Cascade] Formule non sécuritaire:', expr, '→', check); return null; }
+        try { return new Function('return ' + safe)(); }
+        catch (e) { console.error('[Cascade] Erreur formule:', expr, e); return null; }
+    }
+
+    /** Trouver les enfants cascade d'un parent (lookup dans cascadeParentMap) */
+    function findCascadeChildren(parentRowId) {
+        var children = [];
+        for (var childRowId in cascadeParentMap) {
+            if (cascadeParentMap[childRowId] === parentRowId) {
+                var row = document.getElementById(childRowId);
+                var select = row ? row.querySelector('.item-select') : null;
+                children.push({ rowId: childRowId, catalogueId: select ? select.value : null });
+            }
+        }
+        return children;
+    }
+
+    /** Remonter la chaîne parent pour trouver les dimensions L/H/P de la racine fabrication */
+    function getRootDimsForCascade(rowId) {
+        var visited = {};
+        var current = rowId;
+        while (cascadeParentMap[current] && !visited[current]) {
+            visited[current] = true;
+            current = cascadeParentMap[current];
+        }
+        // current = racine (le row fabrication avec les dims)
+        var dimL = document.getElementById(current + '-dim-l');
+        var dimH = document.getElementById(current + '-dim-h');
+        var dimP = document.getElementById(current + '-dim-p');
+        return {
+            L: dimL ? (parseFloat(dimL.value) || 0) : 0,
+            H: dimH ? (parseFloat(dimH.value) || 0) : 0,
+            P: dimP ? (parseFloat(dimP.value) || 0) : 0
+        };
+    }
+
+    /**
+     * Moteur cascade récursif.
+     * Exécute les règles `cascade` du calculation_rule_ai de l'article sélectionné.
+     * Crée/met à jour/supprime les lignes enfants automatiquement.
+     */
+    async function executeCascade(parentRowId, depth) {
+        depth = depth || 0;
+        if (depth >= 3) return;
+        if (!itemMap[parentRowId]) return;
+
+        var row = document.getElementById(parentRowId);
+        if (!row) return;
+        var select = row.querySelector('.item-select');
+        var qtyInput = row.querySelector('.qty-input');
+        if (!select || !qtyInput) return;
+
+        var selectedId = select.value;
+        var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+        var rules = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade;
+        if (!rules || !Array.isArray(rules) || rules.length === 0) {
+            // Pas de règles cascade → supprimer les enfants existants
+            var orphans = findCascadeChildren(parentRowId);
+            orphans.forEach(function(c) { removeRow(c.rowId); });
+            return;
+        }
+
+        // Dimensions : si ce row a ses propres dims, les utiliser ; sinon remonter la chaîne
+        var dims = getRootDimsForCascade(parentRowId);
+        // Si c'est un row avec dims propres (fabrication), les utiliser directement
+        var ownL = document.getElementById(parentRowId + '-dim-l');
+        if (ownL) {
+            dims.L = parseFloat(ownL.value) || 0;
+            var ownH = document.getElementById(parentRowId + '-dim-h');
+            dims.H = ownH ? (parseFloat(ownH.value) || 0) : dims.H;
+            var ownP = document.getElementById(parentRowId + '-dim-p');
+            dims.P = ownP ? (parseFloat(ownP.value) || 0) : dims.P;
+        }
+        var parentQty = parseFloat(qtyInput.value) || 0;
+        var vars = { L: dims.L, H: dims.H, P: dims.P, QTY: parentQty };
+
+        // Au moins une dimension doit exister pour exécuter la cascade
+        if (dims.L === 0 && dims.H === 0 && dims.P === 0 && parentQty === 0) return;
+
+        var groupId = row.dataset.group;
+        var parentItemId = itemMap[parentRowId];
+        var existingChildren = findCascadeChildren(parentRowId);
+        var matchedChildRowIds = [];
+
+        // Tag du parent à hériter
+        var parentTagEl = document.getElementById(parentRowId + '-tag');
+        var parentTag = parentTagEl ? parentTagEl.value : '';
+
+        for (var ri = 0; ri < rules.length; ri++) {
+            var rule = rules[ri];
+            if (!rule.target) continue; // target null = AI (pas JS)
+
+            // Évaluer la condition
+            if (rule.condition) {
+                var condResult = evalFormula(rule.condition, vars);
+                if (!condResult) continue;
+            }
+
+            // Calculer la quantité
+            var qty = evalFormula(rule.qty, vars);
+            if (qty === null || qty <= 0) continue;
+            qty = Math.round(qty * 100) / 100; // arrondir à 2 décimales
+
+            // Chercher un enfant existant avec le même target
+            var existing = null;
+            for (var ei = 0; ei < existingChildren.length; ei++) {
+                if (existingChildren[ei].catalogueId === rule.target) {
+                    existing = existingChildren[ei];
+                    break;
+                }
+            }
+
+            if (existing) {
+                // Mettre à jour la quantité de l'enfant existant
+                var childRow = document.getElementById(existing.rowId);
+                if (childRow) {
+                    var childQty = childRow.querySelector('.qty-input');
+                    if (childQty && parseFloat(childQty.value) !== qty) {
+                        childQty.value = qty;
+                        updateRow(existing.rowId);
+                    }
+                }
+                matchedChildRowIds.push(existing.rowId);
+            } else {
+                // Créer une nouvelle ligne enfant
+                var newRowId = addRow(groupId, { skipFocus: true, cascade: true });
+
+                // Attendre que itemMap soit peuplé (async createItem)
+                var waitAttempts = 0;
+                while (!itemMap[newRowId] && waitAttempts < 50) {
+                    await new Promise(function(r) { setTimeout(r, 80); });
+                    waitAttempts++;
+                }
+                if (!itemMap[newRowId]) {
+                    console.error('[Cascade] Timeout création ligne pour', rule.target);
+                    continue;
+                }
+
+                // Enregistrer le lien parent
+                cascadeParentMap[newRowId] = parentRowId;
+                updateItem(itemMap[newRowId], { parent_item_id: parentItemId });
+
+                // Sélectionner l'article cible
+                var childRow2 = document.getElementById(newRowId);
+                var childSelect = childRow2 ? childRow2.querySelector('.item-select') : null;
+                if (childSelect) childSelect.value = rule.target;
+                var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
+                if (childQtyInput) childQtyInput.value = qty;
+
+                // Hériter le tag du parent
+                if (parentTag) {
+                    var childTagInput = document.getElementById(newRowId + '-tag');
+                    if (childTagInput) childTagInput.value = parentTag;
+                }
+
+                updateRow(newRowId);
+                matchedChildRowIds.push(newRowId);
+            }
+        }
+
+        // Supprimer les enfants orphelins (plus dans les règles actuelles)
+        existingChildren.forEach(function(c) {
+            if (matchedChildRowIds.indexOf(c.rowId) === -1) {
+                removeRow(c.rowId);
+            }
+        });
+
+        // Récursion : chaque enfant peut avoir ses propres règles cascade
+        for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
+            await executeCascade(matchedChildRowIds[ci], depth + 1);
+        }
+    }
+
+    var debouncedCascade = debounce(function(rowId) {
+        if (_cascadeRunning) return;
+        _cascadeRunning = true;
+        executeCascade(rowId, 0).finally(function() { _cascadeRunning = false; });
+    }, 800);
+
     async function createVersion(submissionId) {
         // Trouver le prochain numéro de version (par project_id pour respecter la contrainte unique)
         var versionQuery = currentProject
@@ -2196,6 +2399,17 @@
             border-bottom: 1px solid #eee;
             background: var(--sw-surface);
             transition: background-color 0.15s ease;
+        }
+        .calc-row.cascade-child {
+            border-left: 2px solid var(--stele-green);
+            margin-left: 6px;
+            background: #f8faf9;
+        }
+        .calc-row.cascade-child .cell-add .btn-add { visibility: hidden; }
+        .cascade-badge {
+            font-size: 9px; background: #e2e8f0; color: #475569;
+            padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+            vertical-align: middle; letter-spacing: 0.02em;
         }
         .cell-tag input {
             width: 100%; padding: 4px 6px; font-size: 11px; font-family: monospace;
@@ -6794,7 +7008,7 @@
             const rowId = `row-${rowCounter}`;
 
             const row = document.createElement('div');
-            row.className = 'calc-row';
+            row.className = 'calc-row' + (opts.cascade ? ' cascade-child' : '');
             row.id = rowId;
             row.dataset.mode = 'normal';
             row.dataset.group = groupId;
@@ -7430,6 +7644,13 @@
             const qty = parseFloat(qtyInput.value) || 0;
             const currentMode = row.dataset.mode;
 
+            // Cascade : détecter changement d'article → reset enfants
+            var prevCatId = row.dataset.lastCatalogueId || '';
+            if (prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
+                findCascadeChildren(rowId).forEach(function(c) { removeRow(c.rowId); });
+            }
+            row.dataset.lastCatalogueId = selectedId;
+
             if (selectedId === '__PROPOSER__') {
                 if (currentMode !== 'proposer') {
                     if (currentMode === 'ajout') transformToNormalMode(row, rowId);
@@ -7534,6 +7755,19 @@
             if (itemMap[rowId] && row.dataset.mode !== 'proposer') {
                 debouncedSaveItem(rowId, row);
             }
+
+            // Cascade : déclencher quand dimensions changent ou article sélectionné
+            if (!_cascadeRunning && selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
+                var hasCascadeRules = false;
+                var cascadeCatItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                if (cascadeCatItem && cascadeCatItem.calculation_rule_ai && cascadeCatItem.calculation_rule_ai.cascade) {
+                    hasCascadeRules = true;
+                }
+                // Déclencher aussi pour les parents qui ont déjà des enfants
+                if (hasCascadeRules || findCascadeChildren(rowId).length > 0) {
+                    debouncedCascade(rowId);
+                }
+            }
         }
 
         const debouncedSaveItem = debounce(function(rowId, row) {
@@ -7605,6 +7839,10 @@
         }
 
         function removeRow(rowId) {
+            // Supprimer d'abord les enfants cascade (récursif)
+            var cascadeChildren = findCascadeChildren(rowId);
+            cascadeChildren.forEach(function(c) { removeRow(c.rowId); });
+
             const row = document.getElementById(rowId);
             if (row) {
                 const groupId = row.dataset.group;
@@ -7614,6 +7852,7 @@
                     delete itemMap[rowId];
                 }
                 row.remove();
+                delete cascadeParentMap[rowId];
                 if (groupId) updateGroupSubtotal(groupId);
                 updateGrandTotal();
             }
@@ -12104,6 +12343,8 @@
 
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
+            cascadeParentMap = {};
+            _cascadeRunning = false;
 
             // Charger les pièces et items via submission_id
             const rooms = await loadSubmissionRooms(submissionId);
@@ -12163,8 +12404,10 @@
                     }
 
                     if (room.room_items && room.room_items.length > 0) {
+                        var _loadedCascadeItems = []; // pour la 2e passe
                         room.room_items.forEach(item => {
-                            const rowId = addRow(groupId, { existingId: item.id, skipSave: true, skipFocus: true });
+                            var isCascade = !!item.parent_item_id;
+                            const rowId = addRow(groupId, { existingId: item.id, skipSave: true, skipFocus: true, cascade: isCascade });
 
                             const row = document.getElementById(rowId);
                             const select = row.querySelector('.item-select');
@@ -12206,7 +12449,16 @@
                                 }
                             }
 
+                            // Mémoriser pour la 2e passe cascade
+                            if (isCascade) _loadedCascadeItems.push({ rowId: rowId, parentItemId: item.parent_item_id });
+
                             updateRow(rowId);
+                        });
+
+                        // 2e passe : restaurer cascadeParentMap
+                        _loadedCascadeItems.forEach(function(ci) {
+                            var parentRowId = Object.keys(itemMap).find(function(k) { return itemMap[k] === ci.parentItemId; });
+                            if (parentRowId) cascadeParentMap[ci.rowId] = parentRowId;
                         });
                     }
                 }

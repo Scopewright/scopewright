@@ -274,6 +274,8 @@ Si la règle contient une "condition" (ex: "Caisson au sol uniquement"), appliqu
 
 Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, demande la quantité à l'estimateur.
 
+**Cascade automatique** : Les articles avec une clé "cascade" dans leur règle de calcul déclenchent automatiquement des articles enfants côté client quand les dimensions L/H/P sont saisies. Tu n'as PAS besoin de gérer ces cascades — elles sont gérées par le moteur JS du calculateur. Tu peux toutefois expliquer ou ajuster les résultats si l'estimateur le demande.
+
 ${rulesLines}`;
   }
 

@@ -6530,7 +6530,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -7481,10 +7481,11 @@
             var dimsEl = document.getElementById(rowId + '-dims');
             if (dimsEl) {
                 var showDims = false;
+                var dimItem = null;
                 if (selectedId === '__AJOUT__') {
                     showDims = true;
                 } else if (selectedId && selectedId !== '__PROPOSER__') {
-                    var dimItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                    dimItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                     if (dimItem && dimItem.item_type === 'fabrication') showDims = true;
                 }
 
@@ -7494,20 +7495,32 @@
                         var curL = dimsEl.dataset.l || '';
                         var curH = dimsEl.dataset.h || '';
                         var curP = dimsEl.dataset.p || '';
-                        dimsEl.innerHTML =
-                            '<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" onchange="updateRow(\'' + rowId + '\')">' +
-                            '<span class="dim-sep">\u00d7</span>' +
-                            '<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" onchange="updateRow(\'' + rowId + '\')">' +
-                            '<span class="dim-sep">\u00d7</span>' +
-                            '<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" onchange="updateRow(\'' + rowId + '\')">';
+
+                        // Lire dims_config du catalogue (null → tout affiché par défaut)
+                        var dc = (dimItem && dimItem.dims_config) ? dimItem.dims_config : { l: true, h: true, p: true };
+
+                        var parts = [];
+                        if (dc.l) parts.push('<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.l && (dc.h || dc.p)) parts.push('<span class="dim-sep">\u00d7</span>');
+                        if (dc.h) parts.push('<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.h && dc.p) parts.push('<span class="dim-sep">\u00d7</span>');
+                        if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" onchange="updateRow(\'' + rowId + '\')">');
+
+                        dimsEl.innerHTML = parts.join('');
                     }
                 } else {
                     // Sauvegarder les valeurs dans dataset avant de détruire les inputs
                     var lInput = document.getElementById(rowId + '-dim-l');
                     if (lInput) {
                         dimsEl.dataset.l = lInput.value;
-                        dimsEl.dataset.h = document.getElementById(rowId + '-dim-h').value;
-                        dimsEl.dataset.p = document.getElementById(rowId + '-dim-p').value;
+                    }
+                    var hInput = document.getElementById(rowId + '-dim-h');
+                    if (hInput) {
+                        dimsEl.dataset.h = hInput.value;
+                    }
+                    var pInput = document.getElementById(rowId + '-dim-p');
+                    if (pInput) {
+                        dimsEl.dataset.p = pInput.value;
                     }
                     dimsEl.classList.add('dims-hidden');
                     dimsEl.innerHTML = '\u2014';

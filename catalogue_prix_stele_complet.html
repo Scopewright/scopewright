@@ -1722,11 +1722,25 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Classification</label>
-                        <select class="form-input" id="editItemType">
+                        <select class="form-input" id="editItemType" onchange="document.getElementById('dimsConfigGroup').style.display=this.value==='fabrication'?'':'none'">
                             <option value="">&mdash; Non class&eacute; &mdash;</option>
                             <option value="fabrication">Fabrication</option>
                             <option value="materiau">Mat&eacute;riau</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="dimsConfigGroup" style="display:none;">
+                        <label class="form-label">Dimensions applicables</label>
+                        <div style="display:flex; gap:16px; padding:6px 0;">
+                            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:12px;">
+                                <input type="checkbox" id="editDimL" checked> L (largeur)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:12px;">
+                                <input type="checkbox" id="editDimH" checked> H (hauteur)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:12px;">
+                                <input type="checkbox" id="editDimP" checked> P (profondeur)
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -2527,7 +2541,7 @@
                 var statusFilter = canEditCatalogue
                     ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
                     : '&or=(status.eq.approved,status.is.null)';
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type' + statusFilter + '&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -2982,6 +2996,11 @@
             document.getElementById('editCategory').value = item.category;
             catSelect.disabled = !isNewItem;
             document.getElementById('editItemType').value = item.item_type || '';
+            var dc = item.dims_config || {};
+            document.getElementById('editDimL').checked = dc.l !== false;
+            document.getElementById('editDimH').checked = dc.h !== false;
+            document.getElementById('editDimP').checked = dc.p !== false;
+            document.getElementById('dimsConfigGroup').style.display = (item.item_type === 'fabrication') ? '' : 'none';
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
@@ -3858,6 +3877,9 @@
                 const payload = {
                     category: document.getElementById('editCategory').value,
                     item_type: document.getElementById('editItemType').value || null,
+                    dims_config: document.getElementById('editItemType').value === 'fabrication'
+                        ? { l: document.getElementById('editDimL').checked, h: document.getElementById('editDimH').checked, p: document.getElementById('editDimP').checked }
+                        : null,
                     description: document.getElementById('editDescription').value,
                     type: document.getElementById('editType').value,
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
@@ -4898,6 +4920,7 @@
                         id: input.code,
                         category: input.category,
                         item_type: input.item_type || null,
+                        dims_config: input.dims_config || null,
                         description: input.description,
                         type: input.unit_type,
                         instruction: input.instruction || null,

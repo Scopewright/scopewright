@@ -578,18 +578,32 @@
 
         async function loadAlerts() {
             try {
-                // Approbations: soumissions en attente d'approbation (pending_internal)
-                var respApprob = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/submissions?status=eq.pending_internal&select=id',
-                    { headers: { 'Prefer': 'count=exact' } }
-                );
-                var countApprob = parseInt(respApprob.headers.get('content-range')?.split('/')[1] || '0');
+                // Approbations: soumissions pending_internal + articles pending
+                var [respApprob, respItems] = await Promise.all([
+                    authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/submissions?status=eq.pending_internal&select=id',
+                        { headers: { 'Prefer': 'count=exact' } }
+                    ),
+                    authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&select=id',
+                        { headers: { 'Prefer': 'count=exact' } }
+                    )
+                ]);
+                var countSub = parseInt(respApprob.headers.get('content-range')?.split('/')[1] || '0');
+                var countItems = parseInt(respItems.headers.get('content-range')?.split('/')[1] || '0');
+                var countApprob = countSub + countItems;
                 if (countApprob > 0) {
                     var badgeA = document.getElementById('alertApprobations');
                     var countA = document.getElementById('alertApprobationsCount');
-                    if (badgeA) badgeA.classList.add('visible');
+                    if (badgeA) {
+                        badgeA.textContent = countApprob;
+                        badgeA.classList.add('visible');
+                    }
                     if (countA) {
-                        countA.textContent = countApprob + ' en attente';
+                        var parts = [];
+                        if (countSub > 0) parts.push(countSub + ' soumission' + (countSub > 1 ? 's' : ''));
+                        if (countItems > 0) parts.push(countItems + ' article' + (countItems > 1 ? 's' : ''));
+                        countA.textContent = parts.join(' + ');
                         countA.classList.add('visible');
                     }
                 }

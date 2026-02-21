@@ -115,6 +115,67 @@
             line-height: 1.7;
         }
 
+        /* ── Whisper Dot ── */
+        .whisper-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 22px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .whisper-dot::before {
+            content: '';
+            display: block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
+            transition: box-shadow 200ms ease;
+            animation: whisper-pulse 3s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .whisper-dot:hover::before,
+        .whisper-dot:focus-visible::before {
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.10);
+        }
+        .whisper-dot__text {
+            color: rgba(255,255,255,0.72);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.2;
+            letter-spacing: 0;
+            opacity: 0;
+            transform: translateY(3px);
+            transition: opacity 170ms ease, transform 170ms ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .whisper-dot:hover .whisper-dot__text,
+        .whisper-dot:focus-visible .whisper-dot__text {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* Hit area — 32×32 min */
+        .whisper-dot::after {
+            content: '';
+            position: absolute;
+            top: -12px; left: -12px;
+            width: 32px; height: 32px;
+        }
+        @keyframes whisper-pulse {
+            0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
+            50% { box-shadow: 0 0 0 3px rgba(255,255,255,0.10); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .whisper-dot::before { animation: none; }
+        }
+
         /* ── Dashboard content ── */
         .dash-title {
             font-size: 28px;
@@ -390,6 +451,9 @@
                 <div class="right-content">
                     <div class="right-logo sw-brand-name">scopewright</div>
                     <div class="right-tagline sw-brand-tagline">Infrastructure d'estimation pour<br>ateliers d'&eacute;b&eacute;nisterie haut de gamme.</div>
+                    <button class="whisper-dot" onclick="window.location.href='calculateur.html'" title="Ouvrir l'assistant">
+                        <span class="whisper-dot__text">Assistant disponible</span>
+                    </button>
                 </div>
             </div>
         </div>

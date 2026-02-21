@@ -5091,7 +5091,7 @@
             if (editId) {
                 var item = catalogueData.find(function(i) { return i.id === editId; });
                 if (item && canEditCatalogue) {
-                    openEditModal(item);
+                    openEditModal(editId);
                 } else if (item) {
                     // Scroll to the item row
                     var row = document.querySelector('tr[data-id="' + CSS.escape(editId) + '"]');

@@ -14272,9 +14272,9 @@
             tauxHoraires.forEach(function(t) { totalMinutes += (deptMinutes[t.department] || 0); });
 
             // Render
-            var f = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $'; };
-            var fPct = function(v) { return v.toFixed(2) + ' %'; };
-            var fNum = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+            var f = function(v) { return Math.round(v).toLocaleString('fr-CA') + ' $'; };
+            var fPct = function(v) { return v.toFixed(1) + ' %'; };
+            var fNum = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
 
             var html = '';
 
@@ -14346,12 +14346,12 @@
             expenseCategories.forEach(function(c) {
                 var costVal = matCoutant[c.name] || 0;
                 if (costVal > 0) {
-                    html += '<tr><td>' + escapeHtml(c.name) + '</td><td style="color:#999;">' + escapeHtml(c.name) + '</td><td>' + f(costVal) + '</td></tr>';
+                    html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' + f(costVal) + '</td></tr>';
                     hasMatRows = true;
                 }
             });
-            if (!hasMatRows) html += '<tr><td>Aucun mat\u00e9riau</td><td style="color:#999;">Aucun mat\u00e9riau</td><td>' + f(0) + '</td></tr>';
-            html += '<tr class="total"><td>Total</td><td></td><td>' + f(totalMatCoutant) + '</td></tr>';
+            if (!hasMatRows) html += '<tr><td colspan="2" style="color:#999;">Aucun mat\u00e9riau</td></tr>';
+            html += '<tr class="total"><td>Total</td><td>' + f(totalMatCoutant) + '</td></tr>';
             html += '</table>';
             html += '</div>';
 

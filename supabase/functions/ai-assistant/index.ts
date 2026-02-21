@@ -130,6 +130,11 @@ Les articles du catalogue ont deux classifications :
 - **[Fab] fabrication** : ce qu'on fabrique (caisson, panneau, filler, moulure, comptoir). A des dimensions, des règles de calcul, du temps atelier.
 - **[Mat] materiau** : ce qu'on utilise pour fabriquer (plywood, mélamine, placage, quincaillerie, finition). A un prix unitaire (pi², pl, unité). Est consommé par les articles fabrication.
 
+## Dimensions (L×H×P)
+Les articles de type fabrication ont des dimensions en pouces : Largeur × Hauteur × Profondeur.
+Format dans le contexte : dims: {l: 24, h: 30, p: 24} signifie 24" large, 30" haut, 24" profond.
+Ces dimensions sont sur chaque instance (room_item), pas sur le catalogue.
+
 ## Articles par défaut de l'atelier
 Les articles marqués ★ (is_default = true) dans le catalogue sont les articles "go-to" de l'atelier.
 Quand tu suggères des articles :

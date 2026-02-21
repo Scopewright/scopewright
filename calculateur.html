@@ -904,6 +904,17 @@
         return rooms;
     }
 
+    function collectRowDims(row) {
+        var rowId = row.id;
+        var lEl = document.getElementById(rowId + '-dim-l');
+        if (!lEl) return null;
+        var l = parseFloat(lEl.value) || 0;
+        var h = parseFloat(document.getElementById(rowId + '-dim-h').value) || 0;
+        var p = parseFloat(document.getElementById(rowId + '-dim-p').value) || 0;
+        if (!l && !h && !p) return null;
+        return { l: l, h: h, p: p };
+    }
+
     function collectRoomDetail(groupId) {
         var group = document.getElementById(groupId);
         if (!group) return null;
@@ -931,7 +942,8 @@
                 var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
                 var lt = p * qty * (1 + m / 100);
                 subtotal += lt;
-                items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100 });
+                var ajoutDims = collectRowDims(row);
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                 if (item) {
@@ -939,13 +951,15 @@
                     var effPrice = composed !== null ? composed : (item.price || 0);
                     var lt2 = effPrice * qty;
                     subtotal += lt2;
+                    var catDims = collectRowDims(row);
                     items.push({
                         index: idx, tag: tag || null, type: 'catalogue', catalogueId: item.id,
                         description: item.description, itemType: item.type,
                         unitPrice: Math.round(effPrice * 100) / 100, qty: qty,
                         lineTotal: Math.round(lt2 * 100) / 100,
                         laborMinutes: item.labor_minutes || {},
-                        materialCosts: item.material_costs || {}
+                        materialCosts: item.material_costs || {},
+                        dims: catDims
                     });
                 }
             }
@@ -2143,7 +2157,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 140px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 8px 10px;
             background: transparent;
@@ -2175,7 +2189,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 140px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             align-items: center;
@@ -2296,6 +2310,28 @@
 
         .cell-type { text-align: center; }
         .cell-unit-price { text-align: right; }
+
+        .cell-dims {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        .cell-dims input {
+            width: 36px;
+            padding: 3px 2px;
+            font-size: 10px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            background: #fff;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        }
+        .cell-dims input:focus { border-color: var(--sw-navy); outline: none; }
+        .cell-dims input::placeholder { color: #d4d4d4; }
+        .cell-dims .dim-sep { color: #cbd5e1; font-size: 9px; }
+        .cell-dims.dims-hidden { justify-content: center; }
 
         /* Tooltip styles */
         .tooltip-container {
@@ -4633,7 +4669,7 @@
             .main-content { padding: 24px 16px; }
             .project-list-view { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 45px 1fr 70px 70px 90px 80px 24px 100px 24px;
+                grid-template-columns: 24px 45px 1fr 70px 70px 110px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -6661,6 +6697,7 @@
                     <span class="sortable" onclick="sortGroupRows('${groupId}','article')">Article<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center">Code</span>
                     <span class="col-center">Type</span>
+                    <span class="col-center">L&times;H&times;P</span>
                     <span class="col-right sortable" onclick="sortGroupRows('${groupId}','price')">Prix unit.<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center sortable" onclick="sortGroupRows('${groupId}','qty')">Quantit&eacute;<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center" title="Installation incluse">Inst.</span>
@@ -6775,6 +6812,7 @@
                 </div>
                 <div class="cell-code" id="${rowId}-code">—</div>
                 <div class="cell-type" id="${rowId}-type">—</div>
+                <div class="cell-dims dims-hidden" id="${rowId}-dims">&mdash;</div>
                 <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
                 <div class="cell-qty">
                     <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" onchange="updateRow('${rowId}')" oninput="updateRow('${rowId}')">
@@ -7438,6 +7476,43 @@
                 }
             }
 
+            // Dimensions L×H×P — conditionnel sur item_type === 'fabrication' ou mode ajout
+            var dimsEl = document.getElementById(rowId + '-dims');
+            if (dimsEl) {
+                var showDims = false;
+                if (selectedId === '__AJOUT__') {
+                    showDims = true;
+                } else if (selectedId && selectedId !== '__PROPOSER__') {
+                    var dimItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                    if (dimItem && dimItem.item_type === 'fabrication') showDims = true;
+                }
+
+                if (showDims) {
+                    if (dimsEl.classList.contains('dims-hidden')) {
+                        dimsEl.classList.remove('dims-hidden');
+                        var curL = dimsEl.dataset.l || '';
+                        var curH = dimsEl.dataset.h || '';
+                        var curP = dimsEl.dataset.p || '';
+                        dimsEl.innerHTML =
+                            '<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" onchange="updateRow(\'' + rowId + '\')">' +
+                            '<span class="dim-sep">\u00d7</span>' +
+                            '<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" onchange="updateRow(\'' + rowId + '\')">' +
+                            '<span class="dim-sep">\u00d7</span>' +
+                            '<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" onchange="updateRow(\'' + rowId + '\')">';
+                    }
+                } else {
+                    // Sauvegarder les valeurs dans dataset avant de détruire les inputs
+                    var lInput = document.getElementById(rowId + '-dim-l');
+                    if (lInput) {
+                        dimsEl.dataset.l = lInput.value;
+                        dimsEl.dataset.h = document.getElementById(rowId + '-dim-h').value;
+                        dimsEl.dataset.p = document.getElementById(rowId + '-dim-p').value;
+                    }
+                    dimsEl.classList.add('dims-hidden');
+                    dimsEl.innerHTML = '\u2014';
+                }
+            }
+
             const groupId = row.dataset.group;
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
@@ -7494,6 +7569,14 @@
             // Include tag
             var tagInput = document.getElementById(rowId + '-tag');
             if (tagInput) fields.tag = tagInput.value.trim() || null;
+
+            // Dimensions L/H/P
+            var dimL = document.getElementById(rowId + '-dim-l');
+            var dimH = document.getElementById(rowId + '-dim-h');
+            var dimP = document.getElementById(rowId + '-dim-p');
+            fields.length_in = dimL ? (parseFloat(dimL.value) || null) : null;
+            fields.height_in = dimH ? (parseFloat(dimH.value) || null) : null;
+            fields.depth_in = dimP ? (parseFloat(dimP.value) || null) : null;
 
             updateItem(itemMap[rowId], fields);
             showSaveIndicator();
@@ -12098,6 +12181,16 @@
                             if (item.tag) {
                                 var tagInput = document.getElementById(rowId + '-tag');
                                 if (tagInput) tagInput.value = item.tag;
+                            }
+
+                            // Restore dimensions L/H/P
+                            if (item.length_in || item.height_in || item.depth_in) {
+                                var dimsEl = document.getElementById(rowId + '-dims');
+                                if (dimsEl) {
+                                    dimsEl.dataset.l = item.length_in || '';
+                                    dimsEl.dataset.h = item.height_in || '';
+                                    dimsEl.dataset.p = item.depth_in || '';
+                                }
                             }
 
                             updateRow(rowId);

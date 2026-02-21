@@ -36,7 +36,11 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
     const { data, error } = await supabase
       .from("app_config")
       .select("key, value")
-      .in("key", ["ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr"]);
+      .in("key", [
+        "ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr",
+        "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
+        "ai_prompt_json_catalogue", "ai_prompt_description_calculateur"
+      ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
     for (const row of data) {
@@ -77,6 +81,83 @@ RÈGLES STRICTES :
 const TRANSLATE_SYSTEM = `You are a professional translator for Stele, a high-end custom cabinetry company. Translate French to English. Keep the same professional tone, be concise. If the text contains HTML tags, preserve ALL HTML tags and structure exactly — only translate the text content inside the tags.`;
 
 const TRANSLATE_EN_TO_FR_SYSTEM = `You are a professional translator for Scopewright, a premium estimation platform for high-end cabinetry and millwork shops. Translate English to French (Canadian French). Keep the same professional tone, be concise. Preserve any HTML tags exactly — only translate the text content.`;
+
+const CATALOGUE_CLIENT_TEXT_SYSTEM = `Tu es un rédacteur technique pour Stele, un atelier d'ébénisterie haut de gamme sur mesure.
+Tu reçois la description interne d'un article du catalogue et tu dois rédiger un fragment de texte de présentation client.
+
+RÈGLES :
+- Fragment de phrase (pas une phrase complète) — commence en minuscule, pas de point final
+- Ton professionnel et concis — pas de marketing, pas d'adjectifs superflus
+- Inclure les informations techniques pertinentes (matériau, finition, mécanisme)
+- Exemples : "placage de chêne blanc FC, laque au polyuréthane clair", "tiroirs Legrabox à fermeture douce"
+- Si le texte existant est fourni, corrige l'orthographe et améliore la clarté sans changer le sens
+- Retourne UNIQUEMENT le fragment, sans explication`;
+
+const CATALOGUE_EXPLICATION_SYSTEM = `Tu es un spécialiste en documentation technique pour Stele, atelier d'ébénisterie haut de gamme.
+Tu rédiges ou améliores l'explication technique (champ presentation_rule_human) d'un article du catalogue.
+
+RÔLE DE CE CHAMP :
+Ce texte explique à l'AI comment présenter cet article dans une description client de soumission.
+Il décrit l'ordre de mention, les préfixes, ce qu'il faut inclure ou exclure.
+
+FORMAT :
+- Phrases courtes et impératives
+- Exemples : "Le matériau apparaît en premier avec le préfixe 'en'.", "Ne pas mentionner les pattes ni la bande de chant au client."
+- Si du texte existe déjà, améliore la clarté et la structure sans inventer de contenu
+- Retourne UNIQUEMENT le texte d'explication, sans commentaire externe`;
+
+const CATALOGUE_JSON_SYSTEM = `Tu es un ingénieur de règles pour Scopewright, la plateforme d'estimation de Stele.
+Tu reçois l'explication en langage naturel (calculation_rule_human) d'un article du catalogue et tu dois générer la règle structurée JSON correspondante (calculation_rule_ai).
+
+FORMAT JSON ATTENDU :
+{
+  "cascade": [
+    { "target": "CODE-XXX", "qty": "formula or number", "condition": "optional" }
+  ],
+  "ask": ["dimension1", "dimension2"],
+  "notes": "optional notes for the AI"
+}
+
+RÈGLES :
+- "cascade" : articles auto-ajoutés quand cet article est sélectionné
+- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)")
+- "condition" : condition optionnelle (ex: "H > 24")
+- Les codes articles doivent correspondre à des codes existants du catalogue
+- Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
+const CALCULATEUR_DESCRIPTION_SYSTEM = `Tu es un rédacteur technique pour Stele, un atelier d'ébénisterie haut de gamme sur mesure au Québec.
+Tu rédiges ou améliores les descriptions client des pièces/meubles dans les soumissions.
+
+FORMAT HTML OBLIGATOIRE :
+- Chaque catégorie en <strong> suivi du texte : <p><strong>Caisson :</strong> ME1</p>
+- Catégories : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions
+- Détails : <p><strong>Détails :</strong></p> suivi de <ul><li>...</li></ul>
+- Exclusions : <p><strong>Exclusions :</strong> texte</p> — JAMAIS de puces
+- Uniquement <p>, <strong>, <ul>, <li> — pas de <h1-h3>, <div>, <html>
+
+MODE GÉNÉRATION (description vide) :
+- Analyse les articles de la pièce fournis en contexte
+- Utilise les client_text et presentation_rule des articles du catalogue
+- Assemble une description professionnelle et structurée
+
+MODE RÉVISION (description existante) :
+- Corrige orthographe, accents, pluriels, concordances
+- Améliore la structure et la clarté
+- Ne change PAS le sens ni n'invente de contenu
+
+Retourne UNIQUEMENT le HTML de la description, sans explication.`;
+
+// Prompt map for action → override key + default prompt
+const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
+  optimize:                { key: "ai_prompt_fiche_optimize", prompt: OPTIMIZE_SYSTEM },
+  translate:               { key: "ai_prompt_fiche_translate_fr_en", prompt: TRANSLATE_SYSTEM },
+  en_to_fr:                { key: "ai_prompt_fiche_translate_en_fr", prompt: TRANSLATE_EN_TO_FR_SYSTEM },
+  catalogue_client_text:   { key: "ai_prompt_client_text_catalogue", prompt: CATALOGUE_CLIENT_TEXT_SYSTEM },
+  catalogue_explication:   { key: "ai_prompt_explication_catalogue", prompt: CATALOGUE_EXPLICATION_SYSTEM },
+  catalogue_json:          { key: "ai_prompt_json_catalogue", prompt: CATALOGUE_JSON_SYSTEM },
+  calculateur_description: { key: "ai_prompt_description_calculateur", prompt: CALCULATEUR_DESCRIPTION_SYSTEM },
+};
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
@@ -135,12 +216,13 @@ serve(async (req) => {
 
     // Load prompt overrides from app_config (fallback to hardcoded defaults)
     const overrides = await loadPromptOverrides(supabase);
-    const systemPrompt =
-      action === "optimize"
-        ? (overrides["ai_prompt_fiche_optimize"] || OPTIMIZE_SYSTEM)
-        : action === "en_to_fr"
-        ? (overrides["ai_prompt_fiche_translate_en_fr"] || TRANSLATE_EN_TO_FR_SYSTEM)
-        : (overrides["ai_prompt_fiche_translate_fr_en"] || TRANSLATE_SYSTEM);
+    const mapping = PROMPT_MAP[action] || PROMPT_MAP.translate;
+    const systemPrompt = overrides[mapping.key] || mapping.prompt;
+
+    // Use Sonnet for JSON generation (structured reasoning), Haiku for the rest (speed)
+    const model = (action === "catalogue_json")
+      ? "claude-sonnet-4-20250514"
+      : "claude-haiku-4-5-20251001";
 
     const apiHeaders = {
       "Content-Type": "application/json",
@@ -155,13 +237,21 @@ serve(async (req) => {
           ? `Optimise ce texte. Retourne UNIQUEMENT le texte optimisé, sans explication, sans markdown :\n\n${nonEmpty[0].text}`
           : action === "en_to_fr"
           ? `Translate this English text to French (Canadian French). Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`
+          : action === "catalogue_client_text"
+          ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le fragment de texte client.`
+          : action === "catalogue_explication"
+          ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le texte d'explication.`
+          : action === "catalogue_json"
+          ? `Voici l'explication de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
+          : action === "calculateur_description"
+          ? nonEmpty[0].text
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       const resp = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: apiHeaders,
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
+          model: model,
           max_tokens: 4096,
           system: systemPrompt,
           messages: [{ role: "user", content: userMsg }],
@@ -206,7 +296,7 @@ serve(async (req) => {
       method: "POST",
       headers: apiHeaders,
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: model,
         max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: "user", content: userMsg }],

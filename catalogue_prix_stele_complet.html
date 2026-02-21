@@ -770,6 +770,23 @@
             border-color: var(--sw-navy) !important;
             transition: border-color 1.5s;
         }
+        .btn-ai-inline {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; font-size: 11px; font-family: inherit;
+            background: transparent; border: 1px solid #d1d5db; border-radius: 4px;
+            color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-ai-inline:hover { border-color: #0B1220; color: #0B1220; background: rgba(11,18,32,0.03); }
+        .btn-ai-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ai-inline .ai-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #0B1220; opacity: 0.6;
+            animation: aiBreathe 3s ease-in-out infinite;
+        }
+        @keyframes aiBreathe {
+            0%,100% { opacity:0.6; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.1); }
+        }
         .cp-section-title {
             font-size: 12px;
             font-weight: 600;
@@ -1763,13 +1780,23 @@
                 <!-- Présentation client (admin only) -->
                 <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
-                    <label class="form-label" style="margin-top:8px;">Texte</label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                        <label class="form-label" style="margin:0;">Texte</label>
+                        <button class="btn-ai-inline" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
+                            <span class="ai-dot"></span> Texte client
+                        </button>
+                    </div>
                     <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
                 </div>
                 <!-- Comment décrire au client (admin only) -->
                 <div class="form-group" id="presRuleGroup" style="display:none;">
                     <div class="cp-section-title">Comment d&eacute;crire au client</div>
-                    <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                        <label class="form-label" style="margin:0;">Explication</label>
+                        <button class="btn-ai-inline" id="btnAiExplication" onclick="aiCatalogueExplication()" title="Clarifier / structurer l'explication avec l'AI">
+                            <span class="ai-dot"></span> Explication
+                        </button>
+                    </div>
                     <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
                     <label class="form-label" style="margin-top:8px;">JSON</label>
                     <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
@@ -1780,7 +1807,12 @@
                     <label class="form-label" style="margin-top:8px;">Explication</label>
                     <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
                     <div class="calc-rule-error" id="calcRuleError"></div>
-                    <label class="form-label" style="margin-top:8px;">JSON</label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                        <label class="form-label" style="margin:0;">JSON</label>
+                        <button class="btn-ai-inline" id="btnAiJson" onclick="aiCatalogueJson()" title="G&eacute;n&eacute;rer le JSON depuis l'explication">
+                            <span class="ai-dot"></span> G&eacute;n&eacute;rer JSON
+                        </button>
+                    </div>
                     <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
@@ -4579,6 +4611,133 @@
             if (ciStreamEl) { if (ciStreamEl.parentNode) ciStreamEl.remove(); ciStreamEl = null; }
 
             return { content: contentBlocks, stop_reason: stopReason, usage: usage };
+        }
+
+        // ── Edge Function helper (translate/optimize/AI buttons) ──
+        async function callEdgeFunction(texts, action) {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texts: texts, action: action })
+            });
+            if (!resp.ok) {
+                var errText = await resp.text().catch(function() { return ''; });
+                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status + ': ' + errText.substring(0, 200)); }
+            }
+            var data = await resp.json();
+            if (!data.translations || Object.keys(data.translations).length === 0) {
+                throw new Error('Aucun résultat retourné par l\'AI');
+            }
+            return data.translations;
+        }
+
+        // ── AI button handlers for catalogue modal ──
+
+        async function aiCatalogueClientText() {
+            var btn = document.getElementById('btnAiClientText');
+            var input = document.getElementById('editClientText');
+            var descField = document.getElementById('editDescription');
+            var existingText = input.value.trim();
+            var articleDesc = descField ? descField.value.trim() : '';
+            var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
+            var prompt = 'Article : ' + articleDesc + '\nCatégorie : ' + category;
+            if (existingText) {
+                prompt += '\n\nTexte client actuel à améliorer :\n' + existingText;
+            } else {
+                prompt += '\n\nGénère un fragment de texte de présentation client pour cet article.';
+            }
+            btn.disabled = true;
+            var origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            try {
+                var results = await callEdgeFunction([{ key: 'ct', text: prompt }], 'catalogue_client_text');
+                if (results['ct']) input.value = results['ct'];
+            } catch (err) {
+                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+
+        async function aiCatalogueExplication() {
+            var btn = document.getElementById('btnAiExplication');
+            var textarea = document.getElementById('editPresRuleHuman');
+            var descField = document.getElementById('editDescription');
+            var clientText = document.getElementById('editClientText');
+            var existingText = textarea.value.trim();
+            var articleDesc = descField ? descField.value.trim() : '';
+            var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
+            var clientTextVal = clientText ? clientText.value.trim() : '';
+            var prompt = 'Article : ' + articleDesc + '\nCatégorie : ' + category;
+            if (clientTextVal) prompt += '\nTexte client : ' + clientTextVal;
+            if (existingText) {
+                prompt += '\n\nExplication actuelle à améliorer :\n' + existingText;
+            } else {
+                prompt += '\n\nGénère une explication technique pour cet article.';
+            }
+            btn.disabled = true;
+            var origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            try {
+                var results = await callEdgeFunction([{ key: 'ex', text: prompt }], 'catalogue_explication');
+                if (results['ex']) textarea.value = results['ex'];
+            } catch (err) {
+                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+
+        async function aiCatalogueJson() {
+            var btn = document.getElementById('btnAiJson');
+            var humanTextarea = document.getElementById('editCalcRuleHuman');
+            var jsonTextarea = document.getElementById('editCalcRuleAi');
+            var descField = document.getElementById('editDescription');
+            var errEl = document.getElementById('calcRuleError');
+            var humanText = humanTextarea.value.trim();
+            if (!humanText) {
+                errEl.textContent = 'Écrivez d\'abord l\'explication en langage naturel avant de générer le JSON.';
+                errEl.style.display = '';
+                humanTextarea.focus();
+                return;
+            }
+            var articleDesc = descField ? descField.value.trim() : '';
+            var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
+            var itemCode = document.getElementById('editCode') ? document.getElementById('editCode').value : '';
+            var prompt = 'Article : ' + itemCode + ' — ' + articleDesc;
+            prompt += '\nCatégorie : ' + category;
+            prompt += '\n\nExplication en langage naturel :\n' + humanText;
+            var existingJson = jsonTextarea.value.trim();
+            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            btn.disabled = true;
+            var origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            errEl.style.display = 'none';
+            try {
+                var results = await callEdgeFunction([{ key: 'js', text: prompt }], 'catalogue_json');
+                if (results['js']) {
+                    var jsonStr = results['js'].replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+                    try {
+                        var parsed = JSON.parse(jsonStr);
+                        jsonTextarea.value = JSON.stringify(parsed, null, 2);
+                        jsonTextarea.classList.add('calc-rule-success');
+                        setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
+                    } catch (e) {
+                        jsonTextarea.value = jsonStr;
+                        errEl.textContent = 'L\'AI a généré un JSON invalide. Vérifiez et corrigez manuellement : ' + e.message;
+                        errEl.style.display = '';
+                    }
+                }
+            } catch (err) {
+                errEl.textContent = 'Erreur AI : ' + (err.message || 'Erreur inconnue');
+                errEl.style.display = '';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
         }
 
         function ciSearchCatalogue(query) {

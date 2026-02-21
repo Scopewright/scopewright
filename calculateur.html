@@ -2935,6 +2935,23 @@
             background: #fafafa; color: #333; line-height: 1.5;
         }
         .client-desc-textarea:focus { outline: none; border-color: var(--sw-navy); background: #fff; }
+        .btn-ai-inline {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; font-size: 11px; font-family: inherit;
+            background: transparent; border: 1px solid #d1d5db; border-radius: 4px;
+            color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-ai-inline:hover { border-color: var(--sw-navy); color: var(--sw-navy); background: rgba(11,18,32,0.03); }
+        .btn-ai-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ai-inline .ai-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--sw-navy); opacity: 0.6;
+            animation: aiBreathe 3s ease-in-out infinite;
+        }
+        @keyframes aiBreathe {
+            0%,100% { opacity:0.6; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.1); }
+        }
 
         /* Toggle showInQuote sur images */
         .image-quote-toggle {
@@ -7108,7 +7125,12 @@
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="client-description-section">
-                    <label class="client-desc-label">Description client</label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <label class="client-desc-label" style="margin-bottom:0;">Description client</label>
+                        <button class="btn-ai-inline" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
+                            <span class="ai-dot"></span> AI
+                        </button>
+                    </div>
                     <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
                               placeholder="Description visible par le client pour cette pi&egrave;ce..."
                               rows="2"
@@ -10230,6 +10252,75 @@
                 throw new Error('Aucun résultat retourné par l\'AI');
             }
             return data.translations;
+        }
+
+        // ── AI Generate / Revise client description ──
+        async function aiGenerateDescription(groupId) {
+            var btn = document.getElementById(groupId + '-aiDesc');
+            if (!btn) return;
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+
+            var existingHTML = roomDescHTML[groupId] || '';
+            var existingText = textarea.value.trim();
+            var detail = collectRoomDetail(groupId);
+            if (!detail) return;
+
+            var prompt = '';
+            var itemLines = '';
+            detail.items.forEach(function(item) {
+                itemLines += '- ' + item.description + ' (x' + item.qty + ')';
+                if (item.catalogueId) {
+                    var catItem = CATALOGUE_DATA.find(function(c) { return c.id === item.catalogueId; });
+                    if (catItem && catItem.client_text) itemLines += ' [client: ' + catItem.client_text + ']';
+                    if (catItem && catItem.presentation_rule_human) itemLines += ' [règle: ' + catItem.presentation_rule_human + ']';
+                }
+                if (item.tag) itemLines += ' [tag: ' + item.tag + ']';
+                itemLines += '\n';
+            });
+            if (!itemLines) itemLines = '(aucun article)\n';
+
+            if (existingText || existingHTML) {
+                var textToRevise = existingHTML || existingText;
+                prompt = '<context>\nPièce : ' + detail.name + '\nArticles :\n' + itemLines + '</context>\n\n';
+                prompt += 'Révise et améliore cette description client existante :\n' + textToRevise;
+            } else {
+                prompt = '<context>\nPièce : ' + detail.name + '\n';
+                prompt += 'Installation incluse : ' + (detail.installationIncluded ? 'oui' : 'non') + '\n';
+                prompt += 'Articles :\n' + itemLines + '</context>\n\n';
+                prompt += 'Génère une description client complète pour cette pièce à partir des articles listés.';
+            }
+
+            btn.disabled = true;
+            var origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="ai-dot"></span> ...';
+
+            try {
+                var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description');
+                if (results['desc']) {
+                    var html = results['desc'];
+                    roomDescHTML[groupId] = html;
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = html;
+                    textarea.value = tmp.textContent || tmp.innerText || '';
+                    roomDescEN[groupId] = '';
+                    if (roomMap[groupId]) {
+                        authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ client_description: html, client_description_en: '' })
+                        });
+                    }
+                    showSaveIndicator();
+                }
+            } catch (err) {
+                var msg = err.message || '';
+                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
+                steleAlert(msg, 'Erreur AI');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+            }
         }
 
         // ── Collect all FR texts (useHtml=true sends HTML for translate, plain for optimize) ──

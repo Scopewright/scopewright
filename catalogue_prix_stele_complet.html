@@ -2109,6 +2109,8 @@
         var aiFilterCategory = null;
         var aiFilterStatus = null;
         var aiFilterStartsWith = null; // prefix filter (starts_with)
+        var aiFilterHasField = null; // has_field filter
+        var aiFilterMissingField = null; // missing_field filter
         var aiBatchCodes = null; // codes inserted by AI (batch animation)
         var selectedCategory = null; // null = all categories
 
@@ -2205,6 +2207,20 @@
                     var pfxMatch = (item.id || '').toLowerCase().startsWith(pfx)
                         || (item.description || '').toLowerCase().startsWith(pfx);
                     if (!pfxMatch) return;
+                }
+
+                // has_field / missing_field filters
+                if (aiFilterHasField) {
+                    var fv = item[aiFilterHasField];
+                    var hasIt = fv !== null && fv !== undefined && fv !== '' && fv !== 0;
+                    if (typeof fv === 'object' && fv !== null) hasIt = Object.keys(fv).length > 0;
+                    if (!hasIt) return;
+                }
+                if (aiFilterMissingField) {
+                    var mv = item[aiFilterMissingField];
+                    var missing = mv === null || mv === undefined || mv === '' || mv === 0;
+                    if (typeof mv === 'object' && mv !== null) missing = Object.keys(mv).length === 0;
+                    if (!missing) return;
                 }
 
                 if (activeCat) {
@@ -4512,16 +4528,22 @@
                 aiFilterCategory = null;
                 aiFilterStatus = null;
                 aiFilterStartsWith = null;
+                aiFilterHasField = null;
+                aiFilterMissingField = null;
                 catalogueSearchQuery = '';
                 catalogueSortCol = null;
                 document.getElementById('catalogueSearchInput').value = '';
                 removeAiFilterBadge();
             } else {
                 aiFilterActive = true;
-                aiFilterStartsWith = null; // reset prefix on new filter
+                aiFilterStartsWith = null;
+                aiFilterHasField = null;
+                aiFilterMissingField = null;
                 if (input.starts_with) {
                     aiFilterStartsWith = input.starts_with.toLowerCase();
                 }
+                if (input.has_field) aiFilterHasField = input.has_field;
+                if (input.missing_field) aiFilterMissingField = input.missing_field;
                 if (input.search) {
                     catalogueSearchQuery = input.search.toLowerCase();
                     document.getElementById('catalogueSearchInput').value = input.search;
@@ -4547,6 +4569,8 @@
             aiFilterCategory = null;
             aiFilterStatus = null;
             aiFilterStartsWith = null;
+            aiFilterHasField = null;
+            aiFilterMissingField = null;
             aiBatchCodes = null;
             catalogueSearchQuery = '';
             catalogueSortCol = null;

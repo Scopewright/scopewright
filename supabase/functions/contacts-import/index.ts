@@ -122,6 +122,7 @@ Quand l'utilisateur demande de chercher ou filtrer des contacts/entreprises dans
 - Ne liste PAS les résultats dans le chat
 - Réponds juste : "Filtré : 8 contacts affichés" ou "Entreprises de type Architecte affichées"
 - Pour "commence par A", "les contacts en M", "montre les B" → utilise starts_with (PAS search)
+- Pour "entreprises sans email", "contacts sans téléphone" → utilise missing_field. Pour "avec adresse", "qui ont un site web" → utilise has_field
 - Si l'utilisateur dit "montre tout" ou "enlève le filtre", utilise reset: true
 
 ## Format de réponse
@@ -332,6 +333,8 @@ const TOOLS = [
         starts_with: { type: "string", description: "Filtrer les noms qui commencent par cette lettre/préfixe (ex: 'A', 'Mar')" },
         tab: { type: "string", enum: ["contacts", "companies"], description: "Onglet à afficher" },
         company_type: { type: "string", description: "Filtrer les entreprises par type" },
+        has_field: { type: "string", enum: ["email", "phone", "address", "website", "notes"], description: "Garder les entrées où ce champ est rempli (non vide)" },
+        missing_field: { type: "string", enum: ["email", "phone", "address", "website", "notes"], description: "Garder les entrées où ce champ est vide/manquant" },
         reset: { type: "boolean", description: "Enlever les filtres AI" },
       },
     },

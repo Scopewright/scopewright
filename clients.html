@@ -696,6 +696,8 @@
     var ctAiFilterActive = false;
     var ctAiFilterCompanyType = null;
     var ctAiFilterStartsWith = null; // prefix filter (starts_with)
+    var ctAiFilterHasField = null; // has_field filter
+    var ctAiFilterMissingField = null; // missing_field filter
 
     var _steleDialogResolve = null;
     function steleDialogResolve(val) {
@@ -810,6 +812,15 @@
                 var lastName = (c.last_name || '').toLowerCase();
                 if (!name.startsWith(ctAiFilterStartsWith) && !lastName.startsWith(ctAiFilterStartsWith)) return false;
             }
+            // has_field / missing_field filters
+            if (ctAiFilterHasField) {
+                var fv = c[ctAiFilterHasField];
+                if (!fv || (typeof fv === 'string' && fv.trim() === '')) return false;
+            }
+            if (ctAiFilterMissingField) {
+                var mv = c[ctAiFilterMissingField];
+                if (mv && (typeof mv !== 'string' || mv.trim() !== '')) return false;
+            }
             if (!query) return true;
             var full = (c.first_name + ' ' + c.last_name + ' ' + (c.email || '') + ' ' + (c.phone || '')).toLowerCase();
             return full.indexOf(query) !== -1;
@@ -860,6 +871,15 @@
             // Prefix filter (starts_with)
             if (ctAiFilterStartsWith) {
                 if (!(co.name || '').toLowerCase().startsWith(ctAiFilterStartsWith)) return false;
+            }
+            // has_field / missing_field filters
+            if (ctAiFilterHasField) {
+                var fv = co[ctAiFilterHasField];
+                if (!fv || (typeof fv === 'string' && fv.trim() === '')) return false;
+            }
+            if (ctAiFilterMissingField) {
+                var mv = co[ctAiFilterMissingField];
+                if (mv && (typeof mv !== 'string' || mv.trim() !== '')) return false;
             }
             if (!query) return true;
             var full = (co.name + ' ' + (co.company_type || '') + ' ' + (co.email || '')).toLowerCase();
@@ -1737,6 +1757,8 @@
             ctAiFilterActive = false;
             ctAiFilterCompanyType = null;
             ctAiFilterStartsWith = null;
+            ctAiFilterHasField = null;
+            ctAiFilterMissingField = null;
             document.getElementById('searchContacts').value = '';
             document.getElementById('searchCompanies').value = '';
             document.getElementById('ctAiFilterBadge').style.display = 'none';
@@ -1745,9 +1767,13 @@
         } else {
             ctAiFilterActive = true;
             ctAiFilterStartsWith = null; // reset prefix on new filter
+            ctAiFilterHasField = null;
+            ctAiFilterMissingField = null;
             if (input.starts_with) {
                 ctAiFilterStartsWith = input.starts_with.toLowerCase();
             }
+            if (input.has_field) ctAiFilterHasField = input.has_field;
+            if (input.missing_field) ctAiFilterMissingField = input.missing_field;
             if (input.tab) switchTab(input.tab);
             if (input.search) {
                 var activeTab = document.getElementById('viewContacts').style.display !== 'none' ? 'contacts' : 'companies';
@@ -1776,6 +1802,8 @@
         ctAiFilterActive = false;
         ctAiFilterCompanyType = null;
         ctAiFilterStartsWith = null;
+        ctAiFilterHasField = null;
+        ctAiFilterMissingField = null;
         document.getElementById('searchContacts').value = '';
         document.getElementById('searchCompanies').value = '';
         document.getElementById('ctAiFilterBadge').style.display = 'none';

@@ -874,44 +874,39 @@
     // REFRESH AUTOMATIQUE DU TOKEN
     // ═══════════════════════════════════════════════════════════════════════
 
-    async function refreshAccessToken() {
-        var refreshToken = localStorage.getItem('sb_refresh_token');
-        if (!refreshToken) return false;
-        try {
-            var response = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-                body: JSON.stringify({ refresh_token: refreshToken })
-            });
-            if (!response.ok) return false;
-            var data = await response.json();
-            if (data.access_token) {
-                localStorage.setItem('sb_access_token', data.access_token);
-                localStorage.setItem('sb_refresh_token', data.refresh_token);
-                return true;
-            }
-            return false;
-        } catch (e) { return false; }
+    var _refreshPromise = null;
+    function isTokenExpiringSoon(token, bufferSec) {
+        if (!token) return true;
+        try { var p = JSON.parse(atob(token.split('.')[1])); return p.exp < (Date.now() / 1000 + (bufferSec || 300)); }
+        catch(e) { return true; }
     }
-
+    async function refreshAccessToken() {
+        if (_refreshPromise) return _refreshPromise;
+        _refreshPromise = (async function() {
+            var rt = localStorage.getItem('sb_refresh_token');
+            if (!rt) return false;
+            try {
+                var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+                    body: JSON.stringify({ refresh_token: rt })
+                });
+                if (!r.ok) return false;
+                var d = await r.json();
+                if (d.access_token) { localStorage.setItem('sb_access_token', d.access_token); localStorage.setItem('sb_refresh_token', d.refresh_token); return true; }
+                return false;
+            } catch(e) { return false; }
+        })();
+        var result = await _refreshPromise; _refreshPromise = null; return result;
+    }
     async function authenticatedFetch(url, options) {
-        var tok = localStorage.getItem('sb_access_token');
-        var headers = Object.assign({}, options.headers || {}, {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + tok
-        });
+        options = options || {};
+        var token = localStorage.getItem('sb_access_token');
+        if (isTokenExpiringSoon(token, 300)) { if (await refreshAccessToken()) token = localStorage.getItem('sb_access_token'); }
+        var headers = Object.assign({}, options.headers || {}, { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token });
         var resp = await fetch(url, Object.assign({}, options, { headers: headers }));
-        if (resp.status === 401) {
-            var refreshed = await refreshAccessToken();
-            if (refreshed) {
-                headers['Authorization'] = 'Bearer ' + localStorage.getItem('sb_access_token');
-                resp = await fetch(url, Object.assign({}, options, { headers: headers }));
-            } else {
-                localStorage.removeItem('sb_access_token');
-                localStorage.removeItem('sb_refresh_token');
-                window.location.href = 'login.html';
-                return resp;
-            }
+        if (resp.status === 401 || resp.status === 403) {
+            if (await refreshAccessToken()) { headers['Authorization'] = 'Bearer ' + localStorage.getItem('sb_access_token'); resp = await fetch(url, Object.assign({}, options, { headers: headers })); }
+            if (resp.status === 401 || resp.status === 403) { localStorage.removeItem('sb_access_token'); localStorage.removeItem('sb_refresh_token'); window.location.href = 'login.html'; }
         }
         return resp;
     }

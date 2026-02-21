@@ -4483,8 +4483,7 @@
                         _ciRetried401 = false;
                         return result;
                     }
-                    window.location.href = 'login.html';
-                    throw new Error('Session expir\u00e9e');
+                    throw new Error('Session expirée — veuillez vous reconnecter');
                 }
                 _ciRetried401 = false;
                 try {

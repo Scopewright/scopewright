@@ -1638,8 +1638,7 @@
                 if (await refreshAccessToken()) {
                     return callContactsImport(messages, context, 1);
                 }
-                window.location.href = 'login.html';
-                throw new Error('Session expir\u00e9e');
+                throw new Error('Session expirée — veuillez vous reconnecter');
             }
             // Auto-retry on 429 rate limit
             if ((resp.status === 429 || errText.indexOf('429') !== -1 || errText.indexOf('rate') !== -1) && retryCount < maxRetries) {

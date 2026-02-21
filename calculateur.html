@@ -6593,7 +6593,7 @@
             let currentCategory = '';
 
             const itemsWithPrice = CATALOGUE_DATA.filter(item =>
-                item.price !== null &&
+                (item.price !== null || item.labor_minutes || item.material_costs) &&
                 item.type !== '%' &&
                 item.in_calculator !== false
             ).sort((a, b) => (a.category || '').localeCompare(b.category || ''));

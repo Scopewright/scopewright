@@ -9,12 +9,12 @@ const corsHeaders = {
 };
 
 // Verify JWT via Supabase Auth (algorithm-agnostic, survives key rotations)
-async function verifyAuth(req: Request): Promise<Response | null> {
+async function verifyAuth(req: Request): Promise<{ supabase: any; error: Response | null }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+    return { supabase: null, error: new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }) };
   }
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -23,11 +23,31 @@ async function verifyAuth(req: Request): Promise<Response | null> {
   );
   const { error } = await supabase.auth.getUser();
   if (error) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+    return { supabase: null, error: new Response(JSON.stringify({ error: "Invalid or expired token" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }) };
   }
-  return null; // Auth OK
+  return { supabase, error: null };
+}
+
+// Load prompt overrides from app_config (fallback to hardcoded defaults if missing)
+async function loadPromptOverrides(supabase: any): Promise<Record<string, string>> {
+  try {
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr"]);
+    if (error || !data) return {};
+    const overrides: Record<string, string> = {};
+    for (const row of data) {
+      if (row.value && typeof row.value === "string" && row.value.trim()) {
+        overrides[row.key] = row.value;
+      }
+    }
+    return overrides;
+  } catch {
+    return {};
+  }
 }
 
 const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele pour des descriptions de meubles d'ébénisterie sur mesure. PAS de réécriture stylistique. Tu retournes du HTML formaté.
@@ -82,7 +102,7 @@ serve(async (req) => {
 
   try {
     // Verify JWT via Supabase Auth (not signature-based — survives key rotations)
-    const authErr = await verifyAuth(req);
+    const { supabase, error: authErr } = await verifyAuth(req);
     if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
@@ -113,10 +133,14 @@ serve(async (req) => {
       });
     }
 
+    // Load prompt overrides from app_config (fallback to hardcoded defaults)
+    const overrides = await loadPromptOverrides(supabase);
     const systemPrompt =
-      action === "optimize" ? OPTIMIZE_SYSTEM :
-      action === "en_to_fr" ? TRANSLATE_EN_TO_FR_SYSTEM :
-      TRANSLATE_SYSTEM;
+      action === "optimize"
+        ? (overrides["ai_prompt_fiche_optimize"] || OPTIMIZE_SYSTEM)
+        : action === "en_to_fr"
+        ? (overrides["ai_prompt_fiche_translate_en_fr"] || TRANSLATE_EN_TO_FR_SYSTEM)
+        : (overrides["ai_prompt_fiche_translate_fr_en"] || TRANSLATE_SYSTEM);
 
     const apiHeaders = {
       "Content-Type": "application/json",

@@ -275,6 +275,61 @@
         }
         .ai-row-animate { animation: fadeSlideIn 200ms ease-out both; }
 
+        /* ═══ AI insertion animations ═══ */
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-overlay.anim-enter { animation: modalFadeIn 120ms ease-out; }
+
+        @keyframes fieldReveal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .field-reveal { animation: fieldReveal 200ms ease-out both; }
+
+        .modal-progress {
+            position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: transparent; overflow: hidden; border-radius: 8px 8px 0 0;
+            pointer-events: none; z-index: 1;
+        }
+        .modal-progress-bar {
+            height: 100%; width: 0; background: rgba(0,0,0,0.08);
+            transition: width 100ms ease-out;
+        }
+        .modal-progress-bar.done {
+            opacity: 0; transition: opacity 400ms ease-out;
+        }
+
+        @keyframes savePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        .btn-generate.pulse { animation: savePulse 180ms ease-out; }
+
+        .ai-batch-row {
+            opacity: 0; transform: translateY(4px);
+            animation: batchSlideIn 140ms ease-out both;
+        }
+        @keyframes batchSlideIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .ai-batch-restore {
+            display: inline-block; margin: 12px 0 0 16px;
+            font-size: 12px; color: var(--sw-text-2); cursor: pointer;
+            opacity: 0.6; transition: opacity 150ms ease;
+        }
+        .ai-batch-restore:hover { opacity: 1; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .modal-overlay.anim-enter,
+            .field-reveal,
+            .btn-generate.pulse,
+            .ai-batch-row { animation: none !important; opacity: 1; transform: none; }
+        }
+
         /* Sortable column headers */
         .price-table th.sortable {
             cursor: pointer; user-select: none; position: relative;
@@ -1190,6 +1245,7 @@
             width: 100%;
             max-width: 450px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
         }
 
         .modal-header {
@@ -1610,6 +1666,9 @@
     <!-- Modal Édition catalogue -->
     <div class="modal-overlay" id="editModal">
         <div class="modal modal-edit">
+            <div class="modal-progress" id="editModalProgress">
+                <div class="modal-progress-bar" id="editModalProgressBar"></div>
+            </div>
             <div class="modal-header">
                 <h3 class="modal-title">Modifier l'article</h3>
                 <div class="modal-nav">
@@ -2037,6 +2096,7 @@
         var aiFilterActive = false;
         var aiFilterCategory = null;
         var aiFilterStatus = null;
+        var aiBatchCodes = null; // codes inserted by AI (batch animation)
         var selectedCategory = null; // null = all categories
 
         function filterCatalogueSearch() {
@@ -2135,6 +2195,11 @@
                     if (itemStatus !== aiFilterStatus) return;
                 }
 
+                // Batch mode: only show newly inserted items
+                if (aiBatchCodes && aiBatchCodes.length > 0) {
+                    if (aiBatchCodes.indexOf(item.id) === -1) return;
+                }
+
                 if (!grouped[item.category]) {
                     grouped[item.category] = [];
                     categoryOrder.push(item.category);
@@ -2211,8 +2276,29 @@
             html += '</tbody>';
             document.getElementById('mainCatalogueTable').innerHTML = html;
 
-            // Stagger animation on rows if AI filter is active
-            if (aiFilterActive) {
+            // Stagger animation on rows
+            if (aiBatchCodes && aiBatchCodes.length > 0) {
+                // Batch mode: cascade animation + restore link
+                var batchRows = document.querySelectorAll('#mainCatalogueTable tbody tr:not(.cat-group-row)');
+                batchRows.forEach(function(row, i) {
+                    row.classList.add('ai-batch-row');
+                    row.style.animationDelay = (i * 70) + 'ms';
+                });
+                // Remove existing restore link if any
+                var existing = document.querySelector('.ai-batch-restore');
+                if (existing) existing.remove();
+                // Add restore link
+                var restoreLink = document.createElement('div');
+                restoreLink.className = 'ai-batch-restore';
+                restoreLink.textContent = 'Voir tout le catalogue';
+                restoreLink.onclick = function() {
+                    aiBatchCodes = null;
+                    aiFilterActive = false;
+                    removeAiFilterBadge();
+                    generatePriceTables();
+                };
+                document.getElementById('mainCatalogueTable').after(restoreLink);
+            } else if (aiFilterActive) {
                 var allRows = document.querySelectorAll('#mainCatalogueTable tbody tr:not(.cat-group-row)');
                 allRows.forEach(function(row, i) {
                     row.classList.add('ai-row-animate');
@@ -2901,10 +2987,140 @@
 
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
+            document.getElementById('editModal').classList.remove('anim-enter');
             editMedia = [];
             editMediaToDelete = [];
             isNewItem = false;
             newItemData = null;
+        }
+
+        // ═══ Animated modal open (AI unit insert) ═══
+        function openEditModalAnimated(itemCode) {
+            var item = CATALOGUE_DATA.find(function(i) { return i.id === itemCode; });
+            if (!item) { openEditModal(itemCode); return; }
+
+            var modal = document.getElementById('editModal');
+            var progressBar = document.getElementById('editModalProgressBar');
+
+            // Reset progress bar
+            progressBar.classList.remove('done');
+            progressBar.style.width = '0%';
+
+            // Clear all fields
+            document.getElementById('editItemId').value = '';
+            document.getElementById('editCode').value = '';
+            document.getElementById('editDescription').value = '';
+            document.getElementById('editPrice').value = '';
+            document.getElementById('editPriceDisplay').textContent = '';
+            document.getElementById('editInstruction').value = '';
+            document.getElementById('editClientText').value = '';
+
+            // Open modal with fade animation
+            modal.classList.add('anim-enter');
+            modal.classList.add('active');
+
+            // Field reveal sequence with stagger
+            var fields = [
+                { el: 'editCode', value: item.id, pct: 20 },
+                { el: 'editDescription', value: item.description, pct: 40 },
+                { el: 'editType', value: item.type, pct: 55, isSelect: true },
+                { el: 'editPrice', value: item.price != null ? item.price : '', pct: 70 },
+                { el: 'editClientText', value: item.client_text || '', pct: 85 },
+                { el: 'editInstruction', value: item.instruction || '', pct: 100 }
+            ];
+
+            // Populate selects first (no animation on them)
+            var catSelect = document.getElementById('editCategory');
+            var cats = new Set(configCategories);
+            CATALOGUE_DATA.forEach(function(i) { if (i.category) cats.add(i.category); });
+            if (item.category && !cats.has(item.category)) cats.add(item.category);
+            catSelect.innerHTML = Array.from(cats).map(function(c) { return '<option value="' + c.replace(/"/g, '&quot;') + '">' + c + '</option>'; }).join('');
+            catSelect.value = item.category;
+            catSelect.disabled = false;
+
+            var typeSelect = document.getElementById('editType');
+            var types = new Set(['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%']);
+            CATALOGUE_DATA.forEach(function(i) { if (i.type) types.add(i.type); });
+            if (item.type && !types.has(item.type)) types.add(item.type);
+            typeSelect.innerHTML = Array.from(types).map(function(t) { return '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>'; }).join('');
+
+            document.getElementById('editItemId').value = item.id;
+            document.getElementById('editInCalculator').checked = item.in_calculator !== false;
+            document.getElementById('editIsDefault').checked = item.is_default === true;
+            document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
+            toggleSalesSheetBtn();
+
+            // Client text + calc rules visibility
+            document.getElementById('clientTextGroup').style.display = isAdmin ? '' : 'none';
+            document.getElementById('calcRuleGroup').style.display = isAdmin ? '' : 'none';
+            document.getElementById('presRuleGroup').style.display = isAdmin ? '' : 'none';
+            document.getElementById('calcRuleError').style.display = 'none';
+
+            // Navigation
+            if (navItemList.length === 0) buildNavList();
+            updateNavButtons(item.id);
+
+            // Reset status
+            var status = document.getElementById('editStatus');
+            status.className = 'edit-status';
+            status.style.display = 'none';
+
+            // Composed tables + components + media (async, no animation)
+            renderComposedTables(item);
+            loadComponents(item.id);
+            loadSupplierCompanies();
+            editMedia = [];
+            editMediaToDelete = [];
+            (async function() {
+                try {
+                    var mResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media?catalogue_item_id=eq.' + encodeURIComponent(item.id) + '&order=sort_order&select=id,file_url,file_type,tags', {});
+                    if (mResp.ok) {
+                        var existing = await mResp.json();
+                        editMedia = existing.map(function(m) {
+                            return { id: m.id, file_url: m.file_url, file_type: m.file_type || 'image', tags: m.tags || [], isNew: false };
+                        });
+                    }
+                } catch (e) {}
+                renderEditMedia();
+            })();
+
+            // Staggered field reveal
+            fields.forEach(function(f, i) {
+                setTimeout(function() {
+                    var el = document.getElementById(f.el);
+                    if (!el) return;
+                    if (f.isSelect) {
+                        el.value = f.value;
+                    } else {
+                        el.value = f.value;
+                    }
+                    if (f.el === 'editPrice') {
+                        document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
+                    }
+                    // Add reveal animation to parent form-group
+                    var fg = el.closest('.form-group') || el.closest('.edit-row');
+                    if (fg) {
+                        fg.classList.add('field-reveal');
+                        fg.style.animationDelay = '0ms';
+                    }
+                    // Update progress bar
+                    progressBar.style.width = f.pct + '%';
+
+                    // Final step: pulse save button + fade progress
+                    if (f.pct === 100) {
+                        setTimeout(function() {
+                            progressBar.classList.add('done');
+                            var saveBtn = document.getElementById('btnEditSave');
+                            if (saveBtn) {
+                                saveBtn.classList.add('pulse');
+                                setTimeout(function() { saveBtn.classList.remove('pulse'); }, 200);
+                            }
+                        }, 150);
+                    }
+                }, i * 110);
+            });
+
+            document.querySelector('.modal-body').scrollTop = 0;
         }
 
         async function deleteItem() {
@@ -4304,9 +4520,13 @@
             aiFilterActive = false;
             aiFilterCategory = null;
             aiFilterStatus = null;
+            aiBatchCodes = null;
             catalogueSearchQuery = '';
             catalogueSortCol = null;
             document.getElementById('catalogueSearchInput').value = '';
+            // Remove batch restore link if present
+            var restoreLink = document.querySelector('.ai-batch-restore');
+            if (restoreLink) restoreLink.remove();
             removeAiFilterBadge();
             generatePriceTables();
         }
@@ -4523,9 +4743,33 @@
                 actionsDiv.innerHTML = '<span class="ci-confirm-applied">\u2713 ' + msg + '</span>';
             }
 
-            // Refresh display
+            // Collect created codes for animation dispatch
+            var createdCodes = results
+                .filter(function(r) { return r.action === 'created' && r.success; })
+                .map(function(r) { return r.code; });
+
+            if (createdCodes.length === 1) {
+                // UNIT MODE — open animated modal
+                generatePriceTables();
+                updatePendingBadge();
+                openEditModalAnimated(createdCodes[0]);
+            } else if (createdCodes.length > 1) {
+                // BATCH MODE — show only new items with cascade
+                ciShowBatchInsert(createdCodes);
+            } else {
+                // No creation (updates/deletes only)
+                generatePriceTables();
+                updatePendingBadge();
+            }
+        }
+
+        // ═══ Batch insert mode (2+ articles) ═══
+        function ciShowBatchInsert(codes) {
+            aiBatchCodes = codes;
+            aiFilterActive = true;
             generatePriceTables();
             updatePendingBadge();
+            showAiFilterBadge();
         }
 
         async function executeCiTool(name, input) {

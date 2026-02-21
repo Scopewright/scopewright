@@ -125,6 +125,11 @@ Exemples :
 Si un article n'a pas de client_text, utilise sa description du catalogue reformulée pour le client.
 Les fragments sont en minuscule sans point final — c'est toi qui assembles la phrase complète.
 
+## Classification des articles
+Les articles du catalogue ont deux classifications :
+- **[Fab] fabrication** : ce qu'on fabrique (caisson, panneau, filler, moulure, comptoir). A des dimensions, des règles de calcul, du temps atelier.
+- **[Mat] materiau** : ce qu'on utilise pour fabriquer (plywood, mélamine, placage, quincaillerie, finition). A un prix unitaire (pi², pl, unité). Est consommé par les articles fabrication.
+
 ## Articles par défaut de l'atelier
 Les articles marqués ★ (is_default = true) dans le catalogue sont les articles "go-to" de l'atelier.
 Quand tu suggères des articles :

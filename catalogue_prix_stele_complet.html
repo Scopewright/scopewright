@@ -1618,6 +1618,23 @@
             cursor: pointer; transition: background 0.15s;
         }
         .item-pending-badge:hover { background: #E8F5E9; color: #2E7D32; }
+        .item-type-badge {
+            display: inline-block; font-size: 9px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 1px 5px; border-radius: 3px; margin-left: 6px;
+            vertical-align: middle;
+        }
+        .item-type-badge.fab { background: #EEF2FF; color: #4338CA; }
+        .item-type-badge.mat { background: #FEF3C7; color: #92400E; }
+        .cat-filter-btn {
+            font-size: 10px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 3px 10px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            background: #fff; color: #888; cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .cat-filter-btn:hover { border-color: #999; color: #555; }
+        .cat-filter-btn.active { background: var(--stele-black); color: #fff; border-color: var(--stele-black); }
         .nav-filter-btn.pending-active { background: #E65100; color: #fff; }
         /* ai-assistant-btn: styles in scopewright-tokens.css */
         .ai-assistant-btn {
@@ -1667,6 +1684,8 @@
     <!-- Titre + dropdown catégorie + table unique -->
     <div class="catalogue-header-bar no-print">
         <h2 class="catalogue-title">Catalogue</h2>
+        <button class="cat-filter-btn" id="filterFabBtn" onclick="toggleItemTypeFilter('fabrication')">Fab</button>
+        <button class="cat-filter-btn" id="filterMatBtn" onclick="toggleItemTypeFilter('materiau')">Mat</button>
         <div class="catalogue-cat-dropdown" id="catDropdownTrigger" onclick="openCatDropdown(event)">
             <span id="catDropdownLabel">Toutes les cat&eacute;gories</span>
             <span class="cat-dd-chevron">&#9662;</span>
@@ -1698,6 +1717,14 @@
                     <div class="form-group">
                         <label class="form-label">Cat&eacute;gorie</label>
                         <select class="form-input" id="editCategory"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Classification</label>
+                        <select class="form-input" id="editItemType">
+                            <option value="">&mdash; Non class&eacute; &mdash;</option>
+                            <option value="fabrication">Fabrication</option>
+                            <option value="materiau">Mat&eacute;riau</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -2111,8 +2138,20 @@
         var aiFilterStartsWith = null; // prefix filter (starts_with)
         var aiFilterHasField = null; // has_field filter
         var aiFilterMissingField = null; // missing_field filter
+        var aiFilterItemType = null; // 'fabrication' or 'materiau'
         var aiBatchCodes = null; // codes inserted by AI (batch animation)
         var selectedCategory = null; // null = all categories
+
+        function toggleItemTypeFilter(type) {
+            if (aiFilterItemType === type) {
+                aiFilterItemType = null;
+            } else {
+                aiFilterItemType = type;
+            }
+            document.getElementById('filterFabBtn').classList.toggle('active', aiFilterItemType === 'fabrication');
+            document.getElementById('filterMatBtn').classList.toggle('active', aiFilterItemType === 'materiau');
+            generatePriceTables();
+        }
 
         function filterCatalogueSearch() {
             var input = document.getElementById('catalogueSearchInput');
@@ -2232,6 +2271,11 @@
                     if (itemStatus !== aiFilterStatus) return;
                 }
 
+                // item_type filter (fabrication/materiau)
+                if (aiFilterItemType) {
+                    if ((item.item_type || '') !== aiFilterItemType) return;
+                }
+
                 // Batch mode: only show newly inserted items
                 if (aiBatchCodes && aiBatchCodes.length > 0) {
                     if (aiBatchCodes.indexOf(item.id) === -1) return;
@@ -2285,9 +2329,13 @@
                         : '';
                     var tooltipClass = item.image_url ? 'tooltip has-image' : 'tooltip';
 
+                    var typeBadge = '';
+                    if (item.item_type === 'fabrication') typeBadge = '<span class="item-type-badge fab">Fab</span>';
+                    else if (item.item_type === 'materiau') typeBadge = '<span class="item-type-badge mat">Mat</span>';
+
                     html += '<tr data-item-id="' + escapeAttr(item.id) + '">' +
                         '<td><span class="tooltip-container tooltip-table">' +
-                            escapeHtml(item.id) +
+                            escapeHtml(item.id) + typeBadge +
                             '<div class="' + tooltipClass + '">' + imgHtml +
                                 '<div class="tooltip-title">' + escapeHtml(item.description) + '</div>' +
                                 '<div class="tooltip-text">' + escapeHtml(item.instruction || '') + '</div>' +
@@ -2477,7 +2525,7 @@
                 var statusFilter = canEditCatalogue
                     ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
                     : '&or=(status.eq.approved,status.is.null)';
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by' + statusFilter + '&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -2931,6 +2979,7 @@
             document.getElementById('editCode').value = item.id;
             document.getElementById('editCategory').value = item.category;
             catSelect.disabled = !isNewItem;
+            document.getElementById('editItemType').value = item.item_type || '';
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
@@ -3806,6 +3855,7 @@
 
                 const payload = {
                     category: document.getElementById('editCategory').value,
+                    item_type: document.getElementById('editItemType').value || null,
                     description: document.getElementById('editDescription').value,
                     type: document.getElementById('editType').value,
                     price: priceVal !== '' ? parseFloat(priceVal) : null,
@@ -4530,20 +4580,29 @@
                 aiFilterStartsWith = null;
                 aiFilterHasField = null;
                 aiFilterMissingField = null;
+                aiFilterItemType = null;
                 catalogueSearchQuery = '';
                 catalogueSortCol = null;
                 document.getElementById('catalogueSearchInput').value = '';
+                document.getElementById('filterFabBtn').classList.remove('active');
+                document.getElementById('filterMatBtn').classList.remove('active');
                 removeAiFilterBadge();
             } else {
                 aiFilterActive = true;
                 aiFilterStartsWith = null;
                 aiFilterHasField = null;
                 aiFilterMissingField = null;
+                aiFilterItemType = null;
                 if (input.starts_with) {
                     aiFilterStartsWith = input.starts_with.toLowerCase();
                 }
                 if (input.has_field) aiFilterHasField = input.has_field;
                 if (input.missing_field) aiFilterMissingField = input.missing_field;
+                if (input.item_type) {
+                    aiFilterItemType = input.item_type;
+                    document.getElementById('filterFabBtn').classList.toggle('active', aiFilterItemType === 'fabrication');
+                    document.getElementById('filterMatBtn').classList.toggle('active', aiFilterItemType === 'materiau');
+                }
                 if (input.search) {
                     catalogueSearchQuery = input.search.toLowerCase();
                     document.getElementById('catalogueSearchInput').value = input.search;
@@ -4571,10 +4630,13 @@
             aiFilterStartsWith = null;
             aiFilterHasField = null;
             aiFilterMissingField = null;
+            aiFilterItemType = null;
             aiBatchCodes = null;
             catalogueSearchQuery = '';
             catalogueSortCol = null;
             document.getElementById('catalogueSearchInput').value = '';
+            document.getElementById('filterFabBtn').classList.remove('active');
+            document.getElementById('filterMatBtn').classList.remove('active');
             // Remove batch restore link if present
             var restoreLink = document.querySelector('.ai-batch-restore');
             if (restoreLink) restoreLink.remove();
@@ -4833,6 +4895,7 @@
                     var payload = {
                         id: input.code,
                         category: input.category,
+                        item_type: input.item_type || null,
                         description: input.description,
                         type: input.unit_type,
                         instruction: input.instruction || null,

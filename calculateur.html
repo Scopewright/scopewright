@@ -1057,7 +1057,8 @@
             if (!item.in_calculator) return;
             var cat = item.category || 'Autre';
             if (!cats[cat]) cats[cat] = [];
-            var line = (item.is_default ? '\u2605 ' : '') + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
+            var typeTag = item.item_type === 'fabrication' ? '[Fab] ' : item.item_type === 'materiau' ? '[Mat] ' : '';
+            var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
             if (item.client_text) line += ' \u2192 client: "' + item.client_text + '"';
             cats[cat].push(line);
         });

@@ -138,7 +138,21 @@ Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains art
 - Pour les articles en attente d'approbation : utilise filter_catalogue avec status: "pending"
 - Pour "commence par X", "les articles en B", "montre les M" → utilise starts_with (PAS search)
 - Pour "articles sans prix", "sans texte client" → utilise missing_field. Pour "articles avec image", "qui ont un fournisseur" → utilise has_field
-- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"}), "qui commence par B" → filter_catalogue({starts_with: "B"}), "articles sans texte client" → filter_catalogue({missing_field: "client_text"}), "avec image" → filter_catalogue({has_field: "image_url"})
+- Exemples : "montre les articles en attente" → filter_catalogue({status: "pending"}), "les tiroirs" → filter_catalogue({search: "tiroir"}), "qui commence par B" → filter_catalogue({starts_with: "B"}), "articles sans texte client" → filter_catalogue({missing_field: "client_text"}), "avec image" → filter_catalogue({has_field: "image_url"}), "les matériaux" → filter_catalogue({item_type: "materiau"})
+
+## Classification des articles
+Chaque article est classé :
+- **fabrication** : ce qu'on fabrique (caisson, panneau, filler, moulure, comptoir). A des dimensions, des règles de calcul, du temps atelier.
+- **materiau** : ce qu'on utilise pour fabriquer (plywood, mélamine, placage, quincaillerie, finition). A un prix unitaire (pi², pl, unité). Est consommé par les articles fabrication.
+
+Toujours classifier les nouveaux articles. Exemples :
+- Caisson base 24" → fabrication
+- Panneau MDF ¾" → materiau
+- Moulure couronne → fabrication
+- Charnière Blum → materiau
+- Finition polyuréthane → materiau
+- Comptoir → fabrication
+- Placage noyer → materiau
 
 ## Format de réponse
 - Quand tu listes des articles (hors filtrage), utilise TOUJOURS le format tableau markdown avec colonnes Code, Description, Prix
@@ -298,6 +312,7 @@ const TOOLS = [
       properties: {
         code: { type: "string", description: "Code article (ex: TIR-001). Généré auto si non fourni." },
         category: { type: "string", description: "Catégorie du catalogue" },
+        item_type: { type: "string", enum: ["fabrication", "materiau"], description: "Classification: fabrication (ce qu'on fabrique) ou materiau (ce qu'on utilise pour fabriquer)" },
         description: { type: "string", description: "Nom/description de l'article" },
         unit_type: { type: "string", description: "Type d'unité : pi², unitaire, linéaire, %" },
         instruction: { type: "string", description: "Notes internes pour l'estimateur (optionnel)" },
@@ -346,6 +361,7 @@ const TOOLS = [
           properties: {
             description: { type: "string" },
             category: { type: "string" },
+            item_type: { type: "string", enum: ["fabrication", "materiau"] },
             unit_type: { type: "string" },
             instruction: { type: "string" },
             client_text: { type: "string" },
@@ -382,6 +398,7 @@ const TOOLS = [
         starts_with: { type: "string", description: "Filtrer les articles dont le code OU la description commence par cette lettre/préfixe (ex: 'A', 'BUD')" },
         category: { type: "string", description: "Filtrer par catégorie exacte" },
         status: { type: "string", enum: ["pending", "approved"], description: "Filtrer par statut d'approbation" },
+        item_type: { type: "string", enum: ["fabrication", "materiau"], description: "Filtrer par classification (fabrication = ce qu'on fabrique, materiau = ce qu'on utilise)" },
         has_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name"], description: "Garder les articles où ce champ est rempli (non vide/non null)" },
         missing_field: { type: "string", enum: ["price", "client_text", "instruction", "image_url", "labor_minutes", "material_costs", "supplier_name"], description: "Garder les articles où ce champ est vide/null/0" },
         sort_by: { type: "string", enum: ["code", "description", "type", "price"], description: "Colonne de tri" },

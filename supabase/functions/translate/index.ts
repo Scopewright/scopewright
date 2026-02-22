@@ -30,6 +30,21 @@ async function verifyAuth(req: Request): Promise<{ supabase: any; error: Respons
   return { supabase, error: null };
 }
 
+// Load organizational learnings from ai_learnings table
+async function loadLearnings(supabase: any): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("ai_learnings")
+      .select("rule")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    return (data || []).map((r: any) => r.rule);
+  } catch {
+    return [];
+  }
+}
+
 // Load prompt overrides from app_config (fallback to hardcoded defaults if missing)
 async function loadPromptOverrides(supabase: any): Promise<Record<string, string>> {
   try {
@@ -323,10 +338,18 @@ serve(async (req) => {
       });
     }
 
-    // Load prompt overrides from app_config (fallback to hardcoded defaults)
-    const overrides = await loadPromptOverrides(supabase);
+    // Load prompt overrides + learnings in parallel
+    const [overrides, learnings] = await Promise.all([
+      loadPromptOverrides(supabase),
+      loadLearnings(supabase),
+    ]);
     const mapping = PROMPT_MAP[action] || PROMPT_MAP.translate;
-    const systemPrompt = overrides[mapping.key] || mapping.prompt;
+    let systemPrompt = overrides[mapping.key] || mapping.prompt;
+    // Inject organizational learnings
+    if (learnings.length > 0) {
+      systemPrompt += "\n\nRègles apprises de cette organisation (à respecter) :\n"
+        + learnings.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n");
+    }
 
     // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
     const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components"];

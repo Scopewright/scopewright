@@ -135,8 +135,28 @@ Quand l'utilisateur demande de chercher ou filtrer des contacts/entreprises dans
 - "J'ai trouvé 8 contacts et 3 nouvelles entreprises :"
 - Si pas clair, demande UNE question précise
 
+## Mémoire organisationnelle
+Si l'utilisateur te corrige ou t'apprend quelque chose de spécifique à son organisation, propose de l'enregistrer comme règle permanente :
+"Je note : [résumé de la règle]. Enregistrer pour le futur ?"
+Après confirmation, appelle le tool save_learning.
+
 ## Langue
 Réponds en français canadien. Ton professionnel mais naturel.`;
+
+// Load organizational learnings from ai_learnings table
+async function loadLearnings(supabase: any): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("ai_learnings")
+      .select("rule")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    return (data || []).map((r: any) => r.rule);
+  } catch {
+    return [];
+  }
+}
 
 // Load single prompt override from app_config
 async function loadPromptOverride(supabase: any): Promise<string | null> {
@@ -156,7 +176,7 @@ async function loadPromptOverride(supabase: any): Promise<string | null> {
   }
 }
 
-function buildSystemPrompt(context: any, staticOverride: string | null): string {
+function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = []): string {
   const staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
   const contactCount = context.contactCount || (context.contacts || []).length;
@@ -164,7 +184,7 @@ function buildSystemPrompt(context: any, staticOverride: string | null): string 
   const companyTypesStr = (context.companyTypes || []).join(", ");
   const contactRolesStr = (context.contactRoles || []).join(", ");
 
-  const dynamicContext = `
+  let dynamicContext = `
 
 ## Base de données actuelle
 - ${contactCount} contacts
@@ -175,6 +195,11 @@ ${companyTypesStr || 'Aucun configuré'}
 
 ## Rôles de contacts configurés
 ${contactRolesStr || 'Aucun configuré'}`;
+
+  if (learnings.length > 0) {
+    dynamicContext += "\n\n## Règles apprises de cette organisation\nCes règles ont été établies par des utilisateurs et DOIVENT être respectées :\n"
+      + learnings.map((r, i) => `${i + 1}. ${r}`).join("\n");
+  }
 
   return staticPrompt + dynamicContext;
 }
@@ -339,6 +364,20 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "save_learning",
+    description:
+      "Enregistre une règle organisationnelle apprise d'une correction utilisateur. N'APPELER QUE APRÈS confirmation explicite.",
+    input_schema: {
+      type: "object",
+      properties: {
+        rule: { type: "string", description: "La règle résumée, claire et concise" },
+        source_context: { type: "string", enum: ["estimateur", "approbation", "contacts", "catalogue", "general"], description: "L'assistant source" },
+        example: { type: "string", description: "L'échange original résumé" },
+      },
+      required: ["rule"],
+    },
+  },
 ];
 
 serve(async (req) => {
@@ -374,8 +413,11 @@ serve(async (req) => {
       );
     }
 
-    const staticOverride = await loadPromptOverride(supabase);
-    const systemPrompt = buildSystemPrompt(context || {}, staticOverride);
+    const [staticOverride, learnings] = await Promise.all([
+      loadPromptOverride(supabase),
+      loadLearnings(supabase),
+    ]);
+    const systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings);
 
     const body: any = {
       model: "claude-sonnet-4-5-20250929",

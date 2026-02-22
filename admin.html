@@ -649,6 +649,36 @@
                 </div>
             </div>
 
+            <div class="section collapsed" id="sectionAiMemory">
+                <div class="section-toggle" onclick="toggleSection('sectionAiMemory')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">M&eacute;moire AI</div>
+                        <div class="section-desc">R&egrave;gles organisationnelles apprises par les assistants AI lors de corrections utilisateur.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <p style="font-size:12px;color:#64748b;margin:0 0 12px;">Ces r&egrave;gles sont inject&eacute;es dans le contexte de tous les assistants AI. Elles sont cr&eacute;&eacute;es automatiquement quand un utilisateur corrige l&rsquo;AI et confirme l&rsquo;enregistrement.</p>
+                    <table class="roles-table" id="aiMemoryTable">
+                        <thead>
+                            <tr>
+                                <th style="width:45%">R&egrave;gle</th>
+                                <th style="width:15%">Source</th>
+                                <th style="width:20%">Cr&eacute;&eacute; par</th>
+                                <th style="width:12%">Date</th>
+                                <th style="width:4%">Actif</th>
+                                <th style="width:4%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="aiMemoryBody"></tbody>
+                    </table>
+                    <div id="aiMemoryEmpty" style="display:none;text-align:center;padding:20px;color:#94a3b8;font-size:13px;">
+                        Aucune r&egrave;gle enregistr&eacute;e. Les r&egrave;gles apparaissent ici quand un utilisateur corrige un assistant AI et confirme l&rsquo;enregistrement.
+                    </div>
+                    <span class="save-feedback" id="aiMemoryFeedback"></span>
+                </div>
+            </div>
+
             <div class="section collapsed" id="sectionCoverImage">
                 <div class="section-toggle" onclick="toggleSection('sectionCoverImage')">
                     <div class="section-toggle-left">
@@ -934,6 +964,7 @@
     var permissions = {};
     var userRolesMap = {};
     var userProfiles = {}; // { email: { name, phone, company } }
+    var userIdToEmail = {}; // { user_id: email }
     var rolesFromDB = []; // Roles loaded from database
     var mediaTags = [];
     var catalogueCategories = [];
@@ -1041,6 +1072,7 @@
                     if (cc.companies) company = cc.companies.name;
                 }
                 userProfiles[email] = { name: name, phone: phone, company: company };
+                if (p.user_id && email) userIdToEmail[p.user_id] = email;
             }
         } catch (e) {
             console.error('Error loading user profiles:', e);
@@ -1125,6 +1157,7 @@
             if (!checkPageAccess()) return;
             renderAll();
             loadAiPrompts(rows);
+            loadAiLearnings();
             updateStatus('online', 'Données à jour');
         })
         .catch(async function() {
@@ -1135,6 +1168,7 @@
             if (!checkPageAccess()) return;
             renderAll();
             loadAiPrompts([]);
+            loadAiLearnings();
             updateStatus('error', 'Erreur de chargement');
         });
     }
@@ -2308,6 +2342,77 @@
                 if (statusEl) { statusEl.textContent = 'par d\u00e9faut'; statusEl.style.color = '#aaa'; }
             } else { throw new Error('reset failed'); }
         }).catch(function() { showFeedback(fb, 'Erreur', true); });
+    }
+
+    // ═══ AI Memory (learnings) ═══
+
+    var aiLearnings = [];
+
+    async function loadAiLearnings() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/ai_learnings?select=*&order=created_at.desc', {});
+            if (r.ok) aiLearnings = await r.json();
+        } catch (e) { aiLearnings = []; }
+        renderAiLearningsTable();
+    }
+
+    function renderAiLearningsTable() {
+        var body = document.getElementById('aiMemoryBody');
+        var empty = document.getElementById('aiMemoryEmpty');
+        if (!aiLearnings.length) {
+            body.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        var html = '';
+        for (var i = 0; i < aiLearnings.length; i++) {
+            var l = aiLearnings[i];
+            var email = (l.created_by && userIdToEmail[l.created_by]) ? userIdToEmail[l.created_by] : '';
+            var dateStr = l.created_at ? new Date(l.created_at).toLocaleDateString('fr-CA') : '';
+            var srcBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#f1f5f9;color:#475569;">' + escapeHtml(l.source_context || 'general') + '</span>';
+            html += '<tr data-id="' + l.id + '">' +
+                '<td style="font-size:13px;line-height:1.4;">' + escapeHtml(l.rule) + '</td>' +
+                '<td>' + srcBadge + '</td>' +
+                '<td style="font-size:12px;color:#64748b;">' + escapeHtml(email) + '</td>' +
+                '<td style="font-size:12px;color:#64748b;">' + dateStr + '</td>' +
+                '<td style="text-align:center;"><input type="checkbox" ' + (l.is_active ? 'checked' : '') + ' onchange="toggleAiLearning(\'' + l.id + '\', this.checked)"></td>' +
+                '<td><button class="btn-remove" onclick="deleteAiLearning(\'' + l.id + '\')">&times;</button></td>' +
+                '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    async function toggleAiLearning(id, active) {
+        var fb = document.getElementById('aiMemoryFeedback');
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/ai_learnings?id=eq.' + id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ is_active: active })
+            });
+            if (!r.ok) throw new Error(r.status);
+            for (var i = 0; i < aiLearnings.length; i++) {
+                if (aiLearnings[i].id === id) { aiLearnings[i].is_active = active; break; }
+            }
+            showFeedback(fb, active ? 'Règle activée' : 'Règle désactivée', false);
+        } catch (e) {
+            showFeedback(fb, 'Erreur', true);
+        }
+    }
+
+    async function deleteAiLearning(id) {
+        if (!confirm('Supprimer cette règle AI ?')) return;
+        var fb = document.getElementById('aiMemoryFeedback');
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/ai_learnings?id=eq.' + id, { method: 'DELETE' });
+            if (!r.ok) throw new Error(r.status);
+            aiLearnings = aiLearnings.filter(function(l) { return l.id !== id; });
+            renderAiLearningsTable();
+            showFeedback(fb, 'Règle supprimée', false);
+        } catch (e) {
+            showFeedback(fb, 'Erreur suppression', true);
+        }
     }
 
     </script>

@@ -2048,7 +2048,7 @@
     async function ctHandleFollowUp(data) {
         var contentBlocks = data.content || [];
         var textParts = [];
-        var autoExecNames = ['link_contact_company', 'search_contacts', 'filter_contacts'];
+        var autoExecNames = ['link_contact_company', 'search_contacts', 'filter_contacts', 'save_learning'];
         var autoExecTools = [];
         var actionTools = [];
 
@@ -2211,6 +2211,20 @@
             });
             if (!r.ok) throw new Error('Erreur liaison contact-entreprise: ' + r.status);
             return { success: true };
+        }
+
+        if (name === 'save_learning') {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/ai_learnings', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    rule: input.rule,
+                    source_context: input.source_context || 'contacts',
+                    source_example: input.example || '',
+                    created_by: localStorage.getItem('sb_user_id')
+                })
+            });
+            if (!r.ok) throw new Error('Erreur enregistrement règle: ' + r.status);
+            return { success: true, message: 'Règle enregistrée avec succès' };
         }
 
         return { error: 'Tool inconnu: ' + name };

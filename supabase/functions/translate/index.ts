@@ -379,6 +379,14 @@ serve(async (req) => {
         userContent = contentParts;
       }
 
+      // Actions that require strict JSON output: use assistant prefill to force JSON
+      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components"];
+      const useJsonPrefill = JSON_ACTIONS.includes(action);
+      const messages: any[] = [{ role: "user", content: userContent }];
+      if (useJsonPrefill) {
+        messages.push({ role: "assistant", content: "{" });
+      }
+
       const resp = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: apiHeaders,
@@ -386,7 +394,7 @@ serve(async (req) => {
           model: model,
           max_tokens: 4096,
           system: systemPrompt,
-          messages: [{ role: "user", content: userContent }],
+          messages: messages,
         }),
       });
 
@@ -399,7 +407,11 @@ serve(async (req) => {
         );
       }
 
-      const result = data.content?.[0]?.text || "";
+      let result = data.content?.[0]?.text || "";
+      // Prepend the "{" we used as prefill so the JSON is complete
+      if (useJsonPrefill) {
+        result = "{" + result;
+      }
       const translations: Record<string, string> = {};
       translations[nonEmpty[0].key] = result.trim();
 

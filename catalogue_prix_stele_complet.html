@@ -5832,10 +5832,11 @@
             var catNames = expenseCategories.map(function(c) { return c.name; }).join(', ');
             var supplierNames = supplierCompanies.map(function(s) { return s.name; }).join(', ');
 
-            var contextText = 'Cat\u00e9gories de d\u00e9penses: ' + catNames;
-            if (supplierNames) contextText += '\nFournisseurs connus: ' + supplierNames;
+            var contextText = '=== CATÉGORIES DE DÉPENSES DISPONIBLES ===\n' + catNames;
+            if (supplierNames) contextText += '\n\n=== FOURNISSEURS CONNUS ===\n' + supplierNames;
             contextText += '\n\n=== ARTICLE EN COURS ===\n' + buildArticleContext();
-            if (text) contextText += '\n\nDonn\u00e9es fournisseur :\n' + text;
+            if (text) contextText += '\n\n=== DONNÉES FOURNISSEUR (texte) ===\n' + text;
+            if (images.length > 0) contextText += '\n\n=== IMAGE(S) JOINTE(S) ===\n' + images.length + ' image(s) de données fournisseur jointe(s). Extraire les composantes visibles dans les images.';
 
             var imagePayload = images.map(function(dataUrl) {
                 var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
@@ -5846,15 +5847,24 @@
             btn.classList.add('ai-active');
             var hadError = false;
 
+            var payloadBody = {
+                texts: [{ key: 'import', text: contextText }],
+                action: 'import_components',
+                images: imagePayload.length > 0 ? imagePayload : undefined
+            };
+            console.log('[IMPORT-DIAG] Payload:', {
+                textLength: contextText.length,
+                imageCount: imagePayload.length,
+                imageTypes: imagePayload.map(function(img) { return img.media_type; }),
+                imageSizes: imagePayload.map(function(img) { return img.data ? img.data.length : 0; }),
+                textPreview: contextText.substring(0, 300)
+            });
+
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        texts: [{ key: 'import', text: contextText }],
-                        action: 'import_components',
-                        images: imagePayload.length > 0 ? imagePayload : undefined
-                    })
+                    body: JSON.stringify(payloadBody)
                 });
                 if (!resp.ok) {
                     if (resp.status === 401 || resp.status === 403) {
@@ -5865,10 +5875,13 @@
                     catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
                 }
                 var data = await resp.json();
+                console.log('[IMPORT-DIAG] Response:', { debug: data.debug, translationKeys: Object.keys(data.translations || {}) });
                 var result = data.translations && data.translations['import'];
-                if (!result) throw new Error('Aucun r\u00e9sultat retourn\u00e9 par l\'AI');
+                if (!result) throw new Error('Aucun résultat retourné par l\'AI');
 
+                console.log('[IMPORT-DIAG] Raw AI result:', result.substring(0, 500));
                 var envelope = parseAiEnvelope(result, 'components');
+                console.log('[IMPORT-DIAG] Parsed envelope:', { status: envelope.status, componentCount: (envelope.components || []).length, warnings: envelope.warnings });
 
                 if (envelope.status === 'error') {
                     showAiFeedback(feedbackId, envelope);

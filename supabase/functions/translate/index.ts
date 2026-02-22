@@ -360,7 +360,7 @@ serve(async (req) => {
           : action === "calculateur_description"
           ? nonEmpty[0].text
           : action === "import_components"
-          ? `Extrais les composantes fournisseur depuis ces données.\n\nCatégories de dépenses disponibles : ${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
+          ? `Extrais les composantes fournisseur depuis les données ci-dessous (texte et/ou image jointe).\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       // Build multimodal content when images are provided (for import_components with vision)

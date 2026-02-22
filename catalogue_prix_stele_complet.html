@@ -782,17 +782,28 @@
         .btn-ai-dot:disabled { opacity: 0.3; cursor: not-allowed; }
         .btn-ai-dot .ai-dot {
             width: 9px; height: 9px; border-radius: 50%;
-            background: #0B1220; opacity: 0.45;
-            animation: aiBreathe 3s ease-in-out infinite;
+            background: rgba(0,0,0,0.6);
+            animation: aiBreathe 3.5s ease-in-out infinite;
+            transition: background 300ms ease;
         }
         .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
         @keyframes aiBreathe {
-            0%,100% { opacity:0.45; transform:scale(1); }
-            50% { opacity:1; transform:scale(1.15); }
+            0%,100% { opacity:0.5; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.1); }
         }
-        /* AI active: accelerated breathing (1.5s) while waiting for response */
+        /* AI active: fast pulse, navy, larger scale */
         .btn-ai-dot.ai-active .ai-dot {
-            animation: aiBreathe 1.5s ease-in-out infinite;
+            background: var(--sw-navy, #0B1220);
+            animation: aiBreatheFast 1.2s ease-in-out infinite;
+        }
+        @keyframes aiBreatheFast {
+            0%,100% { opacity:0.6; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.25); }
+        }
+        /* AI done: green flash 500ms */
+        .btn-ai-dot.ai-done .ai-dot {
+            background: rgba(34,197,94,0.8);
+            animation: none; opacity: 1; transform: scale(1.2);
         }
         /* AI Feedback containers */
         .ai-feedback-container { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
@@ -832,8 +843,139 @@
         @keyframes aiFeedbackIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
         @media (prefers-reduced-motion:reduce) {
             .ai-feedback-banner, .ai-success-flash { animation:none; }
+            .btn-ai-dot .ai-dot { animation:none; opacity:0.7; }
             .btn-ai-dot.ai-active .ai-dot { animation:none; opacity:1; }
+            .btn-ai-dot.ai-done .ai-dot { animation:none; }
         }
+
+        /* ── Approval buttons ── */
+        .btn-approve-item {
+            padding: 7px 18px; border-radius: 8px; border: none;
+            background: var(--sw-navy, #0F1C2D); color: #fff;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: opacity 150ms;
+        }
+        .btn-approve-item:hover { opacity: 0.85; }
+        .btn-reject-item {
+            padding: 7px 14px; border-radius: 8px;
+            border: 1.5px solid #ef4444; background: transparent;
+            color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: background 150ms, color 150ms;
+        }
+        .btn-reject-item:hover { background: #fef2f2; }
+
+        /* ── AI dot button in modal header ── */
+        .btn-ai-dot-header {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: none; background: transparent; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 150ms; flex-shrink: 0;
+        }
+        .btn-ai-dot-header:hover { background: rgba(0,0,0,0.06); }
+        .btn-ai-dot-header .ai-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #0B1220; opacity: 0.45;
+            animation: aiBreathe 3.5s ease-in-out infinite;
+        }
+        .btn-ai-dot-header.ai-active .ai-dot {
+            animation: aiBreatheFast 1.2s ease-in-out infinite;
+            opacity: 1;
+        }
+
+        /* ── AI Review chat overlay ── */
+        .ai-review-overlay {
+            position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+            background: rgba(0,0,0,0.3); z-index: 9010;
+            display: flex; justify-content: flex-end;
+            animation: arFadeIn 200ms ease;
+        }
+        @keyframes arFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes arSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .ai-review-panel {
+            width: 440px; max-width: 100%; height: 100%;
+            background: #fff; display: flex; flex-direction: column;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+            animation: arSlideIn 250ms ease;
+        }
+        .ai-review-header {
+            padding: 16px 20px; display: flex;
+            justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+        }
+        .ai-review-header span { font-size: 15px; font-weight: 700; color: #0f172a; }
+        .ai-review-close {
+            width: 28px; height: 28px; border: none; background: transparent;
+            cursor: pointer; font-size: 18px; color: #64748b; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ai-review-close:hover { background: #f1f5f9; color: #0f172a; }
+        .ai-review-messages {
+            flex: 1; overflow-y: auto; padding: 16px 20px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .ai-review-msg {
+            max-width: 88%; padding: 10px 14px;
+            border-radius: 12px; font-size: 13px; line-height: 1.55;
+            word-wrap: break-word; white-space: pre-wrap;
+        }
+        .ai-review-msg.user {
+            align-self: flex-end; background: #0F1C2D; color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-review-msg.assistant {
+            align-self: flex-start; background: #f1f5f9; color: #1e293b;
+            border-bottom-left-radius: 4px;
+        }
+        .ai-review-msg.assistant p { margin: 0 0 8px; }
+        .ai-review-msg.assistant p:last-child { margin-bottom: 0; }
+        .ai-review-msg.assistant strong { font-weight: 700; }
+        .ai-review-msg.assistant ul, .ai-review-msg.assistant ol {
+            margin: 4px 0 8px 18px; padding: 0;
+        }
+        .ai-review-msg.assistant li { margin-bottom: 2px; }
+        .ai-review-msg.assistant code {
+            background: rgba(0,0,0,0.06); padding: 1px 4px;
+            border-radius: 3px; font-size: 12px;
+        }
+        .ai-review-msg.context {
+            align-self: center; background: #fef3c7; color: #92400e;
+            font-size: 11px; padding: 6px 12px; border-radius: 8px;
+            max-width: 95%; text-align: center;
+        }
+        .ai-review-typing {
+            padding: 8px 20px; display: flex; gap: 4px; align-items: center;
+        }
+        .ai-review-typing .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #94a3b8; animation: arTyping 1.4s infinite;
+        }
+        .ai-review-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+        .ai-review-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes arTyping {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+        }
+        .ai-review-input-area {
+            padding: 12px 16px; border-top: 1px solid #e5e7eb;
+            display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
+        }
+        .ai-review-input {
+            flex: 1; resize: none; border: 1px solid #d1d5db;
+            border-radius: 10px; padding: 8px 12px; font-family: inherit;
+            font-size: 13px; line-height: 1.4; max-height: 120px;
+            outline: none; transition: border-color 150ms;
+        }
+        .ai-review-input:focus { border-color: #0F1C2D; }
+        .ai-review-send {
+            width: 32px; height: 32px; border-radius: 50%;
+            border: none; background: #0F1C2D; color: #fff;
+            cursor: pointer; font-size: 16px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 150ms;
+        }
+        .ai-review-send:hover { opacity: 0.85; }
+        .ai-review-send:disabled { opacity: 0.4; cursor: default; }
+
         .comp-import-zone {
             border: 1.5px dashed #d1d5db; border-radius: 8px;
             padding: 10px 12px; margin-bottom: 10px; background: #fafbfc;
@@ -1809,9 +1951,14 @@
             </div>
             <div class="modal-header">
                 <h3 class="modal-title">Modifier l'article</h3>
-                <div class="modal-nav">
-                    <button id="btnPrevItem" onclick="navigateItem(-1)" title="Article pr&eacute;c&eacute;dent">&#8249;</button>
-                    <button id="btnNextItem" onclick="navigateItem(1)" title="Article suivant">&#8250;</button>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="btn-ai-dot-header" id="catAiReviewBtn" style="display:none;" onclick="openCatAiReviewChat()" title="R&eacute;vision AI">
+                        <span class="ai-dot"></span>
+                    </button>
+                    <div class="modal-nav">
+                        <button id="btnPrevItem" onclick="navigateItem(-1)" title="Article pr&eacute;c&eacute;dent">&#8249;</button>
+                        <button id="btnNextItem" onclick="navigateItem(1)" title="Article suivant">&#8250;</button>
+                    </div>
                 </div>
             </div>
             <div class="modal-body">
@@ -1987,11 +2134,34 @@
                 <div class="edit-status" id="editStatus"></div>
             </div>
             <div class="modal-footer" style="justify-content: space-between;">
-                <button class="btn-delete-item" onclick="deleteItem()">Supprimer</button>
                 <div style="display: flex; gap: 8px;">
+                    <button class="btn-delete-item" onclick="deleteItem()">Supprimer</button>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span class="modal-proposed-by" id="editProposedBy" style="display:none; font-size:11px; color:#64748b;"></span>
+                    <button class="btn-reject-item" id="btnRejectItem" style="display:none;" onclick="rejectItemFromCatalogue()">Rejeter</button>
                     <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+                    <button class="btn-approve-item" id="btnApproveItem" style="display:none;" onclick="approveItemFromCatalogue()">Approuver</button>
                     <button class="btn-generate" id="btnEditSave" onclick="saveEditModal()">Sauvegarder</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Review Chat Overlay (catalogue) -->
+    <div class="ai-review-overlay" id="catAiReviewOverlay" style="display:none">
+        <div class="ai-review-panel">
+            <div class="ai-review-header">
+                <span>R&eacute;vision AI</span>
+                <button class="ai-review-close" onclick="closeCatAiReviewChat()">&times;</button>
+            </div>
+            <div class="ai-review-messages" id="catAiReviewMessages"></div>
+            <div class="ai-review-typing" id="catAiReviewTyping" style="display:none">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+            <div class="ai-review-input-area">
+                <textarea class="ai-review-input" id="catAiReviewInput" placeholder="Poser une question..." rows="1"></textarea>
+                <button class="ai-review-send" id="catAiReviewSendBtn" onclick="sendCatAiReviewMessage()" title="Envoyer">&#8593;</button>
             </div>
         </div>
     </div>
@@ -2083,6 +2253,7 @@
         let canEditMinutes = false;
         let canEditMaterials = false;
         let isAdmin = false;
+        let canApproveItems = false;
 
         // Données de base (chargées depuis app_config)
         let tauxHoraires = [];
@@ -2963,6 +3134,7 @@
                     canEditMinutes = !!allowed.edit_minutes;
                     canEditMaterials = !!allowed.edit_materials;
                     isAdmin = !!allowed.admin;
+                    canApproveItems = !!allowed.approbation;
                     resolve();
                 })
                 .catch(() => {
@@ -2973,6 +3145,7 @@
                     canEditMinutes = !!allowed.edit_minutes;
                     canEditMaterials = !!allowed.edit_materials;
                     isAdmin = !!allowed.admin;
+                    canApproveItems = !!allowed.approbation;
                     resolve();
                 });
             });
@@ -3105,6 +3278,347 @@
             }
         }
 
+        // ── Approve/Reject from modal (server-side RPC) ──
+
+        async function approveItemFromCatalogue() {
+            var itemId = document.getElementById('editItemId').value;
+            if (!itemId) return;
+            var btn = document.getElementById('btnApproveItem');
+            var origText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                // Save all editable fields first
+                await saveEditModal(true); // silent save
+
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/approve_catalogue_item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_item_id: itemId, p_new_status: 'approved' })
+                });
+                if (!resp.ok) throw new Error('Erreur ' + resp.status);
+                var result = await resp.json();
+                if (result.error) throw new Error(result.error);
+
+                // Update local data
+                for (var i = 0; i < CATALOGUE_DATA.length; i++) {
+                    if (CATALOGUE_DATA[i].id === itemId) {
+                        CATALOGUE_DATA[i].status = 'approved';
+                        break;
+                    }
+                }
+                updatePendingBadge();
+                generatePriceTables();
+
+                // Show success status in modal
+                var statusEl = document.getElementById('editStatus');
+                statusEl.className = 'edit-status success';
+                statusEl.textContent = 'Article approuvé ✓';
+                statusEl.style.display = '';
+
+                // Close modal after brief delay
+                setTimeout(function() { closeEditModal(); }, 1200);
+            } catch (e) {
+                btn.textContent = origText;
+                btn.disabled = false;
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        async function rejectItemFromCatalogue() {
+            var itemId = document.getElementById('editItemId').value;
+            if (!itemId) return;
+
+            var confirmed = await steleConfirm(
+                'L\'article <strong>' + escapeHtml(itemId) + '</strong> sera rejeté et retiré du catalogue.',
+                'Rejeter cet article ?',
+                'Rejeter'
+            );
+            if (!confirmed) return;
+
+            var btn = document.getElementById('btnRejectItem');
+            var origText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/rpc/approve_catalogue_item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_item_id: itemId, p_new_status: 'rejected' })
+                });
+                if (!resp.ok) throw new Error('Erreur ' + resp.status);
+                var result = await resp.json();
+                if (result.error) throw new Error(result.error);
+
+                // Remove from local data
+                CATALOGUE_DATA = CATALOGUE_DATA.filter(function(it) { return it.id !== itemId; });
+                updatePendingBadge();
+                generatePriceTables();
+                closeEditModal();
+            } catch (e) {
+                btn.textContent = origText;
+                btn.disabled = false;
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        // ── AI Review Chat (catalogue modal) ──
+
+        var catAiReviewMessages = [];
+        var catAiReviewItemId = null;
+        var catAiReviewLoading = false;
+
+        async function openCatAiReviewChat() {
+            var itemId = document.getElementById('editItemId').value;
+            var item = CATALOGUE_DATA.find(function(it) { return it.id === itemId; });
+            if (!item) return;
+
+            // Reset conversation if different item
+            if (catAiReviewItemId !== itemId) {
+                catAiReviewMessages = [];
+                catAiReviewItemId = itemId;
+                document.getElementById('catAiReviewMessages').innerHTML = '';
+            }
+
+            document.getElementById('catAiReviewOverlay').style.display = '';
+            document.getElementById('catAiReviewInput').focus();
+
+            // If fresh conversation, send initial context
+            if (catAiReviewMessages.length === 0) {
+                await sendCatAiReviewInitialContext(item);
+            }
+        }
+
+        function closeCatAiReviewChat() {
+            var overlay = document.getElementById('catAiReviewOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function computeCatItemPrice(item) {
+            var total = 0;
+            if (item.labor_minutes && tauxHoraires) {
+                for (var dept in item.labor_minutes) {
+                    var mins = item.labor_minutes[dept] || 0;
+                    var rate = tauxHoraires[dept] || 0;
+                    total += (mins / 60) * rate;
+                }
+            }
+            if (item.material_costs) {
+                for (var cat in item.material_costs) {
+                    var mc = item.material_costs[cat];
+                    if (!mc || !mc.cost) continue;
+                    var cost = mc.cost * (mc.qty || 1);
+                    var ec = (expenseCategories || []).find(function(e) { return e.name === cat; });
+                    var markup = ec ? (ec.markup || 0) : 0;
+                    var waste = ec ? (ec.waste || 0) : 0;
+                    total += cost * (1 + markup / 100 + waste / 100);
+                }
+            }
+            return total;
+        }
+
+        async function sendCatAiReviewInitialContext(item) {
+            var contextParts = [];
+            contextParts.push('=== ARTICLE PROPOSÉ ===');
+            contextParts.push('Code: ' + item.id);
+            contextParts.push('Description: ' + (item.description || '—'));
+            contextParts.push('Catégorie: ' + (item.category || '—'));
+            contextParts.push('Type d\'unité: ' + (item.type || '—'));
+            contextParts.push('Prix fixe: ' + (item.price != null ? item.price + ' $' : 'aucun (prix composé)'));
+            contextParts.push('Proposé par: ' + (item.proposed_by || '—'));
+            contextParts.push('Instruction: ' + (item.instruction || '—'));
+
+            if (item.client_text) contextParts.push('Texte client: ' + item.client_text);
+            if (item.calculation_rule_human) contextParts.push('Règle de calcul: ' + item.calculation_rule_human);
+            if (item.calculation_rule_ai) contextParts.push('JSON calcul: ' + JSON.stringify(item.calculation_rule_ai));
+            if (item.presentation_rule_human) contextParts.push('Règle présentation: ' + item.presentation_rule_human);
+            if (item.presentation_rule) contextParts.push('JSON présentation: ' + JSON.stringify(item.presentation_rule));
+
+            // Labor minutes
+            if (item.labor_minutes && typeof item.labor_minutes === 'object') {
+                var lmParts = [];
+                for (var dept in item.labor_minutes) {
+                    if (item.labor_minutes[dept] > 0) lmParts.push(dept + ': ' + item.labor_minutes[dept] + ' min');
+                }
+                contextParts.push('Minutes MO: ' + (lmParts.length > 0 ? lmParts.join(', ') : 'aucune'));
+            }
+
+            // Material costs
+            if (item.material_costs && typeof item.material_costs === 'object') {
+                var mcParts = [];
+                for (var cat in item.material_costs) {
+                    var mc = item.material_costs[cat];
+                    if (mc && mc.cost > 0) mcParts.push(cat + ': ' + mc.cost + ' $ (qty: ' + (mc.qty || 1) + ')');
+                }
+                contextParts.push('Coûts matériaux: ' + (mcParts.length > 0 ? mcParts.join(', ') : 'aucun'));
+            }
+
+            // Computed price
+            var computedPrice = computeCatItemPrice(item);
+            if (computedPrice > 0) contextParts.push('Prix composé calculé: ' + computedPrice.toFixed(2) + ' $');
+
+            // Taux horaires
+            if (tauxHoraires && Object.keys(tauxHoraires).length > 0) {
+                var thParts = [];
+                for (var d in tauxHoraires) { thParts.push(d + ': ' + tauxHoraires[d] + ' $/h'); }
+                contextParts.push('\n=== TAUX HORAIRES ===');
+                contextParts.push(thParts.join(', '));
+            }
+
+            // Expense categories
+            if (expenseCategories && expenseCategories.length > 0) {
+                contextParts.push('\n=== CATÉGORIES DE DÉPENSES ===');
+                expenseCategories.forEach(function(ec) {
+                    contextParts.push(ec.name + ': markup ' + (ec.markup || 0) + '%, perte ' + (ec.waste || 0) + '%');
+                });
+            }
+
+            // Similar items (from CATALOGUE_DATA, same category, approved)
+            var similar = getSimilarItems(item.category, 15);
+            if (similar.length > 0) {
+                contextParts.push('\n=== ARTICLES SIMILAIRES (même catégorie: ' + item.category + ') ===');
+                similar.forEach(function(si) {
+                    var siPrice = si.price || computeCatItemPrice(si);
+                    contextParts.push(si.id + ' — ' + (si.description || '?') + ' — ' + (si.type || '?') + ' — ' + (siPrice > 0 ? siPrice.toFixed(2) + ' $' : 'prix N/A'));
+                });
+            }
+
+            contextParts.push('\nAnalyse cet article selon les 4 axes (comparaison interne, benchmarking industrie, cohérence des données, verdict).');
+
+            appendCatAiReviewMessage('context', 'Contexte de l\'article envoyé à l\'AI...');
+            catAiReviewMessages.push({ role: 'user', content: contextParts.join('\n') });
+            await callCatAiReviewAssistant();
+        }
+
+        async function sendCatAiReviewMessage() {
+            if (catAiReviewLoading) return;
+            var input = document.getElementById('catAiReviewInput');
+            var text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            catAiReviewMessages.push({ role: 'user', content: text });
+            appendCatAiReviewMessage('user', text);
+            await callCatAiReviewAssistant();
+        }
+
+        async function callCatAiReviewAssistant() {
+            catAiReviewLoading = true;
+            var btn = document.getElementById('catAiReviewBtn');
+            var sendBtn = document.getElementById('catAiReviewSendBtn');
+            btn.classList.add('ai-active');
+            sendBtn.disabled = true;
+            document.getElementById('catAiReviewTyping').style.display = '';
+            scrollCatReviewMessages();
+
+            try {
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/functions/v1/ai-assistant',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: catAiReviewMessages,
+                            context: {},
+                            prompt_key: 'ai_prompt_approval_review',
+                            tools_enabled: false
+                        })
+                    }
+                );
+
+                if (!r.ok) {
+                    var errText = '';
+                    try { var errData = await r.json(); errText = errData.error || r.status; } catch(e) { errText = r.status; }
+                    appendCatAiReviewMessage('assistant', 'Erreur : ' + errText);
+                    return;
+                }
+
+                var data = await r.json();
+                if (data.error) {
+                    appendCatAiReviewMessage('assistant', 'Erreur : ' + data.error);
+                    return;
+                }
+
+                var responseText = '';
+                if (Array.isArray(data.content)) {
+                    data.content.forEach(function(block) {
+                        if (block.type === 'text') responseText += block.text;
+                    });
+                } else if (typeof data.content === 'string') {
+                    responseText = data.content;
+                }
+
+                if (responseText) {
+                    catAiReviewMessages.push({ role: 'assistant', content: responseText });
+                    appendCatAiReviewMessage('assistant', responseText);
+                }
+            } catch (e) {
+                appendCatAiReviewMessage('assistant', 'Erreur de connexion.');
+            } finally {
+                catAiReviewLoading = false;
+                btn.classList.remove('ai-active');
+                sendBtn.disabled = false;
+                document.getElementById('catAiReviewTyping').style.display = 'none';
+            }
+        }
+
+        function appendCatAiReviewMessage(role, content) {
+            var container = document.getElementById('catAiReviewMessages');
+            var div = document.createElement('div');
+            div.className = 'ai-review-msg ' + role;
+
+            if (role === 'assistant') {
+                div.innerHTML = renderCatReviewMarkdown(content);
+            } else {
+                div.textContent = content;
+            }
+
+            container.appendChild(div);
+            scrollCatReviewMessages();
+        }
+
+        function renderCatReviewMarkdown(text) {
+            var html = escapeHtml(text);
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            html = html.replace(/^#{1,4}\s+(.+)$/gm, '<strong>$1</strong>');
+            html = html.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
+            html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+            html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+            html = html.replace(/\n{2,}/g, '</p><p>');
+            html = '<p>' + html + '</p>';
+            html = html.replace(/\n/g, '<br>');
+            html = html.replace(/<p>\s*<\/p>/g, '');
+            return html;
+        }
+
+        function scrollCatReviewMessages() {
+            var el = document.getElementById('catAiReviewMessages');
+            setTimeout(function() { el.scrollTop = el.scrollHeight; }, 50);
+        }
+
+        // Keyboard + auto-resize for AI review input
+        (function() {
+            var input = document.getElementById('catAiReviewInput');
+            if (!input) return;
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendCatAiReviewMessage();
+                }
+                if (e.key === 'Escape') {
+                    closeCatAiReviewChat();
+                }
+            });
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+        })();
+
         async function openEditModal(itemId) {
             // Pour un nouvel item, utiliser newItemData au lieu de chercher dans CATALOGUE_DATA
             const item = (isNewItem && newItemData) ? newItemData : CATALOGUE_DATA.find(i => i.id === itemId);
@@ -3208,6 +3722,30 @@
             status.className = 'edit-status';
             status.style.display = 'none';
 
+            // Approval mode: show buttons + all fields if pending + has permission
+            var isPending = item.status === 'pending';
+            var showApproval = isPending && canApproveItems;
+
+            document.getElementById('btnApproveItem').style.display = showApproval ? '' : 'none';
+            document.getElementById('btnRejectItem').style.display = showApproval ? '' : 'none';
+            document.getElementById('catAiReviewBtn').style.display = showApproval ? '' : 'none';
+
+            // Show proposed by
+            var proposedEl = document.getElementById('editProposedBy');
+            if (isPending && item.proposed_by) {
+                proposedEl.style.display = '';
+                proposedEl.textContent = 'Proposé par : ' + item.proposed_by;
+            } else {
+                proposedEl.style.display = 'none';
+            }
+
+            // If approver viewing pending item: show all admin fields
+            if (showApproval) {
+                document.getElementById('clientTextGroup').style.display = '';
+                document.getElementById('calcRuleGroup').style.display = '';
+                document.getElementById('presRuleGroup').style.display = '';
+            }
+
             // Navigation
             if (navItemList.length === 0) buildNavList();
             updateNavButtons(item.id);
@@ -3244,6 +3782,8 @@
             clearAiFeedback('presRuleFeedback');
             clearAiFeedback('calcRuleFeedback');
             clearAiFeedback('importCompFeedback');
+            // Close AI review overlay if open
+            closeCatAiReviewChat();
         }
 
         // ═══ Animated modal open (AI unit insert) ═══
@@ -3980,7 +4520,7 @@
             }
         }
 
-        async function saveEditModal() {
+        async function saveEditModal(silent) {
             // Validate: components must have a supplier name
             for (var v = 0; v < editComponents.length; v++) {
                 if (!editComponents[v].supplier_name || !editComponents[v].supplier_name.trim()) {
@@ -4199,11 +4739,13 @@
                 // Re-générer les tables
                 generatePriceTables();
 
-                status.textContent = '\u2713 Sauvegardé';
-                status.style.display = '';
-                status.className = 'edit-status success';
+                if (!silent) {
+                    status.textContent = '\u2713 Sauvegardé';
+                    status.style.display = '';
+                    status.className = 'edit-status success';
 
-                setTimeout(() => closeEditModal(), 800);
+                    setTimeout(() => closeEditModal(), 800);
+                }
             } catch (err) {
                 console.error('Erreur sauvegarde:', err);
                 status.textContent = 'Erreur: ' + err.message;
@@ -4854,6 +5396,12 @@
             setTimeout(function() { fieldEl.classList.remove('ai-success-flash'); }, 700);
         }
 
+        function flashAiDotDone(btn) {
+            if (!btn) return;
+            btn.classList.add('ai-done');
+            setTimeout(function() { btn.classList.remove('ai-done'); }, 500);
+        }
+
         // ── AI context helpers ──
 
         function buildArticleContext() {
@@ -4937,6 +5485,7 @@
             }
             btn.disabled = true;
             btn.classList.add('ai-active');
+            var hadError = false;
             try {
                 var results = await callEdgeFunction([{ key: 'ct', text: prompt }], 'catalogue_client_text');
                 var envelope = parseAiEnvelope(results['ct'], 'text');
@@ -4955,10 +5504,12 @@
                     applyData();
                 }
             } catch (err) {
+                hadError = true;
                 showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
+                if (!hadError) flashAiDotDone(btn);
             }
         }
 
@@ -4998,6 +5549,7 @@
             if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
             btn.disabled = true;
             btn.classList.add('ai-active');
+            var hadError = false;
             try {
                 var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
                 var envelope = parseAiEnvelope(results['pr'], 'explication');
@@ -5021,10 +5573,12 @@
                     applyData();
                 }
             } catch (err) {
+                hadError = true;
                 showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
+                if (!hadError) flashAiDotDone(btn);
             }
         }
 
@@ -5068,6 +5622,7 @@
 
             btn.disabled = true;
             btn.classList.add('ai-active');
+            var hadError = false;
             try {
                 var results = await callEdgeFunction([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
                 var envelope = parseAiEnvelope(results['cr'], 'explication');
@@ -5091,10 +5646,12 @@
                     applyData();
                 }
             } catch (err) {
+                hadError = true;
                 showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
+                if (!hadError) flashAiDotDone(btn);
             }
         }
 
@@ -5287,6 +5844,7 @@
 
             btn.disabled = true;
             btn.classList.add('ai-active');
+            var hadError = false;
 
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
@@ -5318,10 +5876,12 @@
                     showImportRecap(envelope);
                 }
             } catch (err) {
+                hadError = true;
                 showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
+                if (!hadError) flashAiDotDone(btn);
             }
         }
 

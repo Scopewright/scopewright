@@ -138,17 +138,33 @@
         .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; }
         .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
         .pv-page-room-media {
-            flex: 1; display: grid; grid-template-columns: repeat(2, 1fr);
-            gap: 8px; align-content: center; max-height: 100%;
+            flex: 1; display: grid; grid-template-columns: 1fr;
+            gap: 14px; align-content: center; max-height: 100%;
         }
-        .pv-page-room-media.imgs-1 { grid-template-columns: 1fr; }
-        .pv-page-room-media.imgs-2 { grid-template-columns: 1fr; gap: 38px; }
-        .pv-page-room-media.imgs-3 { gap: 8px; }
-        .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
-        .pv-img-wrap { position: relative; border-radius: 4px; overflow: hidden; min-height: 0; }
+        .pv-img-wrap {
+            position: relative; border-radius: 8px; overflow: hidden; min-height: 0;
+            background: #fafafa;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
         .pv-img-wrap img {
-            width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;
+            width: 100%; height: 100%; object-fit: contain; display: block; cursor: pointer;
         }
+
+        /* Smart image layouts — applied by JS after ratio detection */
+        .pv-page-room-media.layout-1 { grid-template-columns: 1fr; }
+        .pv-page-room-media.layout-2v { grid-template-columns: 1fr; }
+        .pv-page-room-media.layout-2h { grid-template-columns: 1fr 1fr; }
+        .pv-page-room-media.layout-2-lp { grid-template-columns: 1fr; }
+        .pv-page-room-media.layout-2-lp .pv-img-wrap:last-child { max-width: 65%; justify-self: center; }
+        .pv-page-room-media.layout-2h-mixed { grid-template-columns: 3fr 2fr; align-items: center; }
+        .pv-page-room-media.layout-3h { grid-template-columns: repeat(3, 1fr); }
+        .pv-page-room-media.layout-3-featured { grid-template-columns: 1fr 1fr; }
+        .pv-page-room-media.layout-3-featured .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        .pv-page-room-media.layout-4-grid { grid-template-columns: 1fr 1fr; }
+        .pv-page-room-media.layout-4-featured { grid-template-columns: repeat(3, 1fr); }
+        .pv-page-room-media.layout-4-featured .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        .pv-page-room-media.layout-gallery { grid-template-columns: repeat(3, 1fr); }
+        .pv-page-room-media.layout-gallery .pv-img-wrap.pv-img-landscape { grid-column: span 2; }
 
         /* Room description — client mode (no edit borders) */
         .pv-page-room-desc {
@@ -383,41 +399,53 @@
 
         /* ── Lightbox ── */
         .lightbox-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.92); z-index: 9999;
+            flex-direction: column; align-items: center; justify-content: center;
         }
+        .lightbox-overlay.active { display: flex; }
 
-        .lightbox-overlay.active {
-            display: flex;
+        .lightbox-container {
+            position: relative; display: flex; align-items: center;
+            justify-content: center; width: 100%; height: 100%;
+            touch-action: none;
         }
 
         .lightbox-img {
-            max-width: 90vw;
-            max-height: 90vh;
-            border-radius: 4px;
+            max-width: 90vw; max-height: 85vh; border-radius: 4px;
             box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+            transition: transform 0.15s ease;
+            user-select: none; -webkit-user-select: none;
         }
 
         .lightbox-close {
-            position: absolute;
-            top: 20px; right: 24px;
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 36px;
-            cursor: pointer;
-            line-height: 1;
-            opacity: 0.8;
-            transition: opacity 0.2s;
+            position: absolute; top: 16px; right: 20px;
+            background: none; border: none; color: #fff;
+            font-size: 32px; cursor: pointer; line-height: 1;
+            opacity: 0.7; transition: opacity 0.2s;
+            z-index: 10; width: 44px; height: 44px;
+            display: flex; align-items: center; justify-content: center;
         }
-
         .lightbox-close:hover { opacity: 1; }
+
+        .lightbox-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.15); border: none; color: #fff;
+            font-size: 28px; cursor: pointer;
+            width: 44px; height: 44px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0.7; transition: opacity 0.2s, background 0.2s;
+            z-index: 10;
+        }
+        .lightbox-nav:hover { opacity: 1; background: rgba(255,255,255,0.25); }
+        .lightbox-prev { left: 16px; }
+        .lightbox-next { right: 16px; }
+
+        .lightbox-counter {
+            position: absolute; bottom: 20px;
+            color: rgba(255,255,255,0.6); font-size: 13px;
+            z-index: 10; letter-spacing: 0.5px;
+        }
 
         /* ── Fullscreen button ── */
         .btn-fullscreen {
@@ -450,14 +478,24 @@
         /* ── Responsive ── */
         @media (max-width: 768px) {
             .quote-page-wrapper { padding: 0; }
-            .pv-page { padding: 20px 24px; width: 100vw; }
+            .pv-page { padding: 20px 24px; width: 100vw; height: auto; max-height: none; }
             .pv-page-room-body { flex-direction: column; gap: 16px; }
-            .pv-page-room-media { grid-template-columns: 1fr 1fr; }
+            .pv-page-room-media { grid-template-columns: 1fr !important; gap: 12px; }
+            .pv-page-room-media .pv-img-wrap { max-width: 100% !important; }
+            .pv-img-wrap.pv-img-portrait img { max-height: 50vh; }
             .pv-steps-grid { grid-template-columns: 1fr; grid-auto-flow: row; }
             .pv-step-circle { width: 48px; height: 48px; min-width: 48px; font-size: 18px; }
             .pv-page-title .pv-client-name { font-size: 22px; }
             .pv-page-title .pv-sub-number { font-size: 18px; }
             .pv-total-box .total-amount { font-size: 28px; }
+            .lightbox-nav { display: none; }
+            .lightbox-img { max-width: 96vw; max-height: 90vh; }
+        }
+
+        @media (max-width: 480px) {
+            .pv-page { padding: 16px; }
+            .pv-page-room-body { gap: 16px; }
+            .pv-page-room-media { gap: 8px !important; }
         }
 
         /* ── Print ── */
@@ -472,11 +510,14 @@
             }
             .acceptance-section,
             .accepted-banner,
-            .quote-footer { display: none; }
+            .quote-footer,
+            .btn-fullscreen { display: none; }
             .pv-page-room-header, .pv-total-box, .pv-step-circle {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            .pv-page-room-body { break-inside: avoid; }
+            .pv-img-wrap { break-inside: avoid; }
         }
     </style>
 </head>
@@ -545,9 +586,14 @@
 <button class="btn-fullscreen" id="btnFullscreen" onclick="toggleFullscreen()" title="Plein écran">&#x26F6;</button>
 
 <!-- Lightbox -->
-<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+<div class="lightbox-overlay" id="lightbox">
     <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-    <img class="lightbox-img" id="lightboxImg" src="" alt="">
+    <div class="lightbox-container" id="lbContainer">
+        <button class="lightbox-nav lightbox-prev" id="lbPrev" onclick="event.stopPropagation();lbNavigate(-1)">&#8249;</button>
+        <img class="lightbox-img" id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
+        <button class="lightbox-nav lightbox-next" id="lbNext" onclick="event.stopPropagation();lbNavigate(1)">&#8250;</button>
+    </div>
+    <div class="lightbox-counter" id="lbCounter"></div>
 </div>
 
 <script>
@@ -659,6 +705,7 @@ async function renderQuote() {
                 var bodyMatch = snapHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
                 if (bodyMatch) {
                     document.getElementById('quotePages').innerHTML = bodyMatch[1];
+                    applySmartLayouts();
                     document.getElementById('loadingState').style.display = 'none';
                     document.getElementById('quoteContent').style.display = 'block';
                     renderAcceptanceSection(sub, token);
@@ -785,14 +832,11 @@ async function renderQuote() {
             html += '</div>';
             html += '</div>';
 
-            // Right column: images grid
-            var imgCount = Math.min(allImages.length, 4);
-            html += '<div class="pv-page-room-media imgs-' + imgCount + '">';
-            allImages.slice(0, 4).forEach(function(img) {
-                var ratio = img.cropRatio === '1:1' ? '1/1' : img.cropRatio === '9:16' ? '9/16' : '16/9';
+            // Right column: images grid (smart layout applied after load)
+            html += '<div class="pv-page-room-media">';
+            allImages.slice(0, 6).forEach(function(img) {
                 html += '<div class="pv-img-wrap">';
                 html += '<img src="' + img.src + '" alt="' + escapeHtml(img.name) + '"';
-                html += ' style="aspect-ratio:' + ratio + ';"';
                 html += ' onclick="openLightbox(this.src)">';
                 html += '</div>';
             });
@@ -856,6 +900,7 @@ async function renderQuote() {
 
     // ── Inject all pages ──
     document.getElementById('quotePages').innerHTML = html;
+    applySmartLayouts();
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('quoteContent').style.display = 'block';
 
@@ -1050,11 +1095,94 @@ function clearSignature() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// LIGHTBOX
+// SMART IMAGE LAYOUT
 // ═══════════════════════════════════════════════════════════════════════
 
+function classifyRatio(w, h) {
+    if (!w || !h) return 'landscape';
+    var r = w / h;
+    if (r >= 0.9 && r <= 1.1) return 'square';
+    if (r > 1.4) return 'landscape';
+    if (r < 0.7) return 'portrait';
+    if (r >= 1.1) return 'landscape';
+    return 'portrait';
+}
+
+function computeLayout(ratios) {
+    var n = ratios.length;
+    if (n <= 0) return '';
+    if (n === 1) return 'layout-1';
+    var c = { landscape: 0, portrait: 0, square: 0 };
+    ratios.forEach(function(r) { c[r]++; });
+    if (n === 2) {
+        if (c.landscape === 2) return 'layout-2v';
+        if (c.portrait === 2 || c.square === 2) return 'layout-2h';
+        if (c.landscape >= 1 && c.portrait >= 1) return 'layout-2-lp';
+        if (c.portrait >= 1 && c.square >= 1) return 'layout-2h-mixed';
+        return 'layout-2h';
+    }
+    if (n === 3) {
+        if (c.portrait === 3) return 'layout-3h';
+        return 'layout-3-featured';
+    }
+    if (n === 4) {
+        if (c.landscape >= 1 && ratios[0] === 'landscape') return 'layout-4-featured';
+        return 'layout-4-grid';
+    }
+    return 'layout-gallery';
+}
+
+function applySmartLayouts() {
+    document.querySelectorAll('.pv-page-room-media').forEach(function(container) {
+        var imgs = container.querySelectorAll('img');
+        var total = imgs.length;
+        if (total === 0) return;
+        var loaded = 0;
+        function checkAll() {
+            if (++loaded < total) return;
+            var wraps = Array.from(container.querySelectorAll('.pv-img-wrap'));
+            var ratios = [];
+            wraps.forEach(function(wrap) {
+                var img = wrap.querySelector('img');
+                var r = classifyRatio(img.naturalWidth, img.naturalHeight);
+                ratios.push(r);
+                wrap.classList.add('pv-img-' + r);
+            });
+            var layout = computeLayout(ratios);
+            container.classList.add(layout);
+            // Reorder: landscape should be first for featured layouts
+            if ((layout === 'layout-2-lp' || layout === 'layout-3-featured' || layout === 'layout-4-featured')
+                && ratios[0] !== 'landscape') {
+                var lIdx = ratios.indexOf('landscape');
+                if (lIdx > 0) container.insertBefore(wraps[lIdx], wraps[0]);
+            }
+        }
+        imgs.forEach(function(img) {
+            if (img.complete && img.naturalWidth > 0) checkAll();
+            else { img.onload = checkAll; img.onerror = checkAll; }
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LIGHTBOX — Enhanced with navigation, swipe, pinch-to-zoom
+// ═══════════════════════════════════════════════════════════════════════
+
+var lbImages = [];
+var lbIndex = 0;
+var lbScale = 1;
+var lbActive = false;
+
 function openLightbox(src) {
-    document.getElementById('lightboxImg').src = src;
+    lbImages = [];
+    document.querySelectorAll('.pv-page-room-media .pv-img-wrap img').forEach(function(img) {
+        lbImages.push(img.src);
+    });
+    lbIndex = lbImages.indexOf(src);
+    if (lbIndex < 0) { lbImages = [src]; lbIndex = 0; }
+    lbScale = 1;
+    lbActive = true;
+    updateLbImage();
     document.getElementById('lightbox').classList.add('active');
     document.body.style.overflow = 'hidden';
 }
@@ -1062,10 +1190,102 @@ function openLightbox(src) {
 function closeLightbox() {
     document.getElementById('lightbox').classList.remove('active');
     document.body.style.overflow = '';
+    lbActive = false;
+    lbScale = 1;
+    var img = document.getElementById('lightboxImg');
+    if (img) img.style.transform = '';
 }
 
+function lbNavigate(dir) {
+    if (lbImages.length <= 1) return;
+    lbIndex = (lbIndex + dir + lbImages.length) % lbImages.length;
+    lbScale = 1;
+    updateLbImage();
+}
+
+function updateLbImage() {
+    var img = document.getElementById('lightboxImg');
+    img.src = lbImages[lbIndex];
+    img.style.transform = '';
+    var counter = document.getElementById('lbCounter');
+    var prev = document.getElementById('lbPrev');
+    var next = document.getElementById('lbNext');
+    var multi = lbImages.length > 1;
+    counter.textContent = (lbIndex + 1) + ' / ' + lbImages.length;
+    prev.style.display = multi ? '' : 'none';
+    next.style.display = multi ? '' : 'none';
+    counter.style.display = multi ? '' : 'none';
+}
+
+// Close on overlay click (not on image or buttons)
+document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this || e.target.id === 'lbContainer') closeLightbox();
+});
+
+// Touch: swipe + pinch-to-zoom
+(function initLightboxTouch() {
+    var container = document.getElementById('lbContainer');
+    if (!container) return;
+    var startX = 0, startY = 0, startDist = 0, startScale = 1;
+    var swiping = false;
+
+    container.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            swiping = true;
+        }
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            swiping = false;
+            var dx = e.touches[0].clientX - e.touches[1].clientX;
+            var dy = e.touches[0].clientY - e.touches[1].clientY;
+            startDist = Math.hypot(dx, dy);
+            startScale = lbScale;
+        }
+    }, { passive: false });
+
+    container.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            var dx = e.touches[0].clientX - e.touches[1].clientX;
+            var dy = e.touches[0].clientY - e.touches[1].clientY;
+            var dist = Math.hypot(dx, dy);
+            if (startDist > 0) {
+                lbScale = Math.max(1, Math.min(5, startScale * (dist / startDist)));
+                document.getElementById('lightboxImg').style.transform = 'scale(' + lbScale + ')';
+            }
+        }
+    }, { passive: false });
+
+    container.addEventListener('touchend', function(e) {
+        if (e.touches.length === 0 && swiping && lbScale <= 1.1) {
+            var endX = e.changedTouches[0].clientX;
+            var diffX = endX - startX;
+            if (Math.abs(diffX) > 60) {
+                lbNavigate(diffX > 0 ? -1 : 1);
+            }
+        }
+        if (e.touches.length === 0 && lbScale > 1 && lbScale < 1.3) {
+            lbScale = 1;
+            document.getElementById('lightboxImg').style.transform = '';
+        }
+        swiping = false;
+    });
+})();
+
+// Keyboard navigation
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeLightbox(); return; }
+
+    // Lightbox navigation when active
+    if (lbActive) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); lbNavigate(-1); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); lbNavigate(1); return; }
+        return;
+    }
+
+    // Presentation navigation
     var pages = document.querySelectorAll('.pv-page');
     if (pages.length === 0) return;
 

@@ -39,8 +39,8 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
       .in("key", [
         "ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr",
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
-        "ai_prompt_json_catalogue", "ai_prompt_description_calculateur",
-        "ai_prompt_import_components"
+        "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
+        "ai_prompt_description_calculateur", "ai_prompt_import_components"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -177,6 +177,61 @@ RÈGLES :
 - Si les données sont ambiguës ou illisibles, ajouter une note explicative
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
+const CATALOGUE_PRES_RULE_SYSTEM = `Tu es un spécialiste en documentation pour Stele, atelier d'ébénisterie haut de gamme.
+Tu reçois l'explication de présentation client d'un article du catalogue.
+Tu dois faire DEUX choses :
+1. Reformuler/corriger le texte d'explication (phrases claires, impératives, concises)
+2. Générer la règle JSON structurée correspondante pour que l'AI sache comment présenter cet article
+
+Retourne un JSON valide avec deux champs :
+{
+  "explication": "Le texte d'explication reformulé et corrigé",
+  "json": {
+    "order": ["matériau", "finition"],
+    "prefix": "en",
+    "include": ["éléments à toujours mentionner"],
+    "exclude": ["éléments à ne jamais mentionner"],
+    "notes": "instructions supplémentaires optionnelles"
+  }
+}
+
+RÈGLES :
+- "order" : ordre d'apparition des éléments dans la description client
+- "prefix" : mot introductif si applicable (ex: "en", "avec", "de")
+- "include" : éléments à toujours mentionner au client
+- "exclude" : éléments à ne jamais mentionner au client
+- Le texte d'explication doit être en phrases courtes et impératives
+- Le JSON doit refléter fidèlement les instructions de l'explication
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
+const CATALOGUE_CALC_RULE_SYSTEM = `Tu es un ingénieur de règles pour Scopewright, la plateforme d'estimation de Stele.
+Tu reçois l'explication en langage naturel des règles de calcul d'un article du catalogue.
+Tu dois faire DEUX choses :
+1. Reformuler/corriger le texte d'explication (phrases claires, techniques, concises)
+2. Générer la règle de calcul JSON structurée correspondante
+
+Retourne un JSON valide avec deux champs :
+{
+  "explication": "Le texte d'explication reformulé et corrigé",
+  "json": {
+    "cascade": [
+      { "target": "CODE-XXX", "qty": "formula or number", "condition": "optional" }
+    ],
+    "ask": ["dimension1", "dimension2"],
+    "notes": "optional notes for the AI"
+  }
+}
+
+RÈGLES :
+- "cascade" : articles auto-ajoutés quand cet article est sélectionné
+- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)")
+- "condition" : condition optionnelle (ex: "H > 24")
+- Les codes articles doivent correspondre à des codes existants du catalogue
+- Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
+- Le texte d'explication doit être clair, concis et technique
+- Le JSON doit refléter fidèlement les instructions de l'explication
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
 // Prompt map for action → override key + default prompt
 const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   optimize:                { key: "ai_prompt_fiche_optimize", prompt: OPTIMIZE_SYSTEM },
@@ -185,6 +240,8 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   catalogue_client_text:   { key: "ai_prompt_client_text_catalogue", prompt: CATALOGUE_CLIENT_TEXT_SYSTEM },
   catalogue_explication:   { key: "ai_prompt_explication_catalogue", prompt: CATALOGUE_EXPLICATION_SYSTEM },
   catalogue_json:          { key: "ai_prompt_json_catalogue", prompt: CATALOGUE_JSON_SYSTEM },
+  catalogue_pres_rule:     { key: "ai_prompt_pres_rule", prompt: CATALOGUE_PRES_RULE_SYSTEM },
+  catalogue_calc_rule:     { key: "ai_prompt_calc_rule", prompt: CATALOGUE_CALC_RULE_SYSTEM },
   calculateur_description: { key: "ai_prompt_description_calculateur", prompt: CALCULATEUR_DESCRIPTION_SYSTEM },
   import_components:       { key: "ai_prompt_import_components", prompt: IMPORT_COMPONENTS_SYSTEM },
 };
@@ -250,7 +307,8 @@ serve(async (req) => {
     const systemPrompt = overrides[mapping.key] || mapping.prompt;
 
     // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
-    const model = (action === "catalogue_json" || action === "import_components")
+    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components"];
+    const model = SONNET_ACTIONS.includes(action)
       ? "claude-sonnet-4-20250514"
       : "claude-haiku-4-5-20251001";
 
@@ -273,6 +331,10 @@ serve(async (req) => {
           ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le texte d'explication.`
           : action === "catalogue_json"
           ? `Voici l'explication de l'article.\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
+          : action === "catalogue_pres_rule"
+          ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nReformule l'explication et génère le JSON de règle de présentation. Retourne UNIQUEMENT le JSON valide.`
+          : action === "catalogue_calc_rule"
+          ? `Voici l'explication de l'article.\n\n${nonEmpty[0].text}\n\nReformule l'explication et génère le JSON de règle de calcul. Retourne UNIQUEMENT le JSON valide.`
           : action === "calculateur_description"
           ? nonEmpty[0].text
           : action === "import_components"

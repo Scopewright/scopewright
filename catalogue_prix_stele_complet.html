@@ -4714,25 +4714,39 @@
 
         async function aiCatalogueExplication() {
             var btn = document.getElementById('btnAiExplication');
-            var textarea = document.getElementById('editPresRuleHuman');
+            var humanTextarea = document.getElementById('editPresRuleHuman');
+            var jsonTextarea = document.getElementById('editPresRuleAi');
             var descField = document.getElementById('editDescription');
             var clientText = document.getElementById('editClientText');
-            var existingText = textarea.value.trim();
+            var existingText = humanTextarea.value.trim();
+            if (!existingText) {
+                alert('Écrivez d\'abord l\'explication avant de lancer l\'AI.');
+                humanTextarea.focus();
+                return;
+            }
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var clientTextVal = clientText ? clientText.value.trim() : '';
             var prompt = 'Article : ' + articleDesc + '\nCatégorie : ' + category;
             if (clientTextVal) prompt += '\nTexte client : ' + clientTextVal;
-            if (existingText) {
-                prompt += '\n\nExplication actuelle à améliorer :\n' + existingText;
-            } else {
-                prompt += '\n\nGénère une explication technique pour cet article.';
-            }
+            prompt += '\n\nExplication actuelle :\n' + existingText;
+            var existingJson = jsonTextarea ? jsonTextarea.value.trim() : '';
+            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
             btn.disabled = true;
             btn.classList.add('ai-loading');
             try {
-                var results = await callEdgeFunction([{ key: 'ex', text: prompt }], 'catalogue_explication');
-                if (results['ex']) textarea.value = results['ex'];
+                var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
+                var raw = results['pr'];
+                if (raw) {
+                    var jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+                    var parsed = JSON.parse(jsonStr);
+                    if (parsed.explication) humanTextarea.value = parsed.explication;
+                    if (parsed.json) {
+                        jsonTextarea.value = JSON.stringify(parsed.json, null, 2);
+                        jsonTextarea.classList.add('calc-rule-success');
+                        setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
+                    }
+                }
             } catch (err) {
                 alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
             } finally {
@@ -4757,35 +4771,25 @@
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var itemCode = document.getElementById('editCode') ? document.getElementById('editCode').value : '';
-            var context = 'Article : ' + itemCode + ' — ' + articleDesc + '\nCatégorie : ' + category;
-
-            var exPrompt = context + '\n\nExplication actuelle à améliorer :\n' + humanText;
-            var jsonPrompt = context + '\n\nExplication en langage naturel :\n' + humanText;
+            var prompt = 'Article : ' + itemCode + ' — ' + articleDesc + '\nCatégorie : ' + category;
+            prompt += '\n\nExplication actuelle :\n' + humanText;
             var existingJson = jsonTextarea.value.trim();
-            if (existingJson) jsonPrompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
 
             btn.disabled = true;
             btn.classList.add('ai-loading');
             errEl.style.display = 'none';
             try {
-                var results = await Promise.all([
-                    callEdgeFunction([{ key: 'ex', text: exPrompt }], 'catalogue_explication'),
-                    callEdgeFunction([{ key: 'js', text: jsonPrompt }], 'catalogue_json')
-                ]);
-                var exResult = results[0];
-                var jsonResult = results[1];
-                if (exResult['ex']) humanTextarea.value = exResult['ex'];
-                if (jsonResult['js']) {
-                    var jsonStr = jsonResult['js'].replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-                    try {
-                        var parsed = JSON.parse(jsonStr);
-                        jsonTextarea.value = JSON.stringify(parsed, null, 2);
+                var results = await callEdgeFunction([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
+                var raw = results['cr'];
+                if (raw) {
+                    var jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+                    var parsed = JSON.parse(jsonStr);
+                    if (parsed.explication) humanTextarea.value = parsed.explication;
+                    if (parsed.json) {
+                        jsonTextarea.value = JSON.stringify(parsed.json, null, 2);
                         jsonTextarea.classList.add('calc-rule-success');
                         setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
-                    } catch (e) {
-                        jsonTextarea.value = jsonStr;
-                        errEl.textContent = 'JSON invalide — vérifiez manuellement : ' + e.message;
-                        errEl.style.display = '';
                     }
                 }
             } catch (err) {

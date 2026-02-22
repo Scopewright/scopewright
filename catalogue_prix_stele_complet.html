@@ -770,28 +770,34 @@
             border-color: var(--sw-navy) !important;
             transition: border-color 1.5s;
         }
+        .ai-field-wrap {
+            position: relative;
+        }
         .btn-ai-dot {
+            position: absolute; top: 6px; right: 6px; z-index: 2;
             width: 22px; height: 22px; border-radius: 50%;
             background: transparent; border: none; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            padding: 0; transition: opacity 0.15s;
-            flex-shrink: 0;
+            padding: 0; flex-shrink: 0;
         }
-        .btn-ai-dot:hover { opacity: 1; }
         .btn-ai-dot:disabled { opacity: 0.3; cursor: not-allowed; }
         .btn-ai-dot .ai-dot {
             width: 9px; height: 9px; border-radius: 50%;
-            background: #0B1220; opacity: 0.55;
-            animation: aiBreathe 3s ease-in-out infinite;
+            background: #0B1220; opacity: 0.45;
+            animation: aiHeartbeat 2s ease-in-out infinite;
         }
-        .btn-ai-dot:hover .ai-dot { opacity: 1; }
+        .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
         .btn-ai-dot.ai-loading .ai-dot {
             opacity: 1;
             animation: aiSpin 0.8s linear infinite;
         }
-        @keyframes aiBreathe {
-            0%,100% { opacity:0.55; transform:scale(1); }
-            50% { opacity:1; transform:scale(1.15); }
+        @keyframes aiHeartbeat {
+            0%  { opacity:0.4; transform:scale(1); }
+            15% { opacity:0.9; transform:scale(1.35); }
+            30% { opacity:0.5; transform:scale(1); }
+            45% { opacity:0.85; transform:scale(1.25); }
+            60% { opacity:0.4; transform:scale(1); }
+            100%{ opacity:0.4; transform:scale(1); }
         }
         @keyframes aiSpin {
             0% { opacity:1; transform:scale(1); }
@@ -808,10 +814,6 @@
             width: 100%; border: none; background: transparent; font-family: inherit;
             font-size: 12px; resize: vertical; min-height: 36px; outline: none; color: #333;
             box-sizing: border-box;
-        }
-        .comp-import-footer {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-top: 6px; gap: 8px;
         }
         .comp-import-thumbs { display: flex; gap: 4px; flex-wrap: wrap; }
         .comp-import-thumb {
@@ -1817,24 +1819,24 @@
                 <!-- Présentation client (admin only) -->
                 <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-                        <label class="form-label" style="margin:0;">Texte</label>
+                    <label class="form-label" style="margin-top:8px;">Texte</label>
+                    <div class="ai-field-wrap">
+                        <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
                         <button class="btn-ai-dot" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
-                    <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
                 </div>
                 <!-- Comment décrire au client (admin only) -->
                 <div class="form-group" id="presRuleGroup" style="display:none;">
                     <div class="cp-section-title">Comment d&eacute;crire au client</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-                        <label class="form-label" style="margin:0;">Explication</label>
+                    <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <div class="ai-field-wrap">
+                        <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
                         <button class="btn-ai-dot" id="btnAiExplication" onclick="aiCatalogueExplication()" title="Clarifier / structurer l'explication avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
-                    <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
                     <label class="form-label" style="margin-top:8px;">JSON</label>
                     <textarea class="form-input calc-rule-json" id="editPresRuleAi" rows="6" style="resize:vertical;" placeholder="JSON structur&eacute; pour l'AI..."></textarea>
                 </div>
@@ -1844,27 +1846,25 @@
                     <label class="form-label" style="margin-top:8px;">Explication</label>
                     <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
                     <div class="calc-rule-error" id="calcRuleError"></div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-                        <label class="form-label" style="margin:0;">JSON</label>
+                    <label class="form-label" style="margin-top:8px;">JSON</label>
+                    <div class="ai-field-wrap">
+                        <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                         <button class="btn-ai-dot" id="btnAiJson" onclick="aiCatalogueJson()" title="G&eacute;n&eacute;rer le JSON depuis l'explication">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
-                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
                     <div class="cp-section-title">Composantes fournisseur</div>
-                    <div class="comp-import-zone" id="compImportZone">
+                    <div class="comp-import-zone ai-field-wrap" id="compImportZone">
                         <textarea class="comp-import-textarea" id="compImportInput"
                             placeholder="Coller un screenshot de liste de prix, glisser une image, ou taper les donn&eacute;es en vrac..."
                             rows="2"></textarea>
-                        <div class="comp-import-footer">
-                            <div class="comp-import-thumbs" id="compImportThumbs"></div>
-                            <button class="btn-ai-dot" id="btnAiImportComp" onclick="aiImportComponents()" title="Extraire les composantes avec l'AI">
-                                <span class="ai-dot"></span>
-                            </button>
-                        </div>
+                        <button class="btn-ai-dot" id="btnAiImportComp" onclick="aiImportComponents()" title="Extraire les composantes avec l'AI">
+                            <span class="ai-dot"></span>
+                        </button>
+                        <div class="comp-import-thumbs" id="compImportThumbs" style="padding-top:4px;"></div>
                     </div>
                     <div id="componentsList"></div>
                     <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>

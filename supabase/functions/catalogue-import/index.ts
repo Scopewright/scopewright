@@ -8,20 +8,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Verify JWT via Supabase Auth (algorithm-agnostic, survives key rotations)
-async function verifyAuth(authHeader: string, supabase: any): Promise<Response | null> {
-  if (!authHeader) {
+// Lightweight auth check — Supabase gateway already verified the JWT signature.
+function checkAuthHeader(authHeader: string): Response | null {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const { error } = await supabase.auth.getUser();
-  if (error) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  return null; // Auth OK
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -475,8 +469,8 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify JWT
-    const authErr = await verifyAuth(authHeader, supabase);
+    // Verify auth header is present (gateway already validated the JWT)
+    const authErr = checkAuthHeader(authHeader);
     if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");

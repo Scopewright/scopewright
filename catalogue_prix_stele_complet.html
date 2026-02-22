@@ -3531,6 +3531,7 @@
             await callCatAiReviewAssistant();
         }
 
+        var _crRetried401 = false;
         async function callCatAiReviewAssistant() {
             catAiReviewLoading = true;
             var btn = document.getElementById('catAiReviewBtn');
@@ -3556,10 +3557,43 @@
                 );
 
                 if (!r.ok) {
-                    var errText = '';
-                    try { var errData = await r.json(); errText = errData.error || r.status; } catch(e) { errText = r.status; }
-                    appendCatAiReviewMessage('assistant', 'Erreur : ' + errText);
-                    return;
+                    // Extra retry on 401 (force token refresh + one more try)
+                    if (r.status === 401 && !_crRetried401) {
+                        _crRetried401 = true;
+                        if (await refreshAccessToken()) {
+                            r = await authenticatedFetch(
+                                SUPABASE_URL + '/functions/v1/ai-assistant',
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        messages: catAiReviewMessages,
+                                        context: {},
+                                        prompt_key: 'ai_prompt_approval_review',
+                                        tools_enabled: false
+                                    })
+                                }
+                            );
+                            _crRetried401 = false;
+                            if (r.ok) { /* fall through to success path */ }
+                            else {
+                                var errText2 = '';
+                                try { var errData2 = await r.json(); errText2 = errData2.error || r.status; } catch(e) { errText2 = r.status; }
+                                appendCatAiReviewMessage('assistant', 'Erreur : ' + errText2);
+                                return;
+                            }
+                        } else {
+                            _crRetried401 = false;
+                            appendCatAiReviewMessage('assistant', 'Session expirée — veuillez vous reconnecter.');
+                            return;
+                        }
+                    } else {
+                        _crRetried401 = false;
+                        var errText = '';
+                        try { var errData = await r.json(); errText = errData.error || r.status; } catch(e) { errText = r.status; }
+                        appendCatAiReviewMessage('assistant', 'Erreur : ' + errText);
+                        return;
+                    }
                 }
 
                 var data = await r.json();

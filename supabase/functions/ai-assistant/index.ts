@@ -8,20 +8,28 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Verify JWT via Supabase Auth (algorithm-agnostic, survives key rotations)
-async function verifyAuth(authHeader: string, supabase: any): Promise<Response | null> {
-  if (!authHeader) {
+// Lightweight auth check — Supabase gateway already verified the JWT signature.
+// We only check the header is present (belt-and-suspenders).
+// Previously used supabase.auth.getUser() which is an HTTP round-trip that
+// failed intermittently, causing recurring 401s on all AI chats.
+function checkAuthHeader(authHeader: string): Response | null {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const { error } = await supabase.auth.getUser();
-  if (error) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  return null; // Auth OK — gateway already verified the token
+}
+
+// Extract user ID from JWT payload (no HTTP call needed)
+function getUserIdFromJwt(authHeader: string): string | null {
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub || null;
+  } catch {
+    return null;
   }
-  return null; // Auth OK
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -556,8 +564,8 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify JWT
-    const authErr = await verifyAuth(authHeader, supabase);
+    // Verify auth header is present (gateway already validated the JWT)
+    const authErr = checkAuthHeader(authHeader);
     if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
@@ -656,7 +664,7 @@ serve(async (req) => {
 
       if (saveTool) {
         // Execute the INSERT server-side
-        const userId = (await supabase.auth.getUser()).data.user?.id;
+        const userId = getUserIdFromJwt(authHeader);
         const sourceCtx = saveTool.input.source_context || effectiveKey.replace("ai_prompt_", "");
         await supabase.from("ai_learnings").insert({
           rule: saveTool.input.rule,

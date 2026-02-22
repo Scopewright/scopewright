@@ -5881,6 +5881,22 @@
 
                 console.log('[IMPORT-DIAG] Raw AI result:', result.substring(0, 500));
                 var envelope = parseAiEnvelope(result, 'components');
+
+                // Normalize: AI sometimes uses French field names
+                if (!envelope.components && envelope.composantes) envelope.components = envelope.composantes;
+                if (Array.isArray(envelope.components)) {
+                    envelope.components = envelope.components.map(function(c) {
+                        return {
+                            supplier_name: c.supplier_name || c.fournisseur || c.supplier || '',
+                            supplier_sku: c.supplier_sku || c.sku || c.code || '',
+                            description: c.description || '',
+                            expense_category: c.expense_category || c.categorie || c.category || '',
+                            qty_per_unit: c.qty_per_unit || c.quantite || c.qty || 1,
+                            unit_cost: c.unit_cost || c.cout_unitaire || c.cost || c.prix || 0,
+                            notes: c.notes || c.note || ''
+                        };
+                    });
+                }
                 console.log('[IMPORT-DIAG] Parsed envelope:', { status: envelope.status, componentCount: (envelope.components || []).length, warnings: envelope.warnings });
 
                 if (envelope.status === 'error') {

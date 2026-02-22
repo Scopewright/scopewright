@@ -784,20 +784,16 @@
         .btn-ai-dot .ai-dot {
             width: 9px; height: 9px; border-radius: 50%;
             background: #0B1220; opacity: 0.45;
-            animation: aiHeartbeat 2s ease-in-out infinite;
+            animation: aiBreathe 3s ease-in-out infinite;
         }
         .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
         .btn-ai-dot.ai-loading .ai-dot {
             opacity: 1;
             animation: aiSpin 0.8s linear infinite;
         }
-        @keyframes aiHeartbeat {
-            0%  { opacity:0.4; transform:scale(1); }
-            15% { opacity:0.9; transform:scale(1.35); }
-            30% { opacity:0.5; transform:scale(1); }
-            45% { opacity:0.85; transform:scale(1.25); }
-            60% { opacity:0.4; transform:scale(1); }
-            100%{ opacity:0.4; transform:scale(1); }
+        @keyframes aiBreathe {
+            0%,100% { opacity:0.45; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.15); }
         }
         @keyframes aiSpin {
             0% { opacity:1; transform:scale(1); }

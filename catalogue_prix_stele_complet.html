@@ -1844,15 +1844,15 @@
                 <div class="form-group" id="calcRuleGroup" style="display:none;">
                     <div class="cp-section-title">Instructions AI</div>
                     <label class="form-label" style="margin-top:8px;">Explication</label>
-                    <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
-                    <div class="calc-rule-error" id="calcRuleError"></div>
-                    <label class="form-label" style="margin-top:8px;">JSON</label>
                     <div class="ai-field-wrap">
-                        <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
-                        <button class="btn-ai-dot" id="btnAiJson" onclick="aiCatalogueJson()" title="G&eacute;n&eacute;rer le JSON depuis l'explication">
+                        <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
+                        <button class="btn-ai-dot" id="btnAiCalcRule" onclick="aiCalcRuleGenerate()" title="Reformuler l'explication et g&eacute;n&eacute;rer le JSON">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
+                    <div class="calc-rule-error" id="calcRuleError"></div>
+                    <label class="form-label" style="margin-top:8px;">JSON</label>
+                    <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
@@ -4742,15 +4742,15 @@
             }
         }
 
-        async function aiCatalogueJson() {
-            var btn = document.getElementById('btnAiJson');
+        async function aiCalcRuleGenerate() {
+            var btn = document.getElementById('btnAiCalcRule');
             var humanTextarea = document.getElementById('editCalcRuleHuman');
             var jsonTextarea = document.getElementById('editCalcRuleAi');
             var descField = document.getElementById('editDescription');
             var errEl = document.getElementById('calcRuleError');
             var humanText = humanTextarea.value.trim();
             if (!humanText) {
-                errEl.textContent = 'Écrivez d\'abord l\'explication en langage naturel avant de générer le JSON.';
+                errEl.textContent = 'Écrivez d\'abord l\'explication en langage naturel.';
                 errEl.style.display = '';
                 humanTextarea.focus();
                 return;
@@ -4758,18 +4758,26 @@
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var itemCode = document.getElementById('editCode') ? document.getElementById('editCode').value : '';
-            var prompt = 'Article : ' + itemCode + ' — ' + articleDesc;
-            prompt += '\nCatégorie : ' + category;
-            prompt += '\n\nExplication en langage naturel :\n' + humanText;
+            var context = 'Article : ' + itemCode + ' — ' + articleDesc + '\nCatégorie : ' + category;
+
+            var exPrompt = context + '\n\nExplication actuelle à améliorer :\n' + humanText;
+            var jsonPrompt = context + '\n\nExplication en langage naturel :\n' + humanText;
             var existingJson = jsonTextarea.value.trim();
-            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) jsonPrompt += '\n\nJSON existant à réviser :\n' + existingJson;
+
             btn.disabled = true;
             btn.classList.add('ai-loading');
             errEl.style.display = 'none';
             try {
-                var results = await callEdgeFunction([{ key: 'js', text: prompt }], 'catalogue_json');
-                if (results['js']) {
-                    var jsonStr = results['js'].replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+                var results = await Promise.all([
+                    callEdgeFunction([{ key: 'ex', text: exPrompt }], 'catalogue_explication'),
+                    callEdgeFunction([{ key: 'js', text: jsonPrompt }], 'catalogue_json')
+                ]);
+                var exResult = results[0];
+                var jsonResult = results[1];
+                if (exResult['ex']) humanTextarea.value = exResult['ex'];
+                if (jsonResult['js']) {
+                    var jsonStr = jsonResult['js'].replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
                     try {
                         var parsed = JSON.parse(jsonStr);
                         jsonTextarea.value = JSON.stringify(parsed, null, 2);
@@ -4777,7 +4785,7 @@
                         setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
                     } catch (e) {
                         jsonTextarea.value = jsonStr;
-                        errEl.textContent = 'L\'AI a généré un JSON invalide. Vérifiez et corrigez manuellement : ' + e.message;
+                        errEl.textContent = 'JSON invalide — vérifiez manuellement : ' + e.message;
                         errEl.style.display = '';
                     }
                 }

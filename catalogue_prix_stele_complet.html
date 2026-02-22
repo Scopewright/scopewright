@@ -770,22 +770,33 @@
             border-color: var(--sw-navy) !important;
             transition: border-color 1.5s;
         }
-        .btn-ai-inline {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 3px 8px; font-size: 11px; font-family: inherit;
-            background: transparent; border: 1px solid #d1d5db; border-radius: 4px;
-            color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        .btn-ai-dot {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: transparent; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; transition: opacity 0.15s;
+            flex-shrink: 0;
         }
-        .btn-ai-inline:hover { border-color: #0B1220; color: #0B1220; background: rgba(11,18,32,0.03); }
-        .btn-ai-inline:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-ai-inline .ai-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: #0B1220; opacity: 0.6;
+        .btn-ai-dot:hover { opacity: 1; }
+        .btn-ai-dot:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-ai-dot .ai-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #0B1220; opacity: 0.55;
             animation: aiBreathe 3s ease-in-out infinite;
         }
+        .btn-ai-dot:hover .ai-dot { opacity: 1; }
+        .btn-ai-dot.ai-loading .ai-dot {
+            opacity: 1;
+            animation: aiSpin 0.8s linear infinite;
+        }
         @keyframes aiBreathe {
-            0%,100% { opacity:0.6; transform:scale(1); }
-            50% { opacity:1; transform:scale(1.1); }
+            0%,100% { opacity:0.55; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.15); }
+        }
+        @keyframes aiSpin {
+            0% { opacity:1; transform:scale(1); }
+            50% { opacity:0.3; transform:scale(0.7); }
+            100% { opacity:1; transform:scale(1); }
         }
         .comp-import-zone {
             border: 1.5px dashed #d1d5db; border-radius: 8px;
@@ -1808,8 +1819,8 @@
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
                         <label class="form-label" style="margin:0;">Texte</label>
-                        <button class="btn-ai-inline" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
-                            <span class="ai-dot"></span> Texte client
+                        <button class="btn-ai-dot" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
+                            <span class="ai-dot"></span>
                         </button>
                     </div>
                     <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
@@ -1819,8 +1830,8 @@
                     <div class="cp-section-title">Comment d&eacute;crire au client</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
                         <label class="form-label" style="margin:0;">Explication</label>
-                        <button class="btn-ai-inline" id="btnAiExplication" onclick="aiCatalogueExplication()" title="Clarifier / structurer l'explication avec l'AI">
-                            <span class="ai-dot"></span> Explication
+                        <button class="btn-ai-dot" id="btnAiExplication" onclick="aiCatalogueExplication()" title="Clarifier / structurer l'explication avec l'AI">
+                            <span class="ai-dot"></span>
                         </button>
                     </div>
                     <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
@@ -1835,8 +1846,8 @@
                     <div class="calc-rule-error" id="calcRuleError"></div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
                         <label class="form-label" style="margin:0;">JSON</label>
-                        <button class="btn-ai-inline" id="btnAiJson" onclick="aiCatalogueJson()" title="G&eacute;n&eacute;rer le JSON depuis l'explication">
-                            <span class="ai-dot"></span> G&eacute;n&eacute;rer JSON
+                        <button class="btn-ai-dot" id="btnAiJson" onclick="aiCatalogueJson()" title="G&eacute;n&eacute;rer le JSON depuis l'explication">
+                            <span class="ai-dot"></span>
                         </button>
                     </div>
                     <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
@@ -1850,8 +1861,8 @@
                             rows="2"></textarea>
                         <div class="comp-import-footer">
                             <div class="comp-import-thumbs" id="compImportThumbs"></div>
-                            <button class="btn-ai-inline" id="btnAiImportComp" onclick="aiImportComponents()" title="Extraire les composantes avec l'AI">
-                                <span class="ai-dot"></span> Importer
+                            <button class="btn-ai-dot" id="btnAiImportComp" onclick="aiImportComponents()" title="Extraire les composantes avec l'AI">
+                                <span class="ai-dot"></span>
                             </button>
                         </div>
                     </div>
@@ -4690,8 +4701,7 @@
                 prompt += '\n\nGénère un fragment de texte de présentation client pour cet article.';
             }
             btn.disabled = true;
-            var origHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            btn.classList.add('ai-loading');
             try {
                 var results = await callEdgeFunction([{ key: 'ct', text: prompt }], 'catalogue_client_text');
                 if (results['ct']) input.value = results['ct'];
@@ -4699,7 +4709,7 @@
                 alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = origHTML;
+                btn.classList.remove('ai-loading');
             }
         }
 
@@ -4720,8 +4730,7 @@
                 prompt += '\n\nGénère une explication technique pour cet article.';
             }
             btn.disabled = true;
-            var origHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            btn.classList.add('ai-loading');
             try {
                 var results = await callEdgeFunction([{ key: 'ex', text: prompt }], 'catalogue_explication');
                 if (results['ex']) textarea.value = results['ex'];
@@ -4729,7 +4738,7 @@
                 alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = origHTML;
+                btn.classList.remove('ai-loading');
             }
         }
 
@@ -4755,8 +4764,7 @@
             var existingJson = jsonTextarea.value.trim();
             if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
             btn.disabled = true;
-            var origHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            btn.classList.add('ai-loading');
             errEl.style.display = 'none';
             try {
                 var results = await callEdgeFunction([{ key: 'js', text: prompt }], 'catalogue_json');
@@ -4778,7 +4786,7 @@
                 errEl.style.display = '';
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = origHTML;
+                btn.classList.remove('ai-loading');
             }
         }
 
@@ -4882,8 +4890,7 @@
             }).filter(Boolean);
 
             btn.disabled = true;
-            var origHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            btn.classList.add('ai-loading');
 
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
@@ -4934,7 +4941,7 @@
                 alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = origHTML;
+                btn.classList.remove('ai-loading');
             }
         }
 

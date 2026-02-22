@@ -2028,6 +2028,88 @@
         await Promise.all([loadContacts(), loadCompanies()]);
         renderContacts();
         renderCompanies();
+
+        // Auto-continue: let AI see the results and call link_contact_company etc.
+        if (created.contacts > 0 || created.companies > 0 || linked > 0) {
+            try {
+                document.getElementById('ctTyping').classList.add('active');
+                var context = collectContactsContext();
+                var followUp = await callContactsImport(ctConversation, context);
+                await ctHandleFollowUp(followUp);
+            } catch (e) {
+                console.warn('[contacts] Auto-continue error:', e);
+            } finally {
+                document.getElementById('ctTyping').classList.remove('active');
+            }
+        }
+    }
+
+    // Handle AI follow-up after tool execution — auto-execute links, show text
+    async function ctHandleFollowUp(data) {
+        var contentBlocks = data.content || [];
+        var textParts = [];
+        var autoExecNames = ['link_contact_company', 'search_contacts', 'filter_contacts'];
+        var autoExecTools = [];
+        var actionTools = [];
+
+        contentBlocks.forEach(function(block) {
+            if (block.type === 'text') textParts.push(block.text);
+            if (block.type === 'tool_use') {
+                if (autoExecNames.indexOf(block.name) !== -1) {
+                    autoExecTools.push(block);
+                } else {
+                    actionTools.push(block);
+                }
+            }
+        });
+
+        ctConversation.push({ role: 'assistant', content: contentBlocks });
+
+        // Auto-execute links and read-only tools
+        if (autoExecTools.length > 0) {
+            var toolResults = [];
+            for (var i = 0; i < autoExecTools.length; i++) {
+                try {
+                    var result = await executeCtTool(autoExecTools[i].name, autoExecTools[i].input);
+                    toolResults.push({ type: 'tool_result', tool_use_id: autoExecTools[i].id, content: JSON.stringify(result) });
+                } catch (err) {
+                    toolResults.push({ type: 'tool_result', tool_use_id: autoExecTools[i].id, content: JSON.stringify({ error: err.message }), is_error: true });
+                }
+            }
+            ctConversation.push({ role: 'user', content: toolResults });
+
+            // Reload if links were created
+            await Promise.all([loadContacts(), loadCompanies()]);
+            renderContacts();
+            renderCompanies();
+
+            // One more follow-up to get final text response
+            if (actionTools.length === 0) {
+                try {
+                    var context = collectContactsContext();
+                    var finalData = await callContactsImport(ctConversation, context);
+                    var finalBlocks = finalData.content || [];
+                    var finalText = finalBlocks.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
+                    if (finalText) {
+                        ctConversation.push({ role: 'assistant', content: finalBlocks });
+                        appendCtMessage('assistant', finalText);
+                        saveCtChatMessage('assistant', finalText);
+                    }
+                } catch (e) { /* final text optional */ }
+                return;
+            }
+        }
+
+        // Show text + remaining action tools that need confirmation
+        var fullText = textParts.join('\n');
+        if (actionTools.length > 0) {
+            if (fullText) appendCtMessage('assistant', fullText);
+            ctPendingToolCalls = { tools: actionTools };
+            appendCtMessage('confirm', formatCtPendingActions(actionTools));
+        } else if (fullText) {
+            appendCtMessage('assistant', fullText);
+            saveCtChatMessage('assistant', fullText);
+        }
     }
 
     function ctDismissPending(confirmId) {

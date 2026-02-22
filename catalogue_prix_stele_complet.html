@@ -4670,8 +4670,11 @@
                 body: JSON.stringify({ texts: texts, action: action })
             });
             if (!resp.ok) {
+                if (resp.status === 401 || resp.status === 403) {
+                    throw new Error('Session expirée — veuillez vous reconnecter.');
+                }
                 var errText = await resp.text().catch(function() { return ''; });
-                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                try { var errObj = JSON.parse(errText); throw new Error(errObj.error || errObj.msg || 'Erreur ' + resp.status); }
                 catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status + ': ' + errText.substring(0, 200)); }
             }
             var data = await resp.json();
@@ -4907,8 +4910,11 @@
                     })
                 });
                 if (!resp.ok) {
+                    if (resp.status === 401 || resp.status === 403) {
+                        throw new Error('Session expirée — veuillez vous reconnecter.');
+                    }
                     var errText = await resp.text().catch(function() { return ''; });
-                    try { var errObj = JSON.parse(errText); throw new Error(errObj.error || 'Erreur ' + resp.status); }
+                    try { var errObj = JSON.parse(errText); throw new Error(errObj.error || errObj.msg || 'Erreur ' + resp.status); }
                     catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
                 }
                 var data = await resp.json();

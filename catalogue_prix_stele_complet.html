@@ -36,6 +36,9 @@
     const STORAGE_KEY = 'stele_catalogue_data';
     const STORAGE_DATE_KEY = 'stele_catalogue_date';
 
+    // Mode embedded (ouvert dans iframe depuis calculateur)
+    var isEmbedded = new URLSearchParams(window.location.search).has('embedded');
+
     // Données par défaut (utilisées uniquement si jamais connecté et pas de cache)
     let CATALOGUE_DATA = [
 
@@ -3310,6 +3313,16 @@
                 updatePendingBadge();
                 generatePriceTables();
 
+                // In embedded mode, notify parent
+                if (isEmbedded && window.parent !== window) {
+                    var savedItem = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+                    window.parent.postMessage({
+                        type: 'catalogue-item-saved',
+                        item: savedItem ? JSON.parse(JSON.stringify(savedItem)) : null
+                    }, '*');
+                    return;
+                }
+
                 // Show success status in modal
                 var statusEl = document.getElementById('editStatus');
                 statusEl.className = 'edit-status success';
@@ -3354,6 +3367,13 @@
                 CATALOGUE_DATA = CATALOGUE_DATA.filter(function(it) { return it.id !== itemId; });
                 updatePendingBadge();
                 generatePriceTables();
+
+                // In embedded mode, notify parent
+                if (isEmbedded && window.parent !== window) {
+                    window.parent.postMessage({ type: 'catalogue-modal-closed' }, '*');
+                    return;
+                }
+
                 closeEditModal();
             } catch (e) {
                 btn.textContent = origText;
@@ -3770,6 +3790,11 @@
         }
 
         function closeEditModal() {
+            // In embedded mode, notify parent and return
+            if (isEmbedded && window.parent !== window) {
+                window.parent.postMessage({ type: 'catalogue-modal-closed' }, '*');
+                return;
+            }
             document.getElementById('editModal').classList.remove('active');
             document.getElementById('editModal').classList.remove('anim-enter');
             editMedia = [];
@@ -4738,6 +4763,16 @@
 
                 // Re-générer les tables
                 generatePriceTables();
+
+                // In embedded mode, notify parent with updated item and close
+                if (isEmbedded && window.parent !== window) {
+                    var savedItem = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+                    window.parent.postMessage({
+                        type: 'catalogue-item-saved',
+                        item: savedItem ? JSON.parse(JSON.stringify(savedItem)) : null
+                    }, '*');
+                    return;
+                }
 
                 if (!silent) {
                     status.textContent = '\u2713 Sauvegardé';
@@ -6416,6 +6451,18 @@
                 document.getElementById('filterPendingBtn').style.display = '';
                 setupImportDrawerHandlers();
                 updatePendingBadge();
+            }
+
+            // Embedded mode: hide catalogue chrome, only show modal
+            if (isEmbedded) {
+                document.querySelector('.nav-bar').style.display = 'none';
+                document.querySelector('.catalogue-search-bar').style.display = 'none';
+                var aiFilterBadge = document.getElementById('aiFilterBadge');
+                if (aiFilterBadge) aiFilterBadge.style.display = 'none';
+                var headerBar = document.querySelector('.catalogue-header-bar');
+                if (headerBar) headerBar.style.display = 'none';
+                document.getElementById('mainCatalogueTable').style.display = 'none';
+                document.body.style.background = 'transparent';
             }
 
             // Auto-open edit modal if URL has ?edit=ITEM_ID

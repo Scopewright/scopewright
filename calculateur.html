@@ -80,6 +80,7 @@
 
     let EMPLOYEES_DATA = [];
     let CATALOGUE_DATA = [];
+    var _catEditRowId = null; // rowId being edited in catalogue iframe overlay
     let tauxHoraires = [];
     let expenseCategories = [];
     let canEditMinutes = false;
@@ -3034,6 +3035,21 @@
         #steleDialogOverlay { z-index: 9999; }
 
         .modal-overlay.active { display: flex; }
+
+        /* Catalogue edit iframe overlay */
+        .cat-edit-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10000;
+            background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+            justify-content: center; align-items: center;
+        }
+        .cat-edit-overlay.active { display: flex; }
+        .cat-edit-frame-wrap {
+            width: min(95vw, 800px); height: min(92vh, 900px);
+            border-radius: 14px; overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+            background: #fff;
+        }
+        .cat-edit-iframe { width: 100%; height: 100%; border: none; }
 
         .modal {
             background: var(--sw-surface);
@@ -7060,9 +7076,52 @@
             var hidden = row.querySelector('.item-select');
             var val = hidden ? hidden.value : '';
             if (val && val !== '__PROPOSER__' && val !== '__AJOUT__') {
-                window.open('catalogue_prix_stele_complet.html?edit=' + encodeURIComponent(val), '_blank');
+                _catEditRowId = rowId;
+                var overlay = document.getElementById('catEditOverlay');
+                var iframe = document.getElementById('catEditIframe');
+                iframe.src = 'catalogue_prix_stele_complet.html?edit=' + encodeURIComponent(val) + '&embedded=1';
+                overlay.classList.add('active');
             }
         }
+
+        function closeCatEditOverlay() {
+            document.getElementById('catEditOverlay').classList.remove('active');
+            document.getElementById('catEditIframe').src = 'about:blank';
+            _catEditRowId = null;
+        }
+
+        function updateRowFromCatalogue(rowId, item) {
+            if (!item) return;
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var priceInput = document.getElementById(rowId + '-unit-price');
+            if (priceInput && item.price != null) {
+                priceInput.value = parseFloat(item.price).toFixed(2);
+                priceInput.dispatchEvent(new Event('input', {bubbles: true}));
+            }
+            var cbInput = document.getElementById(rowId + '-cb');
+            if (cbInput && item.description) {
+                cbInput.value = item.description;
+            }
+        }
+
+        window.addEventListener('message', function(e) {
+            if (!e.data || !e.data.type) return;
+            if (e.data.type === 'catalogue-modal-closed') {
+                closeCatEditOverlay();
+            }
+            if (e.data.type === 'catalogue-item-saved') {
+                var updated = e.data.item;
+                if (updated && updated.id) {
+                    var idx = CATALOGUE_DATA.findIndex(function(c) { return c.id === updated.id; });
+                    if (idx >= 0) CATALOGUE_DATA[idx] = updated;
+                }
+                if (_catEditRowId) {
+                    updateRowFromCatalogue(_catEditRowId, updated);
+                }
+                closeCatEditOverlay();
+            }
+        });
 
         function toggleGroup(groupId) {
             document.getElementById(groupId).classList.toggle('collapsed');
@@ -15212,6 +15271,13 @@
             }
         });
     </script>
+
+<!-- Catalogue edit overlay (iframe) -->
+<div class="cat-edit-overlay" id="catEditOverlay" onclick="if(event.target===this)closeCatEditOverlay()">
+    <div class="cat-edit-frame-wrap">
+        <iframe id="catEditIframe" class="cat-edit-iframe" src="about:blank"></iframe>
+    </div>
+</div>
 
 </body>
 </html>

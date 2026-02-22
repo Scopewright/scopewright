@@ -3444,7 +3444,14 @@
             contextParts.push('Description: ' + (item.description || '—'));
             contextParts.push('Catégorie: ' + (item.category || '—'));
             contextParts.push('Type d\'unité: ' + (item.type || '—'));
-            contextParts.push('Prix fixe: ' + (item.price != null ? item.price + ' $' : 'aucun (prix composé)'));
+            var computedPriceForContext = computeCatItemPrice(item);
+            if (item.price != null && item.price > 0) {
+                contextParts.push('Prix fixe: ' + item.price + ' $');
+            } else if (computedPriceForContext > 0) {
+                contextParts.push('Prix: calculé (composé MO + matériaux) = ' + computedPriceForContext.toFixed(2) + ' $ — PAS de prix fixe, c\'est normal pour un article à prix composé');
+            } else {
+                contextParts.push('Prix: AUCUN (ni fixe ni composé) — à vérifier');
+            }
             contextParts.push('Proposé par: ' + (item.proposed_by || '—'));
             contextParts.push('Instruction: ' + (item.instruction || '—'));
 
@@ -3473,9 +3480,8 @@
                 contextParts.push('Coûts matériaux: ' + (mcParts.length > 0 ? mcParts.join(', ') : 'aucun'));
             }
 
-            // Computed price
-            var computedPrice = computeCatItemPrice(item);
-            if (computedPrice > 0) contextParts.push('Prix composé calculé: ' + computedPrice.toFixed(2) + ' $');
+            // Computed price total (recap)
+            if (computedPriceForContext > 0) contextParts.push('Total prix composé: ' + computedPriceForContext.toFixed(2) + ' $ (= MO + matériaux avec markup/perte)');
 
             // Taux horaires
             if (tauxHoraires && Object.keys(tauxHoraires).length > 0) {

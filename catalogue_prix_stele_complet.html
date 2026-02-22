@@ -760,12 +760,6 @@
             line-height: 1.4;
             tab-size: 2;
         }
-        .calc-rule-error {
-            color: #c62828;
-            font-size: 12px;
-            margin-top: 4px;
-            display: none;
-        }
         .calc-rule-success {
             border-color: var(--sw-navy) !important;
             transition: border-color 1.5s;
@@ -787,18 +781,53 @@
             animation: aiBreathe 3s ease-in-out infinite;
         }
         .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
-        .btn-ai-dot.ai-loading .ai-dot {
-            opacity: 1;
-            animation: aiSpin 0.8s linear infinite;
-        }
         @keyframes aiBreathe {
             0%,100% { opacity:0.45; transform:scale(1); }
             50% { opacity:1; transform:scale(1.15); }
         }
-        @keyframes aiSpin {
-            0% { opacity:1; transform:scale(1); }
-            50% { opacity:0.3; transform:scale(0.7); }
-            100% { opacity:1; transform:scale(1); }
+        /* AI active: accelerated breathing (1.5s) while waiting for response */
+        .btn-ai-dot.ai-active .ai-dot {
+            animation: aiBreathe 1.5s ease-in-out infinite;
+        }
+        /* AI Feedback containers */
+        .ai-feedback-container { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+        .ai-feedback-container:empty { display:none; margin:0; }
+        /* Banner base */
+        .ai-feedback-banner {
+            display:flex; align-items:flex-start; gap:8px;
+            padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.4;
+            animation: aiFeedbackIn 200ms ease;
+        }
+        .ai-feedback-banner.warn { background:#FFFBEB; border-left:3px solid #F59E0B; color:#92400E; }
+        .ai-feedback-banner.error { background:#FEF2F2; border-left:3px solid #EF4444; color:#991B1B; }
+        .ai-feedback-banner.info { background:#F0F9FF; border-left:3px solid #3B82F6; color:#1E40AF; }
+        /* Icon, text, actions */
+        .ai-feedback-icon { flex-shrink:0; width:14px; opacity:0.7; margin-top:1px; }
+        .ai-feedback-text { flex:1; min-width:0; }
+        .ai-feedback-actions { display:flex; gap:4px; align-items:center; flex-shrink:0; }
+        .ai-feedback-btn-apply {
+            font-size:11px; padding:2px 8px; border-radius:4px;
+            border:1px solid #F59E0B; background:transparent; color:#92400E;
+            cursor:pointer; white-space:nowrap;
+        }
+        .ai-feedback-btn-apply:hover { background:rgba(245,158,11,0.1); }
+        .ai-feedback-btn-close {
+            width:18px; height:18px; border:none; background:transparent;
+            cursor:pointer; font-size:14px; color:inherit; opacity:0.5;
+            display:flex; align-items:center; justify-content:center; padding:0;
+        }
+        .ai-feedback-btn-close:hover { opacity:1; background:rgba(0,0,0,0.05); border-radius:3px; }
+        /* Success micro-flash */
+        @keyframes aiSuccessFlash {
+            0% { background-color:transparent; }
+            30% { background-color:rgba(75,96,80,0.06); }
+            100% { background-color:transparent; }
+        }
+        .ai-success-flash { animation: aiSuccessFlash 600ms ease; }
+        @keyframes aiFeedbackIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+        @media (prefers-reduced-motion:reduce) {
+            .ai-feedback-banner, .ai-success-flash { animation:none; }
+            .btn-ai-dot.ai-active .ai-dot { animation:none; opacity:1; }
         }
         .comp-import-zone {
             border: 1.5px dashed #d1d5db; border-radius: 8px;
@@ -1816,6 +1845,7 @@
                 <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
                     <label class="form-label" style="margin-top:8px;">Texte</label>
+                    <div class="ai-feedback-container" id="clientTextFeedback"></div>
                     <div class="ai-field-wrap">
                         <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
                         <button class="btn-ai-dot" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
@@ -1827,6 +1857,7 @@
                 <div class="form-group" id="presRuleGroup" style="display:none;">
                     <div class="cp-section-title">Comment d&eacute;crire au client</div>
                     <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <div class="ai-feedback-container" id="presRuleFeedback"></div>
                     <div class="ai-field-wrap">
                         <textarea class="form-input" id="editPresRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier avec le pr&eacute;fixe 'en'. Ne pas mentionner les pattes ni la bande de chant au client."></textarea>
                         <button class="btn-ai-dot" id="btnAiExplication" onclick="aiCatalogueExplication()" title="Clarifier / structurer l'explication avec l'AI">
@@ -1840,19 +1871,20 @@
                 <div class="form-group" id="calcRuleGroup" style="display:none;">
                     <div class="cp-section-title">Instructions AI</div>
                     <label class="form-label" style="margin-top:8px;">Explication</label>
+                    <div class="ai-feedback-container" id="calcRuleFeedback"></div>
                     <div class="ai-field-wrap">
                         <textarea class="form-input" id="editCalcRuleHuman" rows="3" style="resize:vertical;" placeholder="Ex: Caisson au sol &mdash; ajouter 4 pattes. Demander largeur, profondeur, hauteur. Utiliser le mat&eacute;riau int&eacute;rieur des mat&eacute;riaux par d&eacute;faut." oninput="updateGenerateRuleBtn()"></textarea>
                         <button class="btn-ai-dot" id="btnAiCalcRule" onclick="aiCalcRuleGenerate()" title="Reformuler l'explication et g&eacute;n&eacute;rer le JSON">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
-                    <div class="calc-rule-error" id="calcRuleError"></div>
                     <label class="form-label" style="margin-top:8px;">JSON</label>
                     <textarea class="form-input calc-rule-json" id="editCalcRuleAi" rows="6" style="resize:vertical;" placeholder="Instructions structur&eacute;es pour l'AI..."></textarea>
                 </div>
                 <!-- Composantes fournisseur -->
                 <div class="form-group" id="componentsGroup">
                     <div class="cp-section-title">Composantes fournisseur</div>
+                    <div class="ai-feedback-container" id="importCompFeedback"></div>
                     <div class="comp-import-zone ai-field-wrap" id="compImportZone">
                         <textarea class="comp-import-textarea" id="compImportInput"
                             placeholder="Coller un screenshot de liste de prix, glisser une image, ou taper les donn&eacute;es en vrac..."
@@ -3089,7 +3121,7 @@
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
             document.getElementById('editCalcRuleAi').value = item.calculation_rule_ai ? JSON.stringify(item.calculation_rule_ai, null, 2) : '';
             document.getElementById('calcRuleGroup').style.display = isAdmin ? '' : 'none';
-            document.getElementById('calcRuleError').style.display = 'none';
+            clearAiFeedback('calcRuleFeedback');
             updateGenerateRuleBtn();
 
             // Règles de présentation (admin only)
@@ -3178,6 +3210,12 @@
             editMediaToDelete = [];
             isNewItem = false;
             newItemData = null;
+            // Cleanup AI feedback
+            _pendingAiData = {};
+            clearAiFeedback('clientTextFeedback');
+            clearAiFeedback('presRuleFeedback');
+            clearAiFeedback('calcRuleFeedback');
+            clearAiFeedback('importCompFeedback');
         }
 
         // ═══ Animated modal open (AI unit insert) ═══
@@ -3240,7 +3278,7 @@
             document.getElementById('clientTextGroup').style.display = isAdmin ? '' : 'none';
             document.getElementById('calcRuleGroup').style.display = isAdmin ? '' : 'none';
             document.getElementById('presRuleGroup').style.display = isAdmin ? '' : 'none';
-            document.getElementById('calcRuleError').style.display = 'none';
+            clearAiFeedback('calcRuleFeedback');
 
             // Navigation
             if (navItemList.length === 0) buildNavList();
@@ -3935,9 +3973,7 @@
             var calcRuleAiRaw = document.getElementById('editCalcRuleAi').value.trim();
             if (calcRuleAiRaw) {
                 try { JSON.parse(calcRuleAiRaw); } catch (e) {
-                    var errEl = document.getElementById('calcRuleError');
-                    errEl.textContent = 'JSON invalide dans la r\u00e8gle AI : ' + e.message;
-                    errEl.style.display = '';
+                    showAiFeedback('calcRuleFeedback', { status: 'error', warnings: ['JSON invalide dans la r\u00e8gle AI : ' + e.message] });
                     document.getElementById('editCalcRuleAi').focus();
                     return;
                 }
@@ -4684,31 +4720,154 @@
             return data.translations;
         }
 
+        // ── AI Feedback shared helpers ──
+
+        var _pendingAiData = {};
+
+        /**
+         * Parse AI response — handles envelope { status, warnings, ...data },
+         * plain JSON without status, or raw text.
+         */
+        function parseAiEnvelope(raw, fallbackField) {
+            if (!raw || typeof raw !== 'string') return { status: 'error', warnings: ['Aucune r\u00e9ponse de l\'AI.'] };
+            var cleaned = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+            try {
+                var parsed = JSON.parse(cleaned);
+                if (parsed && typeof parsed === 'object') {
+                    if (parsed.status) return parsed;
+                    // JSON sans status → wrap as ok
+                    parsed.status = 'ok';
+                    if (!parsed.warnings) parsed.warnings = [];
+                    return parsed;
+                }
+            } catch (e) { /* not JSON */ }
+            // Raw text → wrap with fallbackField
+            var result = { status: 'ok', warnings: [] };
+            result[fallbackField || 'text'] = raw.trim();
+            return result;
+        }
+
+        /**
+         * Show feedback banners in a container.
+         * envelope: { status, warnings: string[] }
+         * applyFn: function to call when user clicks "Appliquer quand m\u00eame"
+         * pendingKey: key in _pendingAiData to store the apply closure
+         */
+        function showAiFeedback(containerId, envelope, applyFn, pendingKey) {
+            var container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            var messages = envelope.warnings || [];
+            if (messages.length === 0 && envelope.status === 'error') {
+                messages = ['Erreur AI inconnue.'];
+            }
+            var isWarning = envelope.status === 'needs_review';
+            var isError = envelope.status === 'error';
+            var cssClass = isError ? 'error' : isWarning ? 'warn' : 'info';
+            var icon = isError ? '\u26A0' : isWarning ? '\u26A0' : '\u2139';
+
+            messages.forEach(function(msg, idx) {
+                var banner = document.createElement('div');
+                banner.className = 'ai-feedback-banner ' + cssClass;
+
+                var iconEl = document.createElement('span');
+                iconEl.className = 'ai-feedback-icon';
+                iconEl.textContent = icon;
+                banner.appendChild(iconEl);
+
+                var textEl = document.createElement('span');
+                textEl.className = 'ai-feedback-text';
+                textEl.textContent = msg;
+                banner.appendChild(textEl);
+
+                var actionsEl = document.createElement('span');
+                actionsEl.className = 'ai-feedback-actions';
+
+                // "Appliquer" button on the last warning if needs_review + applyFn exists
+                if (isWarning && applyFn && idx === messages.length - 1) {
+                    var applyBtn = document.createElement('button');
+                    applyBtn.className = 'ai-feedback-btn-apply';
+                    applyBtn.textContent = 'Appliquer';
+                    applyBtn.onclick = function() {
+                        if (_pendingAiData[pendingKey]) {
+                            _pendingAiData[pendingKey]();
+                            delete _pendingAiData[pendingKey];
+                        }
+                        clearAiFeedback(containerId);
+                    };
+                    actionsEl.appendChild(applyBtn);
+                    if (pendingKey) _pendingAiData[pendingKey] = applyFn;
+                }
+
+                // Close button
+                var closeBtn = document.createElement('button');
+                closeBtn.className = 'ai-feedback-btn-close';
+                closeBtn.innerHTML = '&times;';
+                closeBtn.onclick = function() { banner.remove(); if (!container.children.length) container.innerHTML = ''; };
+                actionsEl.appendChild(closeBtn);
+
+                banner.appendChild(actionsEl);
+                container.appendChild(banner);
+            });
+        }
+
+        /** Clear all feedback banners from a container */
+        function clearAiFeedback(containerId) {
+            var el = document.getElementById(containerId);
+            if (el) el.innerHTML = '';
+        }
+
+        /** Micro-flash success animation on a field element */
+        function flashAiSuccess(fieldEl) {
+            if (!fieldEl) return;
+            fieldEl.classList.remove('ai-success-flash');
+            void fieldEl.offsetWidth; // force reflow
+            fieldEl.classList.add('ai-success-flash');
+            setTimeout(function() { fieldEl.classList.remove('ai-success-flash'); }, 700);
+        }
+
         // ── AI button handlers for catalogue modal ──
 
         async function aiCatalogueClientText() {
             var btn = document.getElementById('btnAiClientText');
             var input = document.getElementById('editClientText');
             var descField = document.getElementById('editDescription');
+            var feedbackId = 'clientTextFeedback';
+            clearAiFeedback(feedbackId);
+
             var existingText = input.value.trim();
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
-            var prompt = 'Article : ' + articleDesc + '\nCatégorie : ' + category;
+            var prompt = 'Article : ' + articleDesc + '\nCat\u00e9gorie : ' + category;
             if (existingText) {
-                prompt += '\n\nTexte client actuel à améliorer :\n' + existingText;
+                prompt += '\n\nTexte client actuel \u00e0 am\u00e9liorer :\n' + existingText;
             } else {
-                prompt += '\n\nGénère un fragment de texte de présentation client pour cet article.';
+                prompt += '\n\nG\u00e9n\u00e8re un fragment de texte de pr\u00e9sentation client pour cet article.';
             }
             btn.disabled = true;
-            btn.classList.add('ai-loading');
+            btn.classList.add('ai-active');
             try {
                 var results = await callEdgeFunction([{ key: 'ct', text: prompt }], 'catalogue_client_text');
-                if (results['ct']) input.value = results['ct'];
+                var envelope = parseAiEnvelope(results['ct'], 'text');
+
+                var applyData = function() {
+                    if (envelope.text) input.value = envelope.text;
+                    flashAiSuccess(input);
+                    clearAiFeedback(feedbackId);
+                };
+
+                if (envelope.status === 'error') {
+                    showAiFeedback(feedbackId, envelope);
+                } else if (envelope.status === 'needs_review') {
+                    showAiFeedback(feedbackId, envelope, applyData, 'clientText');
+                } else {
+                    applyData();
+                }
             } catch (err) {
-                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
+                showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('ai-loading');
+                btn.classList.remove('ai-active');
             }
         }
 
@@ -4718,40 +4877,52 @@
             var jsonTextarea = document.getElementById('editPresRuleAi');
             var descField = document.getElementById('editDescription');
             var clientText = document.getElementById('editClientText');
+            var feedbackId = 'presRuleFeedback';
+            clearAiFeedback(feedbackId);
+
             var existingText = humanTextarea.value.trim();
             if (!existingText) {
-                alert('Écrivez d\'abord l\'explication avant de lancer l\'AI.');
+                showAiFeedback(feedbackId, { status: 'error', warnings: ['\u00c9crivez d\'abord l\'explication avant de lancer l\'AI.'] });
                 humanTextarea.focus();
                 return;
             }
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var clientTextVal = clientText ? clientText.value.trim() : '';
-            var prompt = 'Article : ' + articleDesc + '\nCatégorie : ' + category;
+            var prompt = 'Article : ' + articleDesc + '\nCat\u00e9gorie : ' + category;
             if (clientTextVal) prompt += '\nTexte client : ' + clientTextVal;
             prompt += '\n\nExplication actuelle :\n' + existingText;
             var existingJson = jsonTextarea ? jsonTextarea.value.trim() : '';
-            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
             btn.disabled = true;
-            btn.classList.add('ai-loading');
+            btn.classList.add('ai-active');
             try {
                 var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
-                var raw = results['pr'];
-                if (raw) {
-                    var jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-                    var parsed = JSON.parse(jsonStr);
-                    if (parsed.explication) humanTextarea.value = parsed.explication;
-                    if (parsed.json) {
-                        jsonTextarea.value = JSON.stringify(parsed.json, null, 2);
+                var envelope = parseAiEnvelope(results['pr'], 'explication');
+
+                var applyData = function() {
+                    if (envelope.explication) humanTextarea.value = envelope.explication;
+                    if (envelope.json) {
+                        jsonTextarea.value = JSON.stringify(envelope.json, null, 2);
                         jsonTextarea.classList.add('calc-rule-success');
                         setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
                     }
+                    flashAiSuccess(humanTextarea);
+                    clearAiFeedback(feedbackId);
+                };
+
+                if (envelope.status === 'error') {
+                    showAiFeedback(feedbackId, envelope);
+                } else if (envelope.status === 'needs_review') {
+                    showAiFeedback(feedbackId, envelope, applyData, 'presRule');
+                } else {
+                    applyData();
                 }
             } catch (err) {
-                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
+                showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('ai-loading');
+                btn.classList.remove('ai-active');
             }
         }
 
@@ -4760,44 +4931,52 @@
             var humanTextarea = document.getElementById('editCalcRuleHuman');
             var jsonTextarea = document.getElementById('editCalcRuleAi');
             var descField = document.getElementById('editDescription');
-            var errEl = document.getElementById('calcRuleError');
+            var feedbackId = 'calcRuleFeedback';
+            clearAiFeedback(feedbackId);
+
             var humanText = humanTextarea.value.trim();
             if (!humanText) {
-                errEl.textContent = 'Écrivez d\'abord l\'explication en langage naturel.';
-                errEl.style.display = '';
+                showAiFeedback(feedbackId, { status: 'error', warnings: ['\u00c9crivez d\'abord l\'explication en langage naturel.'] });
                 humanTextarea.focus();
                 return;
             }
             var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var itemCode = document.getElementById('editCode') ? document.getElementById('editCode').value : '';
-            var prompt = 'Article : ' + itemCode + ' — ' + articleDesc + '\nCatégorie : ' + category;
+            var prompt = 'Article : ' + itemCode + ' \u2014 ' + articleDesc + '\nCat\u00e9gorie : ' + category;
             prompt += '\n\nExplication actuelle :\n' + humanText;
             var existingJson = jsonTextarea.value.trim();
-            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
 
             btn.disabled = true;
-            btn.classList.add('ai-loading');
-            errEl.style.display = 'none';
+            btn.classList.add('ai-active');
             try {
                 var results = await callEdgeFunction([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
-                var raw = results['cr'];
-                if (raw) {
-                    var jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-                    var parsed = JSON.parse(jsonStr);
-                    if (parsed.explication) humanTextarea.value = parsed.explication;
-                    if (parsed.json) {
-                        jsonTextarea.value = JSON.stringify(parsed.json, null, 2);
+                var envelope = parseAiEnvelope(results['cr'], 'explication');
+
+                var applyData = function() {
+                    if (envelope.explication) humanTextarea.value = envelope.explication;
+                    if (envelope.json) {
+                        jsonTextarea.value = JSON.stringify(envelope.json, null, 2);
                         jsonTextarea.classList.add('calc-rule-success');
                         setTimeout(function() { jsonTextarea.classList.remove('calc-rule-success'); }, 2000);
                     }
+                    flashAiSuccess(humanTextarea);
+                    clearAiFeedback(feedbackId);
+                };
+
+                if (envelope.status === 'error') {
+                    showAiFeedback(feedbackId, envelope);
+                } else if (envelope.status === 'needs_review') {
+                    showAiFeedback(feedbackId, envelope, applyData, 'calcRule');
+                } else {
+                    applyData();
                 }
             } catch (err) {
-                errEl.textContent = 'Erreur AI : ' + (err.message || 'Erreur inconnue');
-                errEl.style.display = '';
+                showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('ai-loading');
+                btn.classList.remove('ai-active');
             }
         }
 
@@ -4883,17 +5062,20 @@
         async function aiImportComponents() {
             var btn = document.getElementById('btnAiImportComp');
             var input = document.getElementById('compImportInput');
+            var feedbackId = 'importCompFeedback';
+            clearAiFeedback(feedbackId);
+
             var text = input.value.trim();
             var images = compImportImages.slice();
 
             if (!text && images.length === 0) {
-                alert('Collez une image ou tapez les données fournisseur.');
+                showAiFeedback(feedbackId, { status: 'error', warnings: ['Collez une image ou tapez les donn\u00e9es fournisseur.'] });
                 return;
             }
 
             var catNames = expenseCategories.map(function(c) { return c.name; }).join(', ');
             var contextText = catNames;
-            if (text) contextText += '\n\nDonnées fournisseur :\n' + text;
+            if (text) contextText += '\n\nDonn\u00e9es fournisseur :\n' + text;
 
             var imagePayload = images.map(function(dataUrl) {
                 var match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
@@ -4901,7 +5083,7 @@
             }).filter(Boolean);
 
             btn.disabled = true;
-            btn.classList.add('ai-loading');
+            btn.classList.add('ai-active');
 
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
@@ -4915,7 +5097,7 @@
                 });
                 if (!resp.ok) {
                     if (resp.status === 401 || resp.status === 403) {
-                        throw new Error('Session expirée — veuillez vous reconnecter.');
+                        throw new Error('Session expir\u00e9e \u2014 veuillez vous reconnecter.');
                     }
                     var errText = await resp.text().catch(function() { return ''; });
                     try { var errObj = JSON.parse(errText); throw new Error(errObj.error || errObj.msg || 'Erreur ' + resp.status); }
@@ -4923,39 +5105,55 @@
                 }
                 var data = await resp.json();
                 var result = data.translations && data.translations['import'];
-                if (result) {
-                    var jsonStr = result.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-                    var parsed = JSON.parse(jsonStr);
-                    if (parsed.components && Array.isArray(parsed.components)) {
-                        parsed.components.forEach(function(comp) {
-                            editComponents.push({
-                                id: null,
-                                supplier_name: comp.supplier_name || '',
-                                supplier_sku: comp.supplier_sku || '',
-                                description: comp.description || '',
-                                expense_category: comp.expense_category || '',
-                                qty_per_unit: comp.qty_per_unit || 1,
-                                unit_cost: comp.unit_cost || 0,
-                                notes: '',
-                                sort_order: editComponents.length + 1,
-                                isNew: true
-                            });
+                if (!result) throw new Error('Aucun r\u00e9sultat retourn\u00e9 par l\'AI');
+
+                var envelope = parseAiEnvelope(result, 'components');
+
+                var applyData = function() {
+                    var comps = envelope.components;
+                    if (!comps || !Array.isArray(comps)) return;
+                    comps.forEach(function(comp) {
+                        editComponents.push({
+                            id: null,
+                            supplier_name: comp.supplier_name || '',
+                            supplier_sku: comp.supplier_sku || '',
+                            description: comp.description || '',
+                            expense_category: comp.expense_category || '',
+                            qty_per_unit: comp.qty_per_unit || 1,
+                            unit_cost: comp.unit_cost || 0,
+                            notes: '',
+                            sort_order: editComponents.length + 1,
+                            isNew: true
                         });
-                        renderComponents();
-                        syncComponentsToMaterials();
-                        input.value = '';
-                        compImportImages = [];
-                        renderCompImportThumbs();
-                        if (parsed.notes) alert('Note AI : ' + parsed.notes);
-                    } else {
-                        alert('L\'AI n\'a pas retourné de composantes valides.');
+                    });
+                    renderComponents();
+                    syncComponentsToMaterials();
+                    input.value = '';
+                    compImportImages = [];
+                    renderCompImportThumbs();
+                    flashAiSuccess(input);
+                    clearAiFeedback(feedbackId);
+                };
+
+                if (envelope.status === 'error') {
+                    showAiFeedback(feedbackId, envelope);
+                } else if (envelope.status === 'needs_review') {
+                    // Show warnings + notes as info
+                    var msgs = (envelope.warnings || []).slice();
+                    if (envelope.notes) msgs.push(envelope.notes);
+                    showAiFeedback(feedbackId, { status: 'needs_review', warnings: msgs }, applyData, 'importComp');
+                } else {
+                    // OK — apply + show notes as info if present
+                    applyData();
+                    if (envelope.notes) {
+                        showAiFeedback(feedbackId, { status: 'ok', warnings: [envelope.notes] });
                     }
                 }
             } catch (err) {
-                alert('Erreur AI : ' + (err.message || 'Erreur inconnue'));
+                showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('ai-loading');
+                btn.classList.remove('ai-active');
             }
         }
 

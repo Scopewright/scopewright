@@ -92,7 +92,18 @@ RÈGLES :
 - Inclure les informations techniques pertinentes (matériau, finition, mécanisme)
 - Exemples : "placage de chêne blanc FC, laque au polyuréthane clair", "tiroirs Legrabox à fermeture douce"
 - Si le texte existant est fourni, corrige l'orthographe et améliore la clarté sans changer le sens
-- Retourne UNIQUEMENT le fragment, sans explication`;
+
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
+{
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
+  "text": "le fragment de texte client"
+}
+- "ok" : résultat fiable, aucun doute
+- "needs_review" : résultat généré mais doutes (données ambiguës, infos manquantes, incertitude)
+- "error" : impossible de générer un résultat valide
+- "warnings" : max 3 messages courts en français expliquant les doutes
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
 const CATALOGUE_EXPLICATION_SYSTEM = `Tu es un spécialiste en documentation technique pour Stele, atelier d'ébénisterie haut de gamme.
 Tu rédiges ou améliores l'explication technique (champ presentation_rule_human) d'un article du catalogue.
@@ -152,8 +163,10 @@ Retourne UNIQUEMENT le HTML de la description, sans explication.`;
 const IMPORT_COMPONENTS_SYSTEM = `Tu es un assistant d'import pour Stele, un atelier d'ébénisterie haut de gamme.
 Tu reçois des données fournisseur (screenshot de liste de prix, photo de catalogue, ou texte en vrac) et tu extrais les composantes structurées.
 
-Tu dois retourner un JSON valide avec un tableau de composantes :
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 {
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
   "components": [
     {
       "supplier_name": "Nom du fournisseur (si identifiable)",
@@ -174,7 +187,8 @@ RÈGLES :
 - Si un code produit/SKU est visible, le mettre dans supplier_sku
 - qty_per_unit = 1 par défaut sauf si une quantité est indiquée
 - expense_category doit correspondre à une des catégories fournies dans le contexte
-- Si les données sont ambiguës ou illisibles, ajouter une note explicative
+- "status" : "ok" si extraction fiable, "needs_review" si doutes (image floue, prix ambigus, catégories incertaines), "error" si impossible
+- "warnings" : max 3 messages courts en français expliquant les doutes
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
 const CATALOGUE_PRES_RULE_SYSTEM = `Tu es un spécialiste en documentation pour Stele, atelier d'ébénisterie haut de gamme.
@@ -183,8 +197,10 @@ Tu dois faire DEUX choses :
 1. Reformuler/corriger le texte d'explication (phrases claires, impératives, concises)
 2. Générer la règle JSON structurée correspondante pour que l'AI sache comment présenter cet article
 
-Retourne un JSON valide avec deux champs :
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 {
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
   "explication": "Le texte d'explication reformulé et corrigé",
   "json": {
     "order": ["matériau", "finition"],
@@ -202,6 +218,8 @@ RÈGLES :
 - "exclude" : éléments à ne jamais mentionner au client
 - Le texte d'explication doit être en phrases courtes et impératives
 - Le JSON doit refléter fidèlement les instructions de l'explication
+- "status" : "ok" si résultat fiable, "needs_review" si doutes (données ambiguës, infos manquantes), "error" si impossible
+- "warnings" : max 3 messages courts en français expliquant les doutes
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
 const CATALOGUE_CALC_RULE_SYSTEM = `Tu es un ingénieur de règles pour Scopewright, la plateforme d'estimation de Stele.
@@ -210,8 +228,10 @@ Tu dois faire DEUX choses :
 1. Reformuler/corriger le texte d'explication (phrases claires, techniques, concises)
 2. Générer la règle de calcul JSON structurée correspondante
 
-Retourne un JSON valide avec deux champs :
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 {
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
   "explication": "Le texte d'explication reformulé et corrigé",
   "json": {
     "cascade": [
@@ -230,6 +250,8 @@ RÈGLES :
 - Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
 - Le texte d'explication doit être clair, concis et technique
 - Le JSON doit refléter fidèlement les instructions de l'explication
+- "status" : "ok" si résultat fiable, "needs_review" si doutes (données ambiguës, codes inconnus, infos manquantes), "error" si impossible
+- "warnings" : max 3 messages courts en français expliquant les doutes
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
 // Prompt map for action → override key + default prompt

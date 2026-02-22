@@ -2265,6 +2265,9 @@
             }
             if (resp.status === 401 || resp.status === 403) {
                 localStorage.removeItem('sb_access_token');
+                localStorage.removeItem('sb_refresh_token');
+                window.location.href = 'login.html';
+                return resp;
             }
         }
         return resp;
@@ -2935,22 +2938,27 @@
             background: #fafafa; color: #333; line-height: 1.5;
         }
         .client-desc-textarea:focus { outline: none; border-color: var(--sw-navy); background: #fff; }
-        .btn-ai-inline {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 3px 8px; font-size: 11px; font-family: inherit;
-            background: transparent; border: 1px solid #d1d5db; border-radius: 4px;
-            color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        .ai-field-wrap { position: relative; }
+        .btn-ai-dot {
+            position: absolute; top: 6px; right: 6px; z-index: 2;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: transparent; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; flex-shrink: 0;
         }
-        .btn-ai-inline:hover { border-color: var(--sw-navy); color: var(--sw-navy); background: rgba(11,18,32,0.03); }
-        .btn-ai-inline:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-ai-inline .ai-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--sw-navy); opacity: 0.6;
+        .btn-ai-dot:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-ai-dot .ai-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #0B1220; opacity: 0.45;
             animation: aiBreathe 3s ease-in-out infinite;
         }
+        .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
+        .btn-ai-dot.ai-active .ai-dot {
+            animation: aiBreathe 1.5s ease-in-out infinite;
+        }
         @keyframes aiBreathe {
-            0%,100% { opacity:0.6; transform:scale(1); }
-            50% { opacity:1; transform:scale(1.1); }
+            0%,100% { opacity:0.45; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.15); }
         }
 
         /* Toggle showInQuote sur images */
@@ -5474,6 +5482,8 @@
             justify-content: center; align-items: center;
         }
         .add-contact-overlay.active { display: flex; }
+        .add-contact-overlay .modal { overflow: visible; }
+        .add-contact-overlay .modal-body { overflow: visible; }
         .contact-combo-wrap { position: relative; width: 100%; }
         .contact-combo-wrap input {
             width: 100%; padding: 10px 12px; font-size: 14px;
@@ -7125,16 +7135,16 @@
                     <button class="btn-remove-group" onclick="removeFurnitureGroup('${groupId}')">Supprimer</button>
                 </div>
                 <div class="client-description-section">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <label class="client-desc-label" style="margin-bottom:0;">Description client</label>
-                        <button class="btn-ai-inline" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
-                            <span class="ai-dot"></span> AI
+                    <label class="client-desc-label">Description client</label>
+                    <div class="ai-field-wrap">
+                        <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
+                                  placeholder="Description visible par le client pour cette pi&egrave;ce..."
+                                  rows="2"
+                                  onblur="saveClientDescription('${groupId}')"></textarea>
+                        <button class="btn-ai-dot" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
+                            <span class="ai-dot"></span>
                         </button>
                     </div>
-                    <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
-                              placeholder="Description visible par le client pour cette pi&egrave;ce..."
-                              rows="2"
-                              onblur="saveClientDescription('${groupId}')"></textarea>
                 </div>
                 <div class="calc-header">
                     <span></span>
@@ -10292,8 +10302,7 @@
             }
 
             btn.disabled = true;
-            var origHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="ai-dot"></span> ...';
+            btn.classList.add('ai-active');
 
             try {
                 var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description');
@@ -10315,11 +10324,11 @@
                 }
             } catch (err) {
                 var msg = err.message || '';
-                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
+                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surcharg\u00e9. R\u00e9essayez dans quelques secondes.';
                 steleAlert(msg, 'Erreur AI');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = origHTML;
+                btn.classList.remove('ai-active');
             }
         }
 

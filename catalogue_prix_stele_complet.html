@@ -4831,6 +4831,60 @@
             setTimeout(function() { fieldEl.classList.remove('ai-success-flash'); }, 700);
         }
 
+        // ── AI context helpers ──
+
+        function buildArticleContext() {
+            var code = (document.getElementById('editCode').value || '').trim();
+            var desc = (document.getElementById('editDescription').value || '').trim();
+            var cat = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
+            var itemType = document.getElementById('editItemType') ? document.getElementById('editItemType').value : '';
+            var utype = document.getElementById('editType') ? document.getElementById('editType').value : '';
+            var price = (document.getElementById('editPrice').value || '').trim();
+            var instr = (document.getElementById('editInstruction').value || '').trim();
+            var lines = [];
+            if (code) lines.push('Code: ' + code);
+            if (desc) lines.push('Description: ' + desc);
+            if (cat) lines.push('Cat\u00e9gorie: ' + cat);
+            if (itemType) lines.push('Classification: ' + itemType);
+            if (utype) lines.push('Unit\u00e9: ' + utype);
+            if (price) lines.push('Prix: ' + price + '$');
+            if (instr) lines.push('Instruction: ' + instr);
+            return lines.join('\n');
+        }
+
+        function getSimilarItems(category, limit) {
+            var currentCode = (document.getElementById('editCode').value || '').trim();
+            if (!category) return [];
+            return CATALOGUE_DATA.filter(function(i) {
+                return i.category === category && i.id !== currentCode && (i.status === 'approved' || !i.status);
+            }).slice(0, limit || 15);
+        }
+
+        function getCategoryList() {
+            var cats = new Set(configCategories);
+            CATALOGUE_DATA.forEach(function(i) { if (i.category) cats.add(i.category); });
+            return Array.from(cats).join(', ');
+        }
+
+        function getArticleCodesList() {
+            return CATALOGUE_DATA.map(function(i) { return i.id; }).join(', ');
+        }
+
+        function getCalcRuleExamples(category, limit) {
+            var currentCode = (document.getElementById('editCode').value || '').trim();
+            var examples = CATALOGUE_DATA.filter(function(i) {
+                return i.category === category && i.calculation_rule_ai && i.id !== currentCode;
+            }).slice(0, limit || 3);
+            if (examples.length === 0) {
+                examples = CATALOGUE_DATA.filter(function(i) {
+                    return i.calculation_rule_ai && i.id !== currentCode;
+                }).slice(0, limit || 3);
+            }
+            return examples.map(function(ex) {
+                return ex.id + ': ' + JSON.stringify(ex.calculation_rule_ai);
+            }).join('\n');
+        }
+
         // ── AI button handlers for catalogue modal ──
 
         async function aiCatalogueClientText() {
@@ -4841,9 +4895,18 @@
             clearAiFeedback(feedbackId);
 
             var existingText = input.value.trim();
-            var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
-            var prompt = 'Article : ' + articleDesc + '\nCat\u00e9gorie : ' + category;
+
+            var prompt = '=== ARTICLE ===\n' + buildArticleContext();
+            prompt += '\nCat\u00e9gories existantes: ' + getCategoryList();
+
+            var similar = getSimilarItems(category, 15);
+            var similarTexts = similar.filter(function(i) { return i.client_text; })
+                .map(function(i) { return i.id + ': ' + i.client_text; });
+            if (similarTexts.length > 0) {
+                prompt += '\n\n=== TEXTES CLIENTS SIMILAIRES (m\u00eame cat\u00e9gorie) ===\n' + similarTexts.join('\n');
+            }
+
             if (existingText) {
                 prompt += '\n\nTexte client actuel \u00e0 am\u00e9liorer :\n' + existingText;
             } else {
@@ -4891,11 +4954,22 @@
                 humanTextarea.focus();
                 return;
             }
-            var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
             var clientTextVal = clientText ? clientText.value.trim() : '';
-            var prompt = 'Article : ' + articleDesc + '\nCat\u00e9gorie : ' + category;
-            if (clientTextVal) prompt += '\nTexte client : ' + clientTextVal;
+
+            var prompt = '=== ARTICLE ===\n' + buildArticleContext();
+            if (clientTextVal) prompt += '\nTexte client: ' + clientTextVal;
+            prompt += '\nCat\u00e9gories existantes: ' + getCategoryList();
+
+            prompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
+
+            var similar = getSimilarItems(category, 10);
+            var similarRules = similar.filter(function(i) { return i.presentation_rule_human; })
+                .map(function(i) { return i.id + ': ' + i.presentation_rule_human; });
+            if (similarRules.length > 0) {
+                prompt += '\n\n=== EXEMPLES EXPLICATIONS (m\u00eame cat\u00e9gorie) ===\n' + similarRules.join('\n');
+            }
+
             prompt += '\n\nExplication actuelle :\n' + existingText;
             var existingJson = jsonTextarea ? jsonTextarea.value.trim() : '';
             if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
@@ -4945,10 +5019,26 @@
                 humanTextarea.focus();
                 return;
             }
-            var articleDesc = descField ? descField.value.trim() : '';
             var category = document.getElementById('editCategory') ? document.getElementById('editCategory').value : '';
-            var itemCode = document.getElementById('editCode') ? document.getElementById('editCode').value : '';
-            var prompt = 'Article : ' + itemCode + ' \u2014 ' + articleDesc + '\nCat\u00e9gorie : ' + category;
+
+            var prompt = '=== ARTICLE ===\n' + buildArticleContext();
+            prompt += '\nCat\u00e9gories existantes: ' + getCategoryList();
+
+            prompt += '\n\n=== CODES ARTICLES EXISTANTS ===\n' + getArticleCodesList();
+
+            var matCatInfo = expenseCategories.map(function(c) {
+                var defaultItem = CATALOGUE_DATA.find(function(i) { return i.is_default && i.category === c.name; });
+                return c.name + (defaultItem ? ' (d\u00e9faut: ' + defaultItem.id + ')' : '');
+            }).join(', ');
+            if (matCatInfo) prompt += '\n\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
+
+            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+
+            var examples = getCalcRuleExamples(category, 3);
+            if (examples) {
+                prompt += '\n\n=== EXEMPLES JSON (articles similaires) ===\n' + examples;
+            }
+
             prompt += '\n\nExplication actuelle :\n' + humanText;
             var existingJson = jsonTextarea.value.trim();
             if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
@@ -5079,7 +5169,11 @@
             }
 
             var catNames = expenseCategories.map(function(c) { return c.name; }).join(', ');
-            var contextText = catNames;
+            var supplierNames = supplierCompanies.map(function(s) { return s.name; }).join(', ');
+
+            var contextText = 'Cat\u00e9gories de d\u00e9penses: ' + catNames;
+            if (supplierNames) contextText += '\nFournisseurs connus: ' + supplierNames;
+            contextText += '\n\n=== ARTICLE EN COURS ===\n' + buildArticleContext();
             if (text) contextText += '\n\nDonn\u00e9es fournisseur :\n' + text;
 
             var imagePayload = images.map(function(dataUrl) {

@@ -856,6 +856,27 @@
             border-radius: 50%; background: #333; color: #fff; border: none;
             font-size: 10px; line-height: 14px; text-align: center; cursor: pointer; padding: 0;
         }
+        /* Import recap panel */
+        .comp-import-recap { margin-top: 8px; font-size: 12px; color: #333; }
+        .comp-import-recap .recap-header { font-weight: 600; margin-bottom: 6px; color: var(--sw-navy); }
+        .comp-import-recap .recap-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .comp-import-recap .recap-table th {
+            text-align: left; font-size: 10px; font-weight: 600; color: #888;
+            text-transform: uppercase; letter-spacing: 0.3px;
+            padding: 3px 6px 3px 0; border-bottom: 1px solid #e5e7eb;
+        }
+        .comp-import-recap .recap-table td { padding: 4px 6px 4px 0; border-bottom: 1px solid #f0f0f0; font-size: 11px; }
+        .comp-import-recap .recap-notes { font-size: 11px; color: #666; font-style: italic; margin-bottom: 8px; }
+        .comp-import-recap .recap-warnings { font-size: 11px; color: #b45309; margin-bottom: 8px; }
+        .comp-import-recap .recap-actions { display: flex; gap: 8px; }
+        .comp-import-recap .recap-btn {
+            padding: 5px 14px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            cursor: pointer; border: none; transition: background 0.15s;
+        }
+        .comp-import-recap .recap-btn-apply { background: var(--sw-navy, #0F1C2D); color: #fff; }
+        .comp-import-recap .recap-btn-apply:hover { opacity: 0.85; }
+        .comp-import-recap .recap-btn-cancel { background: #f1f5f9; color: #333; }
+        .comp-import-recap .recap-btn-cancel:hover { background: #e2e8f0; }
         .cp-section-title {
             font-size: 12px;
             font-weight: 600;
@@ -1898,6 +1919,7 @@
                             <span class="ai-dot"></span>
                         </button>
                         <div class="comp-import-thumbs" id="compImportThumbs" style="padding-top:4px;"></div>
+                        <div class="comp-import-recap" id="compImportRecap" style="display:none;"></div>
                     </div>
                     <div id="componentsList"></div>
                     <button type="button" class="btn-add-component" onclick="addComponent()">+ Ajouter une composante</button>
@@ -3162,6 +3184,7 @@
             var compInput = document.getElementById('compImportInput');
             if (compInput) compInput.value = '';
             renderCompImportThumbs();
+            clearImportRecap();
             initCompImportZone();
 
             // Médias
@@ -5154,11 +5177,92 @@
             renderCompImportThumbs();
         }
 
+        function clearImportRecap() {
+            var recap = document.getElementById('compImportRecap');
+            if (recap) { recap.style.display = 'none'; recap.innerHTML = ''; }
+        }
+
+        function showImportRecap(envelope) {
+            var recap = document.getElementById('compImportRecap');
+            if (!recap) return;
+            var comps = envelope.components;
+            if (!comps || !Array.isArray(comps) || comps.length === 0) {
+                showAiFeedback('importCompFeedback', { status: 'error', warnings: ['Aucune composante trouv\u00e9e dans les donn\u00e9es.'] });
+                return;
+            }
+
+            var html = '<div class="recap-header">' + comps.length + ' composante' + (comps.length > 1 ? 's' : '') + ' trouv\u00e9e' + (comps.length > 1 ? 's' : '') + '</div>';
+
+            // Warnings
+            var warnings = (envelope.warnings || []).filter(Boolean);
+            if (envelope.notes) warnings.push(envelope.notes);
+            if (warnings.length > 0) {
+                html += '<div class="recap-warnings">\u26A0 ' + warnings.map(escapeHtml).join(' \u2022 ') + '</div>';
+            }
+
+            // Table
+            html += '<table class="recap-table"><thead><tr>';
+            html += '<th>Description</th><th>Fournisseur</th><th>Cat\u00e9gorie</th><th>Qt\u00e9</th><th>Co\u00fbt</th>';
+            html += '</tr></thead><tbody>';
+            comps.forEach(function(c) {
+                html += '<tr>';
+                html += '<td>' + escapeHtml(c.description || '\u2014') + '</td>';
+                html += '<td>' + escapeHtml([c.supplier_name, c.supplier_sku].filter(Boolean).join(' \u2022 ') || '\u2014') + '</td>';
+                html += '<td>' + escapeHtml(c.expense_category || '\u2014') + '</td>';
+                html += '<td>' + (c.qty_per_unit || 1) + '</td>';
+                html += '<td>' + (c.unit_cost != null ? Number(c.unit_cost).toFixed(2) + '$' : '\u2014') + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            html += '<div class="recap-actions">';
+            html += '<button class="recap-btn recap-btn-apply" onclick="applyImportRecap()">Appliquer ' + comps.length + ' composante' + (comps.length > 1 ? 's' : '') + '</button>';
+            html += '<button class="recap-btn recap-btn-cancel" onclick="clearImportRecap()">Annuler</button>';
+            html += '</div>';
+
+            recap.innerHTML = html;
+            recap.style.display = 'block';
+            // Store pending components
+            recap.dataset.pending = JSON.stringify(comps);
+        }
+
+        function applyImportRecap() {
+            var recap = document.getElementById('compImportRecap');
+            var input = document.getElementById('compImportInput');
+            if (!recap || !recap.dataset.pending) return;
+            try {
+                var comps = JSON.parse(recap.dataset.pending);
+                comps.forEach(function(comp) {
+                    editComponents.push({
+                        id: null,
+                        supplier_name: comp.supplier_name || '',
+                        supplier_sku: comp.supplier_sku || '',
+                        description: comp.description || '',
+                        expense_category: comp.expense_category || '',
+                        qty_per_unit: comp.qty_per_unit || 1,
+                        unit_cost: comp.unit_cost || 0,
+                        notes: '',
+                        sort_order: editComponents.length + 1,
+                        isNew: true
+                    });
+                });
+                renderComponents();
+                syncComponentsToMaterials();
+                if (input) { input.value = ''; }
+                compImportImages = [];
+                renderCompImportThumbs();
+                flashAiSuccess(input);
+            } catch (e) { /* ignore parse errors */ }
+            clearImportRecap();
+            clearAiFeedback('importCompFeedback');
+        }
+
         async function aiImportComponents() {
             var btn = document.getElementById('btnAiImportComp');
             var input = document.getElementById('compImportInput');
             var feedbackId = 'importCompFeedback';
             clearAiFeedback(feedbackId);
+            clearImportRecap();
 
             var text = input.value.trim();
             var images = compImportImages.slice();
@@ -5208,45 +5312,10 @@
 
                 var envelope = parseAiEnvelope(result, 'components');
 
-                var applyData = function() {
-                    var comps = envelope.components;
-                    if (!comps || !Array.isArray(comps)) return;
-                    comps.forEach(function(comp) {
-                        editComponents.push({
-                            id: null,
-                            supplier_name: comp.supplier_name || '',
-                            supplier_sku: comp.supplier_sku || '',
-                            description: comp.description || '',
-                            expense_category: comp.expense_category || '',
-                            qty_per_unit: comp.qty_per_unit || 1,
-                            unit_cost: comp.unit_cost || 0,
-                            notes: '',
-                            sort_order: editComponents.length + 1,
-                            isNew: true
-                        });
-                    });
-                    renderComponents();
-                    syncComponentsToMaterials();
-                    input.value = '';
-                    compImportImages = [];
-                    renderCompImportThumbs();
-                    flashAiSuccess(input);
-                    clearAiFeedback(feedbackId);
-                };
-
                 if (envelope.status === 'error') {
                     showAiFeedback(feedbackId, envelope);
-                } else if (envelope.status === 'needs_review') {
-                    // Show warnings + notes as info
-                    var msgs = (envelope.warnings || []).slice();
-                    if (envelope.notes) msgs.push(envelope.notes);
-                    showAiFeedback(feedbackId, { status: 'needs_review', warnings: msgs }, applyData, 'importComp');
                 } else {
-                    // OK — apply + show notes as info if present
-                    applyData();
-                    if (envelope.notes) {
-                        showAiFeedback(feedbackId, { status: 'ok', warnings: [envelope.notes] });
-                    }
+                    showImportRecap(envelope);
                 }
             } catch (err) {
                 showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });

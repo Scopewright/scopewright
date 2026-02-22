@@ -115,65 +115,51 @@
             line-height: 1.7;
         }
 
-        /* ── Whisper Dot ── */
-        .whisper-dot {
-            display: inline-flex;
+        /* ── AI Presence (whisper dot) ── */
+        .ai-presence {
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 10px;
-            margin-top: 22px;
-            padding: 0;
-            border: none;
-            background: transparent;
-            cursor: pointer;
+            margin-top: 48px;
             position: relative;
             -webkit-tap-highlight-color: transparent;
         }
-        .whisper-dot::before {
-            content: '';
-            display: block;
-            width: 7px; height: 7px;
+        .ai-presence .ai-dot {
+            width: 10px; height: 10px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.92);
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
-            transition: box-shadow 200ms ease;
-            animation: whisper-pulse 3s ease-in-out infinite;
-            flex-shrink: 0;
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 0 8px rgba(255,255,255,0.15);
+            animation: aiPulse 3.5s ease-in-out infinite;
         }
-        .whisper-dot:hover::before,
-        .whisper-dot:focus-visible::before {
-            box-shadow: 0 0 0 4px rgba(255,255,255,0.10);
+        /* Hit area — 32×32 min for touch accessibility */
+        .ai-presence::after {
+            content: '';
+            position: absolute;
+            top: -11px; left: 50%; transform: translateX(-50%);
+            width: 32px; height: 32px;
         }
-        .whisper-dot__text {
-            color: rgba(255,255,255,0.72);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        .ai-presence .ai-label {
+            margin-top: 12px;
             font-size: 12px;
-            font-weight: 500;
-            line-height: 1.2;
-            letter-spacing: 0;
-            opacity: 0;
-            transform: translateY(3px);
-            transition: opacity 170ms ease, transform 170ms ease;
-            pointer-events: none;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.02em;
             white-space: nowrap;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            pointer-events: none;
         }
-        .whisper-dot:hover .whisper-dot__text,
-        .whisper-dot:focus-visible .whisper-dot__text {
+        .ai-presence:hover .ai-label,
+        .ai-presence.touched .ai-label {
             opacity: 1;
             transform: translateY(0);
         }
-        /* Hit area — 32×32 min */
-        .whisper-dot::after {
-            content: '';
-            position: absolute;
-            top: -12px; left: -12px;
-            width: 32px; height: 32px;
-        }
-        @keyframes whisper-pulse {
-            0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
-            50% { box-shadow: 0 0 0 3px rgba(255,255,255,0.10); }
+        @keyframes aiPulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.25); opacity: 1; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .whisper-dot::before { animation: none; }
+            .ai-presence .ai-dot { animation: none; opacity: 0.85; }
         }
 
         /* ── Dashboard content ── */
@@ -454,7 +440,10 @@
                 <div class="right-content">
                     <div class="right-logo sw-brand-name">scopewright</div>
                     <div class="right-tagline sw-brand-tagline">Infrastructure d'estimation pour<br>ateliers d'&eacute;b&eacute;nisterie haut de gamme.</div>
-                    <!-- whisper-dot retiré temporairement -->
+                    <div class="ai-presence" id="aiPresence">
+                        <div class="ai-dot"></div>
+                        <div class="ai-label">Assistant disponible</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -626,6 +615,19 @@
                 // Silently fail — alerts are non-critical
             }
         }
+
+        // AI Presence — touch to reveal label on mobile
+        (function() {
+            var el = document.getElementById('aiPresence');
+            if (!el) return;
+            el.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                el.classList.toggle('touched');
+            }, { passive: false });
+            document.addEventListener('touchstart', function(e) {
+                if (!el.contains(e.target)) el.classList.remove('touched');
+            });
+        })();
 
         function handleLogout() {
             localStorage.removeItem('sb_access_token');

@@ -5051,11 +5051,11 @@
            ═══════════════════════════════════════════════════════════════ */
 
         @keyframes aiMsgFadeIn {
-            from { opacity: 0; transform: translateY(6px); }
+            from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
         @keyframes aiCardStagger {
-            from { opacity: 0; transform: translateY(4px); }
+            from { opacity: 0; transform: translateY(3px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -5124,7 +5124,7 @@
             max-width: 85%; padding: 0; border-radius: 0;
             font-size: 14px; line-height: 1.5; word-wrap: break-word;
             color: #1A1A2E;
-            animation: aiMsgFadeIn 180ms ease-out both;
+            animation: aiMsgFadeIn 140ms ease-out both;
         }
         .ai-msg p { margin: 0 0 8px 0; }
         .ai-msg p:last-child { margin-bottom: 0; }
@@ -5185,14 +5185,15 @@
 
         /* User messages */
         .ai-msg-user {
-            align-self: flex-end; background: var(--sw-border-2);
-            padding: 10px 14px; border-radius: 12px; border-bottom-right-radius: 4px;
+            align-self: flex-end; background: rgba(15,28,45,0.06);
+            padding: 10px 14px; border-radius: 10px;
         }
 
         /* Assistant messages */
         .ai-msg-assistant {
-            align-self: flex-start; background: transparent;
-            padding: 2px 0;
+            align-self: flex-start; background: #FFFFFF;
+            padding: 10px 14px; border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
 
         /* Action messages */

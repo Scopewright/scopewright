@@ -231,18 +231,22 @@
             display: flex; flex-direction: column; gap: 12px;
         }
 
+        @keyframes arMsgFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .ai-review-msg {
             max-width: 88%; padding: 10px 14px;
-            border-radius: 12px; font-size: 13px; line-height: 1.55;
+            border-radius: 10px; font-size: 13px; line-height: 1.55;
             word-wrap: break-word; white-space: pre-wrap;
+            animation: arMsgFadeIn 140ms ease-out both;
         }
         .ai-review-msg.user {
-            align-self: flex-end; background: #0F1C2D; color: #fff;
-            border-bottom-right-radius: 4px;
+            align-self: flex-end; background: rgba(15,28,45,0.06); color: #1A1A2E;
         }
         .ai-review-msg.assistant {
-            align-self: flex-start; background: #f1f5f9; color: #1e293b;
-            border-bottom-left-radius: 4px;
+            align-self: flex-start; background: #FFFFFF; color: #1e293b;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
         .ai-review-msg.assistant p { margin: 0 0 8px; }
         .ai-review-msg.assistant p:last-child { margin-bottom: 0; }
@@ -256,9 +260,9 @@
             border-radius: 3px; font-size: 12px;
         }
         .ai-review-msg.context {
-            align-self: center; background: #fef3c7; color: #92400e;
-            font-size: 11px; padding: 6px 12px; border-radius: 8px;
-            max-width: 95%; text-align: center;
+            align-self: flex-start; background: transparent; color: rgba(0,0,0,0.4);
+            font-size: 12px; padding: 4px 0; border-radius: 0;
+            max-width: 100%;
         }
 
         /* Typing indicator */
@@ -1698,7 +1702,7 @@
         var contextMsg = contextParts.join('\n');
 
         // Show context indicator
-        appendAiReviewMessage('context', 'Contexte de l\'article envoyé à l\'AI...');
+        appendAiReviewMessage('context', 'Contexte transmis');
 
         // Add to messages array
         aiReviewMessages.push({ role: 'user', content: contextMsg });

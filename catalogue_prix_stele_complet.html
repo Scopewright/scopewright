@@ -918,16 +918,16 @@
         }
         .ai-review-msg {
             max-width: 88%; padding: 10px 14px;
-            border-radius: 12px; font-size: 13px; line-height: 1.55;
+            border-radius: 10px; font-size: 13px; line-height: 1.55;
             word-wrap: break-word; white-space: pre-wrap;
+            animation: ciMsgFadeIn 140ms ease-out both;
         }
         .ai-review-msg.user {
-            align-self: flex-end; background: #0F1C2D; color: #fff;
-            border-bottom-right-radius: 4px;
+            align-self: flex-end; background: rgba(15,28,45,0.06); color: #1A1A2E;
         }
         .ai-review-msg.assistant {
-            align-self: flex-start; background: #f1f5f9; color: #1e293b;
-            border-bottom-left-radius: 4px;
+            align-self: flex-start; background: #FFFFFF; color: #1e293b;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
         .ai-review-msg.assistant p { margin: 0 0 8px; }
         .ai-review-msg.assistant p:last-child { margin-bottom: 0; }
@@ -941,9 +941,9 @@
             border-radius: 3px; font-size: 12px;
         }
         .ai-review-msg.context {
-            align-self: center; background: #fef3c7; color: #92400e;
-            font-size: 11px; padding: 6px 12px; border-radius: 8px;
-            max-width: 95%; text-align: center;
+            align-self: flex-start; background: transparent; color: rgba(0,0,0,0.4);
+            font-size: 12px; padding: 4px 0; border-radius: 0;
+            max-width: 100%;
         }
         .ai-review-typing {
             padding: 8px 20px; display: flex; gap: 4px; align-items: center;
@@ -1634,11 +1634,11 @@
         /* ═══ Import Drawer (AI Chat) — Premium Redesign ═══ */
 
         @keyframes ciMsgFadeIn {
-            from { opacity: 0; transform: translateY(6px); }
+            from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
         @keyframes ciCardStagger {
-            from { opacity: 0; transform: translateY(4px); }
+            from { opacity: 0; transform: translateY(3px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -1699,7 +1699,7 @@
             max-width: 85%; padding: 0; border-radius: 0;
             font-size: 14px; line-height: 1.5; word-wrap: break-word;
             color: #1A1A2E;
-            animation: ciMsgFadeIn 180ms ease-out both;
+            animation: ciMsgFadeIn 140ms ease-out both;
         }
         .ci-msg p { margin: 0 0 8px 0; }
         .ci-msg p:last-child { margin-bottom: 0; }
@@ -1759,12 +1759,13 @@
         .ci-msg tr:last-child td { border-bottom: none; }
 
         .ci-msg-user {
-            align-self: flex-end; background: #F1F5F9;
-            padding: 10px 14px; border-radius: 12px; border-bottom-right-radius: 4px;
+            align-self: flex-end; background: rgba(15,28,45,0.06);
+            padding: 10px 14px; border-radius: 10px;
         }
         .ci-msg-assistant {
-            align-self: flex-start; background: transparent;
-            padding: 2px 0;
+            align-self: flex-start; background: #FFFFFF;
+            padding: 10px 14px; border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
 
         .ci-msg-confirm {
@@ -3511,7 +3512,7 @@
 
             contextParts.push('\nAnalyse cet article selon les 4 axes (comparaison interne, benchmarking industrie, cohérence des données, verdict).');
 
-            appendCatAiReviewMessage('context', 'Contexte de l\'article envoyé à l\'AI...');
+            appendCatAiReviewMessage('context', 'Contexte transmis');
             catAiReviewMessages.push({ role: 'user', content: contextParts.join('\n') });
             await callCatAiReviewAssistant();
         }

@@ -3939,7 +3939,13 @@
             padding: 48px; min-height: 100%;
             background: transparent; text-align: left;
         }
-        .pv-cover-brand { display: none; }
+        .pv-cover-brand {
+            position: absolute; bottom: 48px; left: 48px; z-index: 1;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 40px; font-weight: 400; letter-spacing: -0.01em;
+            text-transform: lowercase; color: white; opacity: 0.9;
+            margin: 0;
+        }
         .pv-cover-label {
             font-family: 'Cormorant Garamond', Georgia, serif;
             font-style: italic; font-size: 13px; color: rgba(255,255,255,0.75);
@@ -3964,11 +3970,7 @@
         .pv-cover-left .pv-cover-divider { width: 32px; height: 1px; background: rgba(255,255,255,0.25); margin: 14px 0; }
         .pv-cover-left .pv-sub-number { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; margin-bottom: 2px; }
         .pv-cover-left .pv-sub-date { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; }
-        .pv-cover-logo {
-            position: absolute; bottom: 48px; left: 48px; z-index: 1;
-            width: 220px;
-        }
-        .pv-cover-logo img { width: 100%; height: auto; display: block; }
+        .pv-cover-logo { display: none; }
 
         /* Installation non incluse — indicators */
         .pv-install-banner { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 60px; letter-spacing: 0.3px; }
@@ -11335,7 +11337,7 @@
             '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block;filter:none;opacity:1}\n' +
             '.pv-cover-right .pv-cover-overlay{display:none}\n' +
             '.pv-cover-left{position:relative;z-index:1;width:320px;display:flex;flex-direction:column;justify-content:flex-start;padding:48px;min-height:100%;background:transparent;text-align:left}\n' +
-            '.pv-cover-brand{display:none}\n' +
+            '.pv-cover-brand{position:absolute;bottom:48px;left:48px;z-index:1;font-family:Inter,-apple-system,sans-serif;font-size:40px;font-weight:400;letter-spacing:-0.01em;text-transform:lowercase;color:white;opacity:0.9;margin:0}\n' +
             '.pv-cover-label{font-family:Cormorant Garamond,Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.2;margin-bottom:10px}\n' +
             '.pv-cover-left .pv-client-name{font-family:Inter,-apple-system,sans-serif;font-size:15px;font-weight:400;color:white;opacity:0.85;line-height:1.5;margin-bottom:0}\n' +
             '.pv-cover-left .pv-client-address{font-family:Inter,-apple-system,sans-serif;font-size:15px;font-weight:400;color:white;opacity:0.85;line-height:1.5;margin-bottom:0}\n' +
@@ -11343,8 +11345,7 @@
             '.pv-cover-left .pv-cover-divider{width:32px;height:1px;background:rgba(255,255,255,0.25);margin:14px 0}\n' +
             '.pv-cover-left .pv-sub-number{font-family:Inter,-apple-system,sans-serif;font-size:13px;font-weight:400;color:white;opacity:0.7;margin-bottom:2px}\n' +
             '.pv-cover-left .pv-sub-date{font-family:Inter,-apple-system,sans-serif;font-size:13px;font-weight:400;color:white;opacity:0.7}\n' +
-            '.pv-cover-logo{position:absolute;bottom:48px;left:48px;z-index:1;width:220px}\n' +
-            '.pv-cover-logo img{width:100%;height:auto;display:block}\n' +
+            '.pv-cover-logo{display:none}\n' +
             '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#888;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +
             '.pv-install-total-note{font-size:13px;color:#888;margin-bottom:16px;letter-spacing:0.3px}\n' +
@@ -11641,7 +11642,6 @@
             html += '</div>';
             html += '<div class="pv-cover-left">';
             html += acceptanceProofHtml;
-            html += '<div class="pv-cover-brand">stele</div>';
             if (currentProject) {
                 html += '<div class="pv-cover-label">' + t('coverLabel') + '</div>';
                 html += '<div class="pv-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
@@ -11654,7 +11654,7 @@
             if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
             if (allInstallExcluded) html += '<div class="pv-install-banner">' + (currentLang === 'en' ? 'Installation not included' : 'Installation non incluse') + '</div>';
             html += '</div>';
-            html += '<div class="pv-cover-logo"><img src="' + SUPABASE_URL + '/storage/v1/object/public/assets/logo_white.png" alt="stele" onerror="this.parentElement.style.display=\'none\'"></div>';
+            html += '<div class="pv-cover-brand">stele</div>';
             html += '</div>';
 
             // ── Introduction page (skip for locked submissions — those are frozen like a PDF) ──

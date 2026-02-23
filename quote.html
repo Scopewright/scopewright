@@ -103,7 +103,13 @@
             padding: 48px; min-height: 100%;
             background: transparent; text-align: left;
         }
-        .pv-cover-brand { display: none; }
+        .pv-cover-brand {
+            position: absolute; bottom: 48px; left: 48px; z-index: 1;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 40px; font-weight: 400; letter-spacing: -0.01em;
+            text-transform: lowercase; color: white; opacity: 0.9;
+            margin: 0;
+        }
         .pv-cover-label {
             font-family: 'Cormorant Garamond', Georgia, serif;
             font-style: italic; font-size: 13px; color: rgba(255,255,255,0.75);
@@ -128,12 +134,7 @@
         .pv-cover-left .pv-cover-divider { width: 32px; height: 1px; background: rgba(255,255,255,0.25); margin: 14px 0; }
         .pv-cover-left .pv-sub-number { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; margin-bottom: 2px; }
         .pv-cover-left .pv-sub-date { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; }
-        .pv-cover-logo {
-            position: absolute; bottom: 48px; left: 48px; z-index: 1;
-            width: 220px;
-        }
-        .pv-cover-logo img { width: 100%; height: auto; display: block; }
-        .pv-cover-logo img { width: 100%; height: auto; display: block; }
+        .pv-cover-logo { display: none; }
 
         /* Installation non incluse — indicators */
         .pv-install-banner { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 60px; letter-spacing: 0.3px; }
@@ -1039,7 +1040,6 @@ async function renderQuote() {
     html += '</div>';
     html += '<div class="pv-cover-left">';
     html += acceptanceProofHtml;
-    html += '<div class="pv-cover-brand">stele</div>';
     html += '<div class="pv-cover-label">Soumission préparée pour</div>';
     if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
     if (coverAddrLine) html += '<div class="pv-client-address">' + escapeHtml(coverAddrLine) + '</div>';
@@ -1050,7 +1050,7 @@ async function renderQuote() {
     if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';
     if (allInstallExcluded) html += '<div class="pv-install-banner">Installation non incluse</div>';
     html += '</div>';
-    html += '<div class="pv-cover-logo"><img src="' + SUPABASE_URL + '/storage/v1/object/public/assets/logo_white.png" alt="stele" onerror="this.parentElement.style.display=\'none\'"></div>';
+    html += '<div class="pv-cover-brand">stele</div>';
     html += '</div>';
 
     // ── Introduction page (skip for locked submissions — those are frozen like a PDF) ──

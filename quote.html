@@ -76,7 +76,7 @@
         /* ── Landscape pages (11 × 8.5 in) — fullscreen presentation ── */
         .pv-page {
             background: #fff;
-            padding: 36px 32px;
+            padding: 36px 48px;
             scroll-snap-align: start;
             height: 100vh;
             max-height: 100vh;
@@ -126,29 +126,32 @@
 
         /* Room page — landscape layout */
         .pv-page-room-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 16px; background: var(--stele-green); color: #fff;
-            border-radius: 0; margin: 0 0 38px 0; flex-shrink: 0;
+            display: flex; align-items: baseline; justify-content: space-between;
+            padding: 10px 48px; background: var(--stele-green); color: rgba(255,255,255,0.92);
+            border-radius: 0; margin: -36px -48px 0 -48px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
         }
         .pv-room-separator {
             border-bottom: 1px solid #E5E7EB;
             flex-shrink: 0;
         }
-        .pv-page-room-name { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
-        .pv-page-room-subtotal { font-size: 17px; font-weight: 700; }
-        .pv-page-room-body { flex: 1; display: flex; gap: 38px; overflow: hidden; min-height: 0; }
-        .pv-page-room-text { flex: 1; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
+        .pv-page-room-name { font-size: 13.5px; font-weight: 600; letter-spacing: 0.02em; }
+        .pv-page-room-subtotal { font-size: 13.5px; font-weight: 600; letter-spacing: 0.02em; }
+        .pv-page-room-body { flex: 1; display: flex; gap: 56px; overflow: hidden; min-height: 0; padding-top: 32px; }
+        .pv-page-room-text { flex: 0 1 440px; max-width: 440px; display: flex; flex-direction: column; overflow: hidden; justify-content: center; }
         .pv-page-room-media {
-            flex: 1; display: grid; grid-template-columns: 1fr;
+            flex: 1.3; display: grid; grid-template-columns: 1fr;
             gap: 14px; align-content: center; max-height: 100%;
         }
         .pv-img-wrap {
-            position: relative; border-radius: 8px; overflow: hidden; min-height: 0;
-            background: #fafafa;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            position: relative; overflow: hidden; min-height: 0;
+            background: #FAFAFA; border: 1px solid rgba(0,0,0,0.06);
+            border-radius: 12px; padding: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
         }
         .pv-img-wrap img {
             width: 100%; height: 100%; object-fit: contain; display: block; cursor: pointer;
+            border-radius: 6px;
         }
 
         /* Smart image layouts — applied by JS after ratio detection */
@@ -169,15 +172,17 @@
 
         /* Room description — client mode (no edit borders) */
         .pv-page-room-desc {
-            font-size: 13px; line-height: 1.5; color: #444;
+            font-size: 13.5px; line-height: 1.55; color: #4A4A4A;
             font-family: inherit; white-space: normal; word-wrap: break-word;
             border-color: transparent; background: transparent; padding: 0;
             flex: initial; min-height: auto;
         }
-        .pv-page-room-desc p { margin: 0 0 6px 0; }
-        .pv-page-room-desc ul { margin: 4px 0 8px 0; padding-left: 20px; }
-        .pv-page-room-desc li { margin-bottom: 2px; }
-        .pv-page-room-desc strong { font-weight: 700; }
+        .pv-page-room-desc p { margin: 0 0 8px 0; }
+        .pv-page-room-desc ul { margin: 6px 0 12px 0; padding-left: 18px; }
+        .pv-page-room-desc li { margin-bottom: 6px; color: #6F6F6F; font-size: 13px; line-height: 1.6; }
+        .pv-page-room-desc li::marker { color: #B0B0B0; }
+        .pv-page-room-desc ul + p { margin-top: 16px; }
+        .pv-page-room-desc strong { font-weight: 600; color: #1C1C1C; letter-spacing: 0.01em; }
 
         /* Clauses page */
         .pv-page-clauses-header {
@@ -644,6 +649,7 @@
         @media (max-width: 768px) {
             .quote-page-wrapper { padding: 0; }
             .pv-page { padding: 20px 24px; width: 100vw; height: auto; max-height: none; }
+            .pv-page-room-header { margin: -20px -24px 0 -24px; padding: 10px 24px; }
             .pv-page-room-body { flex-direction: column; gap: 16px; }
             .pv-page-room-media { grid-template-columns: 1fr !important; gap: 12px; }
             .pv-page-room-media .pv-img-wrap { max-width: 100% !important; }
@@ -676,6 +682,7 @@
 
         @media (max-width: 480px) {
             .pv-page { padding: 16px; }
+            .pv-page-room-header { margin: -16px -16px 0 -16px; padding: 10px 16px; }
             .pv-page-room-body { gap: 16px; }
             .pv-page-room-media { gap: 8px !important; }
             .pv-intro-content { padding: 24px 16px; }
@@ -700,7 +707,7 @@
                 print-color-adjust: exact;
             }
             .pv-page-room-body { break-inside: avoid; }
-            .pv-img-wrap { break-inside: avoid; }
+            .pv-img-wrap { break-inside: avoid; box-shadow: none; }
             .pv-page-intro { page-break-after: always; }
             .pv-intro-image img {
                 -webkit-print-color-adjust: exact;

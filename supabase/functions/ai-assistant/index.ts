@@ -1,51 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-// Auth check — deployed with --no-verify-jwt (gateway JWT check was returning
-// "Invalid JWT" on valid tokens). We verify the JWT is present, decodable, and
-// contains a user ID. The Supabase client still enforces RLS with the token.
-function checkAuthHeader(authHeader: string): Response | null {
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  // Verify JWT is decodable and has a subject (user ID)
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (!payload.sub) throw new Error("No sub claim");
-    // Check token is not expired (with 30s grace period)
-    if (payload.exp && payload.exp < Date.now() / 1000 - 30) {
-      return new Response(JSON.stringify({ error: "Token expired" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid token format" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  return null;
-}
-
-// Extract user ID from JWT payload (no HTTP call needed)
-function getUserIdFromJwt(authHeader: string): string | null {
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.sub || null;
-  } catch {
-    return null;
-  }
-}
+import { verifyJWT, corsHeaders, authErrorResponse } from "../_shared/auth.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
 // DEFAULT STATIC PROMPT — Single editable block, stored in app_config
@@ -583,17 +539,21 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client (reused for auth + config reading)
+    // Verify JWT signature cryptographically (replaces old base64-only check)
+    let authResult;
+    try {
+      authResult = await verifyJWT(req);
+    } catch (err) {
+      return authErrorResponse(err as Error);
+    }
+
+    // Create Supabase client with the original token (RLS needs it)
     const authHeader = req.headers.get("Authorization") || "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
-
-    // Verify auth header is present (gateway already validated the JWT)
-    const authErr = checkAuthHeader(authHeader);
-    if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {
@@ -691,7 +651,7 @@ serve(async (req) => {
 
       if (saveTool) {
         // Execute the INSERT server-side
-        const userId = getUserIdFromJwt(authHeader);
+        const userId = authResult.userId;
         const sourceCtx = saveTool.input.source_context || effectiveKey.replace("ai_prompt_", "");
         await supabase.from("ai_learnings").insert({
           rule: saveTool.input.rule,

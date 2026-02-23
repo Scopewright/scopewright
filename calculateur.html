@@ -254,6 +254,14 @@
         return escapeHtml(str).replace(/\n/g, '<br>');
     }
 
+    // Convert HTML to plain text for textarea display
+    function htmlToText(str) {
+        if (!str) return '';
+        var tmp = document.createElement('div');
+        tmp.innerHTML = str;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
     function debounce(fn, delay) {
         let timer;
         return function(...args) {
@@ -1447,8 +1455,15 @@
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
                 var textarea = document.getElementById(gid + '-clientDesc');
                 if (textarea) {
-                    textarea.value = input.description_html;
-                    saveClientDescription(gid);
+                    // AI sends HTML — store as HTML, show plain text in textarea
+                    var descHtml = input.description_html || '';
+                    roomDescHTML[gid] = descHtml;
+                    textarea.value = htmlToText(descHtml);
+                    roomDescEN[gid] = '';
+                    if (roomMap[gid]) {
+                        updateRoom(roomMap[gid], { client_description: descHtml, client_description_en: '' });
+                    }
+                    showSaveIndicator();
                     return { success: true, room: input.room_name };
                 }
                 return { error: 'Textarea introuvable' };
@@ -9436,13 +9451,14 @@
             if (!roomMap[groupId]) return;
             var textarea = document.getElementById(groupId + '-clientDesc');
             if (!textarea) return;
-            // Plain text from calculator — clear HTML cache + stale EN
-            roomDescHTML[groupId] = '';
+            // Convert plain text to HTML for storage, update HTML cache, clear stale EN
+            var html = textToHtml(textarea.value);
+            roomDescHTML[groupId] = html;
             if (roomDescEN[groupId]) {
                 roomDescEN[groupId] = '';
-                updateRoom(roomMap[groupId], { client_description: textarea.value, client_description_en: '' });
+                updateRoom(roomMap[groupId], { client_description: html, client_description_en: '' });
             } else {
-                updateRoom(roomMap[groupId], { client_description: textarea.value });
+                updateRoom(roomMap[groupId], { client_description: html });
             }
             showSaveIndicator();
         }
@@ -10918,9 +10934,7 @@
                 if (results['desc']) {
                     var html = results['desc'];
                     roomDescHTML[groupId] = html;
-                    var tmp = document.createElement('div');
-                    tmp.innerHTML = html;
-                    textarea.value = tmp.textContent || tmp.innerText || '';
+                    textarea.value = htmlToText(html);
                     roomDescEN[groupId] = '';
                     if (roomMap[groupId]) {
                         authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
@@ -10992,6 +11006,9 @@
                         if (roomMap[gid]) {
                             updateRoom(roomMap[gid], { client_description: results[key], client_description_en: '' });
                         }
+                        // Sync calc textarea with plain text
+                        var calcDesc = document.getElementById(gid + '-clientDesc');
+                        if (calcDesc) calcDesc.value = htmlToText(results[key]);
                         // Clear stale EN
                         roomDescEN[gid] = '';
                     }
@@ -13428,7 +13445,7 @@
 
                     if (room.client_description) {
                         var descEl = document.getElementById(groupId + '-clientDesc');
-                        if (descEl) descEl.value = room.client_description;
+                        if (descEl) descEl.value = htmlToText(room.client_description);
                         roomDescHTML[groupId] = room.client_description;
                     }
                     if (room.client_description_en) {

@@ -1,43 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-// Auth check + Supabase client creation — deployed with --no-verify-jwt.
-// Verifies JWT is present, decodable, not expired.
-function initAuth(req: Request): { supabase: any; error: Response | null } {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return { supabase: null, error: new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }) };
-  }
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (!payload.sub) throw new Error("No sub");
-    if (payload.exp && payload.exp < Date.now() / 1000 - 30) {
-      return { supabase: null, error: new Response(JSON.stringify({ error: "Token expired" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }) };
-    }
-  } catch {
-    return { supabase: null, error: new Response(JSON.stringify({ error: "Invalid token format" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }) };
-  }
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: authHeader } } }
-  );
-  return { supabase, error: null };
-}
+import { verifyJWT, corsHeaders, authErrorResponse } from "../_shared/auth.ts";
 
 // Load organizational learnings from ai_learnings table
 async function loadLearnings(supabase: any): Promise<string[]> {
@@ -315,9 +279,20 @@ serve(async (req) => {
   }
 
   try {
-    // Verify auth header + create Supabase client (gateway already validated JWT)
-    const { supabase, error: authErr } = initAuth(req);
-    if (authErr) return authErr;
+    // Verify JWT signature cryptographically
+    try {
+      await verifyJWT(req);
+    } catch (err) {
+      return authErrorResponse(err as Error);
+    }
+
+    // Create Supabase client with the original token (RLS needs it)
+    const authHeader = req.headers.get("Authorization") || "";
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {

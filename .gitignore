@@ -21,6 +21,7 @@
 !style.css
 !script.js
 !favicon.svg
+!_headers
 !supabase/
 !supabase/functions/
 !supabase/functions/translate/
@@ -31,6 +32,8 @@
 !supabase/functions/catalogue-import/index.ts
 !supabase/functions/contacts-import/
 !supabase/functions/contacts-import/index.ts
+!supabase/functions/_shared/
+!supabase/functions/_shared/auth.ts
 !sql/
 !sql/*
 !landing-page/

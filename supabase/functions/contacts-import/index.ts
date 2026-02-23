@@ -1,36 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-// Auth check — deployed with --no-verify-jwt. Verifies JWT is present, decodable, not expired.
-function checkAuthHeader(authHeader: string): Response | null {
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (!payload.sub) throw new Error("No sub");
-    if (payload.exp && payload.exp < Date.now() / 1000 - 30) {
-      return new Response(JSON.stringify({ error: "Token expired" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid token format" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  return null;
-}
+import { verifyJWT, corsHeaders, authErrorResponse } from "../_shared/auth.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
 // DEFAULT STATIC PROMPT — Single editable block, stored in app_config
@@ -394,15 +365,20 @@ serve(async (req) => {
   }
 
   try {
+    // Verify JWT signature cryptographically
+    try {
+      await verifyJWT(req);
+    } catch (err) {
+      return authErrorResponse(err as Error);
+    }
+
+    // Create Supabase client with the original token (RLS needs it)
     const authHeader = req.headers.get("Authorization") || "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
-
-    const authErr = checkAuthHeader(authHeader);
-    if (authErr) return authErr;
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {

@@ -49,14 +49,33 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 ```bash
 # CLI pas installé globalement, utiliser npx
-npx supabase functions deploy ai-assistant
-npx supabase functions deploy translate
+npx supabase functions deploy ai-assistant --no-verify-jwt
+npx supabase functions deploy translate --no-verify-jwt
+npx supabase functions deploy catalogue-import --no-verify-jwt
+npx supabase functions deploy contacts-import --no-verify-jwt
 
-# Secret API (déjà configuré)
+# Secrets (déjà configurés)
 npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+npx supabase secrets set JWT_SECRET="..."
 ```
 
-Les deux fonctions utilisent la vérification JWT par défaut (pas de `--no-verify-jwt`).
+## Edge Functions — Authentification
+
+Les 4 Edge Functions sont déployées avec `--no-verify-jwt` (la vérification
+native du gateway Supabase retournait "Invalid JWT" sur des tokens valides).
+
+La vérification JWT est effectuée manuellement dans chaque fonction via le
+module partagé `_shared/auth.ts` qui utilise la bibliothèque `jose` pour :
+- Valider la signature cryptographique HS256 avec `JWT_SECRET`
+- Vérifier l'expiration (avec tolérance de 30s)
+- Extraire le userId du claim `sub`
+
+Prérequis : le secret `JWT_SECRET` doit être configuré dans les
+secrets des Edge Functions (Dashboard > Settings > API > JWT Secret, puis
+`npx supabase secrets set JWT_SECRET="..."`).
+
+Le client Supabase est créé séparément avec le token brut pour que le RLS
+fonctionne normalement.
 
 ## Ne pas toucher
 

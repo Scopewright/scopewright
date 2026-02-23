@@ -223,6 +223,10 @@
         .pv-total-box .total-amount { font-size: 42px; font-weight: 700; }
         .pv-total-box .total-taxes { font-size: 13px; opacity: 0.6; margin-top: 6px; }
         .pv-page-footer-text { margin-top: 32px; font-size: 12px; color: #aaa; letter-spacing: 0.5px; }
+        .pv-total-breakdown { margin-bottom: 12px; }
+        .pv-total-subtotal-line, .pv-total-discount-line { display: flex; justify-content: space-between; font-size: 16px; padding: 4px 0; opacity: 0.8; }
+        .pv-total-discount-line { color: #ef5350; }
+        .pv-total-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0; }
 
         /* Steps page */
         .pv-page-steps { padding: 32px 32px; }
@@ -1117,7 +1121,8 @@ async function renderQuote() {
 
     // ── Room pages (one per room) — text left, images right ──
     rooms.forEach(function(room) {
-        var subtotal = parseFloat(room.subtotal) || 0;
+        var calculatedSubtotal = parseFloat(room.subtotal) || 0;
+        var subtotal = room.price_override != null ? parseFloat(room.price_override) : calculatedSubtotal;
         grandTotal += subtotal;
 
         // Collect images: new room_media + legacy Base64
@@ -1197,12 +1202,27 @@ async function renderQuote() {
     }
 
     // ── Total page ──
-    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : grandTotal;
+    var discountType = sub.discount_type || null;
+    var discountValue = sub.discount_value ? parseFloat(sub.discount_value) : 0;
+    var discountAmt = 0;
+    if (discountType && discountValue > 0) {
+        discountAmt = discountType === 'percentage' ? grandTotal * discountValue / 100 : discountValue;
+    }
+    var finalTotal = grandTotal - discountAmt;
+    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : finalTotal;
     html += '<div class="pv-page pv-page-total">';
     if (allInstallExcluded) {
         html += '<div class="pv-install-total-note">Installation non incluse</div>';
     }
     html += '<div class="pv-total-box">';
+    if (discountType && discountValue > 0) {
+        var discountLabel = discountType === 'percentage' ? 'Rabais (' + discountValue + '%)' : 'Rabais';
+        html += '<div class="pv-total-breakdown">';
+        html += '<div class="pv-total-subtotal-line"><span>Sous-total</span><span>' + formatMoney(grandTotal) + '</span></div>';
+        html += '<div class="pv-total-discount-line"><span>' + escapeHtml(discountLabel) + '</span><span>- ' + formatMoney(discountAmt) + '</span></div>';
+        html += '<div class="pv-total-divider"></div>';
+        html += '</div>';
+    }
     html += '<div class="total-label">Total</div>';
     html += '<div class="total-amount">' + formatMoney(totalToShow) + '</div>';
     html += '<div class="total-taxes">+ taxes applicables</div>';

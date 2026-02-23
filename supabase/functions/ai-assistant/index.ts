@@ -314,7 +314,13 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
     .join("\n");
 
   const roomsStr = (context.rooms || [])
-    .map((r: any) => `- ${r.name}: ${r.itemCount} articles, sous-total ${r.subtotal}$${r.installationIncluded ? ' (inst. incluse)' : ''}${r.hasDescription ? ' [desc. rédigée]' : ''}`)
+    .map((r: any) => {
+      let line = `- ${r.name}: ${r.itemCount} articles, sous-total ${r.subtotal}$`;
+      if (r.priceOverride != null) line += ` (prix vendeur: ${r.priceOverride}$)`;
+      if (!r.installationIncluded) line += ' (inst. exclue)';
+      if (r.hasDescription) line += ' [desc. rédigée]';
+      return line;
+    })
     .join("\n");
 
   let dynamicParts = `\n\n## Départements et taux horaires\n${tauxStr || 'Non disponible'}`;
@@ -391,7 +397,13 @@ Projet : ${context.project?.name || 'N/A'}
 Client : ${context.project?.client || 'N/A'}
 Designer : ${context.project?.designer || 'N/A'}
 Soumission #${context.submission?.number || '?'} — Statut : ${context.submission?.status || '?'}
-Total estimé : ${context.grandTotal || 0}$`;
+Sous-total (avant rabais) : ${context.subtotalBeforeDiscount || context.grandTotal || 0}$`;
+  if (context.submission?.discount_type && context.submission?.discount_value) {
+    const dt = context.submission.discount_type;
+    const dv = context.submission.discount_value;
+    dynamicParts += `\nRabais : ${dt === 'percentage' ? dv + '%' : dv + '$'}`;
+  }
+  dynamicParts += `\nTotal estimé : ${context.grandTotal || 0}$`;
 
   dynamicParts += `\n\n## Pièces\n${roomsStr || 'Aucune pièce'}`;
 

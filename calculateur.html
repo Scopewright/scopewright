@@ -4128,12 +4128,7 @@
             position: relative;
         }
         .pv-intro-section-label {
-            position: absolute;
-            top: 44px; left: 44px;
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-style: italic; font-weight: 300;
-            font-size: 14px; color: #888888;
-            letter-spacing: 0.02em; z-index: 2;
+            display: none;
         }
         .pv-intro-image { grid-row: 1; grid-column: 1; overflow: hidden; border-radius: 0; }
         .pv-intro-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; border-radius: 0; }
@@ -4144,9 +4139,10 @@
             overflow: hidden;
         }
         .pv-intro-attention-label {
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-style: italic; font-weight: 300;
-            font-size: 24px; color: #2B2B2B; margin-bottom: 6px;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-style: italic; font-weight: 400;
+            font-size: 13px; color: #888888; margin-bottom: 6px;
+            letter-spacing: 0.05em;
         }
         .pv-intro-attention-name {
             font-family: 'Inter', -apple-system, sans-serif;
@@ -11397,11 +11393,11 @@
             '.pv-step-label{font-family:Inter,-apple-system,sans-serif;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.3px;color:#1A1A1A;margin-bottom:4px}\n' +
             '.pv-step-desc{font-family:Inter,-apple-system,sans-serif;font-size:11px;font-weight:400;line-height:1.45;color:#555555}\n' +
             '.pv-page-intro{padding:32px;display:grid;grid-template-columns:42% 1fr;grid-template-rows:1fr auto;overflow:hidden;position:relative}\n' +
-            '.pv-intro-section-label{position:absolute;top:44px;left:44px;font-family:Cormorant Garamond,Georgia,serif;font-style:italic;font-weight:300;font-size:14px;color:#888888;letter-spacing:0.02em;z-index:2}\n' +
+            '.pv-intro-section-label{display:none}\n' +
             '.pv-intro-image{grid-row:1;grid-column:1;overflow:hidden;border-radius:0}\n' +
             '.pv-intro-image img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;border-radius:0}\n' +
             '.pv-intro-content{grid-column:2;grid-row:1;padding:40px 24px 32px 48px;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden}\n' +
-            '.pv-intro-attention-label{font-family:Cormorant Garamond,Georgia,serif;font-style:italic;font-weight:300;font-size:24px;color:#2B2B2B;margin-bottom:6px}\n' +
+            '.pv-intro-attention-label{font-family:Inter,-apple-system,sans-serif;font-style:italic;font-weight:400;font-size:13px;color:#888888;margin-bottom:6px;letter-spacing:0.05em}\n' +
             '.pv-intro-attention-name{font-family:Inter,-apple-system,sans-serif;font-weight:400;font-size:14px;color:#1a1a1a;letter-spacing:0.01em;margin-bottom:52px;line-height:1.6}\n' +
             '.pv-intro-rule{width:48px;height:1px;background:#1A1A1A;margin-bottom:52px}\n' +
             '.pv-intro-title{font-family:Inter,-apple-system,sans-serif;font-weight:400;font-size:28px;line-height:1.3;letter-spacing:-0.02em;color:#1A1A1A;margin-bottom:48px}\n' +

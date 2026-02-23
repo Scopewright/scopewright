@@ -8,11 +8,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Lightweight auth check + Supabase client creation — gateway already verified JWT.
+// Auth check + Supabase client creation — deployed with --no-verify-jwt.
+// Verifies JWT is present, decodable, not expired.
 function initAuth(req: Request): { supabase: any; error: Response | null } {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { supabase: null, error: new Response(JSON.stringify({ error: "Missing authorization header" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    }) };
+  }
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (!payload.sub) throw new Error("No sub");
+    if (payload.exp && payload.exp < Date.now() / 1000 - 30) {
+      return { supabase: null, error: new Response(JSON.stringify({ error: "Token expired" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }) };
+    }
+  } catch {
+    return { supabase: null, error: new Response(JSON.stringify({ error: "Invalid token format" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     }) };
   }

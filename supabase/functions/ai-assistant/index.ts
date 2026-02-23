@@ -8,17 +8,32 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Lightweight auth check — Supabase gateway already verified the JWT signature.
-// We only check the header is present (belt-and-suspenders).
-// Previously used supabase.auth.getUser() which is an HTTP round-trip that
-// failed intermittently, causing recurring 401s on all AI chats.
+// Auth check — deployed with --no-verify-jwt (gateway JWT check was returning
+// "Invalid JWT" on valid tokens). We verify the JWT is present, decodable, and
+// contains a user ID. The Supabase client still enforces RLS with the token.
 function checkAuthHeader(authHeader: string): Response | null {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  return null; // Auth OK — gateway already verified the token
+  // Verify JWT is decodable and has a subject (user ID)
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (!payload.sub) throw new Error("No sub claim");
+    // Check token is not expired (with 30s grace period)
+    if (payload.exp && payload.exp < Date.now() / 1000 - 30) {
+      return new Response(JSON.stringify({ error: "Token expired" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid token format" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
 }
 
 // Extract user ID from JWT payload (no HTTP call needed)

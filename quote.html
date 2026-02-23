@@ -1122,7 +1122,7 @@ async function renderQuote() {
     // ── Room pages (one per room) — text left, images right ──
     rooms.forEach(function(room) {
         var calculatedSubtotal = parseFloat(room.subtotal) || 0;
-        var subtotal = room.price_override != null ? parseFloat(room.price_override) : calculatedSubtotal;
+        var subtotal = room.price_override != null ? Math.round((calculatedSubtotal + parseFloat(room.price_override)) * 100) / 100 : calculatedSubtotal;
         grandTotal += subtotal;
 
         // Collect images: new room_media + legacy Base64

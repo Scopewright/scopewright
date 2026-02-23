@@ -896,7 +896,7 @@
             });
             var descEl = document.getElementById(gid + '-clientDesc');
             var installCb = document.getElementById(gid + '-install');
-            var effectiveTotal = roomPriceOverrides[gid] != null ? roomPriceOverrides[gid] : Math.round(subtotal * 100) / 100;
+            var effectiveTotal = roomPriceOverrides[gid] != null ? Math.round((subtotal + roomPriceOverrides[gid]) * 100) / 100 : Math.round(subtotal * 100) / 100;
             rooms.push({
                 groupId: gid,
                 roomId: roomMap[gid] || null,
@@ -8481,14 +8481,22 @@
         }
 
         // ── Room price override functions ──
+        // price_override stores a DELTA (adjustment), not an absolute value.
+        // Effective room total = calculated subtotal + delta.
+        // When the vendor types a target price, we compute: delta = target - calculated.
 
-        function getEffectiveRoomTotal(groupId) {
-            if (roomPriceOverrides[groupId] != null) return roomPriceOverrides[groupId];
+        function getRoomCalculatedSubtotal(groupId) {
             var subtotal = 0;
             var container = document.getElementById(groupId + '-rows');
             if (!container) return 0;
             container.querySelectorAll('.calc-row').forEach(function(row) { subtotal += getRowTotal(row); });
             return Math.round(subtotal * 100) / 100;
+        }
+
+        function getEffectiveRoomTotal(groupId) {
+            var calculated = getRoomCalculatedSubtotal(groupId);
+            if (roomPriceOverrides[groupId] != null) return Math.round((calculated + roomPriceOverrides[groupId]) * 100) / 100;
+            return calculated;
         }
 
         function toggleRoomOverride(groupId) {
@@ -8505,11 +8513,10 @@
                 updateGrandTotal();
                 return;
             }
-            var subtotalEl = document.getElementById(groupId + '-subtotal');
-            var currentVal = parseSubtotalText(subtotalEl ? subtotalEl.textContent : '0');
+            var calculated = getRoomCalculatedSubtotal(groupId);
             var wrap = container.querySelector('.group-subtotal-override-wrap');
             if (!wrap) return;
-            wrap.innerHTML = '<input class="override-input" id="' + groupId + '-overrideInput" type="text" value="' + Math.round(currentVal) + '" placeholder="Prix vendeur...">' +
+            wrap.innerHTML = '<input class="override-input" id="' + groupId + '-overrideInput" type="text" value="' + Math.round(calculated) + '" placeholder="Prix vendeur...">' +
                 '<button class="btn-override-toggle active" onclick="cancelRoomOverride(\'' + groupId + '\')" title="Annuler">&times;</button>';
             var input = document.getElementById(groupId + '-overrideInput');
             input.focus();
@@ -8525,19 +8532,20 @@
             applyRoomOverrideDisplay(groupId);
         }
 
-        function parseSubtotalText(text) {
-            return parseFloat(text.replace(/[^0-9.,-]/g, '').replace(/\u00a0/g, '').replace(',', '.')) || 0;
-        }
-
         async function saveRoomOverride(groupId, rawValue) {
-            var val = rawValue.replace(/[^0-9.,]/g, '').replace(',', '.');
-            var numericVal = val === '' ? null : parseFloat(val);
-            if (val !== '' && isNaN(numericVal)) { applyRoomOverrideDisplay(groupId); return; }
-            roomPriceOverrides[groupId] = numericVal;
+            var val = rawValue.replace(/[^0-9.,\-]/g, '').replace(',', '.');
+            var targetPrice = val === '' ? null : parseFloat(val);
+            if (val !== '' && isNaN(targetPrice)) { applyRoomOverrideDisplay(groupId); return; }
+            if (targetPrice == null) {
+                roomPriceOverrides[groupId] = null;
+            } else {
+                var calculated = getRoomCalculatedSubtotal(groupId);
+                roomPriceOverrides[groupId] = Math.round((targetPrice - calculated) * 100) / 100;
+            }
             applyRoomOverrideDisplay(groupId);
             updateGrandTotal();
             if (roomMap[groupId]) {
-                await updateRoom(roomMap[groupId], { price_override: numericVal });
+                await updateRoom(roomMap[groupId], { price_override: roomPriceOverrides[groupId] });
                 showSaveIndicator();
             }
         }
@@ -8547,25 +8555,20 @@
             if (!container) return;
             var wrap = container.querySelector('.group-subtotal-override-wrap');
             if (!wrap) return;
-            var calculatedSubtotal = 0;
-            var rowsContainer = document.getElementById(groupId + '-rows');
-            if (rowsContainer) {
-                rowsContainer.querySelectorAll('.calc-row').forEach(function(row) { calculatedSubtotal += getRowTotal(row); });
-            }
-            calculatedSubtotal = Math.round(calculatedSubtotal * 100) / 100;
-            var override = roomPriceOverrides[groupId];
+            var calculated = getRoomCalculatedSubtotal(groupId);
+            var delta = roomPriceOverrides[groupId];
             var editable = isSubmissionCurrentlyEditable();
-            if (override != null) {
-                var diff = override - calculatedSubtotal;
-                var diffStr = (diff >= 0 ? '+' : '') + formatPrice(diff);
+            if (delta != null) {
+                var effective = Math.round((calculated + delta) * 100) / 100;
+                var diffStr = (delta >= 0 ? '+' : '') + formatPrice(delta);
                 wrap.innerHTML =
-                    '<span class="group-subtotal-calculated">' + formatPrice(calculatedSubtotal) + '</span>' +
-                    '<span class="group-subtotal-override" id="' + groupId + '-subtotal">' + formatPrice(override) + '</span>' +
+                    '<span class="group-subtotal-calculated">' + formatPrice(calculated) + '</span>' +
+                    '<span class="group-subtotal-override" id="' + groupId + '-subtotal">' + formatPrice(effective) + '</span>' +
                     (editable ? '<button class="btn-override-toggle active" onclick="toggleRoomOverride(\'' + groupId + '\')" title="Retirer le prix vendeur">&times;</button>' : '') +
-                    '<span class="override-tooltip">Prix calcul\u00e9 : ' + formatPrice(calculatedSubtotal) + ' \u2192 Prix vendeur : ' + formatPrice(override) + ' (' + diffStr + ')</span>';
+                    '<span class="override-tooltip">Prix calcul\u00e9 : ' + formatPrice(calculated) + ' \u2192 Prix vendeur : ' + formatPrice(effective) + ' (' + diffStr + ')</span>';
             } else {
                 wrap.innerHTML =
-                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(calculatedSubtotal) + '</span>' +
+                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(calculated) + '</span>' +
                     (editable ? '<button class="btn-override-toggle" onclick="toggleRoomOverride(\'' + groupId + '\')" title="Prix vendeur (override)">&#9998;</button>' : '');
             }
         }
@@ -9508,7 +9511,7 @@
 
                 if (items.length > 0) {
                     const groupId = group.id;
-                    var effectiveSubtotal = roomPriceOverrides[groupId] != null ? roomPriceOverrides[groupId] : subtotal;
+                    var effectiveSubtotal = roomPriceOverrides[groupId] != null ? Math.round((subtotal + roomPriceOverrides[groupId]) * 100) / 100 : subtotal;
                     grandTotal += effectiveSubtotal;
                     const imgs = (groupImages[groupId] || []).map(img => ({
                         name: img.name,
@@ -11687,7 +11690,7 @@
                 group.querySelectorAll('.calc-row').forEach(function(row) {
                     calculatedSubtotal += getRowTotal(row);
                 });
-                var subtotal = roomPriceOverrides[groupId] != null ? roomPriceOverrides[groupId] : calculatedSubtotal;
+                var subtotal = roomPriceOverrides[groupId] != null ? Math.round((calculatedSubtotal + roomPriceOverrides[groupId]) * 100) / 100 : calculatedSubtotal;
                 grandTotal += subtotal;
 
                 var allImgs = groupImages[groupId] || [];

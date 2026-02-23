@@ -316,7 +316,7 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
   const roomsStr = (context.rooms || [])
     .map((r: any) => {
       let line = `- ${r.name}: ${r.itemCount} articles, sous-total ${r.subtotal}$`;
-      if (r.priceOverride != null) line += ` (prix vendeur: ${r.priceOverride}$)`;
+      if (r.priceOverride != null) line += ` (prix vendeur: ${r.effectiveTotal}$, ajustement: ${r.priceOverride > 0 ? '+' : ''}${r.priceOverride}$)`;
       if (!r.installationIncluded) line += ' (inst. exclue)';
       if (r.hasDescription) line += ' [desc. rédigée]';
       return line;

@@ -709,6 +709,73 @@
                 </div>
             </div>
 
+            <!-- Pr&eacute;sentation soumission : Page Introduction -->
+            <div class="section collapsed" id="sectionPresentationIntro">
+                <div class="section-toggle" onclick="toggleSection('sectionPresentationIntro')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Page Introduction</div>
+                        <div class="section-desc">Contenu de la page d'introduction affich&eacute;e dans la pr&eacute;sentation client des soumissions.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <!-- Image -->
+                    <h4 style="font-size:14px; font-weight:600; margin-bottom:8px;">Image</h4>
+                    <p style="font-size:13px; color:#888; margin-bottom:12px;">
+                        Image affich&eacute;e &agrave; gauche de la page d'introduction (42% de la largeur). Format recommand&eacute;&nbsp;: portrait ou carr&eacute;, haute r&eacute;solution.
+                    </p>
+                    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:280px;">
+                            <label class="btn-outline" style="cursor:pointer; display:inline-block;">
+                                Choisir une image
+                                <input type="file" id="introImageInput" accept="image/*" onchange="uploadIntroImage(this)" style="display:none;">
+                            </label>
+                            <button class="btn-outline" onclick="removeIntroImage()" style="margin-left:8px; color:#c00;">Supprimer</button>
+                            <span class="save-feedback" id="introImageFeedback"></span>
+                        </div>
+                        <div id="introImagePreview" style="width:200px; height:280px; border-radius:8px; overflow:hidden; background:#f5f5f5; border:1px solid #e0e0e0; display:flex; align-items:center; justify-content:center;">
+                            <span style="color:#666; font-size:13px;" id="introImagePlaceholder">Aucune image</span>
+                        </div>
+                    </div>
+
+                    <!-- Paragraphes -->
+                    <h4 style="font-size:14px; font-weight:600; margin-top:28px; margin-bottom:8px;">Paragraphes</h4>
+                    <p style="font-size:13px; color:#888; margin-bottom:12px;">
+                        Trois paragraphes affich&eacute;s sous le titre d'introduction. Laissez vide pour masquer.
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <textarea id="introText1" rows="3" placeholder="Paragraphe 1" style="width:100%; padding:10px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px; resize:vertical;" onchange="saveIntroField('presentation_intro_text_1', this.value)"></textarea>
+                        <textarea id="introText2" rows="3" placeholder="Paragraphe 2" style="width:100%; padding:10px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px; resize:vertical;" onchange="saveIntroField('presentation_intro_text_2', this.value)"></textarea>
+                        <textarea id="introText3" rows="3" placeholder="Paragraphe 3" style="width:100%; padding:10px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px; resize:vertical;" onchange="saveIntroField('presentation_intro_text_3', this.value)"></textarea>
+                    </div>
+
+                    <!-- Coordonn&eacute;es -->
+                    <h4 style="font-size:14px; font-weight:600; margin-top:28px; margin-bottom:8px;">Coordonn&eacute;es</h4>
+                    <p style="font-size:13px; color:#888; margin-bottom:12px;">
+                        Informations affich&eacute;es dans le pied de page de la page d'introduction.
+                    </p>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">Adresse Atelier</label>
+                            <input type="text" id="introAtelier" placeholder="8600 rue &Eacute;milien-Letarte, Saint-Hyacinthe" style="width:100%; padding:8px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px;" onchange="saveIntroField('presentation_intro_atelier', this.value)">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">Adresse Bureau</label>
+                            <input type="text" id="introBureau" placeholder="61 rue Rachel Ouest, Montr&eacute;al" style="width:100%; padding:8px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px;" onchange="saveIntroField('presentation_intro_bureau', this.value)">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">T&eacute;l&eacute;phone</label>
+                            <input type="text" id="introPhone" placeholder="514 492-1448" style="width:100%; padding:8px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px;" onchange="saveIntroField('presentation_intro_phone', this.value)">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">URL site web</label>
+                            <input type="text" id="introUrl" placeholder="stele.ca" style="width:100%; padding:8px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px;" onchange="saveIntroField('presentation_intro_url', this.value)">
+                        </div>
+                    </div>
+                    <span class="save-feedback" id="introFieldsFeedback" style="display:inline-block; margin-top:8px;"></span>
+                </div>
+            </div>
+
             <!-- Statuts du pipeline -->
             <div class="section collapsed" id="sectionPipelineStatuses">
                 <div class="section-toggle" onclick="toggleSection('sectionPipelineStatuses')">
@@ -2241,6 +2308,114 @@
 
     // Load cover image preview on page load
     loadCoverImagePreview();
+
+    // ── Introduction page config ──
+
+    function showIntroPreview(url) {
+        var preview = document.getElementById('introImagePreview');
+        if (url) {
+            preview.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;">';
+        } else {
+            preview.innerHTML = '<span style="color:#666;font-size:13px;" id="introImagePlaceholder">Aucune image</span>';
+        }
+    }
+
+    async function loadIntroImagePreview() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.intro_image&select=value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0 && rows[0].value) showIntroPreview(rows[0].value);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    async function uploadIntroImage(input) {
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        var feedback = document.getElementById('introImageFeedback');
+        feedback.textContent = 'Upload en cours...';
+        feedback.style.color = '#888';
+        try {
+            var compressed = await compressCoverImage(file, 1600, 0.85);
+            var r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/intro_image.jpg', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                body: compressed
+            });
+            if (!r.ok) {
+                r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/intro_image.jpg', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                    body: compressed
+                });
+            }
+            if (r.ok) {
+                var publicUrl = SUPABASE_URL + '/storage/v1/object/public/assets/intro_image.jpg?t=' + Date.now();
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key: 'intro_image', value: JSON.stringify(publicUrl) })
+                });
+                showIntroPreview(publicUrl);
+                feedback.textContent = 'Image sauvegard\u00e9e!';
+                feedback.style.color = 'var(--sw-navy)';
+            } else {
+                console.error('Intro image upload error:', await r.text());
+                feedback.textContent = 'Erreur upload';
+                feedback.style.color = '#c00';
+            }
+        } catch (e) {
+            console.error('Intro image upload error:', e);
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+        input.value = '';
+    }
+
+    async function removeIntroImage() {
+        if (!confirm('Supprimer l\'image d\'introduction ?')) return;
+        var feedback = document.getElementById('introImageFeedback');
+        try {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify({ key: 'intro_image', value: JSON.stringify('') })
+            });
+            showIntroPreview('');
+            feedback.textContent = 'Image supprim\u00e9e';
+            feedback.style.color = '#888';
+        } catch (e) {
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+    }
+
+    function saveIntroField(key, value) {
+        saveConfig(key, value, 'introFieldsFeedback');
+    }
+
+    async function loadIntroFields() {
+        try {
+            var keys = 'presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + keys + ')&select=key,value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                var map = {};
+                rows.forEach(function(row) { map[row.key] = row.value; });
+                if (map.presentation_intro_text_1) document.getElementById('introText1').value = map.presentation_intro_text_1;
+                if (map.presentation_intro_text_2) document.getElementById('introText2').value = map.presentation_intro_text_2;
+                if (map.presentation_intro_text_3) document.getElementById('introText3').value = map.presentation_intro_text_3;
+                if (map.presentation_intro_atelier) document.getElementById('introAtelier').value = map.presentation_intro_atelier;
+                if (map.presentation_intro_bureau) document.getElementById('introBureau').value = map.presentation_intro_bureau;
+                if (map.presentation_intro_phone) document.getElementById('introPhone').value = map.presentation_intro_phone;
+                if (map.presentation_intro_url) document.getElementById('introUrl').value = map.presentation_intro_url;
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    loadIntroImagePreview();
+    loadIntroFields();
 
     // ── AI Prompts (simplified: 1 textarea per assistant) ──
 

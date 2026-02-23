@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Soumission — Stele</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -228,6 +229,165 @@
             letter-spacing: 0.3px; color: var(--stele-black); margin-bottom: 4px;
         }
         .pv-step-desc { font-size: 11px; line-height: 1.45; color: #555; }
+
+        /* ── Introduction page ── */
+        .pv-page-intro {
+            padding: 0;
+            display: grid;
+            grid-template-columns: 42% 1fr;
+            grid-template-rows: 1fr auto;
+            overflow: hidden;
+            position: relative;
+        }
+        .pv-intro-section-label {
+            position: absolute;
+            top: 28px;
+            left: 32px;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic;
+            font-weight: 300;
+            font-size: 13px;
+            color: #999;
+            letter-spacing: 0.02em;
+            z-index: 2;
+        }
+        .pv-intro-image {
+            grid-row: 1 / 3;
+            grid-column: 1;
+            overflow: hidden;
+        }
+        .pv-intro-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+        .pv-intro-content {
+            grid-column: 2;
+            grid-row: 1;
+            padding: 72px 56px 32px 56px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+        .pv-intro-attention-label {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic;
+            font-weight: 300;
+            font-size: 22px;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        .pv-intro-attention-name {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 400;
+            font-size: 14px;
+            color: #1a1a1a;
+            letter-spacing: 0.01em;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .pv-intro-rule {
+            width: 40px;
+            height: 1px;
+            background: #e0e0e0;
+            margin-bottom: 40px;
+        }
+        .pv-intro-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-weight: 300;
+            font-size: 32px;
+            line-height: 1.25;
+            color: #1a1a1a;
+            margin-bottom: 32px;
+        }
+        .pv-intro-title strong {
+            font-weight: 500;
+        }
+        .pv-intro-body p {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 300;
+            font-size: 12.5px;
+            line-height: 1.75;
+            color: #6b6b6b;
+            margin-bottom: 20px;
+        }
+        .pv-intro-body p:last-child {
+            margin-bottom: 0;
+        }
+        .pv-intro-footer {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 16px 56px 24px 32px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .pv-intro-footer-addresses {
+            display: flex;
+            gap: 48px;
+        }
+        .pv-intro-footer-block {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+        }
+        .pv-intro-footer-label {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 500;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #1a1a1a;
+        }
+        .pv-intro-footer-value {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 300;
+            font-size: 10px;
+            color: #6b6b6b;
+        }
+        .pv-intro-footer-right {
+            text-align: right;
+        }
+        .pv-intro-footer-name {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 400;
+            font-size: 11px;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+        .pv-intro-footer-email {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 300;
+            font-size: 10px;
+            color: #6b6b6b;
+        }
+        .pv-intro-bottom {
+            position: absolute;
+            bottom: 8px;
+            left: 32px;
+            right: 56px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pv-intro-bottom-url {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 400;
+            font-size: 9px;
+            color: #1a1a1a;
+            text-decoration: none;
+            letter-spacing: 0.02em;
+        }
+        .pv-intro-bottom-page {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-weight: 300;
+            font-size: 9px;
+            color: #999;
+        }
 
         /* ── Acceptance section ── */
         .acceptance-section {
@@ -490,12 +650,30 @@
             .pv-total-box .total-amount { font-size: 28px; }
             .lightbox-nav { display: none; }
             .lightbox-img { max-width: 96vw; max-height: 90vh; }
+            /* Intro page mobile */
+            .pv-page-intro {
+                grid-template-columns: 1fr;
+                grid-template-rows: 50vh auto auto;
+                height: auto; max-height: none;
+            }
+            .pv-intro-image { grid-row: 1; grid-column: 1; }
+            .pv-intro-content { grid-column: 1; grid-row: 2; padding: 32px 24px; }
+            .pv-intro-footer {
+                grid-column: 1; grid-row: 3;
+                flex-direction: column; gap: 16px;
+                padding: 16px 24px 48px;
+            }
+            .pv-intro-footer-addresses { flex-direction: column; gap: 8px; }
+            .pv-intro-footer-right { text-align: left; }
+            .pv-intro-section-label { display: none; }
+            .pv-intro-bottom { left: 24px; right: 24px; }
         }
 
         @media (max-width: 480px) {
             .pv-page { padding: 16px; }
             .pv-page-room-body { gap: 16px; }
             .pv-page-room-media { gap: 8px !important; }
+            .pv-intro-content { padding: 24px 16px; }
         }
 
         /* ── Print ── */
@@ -518,6 +696,11 @@
             }
             .pv-page-room-body { break-inside: avoid; }
             .pv-img-wrap { break-inside: avoid; }
+            .pv-page-intro { page-break-after: always; }
+            .pv-intro-image img {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
@@ -624,6 +807,9 @@ var STEP_COLORS = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','
 let quoteData = null;
 let currentToken = null;
 var coverImageUrl = '';
+var introConfig = {};
+var projectManagerName = '';
+var projectManagerEmail = '';
 
 (async function init() {
     // Extract token from URL
@@ -660,16 +846,33 @@ var coverImageUrl = '';
             return;
         }
 
-        // Load cover image from app_config (anon read)
+        // Load config from app_config (cover image + intro page)
         try {
-            var ciResp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.cover_image&select=value', {
+            var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
+            var ciResp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + configKeys + ')&select=key,value', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             if (ciResp.ok) {
-                var ciRows = await ciResp.json();
-                if (ciRows.length > 0 && ciRows[0].value) coverImageUrl = ciRows[0].value;
+                var cfgRows = await ciResp.json();
+                cfgRows.forEach(function(row) { introConfig[row.key] = row.value; });
+                if (introConfig.cover_image) coverImageUrl = introConfig.cover_image;
             }
         } catch (e) { /* fallback to dark bg */ }
+
+        // Load project manager info from employees
+        try {
+            var pmAssigned = quoteData.project.assigned_to || '';
+            if (pmAssigned) {
+                projectManagerName = pmAssigned;
+                var empResp = await fetch(SUPABASE_URL + '/rest/v1/employees?name=eq.' + encodeURIComponent(pmAssigned) + '&select=email&limit=1', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (empResp.ok) {
+                    var empRows = await empResp.json();
+                    if (empRows.length > 0 && empRows[0].email) projectManagerEmail = empRows[0].email;
+                }
+            }
+        } catch (e) { /* graceful: no PM shown */ }
 
         try {
             await renderQuote();
@@ -788,6 +991,96 @@ async function renderQuote() {
     html += '</div>';
     html += '<div class="pv-cover-logo"><img src="' + SUPABASE_URL + '/storage/v1/object/public/assets/logo_white.png" alt="stele" onerror="this.parentElement.style.display=\'none\'"></div>';
     html += '</div>';
+
+    // ── Introduction page ──
+    var introImageUrl = introConfig.intro_image || '';
+    var introText1 = introConfig.presentation_intro_text_1 || '';
+    var introText2 = introConfig.presentation_intro_text_2 || '';
+    var introText3 = introConfig.presentation_intro_text_3 || '';
+    var introAtelier = introConfig.presentation_intro_atelier || '';
+    var introBureau = introConfig.presentation_intro_bureau || '';
+    var introPhone = introConfig.presentation_intro_phone || '';
+    var introUrl = introConfig.presentation_intro_url || '';
+
+    if (introImageUrl || introText1 || introText2 || introText3) {
+        html += '<div class="pv-page pv-page-intro">';
+
+        // Section label
+        html += '<span class="pv-intro-section-label">Introduction</span>';
+
+        // Left column: image
+        html += '<div class="pv-intro-image">';
+        if (introImageUrl) {
+            html += '<img src="' + escapeHtml(introImageUrl) + '" alt="">';
+        }
+        html += '</div>';
+
+        // Right column: content
+        html += '<div class="pv-intro-content">';
+
+        html += '<div class="pv-intro-attention-label">\u00c0 l\u2019attention de\u2009:</div>';
+
+        // Client info (dynamic)
+        var introClientParts = [];
+        if (proj.client_name) introClientParts.push(escapeHtml(proj.client_name));
+        if (coverAddrLine) introClientParts.push(escapeHtml(coverAddrLine));
+        if (coverCityPostal) introClientParts.push(escapeHtml(coverCityPostal));
+        if (introClientParts.length > 0) {
+            html += '<div class="pv-intro-attention-name">' + introClientParts.join('<br>') + '</div>';
+        }
+
+        html += '<div class="pv-intro-rule"></div>';
+
+        html += '<h2 class="pv-intro-title">Merci de<br>consid\u00e9rer <strong>stele</strong><br>pour votre projet.</h2>';
+
+        html += '<div class="pv-intro-body">';
+        if (introText1) html += '<p>' + escapeHtml(introText1) + '</p>';
+        if (introText2) html += '<p>' + escapeHtml(introText2) + '</p>';
+        if (introText3) html += '<p>' + escapeHtml(introText3) + '</p>';
+        html += '</div>';
+
+        html += '</div>'; // end pv-intro-content
+
+        // Footer (full width)
+        html += '<div class="pv-intro-footer">';
+
+        html += '<div class="pv-intro-footer-addresses">';
+        if (introAtelier) {
+            html += '<div class="pv-intro-footer-block">';
+            html += '<span class="pv-intro-footer-label">Atelier</span>';
+            html += '<span class="pv-intro-footer-value">' + escapeHtml(introAtelier) + '</span>';
+            html += '</div>';
+        }
+        if (introBureau) {
+            html += '<div class="pv-intro-footer-block">';
+            html += '<span class="pv-intro-footer-label">Bureau</span>';
+            html += '<span class="pv-intro-footer-value">' + escapeHtml(introBureau) + '</span>';
+            html += '</div>';
+        }
+        if (introPhone) {
+            html += '<div class="pv-intro-footer-block">';
+            html += '<span class="pv-intro-footer-value">' + escapeHtml(introPhone) + '</span>';
+            html += '</div>';
+        }
+        html += '</div>'; // end addresses
+
+        html += '<div class="pv-intro-footer-right">';
+        if (projectManagerName) {
+            html += '<div class="pv-intro-footer-name">' + escapeHtml(projectManagerName) + '</div>';
+            if (projectManagerEmail) html += '<div class="pv-intro-footer-email">' + escapeHtml(projectManagerEmail) + '</div>';
+        }
+        html += '</div>';
+
+        html += '</div>'; // end pv-intro-footer
+
+        // Bottom bar
+        html += '<div class="pv-intro-bottom">';
+        html += '<span class="pv-intro-bottom-url">' + escapeHtml(introUrl || 'stele.ca') + '</span>';
+        html += '<span class="pv-intro-bottom-page">1</span>';
+        html += '</div>';
+
+        html += '</div>'; // end pv-page-intro
+    }
 
     // ── Room pages (one per room) — text left, images right ──
     rooms.forEach(function(room) {

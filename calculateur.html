@@ -9290,6 +9290,7 @@
         var clientViewMode = false;
         var currentLang = 'fr';
         var roomDescEN = {}; // { groupDomId: 'english description (HTML)' }
+        var introConfigEN = {}; // { presentation_intro_text_1: '...', ... }
         var roomDescHTML = {}; // { groupDomId: 'HTML description from optimizer' }
         var i18n = {
             fr: {
@@ -9304,6 +9305,11 @@
                 descPlaceholder: 'Description visible par le client...',
                 dropClause: 'Glissez une clause ici',
                 biblio: '\u2191 Bib.',
+                introLabel: 'Introduction',
+                introAttention: '\u00c0 l\u2019attention de\u2009:',
+                introTitle: 'Merci de<br>consid\u00e9rer <strong>stele</strong><br>pour votre projet.',
+                introAtelier: 'Atelier',
+                introBureau: 'Bureau',
                 stepsTitle: '\u00c9tapes d\u2019un projet type',
                 steps: [
                     { label: 'Conception', desc: '\u00c0 cette \u00e9tape, nous veillerons \u00e0 rassembler toutes les informations n\u00e9cessaires au bon d\u00e9roulement du projet. Cela inclut le choix des poign\u00e9es, l\u2019approbation des mat\u00e9riaux, ainsi que l\u2019\u00e9tude des d\u00e9fis sp\u00e9cifiques au projet. Nous rassemblerons \u00e9galement les fiches techniques des \u00e9lectrom\u00e9nagers et validerons l\u2019\u00e9ch\u00e9ancier avec le client et l\u2019entrepreneur.' },
@@ -9328,6 +9334,11 @@
                 descPlaceholder: 'Client-facing description...',
                 dropClause: 'Drag a clause here',
                 biblio: '\u2191 Lib.',
+                introLabel: 'Introduction',
+                introAttention: 'To the attention of:',
+                introTitle: 'Thank you for<br>considering <strong>stele</strong><br>for your project.',
+                introAtelier: 'Workshop',
+                introBureau: 'Office',
                 stepsTitle: 'Typical Project Steps',
                 steps: [
                     { label: 'Design', desc: 'At this stage, we will gather all the information necessary for the smooth progress of the project. This includes the choice of handles, material approval, and the study of project-specific challenges. We will also collect technical specifications for appliances and validate the timeline with the client and contractor.' },
@@ -10399,6 +10410,13 @@
                     texts.push({ key: 'clause_' + i, text: c.content });
                 }
             });
+            // Intro page paragraphs
+            ['presentation_intro_text_1', 'presentation_intro_text_2', 'presentation_intro_text_3'].forEach(function(k) {
+                var fr = introConfig[k] || '';
+                if (fr && !introConfigEN[k]) {
+                    texts.push({ key: k, text: fr });
+                }
+            });
             return texts;
         }
 
@@ -10426,6 +10444,10 @@
                 }
             });
             if (changed) saveSubmissionClauses(updated);
+            // Intro page paragraphs
+            ['presentation_intro_text_1', 'presentation_intro_text_2', 'presentation_intro_text_3'].forEach(function(k) {
+                if (results[k]) introConfigEN[k] = results[k];
+            });
         }
 
         // ── Edge Function helper ──
@@ -11205,9 +11227,12 @@
 
             // ── Introduction page (skip for locked submissions — those are frozen like a PDF) ──
             var introImageUrl = !isLocked ? (introConfig.intro_image || '') : '';
-            var introText1 = !isLocked ? (introConfig.presentation_intro_text_1 || '') : '';
-            var introText2 = !isLocked ? (introConfig.presentation_intro_text_2 || '') : '';
-            var introText3 = !isLocked ? (introConfig.presentation_intro_text_3 || '') : '';
+            var introText1fr = !isLocked ? (introConfig.presentation_intro_text_1 || '') : '';
+            var introText2fr = !isLocked ? (introConfig.presentation_intro_text_2 || '') : '';
+            var introText3fr = !isLocked ? (introConfig.presentation_intro_text_3 || '') : '';
+            var introText1 = currentLang === 'en' ? (introConfigEN.presentation_intro_text_1 || introText1fr) : introText1fr;
+            var introText2 = currentLang === 'en' ? (introConfigEN.presentation_intro_text_2 || introText2fr) : introText2fr;
+            var introText3 = currentLang === 'en' ? (introConfigEN.presentation_intro_text_3 || introText3fr) : introText3fr;
             var introAtelier = !isLocked ? (introConfig.presentation_intro_atelier || '') : '';
             var introBureau = !isLocked ? (introConfig.presentation_intro_bureau || '') : '';
             var introPhone = !isLocked ? (introConfig.presentation_intro_phone || '') : '';
@@ -11215,14 +11240,14 @@
 
             if (introImageUrl || introText1 || introText2 || introText3) {
                 html += '<div class="pv-page pv-page-intro">';
-                html += '<span class="pv-intro-section-label">Introduction</span>';
+                html += '<span class="pv-intro-section-label">' + t('introLabel') + '</span>';
 
                 html += '<div class="pv-intro-image">';
                 if (introImageUrl) html += '<img src="' + escapeAttr(introImageUrl) + '" alt="">';
                 html += '</div>';
 
                 html += '<div class="pv-intro-content">';
-                html += '<div class="pv-intro-attention-label">\u00c0 l\u2019attention de\u2009:</div>';
+                html += '<div class="pv-intro-attention-label">' + t('introAttention') + '</div>';
 
                 var introClientParts = [];
                 if (currentProject && currentProject.client_name) introClientParts.push(escapeHtml(currentProject.client_name));
@@ -11233,7 +11258,7 @@
                 }
 
                 html += '<div class="pv-intro-rule"></div>';
-                html += '<h2 class="pv-intro-title">Merci de<br>consid\u00e9rer <strong>stele</strong><br>pour votre projet.</h2>';
+                html += '<h2 class="pv-intro-title">' + t('introTitle') + '</h2>';
 
                 html += '<div class="pv-intro-body">';
                 if (introText1) html += '<p>' + escapeHtml(introText1) + '</p>';
@@ -11245,10 +11270,10 @@
                 html += '<div class="pv-intro-footer">';
                 html += '<div class="pv-intro-footer-addresses">';
                 if (introAtelier) {
-                    html += '<div class="pv-intro-footer-block"><span class="pv-intro-footer-label">Atelier</span><span class="pv-intro-footer-value">' + escapeHtml(introAtelier) + '</span></div>';
+                    html += '<div class="pv-intro-footer-block"><span class="pv-intro-footer-label">' + t('introAtelier') + '</span><span class="pv-intro-footer-value">' + escapeHtml(introAtelier) + '</span></div>';
                 }
                 if (introBureau) {
-                    html += '<div class="pv-intro-footer-block"><span class="pv-intro-footer-label">Bureau</span><span class="pv-intro-footer-value">' + escapeHtml(introBureau) + '</span></div>';
+                    html += '<div class="pv-intro-footer-block"><span class="pv-intro-footer-label">' + t('introBureau') + '</span><span class="pv-intro-footer-value">' + escapeHtml(introBureau) + '</span></div>';
                 }
                 if (introPhone) {
                     html += '<div class="pv-intro-footer-block"><span class="pv-intro-footer-value">' + escapeHtml(introPhone) + '</span></div>';

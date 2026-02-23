@@ -3939,11 +3939,7 @@
             padding: 48px; min-height: 100%;
             background: transparent; text-align: left;
         }
-        .pv-cover-brand {
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 14px; font-weight: 400; text-transform: lowercase; letter-spacing: 0.15em;
-            color: white; margin-bottom: 28px;
-        }
+        .pv-cover-brand { display: none; }
         .pv-cover-label {
             font-family: 'Cormorant Garamond', Georgia, serif;
             font-style: italic; font-size: 13px; color: rgba(255,255,255,0.75);
@@ -3968,7 +3964,11 @@
         .pv-cover-left .pv-cover-divider { width: 32px; height: 1px; background: rgba(255,255,255,0.25); margin: 14px 0; }
         .pv-cover-left .pv-sub-number { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; margin-bottom: 2px; }
         .pv-cover-left .pv-sub-date { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: white; opacity: 0.7; }
-        .pv-cover-logo { display: none; }
+        .pv-cover-logo {
+            position: absolute; bottom: 48px; left: 48px; z-index: 1;
+            width: 220px;
+        }
+        .pv-cover-logo img { width: 100%; height: auto; display: block; }
 
         /* Installation non incluse — indicators */
         .pv-install-banner { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 60px; letter-spacing: 0.3px; }
@@ -11335,7 +11335,7 @@
             '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block;filter:none;opacity:1}\n' +
             '.pv-cover-right .pv-cover-overlay{display:none}\n' +
             '.pv-cover-left{position:relative;z-index:1;width:320px;display:flex;flex-direction:column;justify-content:flex-start;padding:48px;min-height:100%;background:transparent;text-align:left}\n' +
-            '.pv-cover-brand{font-family:Inter,-apple-system,sans-serif;font-size:14px;font-weight:400;text-transform:lowercase;letter-spacing:0.15em;color:white;margin-bottom:28px}\n' +
+            '.pv-cover-brand{display:none}\n' +
             '.pv-cover-label{font-family:Cormorant Garamond,Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.2;margin-bottom:10px}\n' +
             '.pv-cover-left .pv-client-name{font-family:Inter,-apple-system,sans-serif;font-size:15px;font-weight:400;color:white;opacity:0.85;line-height:1.5;margin-bottom:0}\n' +
             '.pv-cover-left .pv-client-address{font-family:Inter,-apple-system,sans-serif;font-size:15px;font-weight:400;color:white;opacity:0.85;line-height:1.5;margin-bottom:0}\n' +
@@ -11343,7 +11343,7 @@
             '.pv-cover-left .pv-cover-divider{width:32px;height:1px;background:rgba(255,255,255,0.25);margin:14px 0}\n' +
             '.pv-cover-left .pv-sub-number{font-family:Inter,-apple-system,sans-serif;font-size:13px;font-weight:400;color:white;opacity:0.7;margin-bottom:2px}\n' +
             '.pv-cover-left .pv-sub-date{font-family:Inter,-apple-system,sans-serif;font-size:13px;font-weight:400;color:white;opacity:0.7}\n' +
-            '.pv-cover-logo{display:none}\n' +
+            '.pv-cover-logo{position:absolute;bottom:48px;left:48px;z-index:1;width:220px}\n' +
             '.pv-cover-logo img{width:100%;height:auto;display:block}\n' +
             '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#888;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +

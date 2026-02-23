@@ -2363,7 +2363,7 @@
                 await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                    body: JSON.stringify({ key: 'intro_image', value: JSON.stringify(publicUrl) })
+                    body: JSON.stringify({ key: 'intro_image', value: publicUrl })
                 });
                 showIntroPreview(publicUrl);
                 feedback.textContent = 'Image sauvegard\u00e9e!';
@@ -2390,7 +2390,7 @@
             await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                body: JSON.stringify({ key: 'intro_image', value: JSON.stringify('') })
+                body: JSON.stringify({ key: 'intro_image', value: '' })
             });
             showIntroPreview('');
             feedback.textContent = 'Image supprim\u00e9e';

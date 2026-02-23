@@ -11034,6 +11034,13 @@
             return SUPABASE_URL + '/storage/v1/object/public/submission-snapshots/' + submissionId + '.html';
         }
 
+        function cleanConfigValue(val) {
+            if (typeof val === 'string' && val.length >= 2 && val[0] === '"' && val[val.length - 1] === '"') {
+                try { return JSON.parse(val); } catch (e) {}
+            }
+            return val;
+        }
+
         async function loadCoverImage() {
             if (coverImageUrl !== null) return; // already loaded
             try {
@@ -11041,7 +11048,8 @@
                 var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + configKeys + ')&select=key,value', {});
                 if (r.ok) {
                     var rows = await r.json();
-                    rows.forEach(function(row) { introConfig[row.key] = row.value; });
+                    rows.forEach(function(row) { introConfig[row.key] = cleanConfigValue(row.value); });
+                    console.log('[intro] Config loaded:', JSON.stringify(introConfig));
                     if (introConfig.cover_image) coverImageUrl = introConfig.cover_image;
                     else coverImageUrl = '';
                 }
@@ -11194,15 +11202,15 @@
             html += '<div class="pv-cover-logo"><img src="' + SUPABASE_URL + '/storage/v1/object/public/assets/logo_white.png" alt="stele" onerror="this.parentElement.style.display=\'none\'"></div>';
             html += '</div>';
 
-            // ── Introduction page ──
-            var introImageUrl = introConfig.intro_image || '';
-            var introText1 = introConfig.presentation_intro_text_1 || '';
-            var introText2 = introConfig.presentation_intro_text_2 || '';
-            var introText3 = introConfig.presentation_intro_text_3 || '';
-            var introAtelier = introConfig.presentation_intro_atelier || '';
-            var introBureau = introConfig.presentation_intro_bureau || '';
-            var introPhone = introConfig.presentation_intro_phone || '';
-            var introUrl = introConfig.presentation_intro_url || '';
+            // ── Introduction page (skip for locked submissions — those are frozen like a PDF) ──
+            var introImageUrl = !isLocked ? (introConfig.intro_image || '') : '';
+            var introText1 = !isLocked ? (introConfig.presentation_intro_text_1 || '') : '';
+            var introText2 = !isLocked ? (introConfig.presentation_intro_text_2 || '') : '';
+            var introText3 = !isLocked ? (introConfig.presentation_intro_text_3 || '') : '';
+            var introAtelier = !isLocked ? (introConfig.presentation_intro_atelier || '') : '';
+            var introBureau = !isLocked ? (introConfig.presentation_intro_bureau || '') : '';
+            var introPhone = !isLocked ? (introConfig.presentation_intro_phone || '') : '';
+            var introUrl = !isLocked ? (introConfig.presentation_intro_url || '') : '';
 
             if (introImageUrl || introText1 || introText2 || introText3) {
                 html += '<div class="pv-page pv-page-intro">';

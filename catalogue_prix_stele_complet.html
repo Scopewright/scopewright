@@ -6484,7 +6484,7 @@
             var urlParams = new URLSearchParams(window.location.search);
             var editId = urlParams.get('edit');
             if (editId) {
-                var item = catalogueData.find(function(i) { return i.id === editId; });
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === editId; });
                 if (item && canEditCatalogue) {
                     openEditModal(editId);
                 } else if (item) {

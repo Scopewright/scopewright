@@ -2334,24 +2334,32 @@
         if (!input.files || !input.files[0]) return;
         var file = input.files[0];
         var feedback = document.getElementById('introImageFeedback');
+        feedback.style.opacity = '1';
         feedback.textContent = 'Upload en cours...';
         feedback.style.color = '#888';
         try {
+            console.log('[intro] Compressing image...', file.name, file.size);
             var compressed = await compressCoverImage(file, 1600, 0.85);
+            console.log('[intro] Compressed to', compressed.size, 'bytes. Uploading...');
             var r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/intro_image.jpg', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
                 body: compressed
             });
+            console.log('[intro] PUT response:', r.status);
             if (!r.ok) {
+                var errText = await r.text();
+                console.warn('[intro] PUT failed:', r.status, errText, '— trying POST...');
                 r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/intro_image.jpg', {
                     method: 'POST',
                     headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
                     body: compressed
                 });
+                console.log('[intro] POST response:', r.status);
             }
             if (r.ok) {
                 var publicUrl = SUPABASE_URL + '/storage/v1/object/public/assets/intro_image.jpg?t=' + Date.now();
+                console.log('[intro] Upload OK. Saving to app_config...', publicUrl);
                 await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
@@ -2360,14 +2368,16 @@
                 showIntroPreview(publicUrl);
                 feedback.textContent = 'Image sauvegard\u00e9e!';
                 feedback.style.color = 'var(--sw-navy)';
+                console.log('[intro] Done!');
             } else {
-                console.error('Intro image upload error:', await r.text());
-                feedback.textContent = 'Erreur upload';
+                var errBody = await r.text();
+                console.error('[intro] Upload failed:', r.status, errBody);
+                feedback.textContent = 'Erreur upload (' + r.status + ')';
                 feedback.style.color = '#c00';
             }
         } catch (e) {
-            console.error('Intro image upload error:', e);
-            feedback.textContent = 'Erreur';
+            console.error('[intro] Exception:', e);
+            feedback.textContent = 'Erreur: ' + e.message;
             feedback.style.color = '#c00';
         }
         input.value = '';

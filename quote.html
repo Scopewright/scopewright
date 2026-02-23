@@ -96,27 +96,41 @@
             position: absolute; inset: 32px; z-index: 0; background: #0F1C2D; overflow: hidden; border-radius: 4px;
         }
         .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0; border-radius: 4px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.15));
-        }
+        .pv-cover-right .pv-cover-overlay { display: none; }
         .pv-cover-left {
-            position: relative; z-index: 1; width: 100%;
+            position: relative; z-index: 1; width: 320px;
             display: flex; flex-direction: column; justify-content: flex-start;
-            padding: clamp(24px, 3vw, 48px); min-height: 100%;
+            padding: 48px; min-height: 100%;
             background: transparent; text-align: left;
         }
-        .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
-        .pv-cover-left .pv-project-name { font-size: 34px; font-weight: 600; color: #FFFFFF; line-height: 1.2; margin-bottom: 6px; }
-        .pv-cover-left .pv-client-name { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-client-address { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: rgba(255,255,255,0.3); margin: 24px 0; }
-        .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #FFFFFF; margin-bottom: 2px; }
-        .pv-cover-left .pv-sub-date { font-size: 13px; color: rgba(255,255,255,0.7); }
-        .pv-cover-logo {
-            position: absolute; bottom: calc(32px + clamp(24px, 3vw, 48px)); left: calc(32px + clamp(24px, 3vw, 48px));
-            max-width: 140px; z-index: 1;
+        .pv-cover-brand {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.75); margin-bottom: 28px;
         }
+        .pv-cover-label {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic; font-size: 13px; color: rgba(255,255,255,0.75);
+            line-height: 1.2; margin-bottom: 10px;
+        }
+        .pv-cover-left .pv-client-name {
+            font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9);
+            line-height: 1.45; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-client-address {
+            font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.9);
+            line-height: 1.45; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-project-name {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 48px; font-weight: 500; color: #FFFFFF;
+            line-height: 1.05; letter-spacing: 0.2px;
+            text-shadow: 0 2px 18px rgba(0,0,0,0.25);
+            margin-top: 28px; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-cover-divider { width: 32px; height: 1px; background: rgba(255,255,255,0.25); margin: 14px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
+        .pv-cover-left .pv-sub-date { font-size: 12px; color: rgba(255,255,255,0.8); }
+        .pv-cover-logo { display: none; }
         .pv-cover-logo img { width: 100%; height: auto; display: block; }
 
         /* Installation non incluse — indicators */
@@ -998,10 +1012,11 @@ async function renderQuote() {
     html += '<div class="pv-cover-left">';
     html += acceptanceProofHtml;
     html += '<div class="pv-cover-brand">stele</div>';
-    if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
+    html += '<div class="pv-cover-label">Soumission préparée pour</div>';
     if (proj.client_name) html += '<div class="pv-client-name">' + escapeHtml(proj.client_name) + '</div>';
     if (coverAddrLine) html += '<div class="pv-client-address">' + escapeHtml(coverAddrLine) + '</div>';
     if (coverCityPostal) html += '<div class="pv-client-address">' + escapeHtml(coverCityPostal) + '</div>';
+    if (proj.name) html += '<div class="pv-project-name">' + escapeHtml(proj.name) + '</div>';
     html += '<div class="pv-cover-divider"></div>';
     html += '<div class="pv-sub-number">Soumission #' + escapeHtml(sub.submission_number + '') + '</div>';
     if (subDate) html += '<div class="pv-sub-date">' + escapeHtml(subDate) + '</div>';

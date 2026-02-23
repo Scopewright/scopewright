@@ -3820,28 +3820,41 @@
             position: absolute; inset: 32px; z-index: 0; background: var(--sw-navy); overflow: hidden; border-radius: 4px;
         }
         .pv-cover-right img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .pv-cover-right .pv-cover-overlay {
-            position: absolute; inset: 0; border-radius: 4px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.15));
-        }
+        .pv-cover-right .pv-cover-overlay { display: none; }
         .pv-cover-left {
-            position: relative; z-index: 1; width: 100%;
+            position: relative; z-index: 1; width: 320px;
             display: flex; flex-direction: column; justify-content: flex-start;
-            padding: clamp(24px, 3vw, 48px); min-height: 100%;
+            padding: 48px; min-height: 100%;
             background: transparent; text-align: left;
         }
-        .pv-cover-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
-        .pv-cover-left .pv-project-name { font-size: 34px; font-weight: 600; color: #FFFFFF; line-height: 1.2; margin-bottom: 6px; }
-        .pv-cover-left .pv-client-name { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-client-address { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.6; margin-bottom: 0; }
-        .pv-cover-left .pv-cover-divider { width: 40px; height: 2px; background: rgba(255,255,255,0.3); margin: 24px 0; }
-        .pv-cover-left .pv-sub-number { font-size: 13px; font-weight: 500; color: #FFFFFF; margin-bottom: 2px; }
-        .pv-cover-left .pv-sub-date { font-size: 13px; color: rgba(255,255,255,0.7); }
-        .pv-cover-logo {
-            position: absolute; bottom: calc(32px + clamp(24px, 3vw, 48px)); left: calc(32px + clamp(24px, 3vw, 48px));
-            max-width: 140px; z-index: 1;
+        .pv-cover-brand {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.75); margin-bottom: 28px;
         }
-        .pv-cover-logo img { width: 100%; height: auto; display: block; }
+        .pv-cover-label {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic; font-size: 13px; color: rgba(255,255,255,0.75);
+            line-height: 1.2; margin-bottom: 10px;
+        }
+        .pv-cover-left .pv-client-name {
+            font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9);
+            line-height: 1.45; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-client-address {
+            font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.9);
+            line-height: 1.45; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-project-name {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 48px; font-weight: 500; color: #FFFFFF;
+            line-height: 1.05; letter-spacing: 0.2px;
+            text-shadow: 0 2px 18px rgba(0,0,0,0.25);
+            margin-top: 28px; margin-bottom: 0;
+        }
+        .pv-cover-left .pv-cover-divider { width: 32px; height: 1px; background: rgba(255,255,255,0.25); margin: 14px 0; }
+        .pv-cover-left .pv-sub-number { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
+        .pv-cover-left .pv-sub-date { font-size: 12px; color: rgba(255,255,255,0.8); }
+        .pv-cover-logo { display: none; }
 
         /* Installation non incluse — indicators */
         .pv-install-banner { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 60px; letter-spacing: 0.3px; }
@@ -9304,6 +9317,7 @@
         var roomDescHTML = {}; // { groupDomId: 'HTML description from optimizer' }
         var i18n = {
             fr: {
+                coverLabel: 'Soumission préparée pour',
                 soumission: 'Soumission',
                 client: 'Client',
                 projet: 'Projet',
@@ -9333,6 +9347,7 @@
                 ]
             },
             en: {
+                coverLabel: 'Quote prepared for',
                 soumission: 'Quote',
                 client: 'Client',
                 projet: 'Project',
@@ -10944,16 +10959,17 @@
             '.pv-page-title{position:relative;padding:32px;overflow:hidden;background:#fff}\n' +
             '.pv-cover-right{position:absolute;inset:32px;z-index:0;background:#0F1C2D;overflow:hidden;border-radius:4px}\n' +
             '.pv-cover-right img{width:100%;height:100%;object-fit:cover;display:block}\n' +
-            '.pv-cover-right .pv-cover-overlay{position:absolute;inset:0;border-radius:4px;background:linear-gradient(to bottom,rgba(0,0,0,0.25),rgba(0,0,0,0.35))}\n' +
-            '.pv-cover-left{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;justify-content:flex-start;padding:clamp(24px,3vw,48px);min-height:100%;background:transparent;text-align:left}\n' +
-            '.pv-cover-brand{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.7);margin-bottom:16px}\n' +
-            '.pv-cover-left .pv-project-name{font-size:34px;font-weight:600;color:#FFFFFF;line-height:1.2;margin-bottom:6px}\n' +
-            '.pv-cover-left .pv-client-name{font-size:14px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:0}\n' +
-            '.pv-cover-left .pv-client-address{font-size:14px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:0}\n' +
-            '.pv-cover-left .pv-cover-divider{width:40px;height:2px;background:rgba(255,255,255,0.3);margin:24px 0}\n' +
-            '.pv-cover-left .pv-sub-number{font-size:13px;font-weight:500;color:#FFFFFF;margin-bottom:2px}\n' +
-            '.pv-cover-left .pv-sub-date{font-size:13px;color:rgba(255,255,255,0.7)}\n' +
-            '.pv-cover-logo{position:absolute;bottom:calc(32px + clamp(24px,3vw,48px));left:calc(32px + clamp(24px,3vw,48px));max-width:140px;z-index:1}\n' +
+            '.pv-cover-right .pv-cover-overlay{display:none}\n' +
+            '.pv-cover-left{position:relative;z-index:1;width:320px;display:flex;flex-direction:column;justify-content:flex-start;padding:48px;min-height:100%;background:transparent;text-align:left}\n' +
+            '.pv-cover-brand{font-size:11px;text-transform:uppercase;letter-spacing:0.18em;color:rgba(255,255,255,0.75);margin-bottom:28px}\n' +
+            '.pv-cover-label{font-family:Cormorant Garamond,Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.2;margin-bottom:10px}\n' +
+            '.pv-cover-left .pv-client-name{font-size:13px;font-weight:500;color:rgba(255,255,255,0.9);line-height:1.45;margin-bottom:0}\n' +
+            '.pv-cover-left .pv-client-address{font-size:13px;font-weight:400;color:rgba(255,255,255,0.9);line-height:1.45;margin-bottom:0}\n' +
+            '.pv-cover-left .pv-project-name{font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:500;color:#FFFFFF;line-height:1.05;letter-spacing:0.2px;text-shadow:0 2px 18px rgba(0,0,0,0.25);margin-top:28px;margin-bottom:0}\n' +
+            '.pv-cover-left .pv-cover-divider{width:32px;height:1px;background:rgba(255,255,255,0.25);margin:14px 0}\n' +
+            '.pv-cover-left .pv-sub-number{font-size:12px;font-weight:400;color:rgba(255,255,255,0.8);margin-bottom:2px}\n' +
+            '.pv-cover-left .pv-sub-date{font-size:12px;color:rgba(255,255,255,0.8)}\n' +
+            '.pv-cover-logo{display:none}\n' +
             '.pv-cover-logo img{width:100%;height:auto;display:block}\n' +
             '.pv-install-banner{font-size:12px;color:rgba(255,255,255,0.7);margin-top:60px;letter-spacing:0.3px}\n' +
             '.pv-install-room-note{font-size:11px;color:#999;font-style:italic;margin-top:-30px;margin-bottom:20px;padding-left:20px}\n' +
@@ -11005,6 +11021,7 @@
                 '<meta charset="UTF-8">\n' +
                 '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
                 '<title>Soumission #' + escapeHtml((currentSubmission ? currentSubmission.submission_number : '') + '') + '</title>\n' +
+                '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">\n' +
                 '<style>\n' + SNAPSHOT_CSS + '\n</style>\n' +
                 '</head>\n<body>\n' +
                 '<div class="pv-content">\n' + pagesHtml + '\n</div>\n' +
@@ -11224,10 +11241,11 @@
             html += acceptanceProofHtml;
             html += '<div class="pv-cover-brand">stele</div>';
             if (currentProject) {
-                html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
+                html += '<div class="pv-cover-label">' + t('coverLabel') + '</div>';
                 html += '<div class="pv-client-name">' + escapeHtml(currentProject.client_name || '') + '</div>';
                 if (coverAddrLine) html += '<div class="pv-client-address">' + escapeHtml(coverAddrLine) + '</div>';
                 if (coverCityPostal) html += '<div class="pv-client-address">' + escapeHtml(coverCityPostal) + '</div>';
+                html += '<div class="pv-project-name">' + escapeHtml(currentProject.name || '') + '</div>';
             }
             html += '<div class="pv-cover-divider"></div>';
             html += '<div class="pv-sub-number">' + t('soumission') + ' #' + escapeHtml(subNum + '') + '</div>';

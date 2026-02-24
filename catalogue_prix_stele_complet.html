@@ -859,6 +859,80 @@
             .btn-ai-dot.ai-done .ai-dot { animation:none; }
         }
 
+        /* ── Audit drawer ── */
+        .audit-drawer-overlay {
+            display:none; position:fixed; inset:0; background:transparent;
+            z-index:8600; pointer-events:none;
+        }
+        .audit-drawer-overlay.active { display:block; }
+        .audit-drawer {
+            position:fixed; top:0; right:-500px; width:480px; height:100%;
+            background:rgba(255,255,255,0.92); backdrop-filter:blur(10px);
+            -webkit-backdrop-filter:blur(10px);
+            border-left:1px solid rgba(0,0,0,0.06);
+            box-shadow:0 4px 24px rgba(0,0,0,0.08);
+            z-index:8650; transition:right 0.3s cubic-bezier(0.4,0,0.2,1);
+            display:flex; flex-direction:column; overflow:hidden;
+        }
+        .audit-drawer.active { right:0; }
+        .audit-drawer-header {
+            display:flex; align-items:center; gap:10px;
+            padding:16px 20px; border-bottom:1px solid rgba(0,0,0,0.06);
+            flex-shrink:0;
+        }
+        .audit-drawer-header h3 { font-size:14px; font-weight:600; margin:0; color:var(--sw-text); flex:1; }
+        .audit-drawer-close {
+            background:none; border:none; font-size:18px; cursor:pointer;
+            color:var(--sw-muted); padding:2px 4px; border-radius:6px;
+        }
+        .audit-drawer-close:hover { color:var(--sw-text); }
+        .audit-body {
+            flex:1; overflow-y:auto; padding:16px 20px;
+            overscroll-behavior:contain;
+        }
+        .audit-section { margin-bottom:16px; }
+        .audit-section-header {
+            display:flex; align-items:center; gap:8px; cursor:pointer;
+            padding:8px 0; user-select:none;
+        }
+        .audit-section-header:hover { opacity:0.8; }
+        .audit-section-dot {
+            width:10px; height:10px; border-radius:50%; flex-shrink:0;
+        }
+        .audit-section-dot.critical { background:#ef4444; }
+        .audit-section-dot.warning { background:#f59e0b; }
+        .audit-section-dot.info { background:#22c55e; }
+        .audit-section-title {
+            font-size:13px; font-weight:600; color:var(--sw-text); flex:1;
+        }
+        .audit-section-count {
+            font-size:11px; color:var(--sw-muted); background:#f1f5f9;
+            padding:1px 7px; border-radius:10px;
+        }
+        .audit-section-chevron {
+            font-size:12px; color:var(--sw-muted); transition:transform 0.15s;
+        }
+        .audit-section.collapsed .audit-section-chevron { transform:rotate(-90deg); }
+        .audit-section.collapsed .audit-section-items { display:none; }
+        .audit-item {
+            display:flex; align-items:center; gap:8px;
+            padding:6px 8px 6px 18px; cursor:pointer; border-radius:6px;
+            font-size:12px; color:#475569; transition:background 0.1s;
+        }
+        .audit-item:hover { background:#f1f5f9; }
+        .audit-item-code { font-family:monospace; color:#94a3b8; min-width:70px; font-size:11px; }
+        .audit-item-desc { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .audit-item-detail { color:#94a3b8; font-size:11px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .audit-empty { padding:24px; text-align:center; color:#94a3b8; font-size:13px; }
+        .audit-summary {
+            padding:12px 16px; margin-bottom:12px; border-radius:8px;
+            background:#f8fafc; border:1px solid #e2e8f0; font-size:12px; color:#475569;
+            display:flex; gap:16px; flex-wrap:wrap;
+        }
+        .audit-summary-item { display:flex; align-items:center; gap:4px; }
+        .audit-loading { padding:40px; text-align:center; color:#94a3b8; font-size:13px; }
+        @media (max-width:600px) { .audit-drawer { width:100%; right:-100%; } }
+
         /* ── Approval buttons ── */
         .btn-approve-item {
             padding: 7px 18px; border-radius: 8px; border: none;
@@ -1974,6 +2048,8 @@
             <span id="catDropdownLabel">Toutes les cat&eacute;gories</span>
             <span class="cat-dd-chevron">&#9662;</span>
         </div>
+        <div style="flex:1;"></div>
+        <button class="cat-filter-btn" id="auditBtn" onclick="openAuditDrawer()" title="Auditer le catalogue">Auditer</button>
     </div>
     <table class="price-table" id="mainCatalogueTable"></table>
 
@@ -2168,6 +2244,7 @@
                 </div>
                 <div class="edit-status" id="editStatus"></div>
             </div>
+            <div class="ai-feedback-container" id="saveValidationFeedback" style="padding:0 24px;"></div>
             <div class="modal-footer" style="justify-content: space-between;">
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-delete-item" onclick="deleteItem()">Supprimer</button>
@@ -3839,6 +3916,8 @@
 
             // ── Dirty tracking: snapshot initial state after modal is fully populated ──
             setTimeout(function() { _modalSnapshot = captureModalSnapshot(); _modalDirty = false; }, 100);
+            _saveValidationBypass = false;
+            clearAiFeedback('saveValidationFeedback');
         }
 
         // ═══ Unsaved changes protection ═══
@@ -4690,6 +4769,336 @@
             }
         }
 
+        // ═══════════════════════════════════════════
+        // ── Validation proactive + Audit catalogue ──
+        // ═══════════════════════════════════════════
+
+        /** Normalize text for comparison: lowercase, no accents, no punctuation, single spaces. */
+        function normalizeText(str) {
+            return (str || '').toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/['']/g, ' ')
+                .replace(/[^a-z0-9\s]/g, '')
+                .replace(/\s+/g, ' ').trim();
+        }
+
+        /** Levenshtein distance between two strings. */
+        function levenshtein(a, b) {
+            if (a.length === 0) return b.length;
+            if (b.length === 0) return a.length;
+            var matrix = [];
+            for (var i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (var j = 0; j <= a.length; j++) matrix[0][j] = j;
+            for (var i = 1; i <= b.length; i++) {
+                for (var j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
+                    else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        /** Check if item has composed price (labor or materials defined). */
+        function hasComposedPrice(item) {
+            var lm = item.labor_minutes || {};
+            var mc = item.material_costs || {};
+            var hasLabor = Object.values(lm).some(function(v) { return v > 0; });
+            var hasMat = Object.values(mc).some(function(v) { return v > 0; });
+            return hasLabor || hasMat;
+        }
+
+        var _saveValidationBypass = false;
+
+        /**
+         * Run proactive validation before saving. Returns true if warnings were shown
+         * (save should pause for user review), false if no warnings (proceed to save).
+         */
+        function runSaveValidation() {
+            clearAiFeedback('saveValidationFeedback');
+
+            // If user already saw warnings and clicked save again, bypass
+            if (_saveValidationBypass) {
+                _saveValidationBypass = false;
+                return false;
+            }
+
+            var itemId = document.getElementById('editItemId').value;
+            var clientText = (document.getElementById('editClientText').value || '').trim();
+            var category = document.getElementById('editCategory').value;
+            var priceVal = document.getElementById('editPrice').value;
+
+            var warnings = [];
+
+            // Check 4: No price and no composed price
+            var laborMins = collectLaborMinutes();
+            var matCosts = collectMaterialCosts();
+            var hasLabor = Object.values(laborMins).some(function(v) { return v > 0; });
+            var hasMat = Object.values(matCosts).some(function(v) { return v > 0; });
+            var hasPrice = priceVal !== '' && parseFloat(priceVal) > 0;
+            if (!hasPrice && !hasLabor && !hasMat) {
+                warnings.push({ level: 'error', msg: 'Aucun prix défini — ni prix fixe, ni main-d\'œuvre, ni matériaux. L\'article sera inutilisable.' });
+            }
+
+            if (clientText) {
+                var normalizedCT = normalizeText(clientText);
+                var sameCategory = CATALOGUE_DATA.filter(function(c) {
+                    return c.category === category && c.id !== itemId;
+                });
+
+                // Check 2: Exact client_text duplicate in same category
+                var exactDupe = sameCategory.find(function(c) {
+                    return normalizeText(c.client_text) === normalizedCT;
+                });
+                if (exactDupe) {
+                    warnings.push({ level: 'warn', msg: 'Texte client identique à ' + exactDupe.id + ' (' + exactDupe.description + ') dans la même catégorie.' });
+                }
+
+                // Check 1: Near-duplicate (Levenshtein < 3, but not exact)
+                if (!exactDupe) {
+                    for (var si = 0; si < sameCategory.length; si++) {
+                        var otherNorm = normalizeText(sameCategory[si].client_text);
+                        if (!otherNorm) continue;
+                        var dist = levenshtein(normalizedCT, otherNorm);
+                        if (dist > 0 && dist <= 3) {
+                            warnings.push({
+                                level: 'warn',
+                                msg: 'Texte client très similaire à ' + sameCategory[si].id + ' : « ' + (sameCategory[si].client_text || '') + ' ». Vérifier l\'orthographe.'
+                            });
+                            break; // one match is enough
+                        }
+                    }
+                }
+            } else {
+                // Check 3: No client_text
+                warnings.push({ level: 'info', msg: 'Pas de texte client défini. L\'article ne sera pas visible dans la présentation client.' });
+            }
+
+            if (warnings.length === 0) return false;
+
+            // Show warnings using existing feedback pattern
+            var container = document.getElementById('saveValidationFeedback');
+            if (!container) return false;
+            container.innerHTML = '';
+
+            warnings.forEach(function(w) {
+                var cssClass = w.level === 'error' ? 'error' : w.level === 'warn' ? 'warn' : 'info';
+                var icon = w.level === 'error' ? '⚠' : w.level === 'warn' ? '⚠' : 'ℹ';
+                var banner = document.createElement('div');
+                banner.className = 'ai-feedback-banner ' + cssClass;
+                banner.innerHTML = '<span class="ai-feedback-icon">' + icon + '</span>'
+                    + '<span class="ai-feedback-text">' + escapeHtml(w.msg) + '</span>'
+                    + '<span class="ai-feedback-actions"><button class="ai-feedback-btn-close" onclick="this.closest(\'.ai-feedback-banner\').remove()">&times;</button></span>';
+                container.appendChild(banner);
+            });
+
+            _saveValidationBypass = true;
+            return true;
+        }
+
+        // ── Audit drawer open/close ──
+
+        function openAuditDrawer() {
+            document.getElementById('auditOverlay').classList.add('active');
+            document.getElementById('auditDrawer').classList.add('active');
+            runFullAudit();
+        }
+
+        function closeAuditDrawer() {
+            document.getElementById('auditOverlay').classList.remove('active');
+            document.getElementById('auditDrawer').classList.remove('active');
+        }
+
+        /** Run full catalogue audit and render report in drawer. */
+        function runFullAudit() {
+            var body = document.getElementById('auditBody');
+            body.innerHTML = '<div class="audit-loading">Analyse en cours…</div>';
+
+            // Use setTimeout to let the UI render the loading state
+            setTimeout(function() {
+                var findings = { critical: [], warning: [], info: [] };
+                var items = CATALOGUE_DATA || [];
+                var stats = USAGE_STATS || [];
+                var statsMap = {};
+                stats.forEach(function(s) { statsMap[s.id] = s; });
+
+                // ── Check 1: Duplicate client_text (exact, normalized) ──
+                var ctGroups = {};
+                items.forEach(function(item) {
+                    var ct = normalizeText(item.client_text);
+                    if (!ct) return;
+                    var key = item.category + '::' + ct;
+                    if (!ctGroups[key]) ctGroups[key] = [];
+                    ctGroups[key].push(item);
+                });
+                Object.keys(ctGroups).forEach(function(key) {
+                    var group = ctGroups[key];
+                    if (group.length > 1) {
+                        findings.warning.push({
+                            title: 'Doublons texte client',
+                            items: group.map(function(g) {
+                                return { id: g.id, desc: g.description, detail: '« ' + (g.client_text || '') + ' »' };
+                            })
+                        });
+                    }
+                });
+
+                // ── Check 2: No client_text ──
+                var noClientText = items.filter(function(i) { return !i.client_text || !i.client_text.trim(); });
+                if (noClientText.length > 0) {
+                    findings.info.push({
+                        title: 'Articles sans texte client (' + noClientText.length + ')',
+                        items: noClientText.map(function(i) { return { id: i.id, desc: i.description, detail: i.category }; })
+                    });
+                }
+
+                // ── Check 3: No price (fixed or composed) ──
+                var noPrice = items.filter(function(i) {
+                    var hasFixed = i.price != null && i.price > 0;
+                    return !hasFixed && !hasComposedPrice(i);
+                });
+                if (noPrice.length > 0) {
+                    findings.critical.push({
+                        title: 'Articles sans prix (' + noPrice.length + ')',
+                        items: noPrice.map(function(i) { return { id: i.id, desc: i.description, detail: i.category }; })
+                    });
+                }
+
+                // ── Check 4: Unclassified category ──
+                var unclassified = items.filter(function(i) {
+                    return !i.category || i.category === 'Non classé' || i.category.trim() === '';
+                });
+                if (unclassified.length > 0) {
+                    findings.warning.push({
+                        title: 'Catégorie non classée (' + unclassified.length + ')',
+                        items: unclassified.map(function(i) { return { id: i.id, desc: i.description, detail: 'Non classé' }; })
+                    });
+                }
+
+                // ── Check 5: Spelling inconsistencies (Levenshtein < 3, same category) ──
+                var spellingIssues = [];
+                var checkedPairs = {};
+                var byCat = {};
+                items.forEach(function(i) {
+                    if (!i.client_text) return;
+                    if (!byCat[i.category]) byCat[i.category] = [];
+                    byCat[i.category].push(i);
+                });
+                Object.keys(byCat).forEach(function(cat) {
+                    var catItems = byCat[cat];
+                    for (var a = 0; a < catItems.length; a++) {
+                        var normA = normalizeText(catItems[a].client_text);
+                        if (!normA) continue;
+                        for (var b = a + 1; b < catItems.length; b++) {
+                            var normB = normalizeText(catItems[b].client_text);
+                            if (!normB || normA === normB) continue;
+                            var pairKey = catItems[a].id + ':' + catItems[b].id;
+                            if (checkedPairs[pairKey]) continue;
+                            checkedPairs[pairKey] = true;
+                            var dist = levenshtein(normA, normB);
+                            if (dist > 0 && dist <= 3) {
+                                spellingIssues.push({
+                                    items: [
+                                        { id: catItems[a].id, desc: catItems[a].description, detail: '« ' + catItems[a].client_text + ' »' },
+                                        { id: catItems[b].id, desc: catItems[b].description, detail: '« ' + catItems[b].client_text + ' »' }
+                                    ]
+                                });
+                            }
+                        }
+                    }
+                });
+                if (spellingIssues.length > 0) {
+                    spellingIssues.forEach(function(issue) {
+                        findings.warning.push({
+                            title: 'Orthographe similaire',
+                            items: issue.items
+                        });
+                    });
+                }
+
+                // ── Check 6: Never used items ──
+                var neverUsed = items.filter(function(i) {
+                    var s = statsMap[i.id];
+                    return !s || s.usage_count === 0;
+                });
+                if (neverUsed.length > 0) {
+                    findings.info.push({
+                        title: 'Jamais utilisés (' + neverUsed.length + ')',
+                        items: neverUsed.map(function(i) { return { id: i.id, desc: i.description, detail: i.category }; })
+                    });
+                }
+
+                // ── Check 7: Dormant items (> 60 days) ──
+                var dormant = items.filter(function(i) {
+                    var s = statsMap[i.id];
+                    return s && s.usage_count > 0 && s.days_since_used > 60;
+                });
+                if (dormant.length > 0) {
+                    findings.info.push({
+                        title: 'Dormants (> 60 jours) (' + dormant.length + ')',
+                        items: dormant.map(function(i) {
+                            var s = statsMap[i.id];
+                            return { id: i.id, desc: i.description, detail: Math.round(s.days_since_used) + 'j, ' + s.usage_count + '×' };
+                        })
+                    });
+                }
+
+                renderAuditReport(body, findings, items.length);
+            }, 50);
+        }
+
+        /** Render the audit report in the drawer. */
+        function renderAuditReport(container, findings, totalItems) {
+            var totalCritical = 0, totalWarning = 0, totalInfo = 0;
+            findings.critical.forEach(function(f) { totalCritical += f.items.length; });
+            findings.warning.forEach(function(f) { totalWarning += f.items.length; });
+            findings.info.forEach(function(f) { totalInfo += f.items.length; });
+
+            var html = '';
+
+            // Summary bar
+            html += '<div class="audit-summary">'
+                + '<div class="audit-summary-item"><span class="audit-section-dot critical"></span> ' + totalCritical + ' critique' + (totalCritical > 1 ? 's' : '') + '</div>'
+                + '<div class="audit-summary-item"><span class="audit-section-dot warning"></span> ' + totalWarning + ' attention</div>'
+                + '<div class="audit-summary-item"><span class="audit-section-dot info"></span> ' + totalInfo + ' info</div>'
+                + '<div class="audit-summary-item" style="color:#94a3b8;">' + totalItems + ' articles total</div>'
+                + '</div>';
+
+            var allSections = [
+                { level: 'critical', label: 'CRITIQUE', items: findings.critical },
+                { level: 'warning', label: 'ATTENTION', items: findings.warning },
+                { level: 'info', label: 'INFO', items: findings.info }
+            ];
+
+            allSections.forEach(function(section) {
+                if (section.items.length === 0) return;
+                section.items.forEach(function(finding) {
+                    html += '<div class="audit-section">';
+                    html += '<div class="audit-section-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
+                    html += '<span class="audit-section-dot ' + section.level + '"></span>';
+                    html += '<span class="audit-section-title">' + escapeHtml(finding.title) + '</span>';
+                    html += '<span class="audit-section-count">' + finding.items.length + '</span>';
+                    html += '<span class="audit-section-chevron">▼</span>';
+                    html += '</div>';
+                    html += '<div class="audit-section-items">';
+                    finding.items.forEach(function(item) {
+                        html += '<div class="audit-item" onclick="closeAuditDrawer();openEditModal(\'' + escapeAttr(item.id) + '\')">';
+                        html += '<span class="audit-item-code">' + escapeHtml(item.id) + '</span>';
+                        html += '<span class="audit-item-desc">' + escapeHtml(item.desc) + '</span>';
+                        if (item.detail) html += '<span class="audit-item-detail">' + escapeHtml(item.detail) + '</span>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    html += '</div>';
+                });
+            });
+
+            if (totalCritical === 0 && totalWarning === 0 && totalInfo === 0) {
+                html += '<div class="audit-empty">Aucun problème détecté. Le catalogue est en ordre.</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
         async function saveEditModal(silent) {
             // Validate: components must have a supplier name
             for (var v = 0; v < editComponents.length; v++) {
@@ -4716,6 +5125,9 @@
                     return;
                 }
             }
+
+            // Proactive validation (non-blocking — shows warnings, user re-clicks to proceed)
+            if (!silent && runSaveValidation()) return;
 
             const btn = document.getElementById('btnEditSave');
             const status = document.getElementById('editStatus');
@@ -6666,6 +7078,18 @@
         <div class="ci-drop-zone" id="ciDropZone">D&eacute;posez une image ici</div>
         <textarea id="ciInput" placeholder="Collez un screenshot ou d&eacute;crivez les articles..." rows="1" onkeydown="ciInputKeydown(event)"></textarea>
         <button class="ci-send-btn" id="ciSendBtn" onclick="sendImportMessage()" title="Envoyer">&uarr;</button>
+    </div>
+</div>
+
+<!-- Audit drawer -->
+<div class="audit-drawer-overlay" id="auditOverlay" onclick="closeAuditDrawer()"></div>
+<div class="audit-drawer" id="auditDrawer">
+    <div class="audit-drawer-header">
+        <h3>Audit du catalogue</h3>
+        <button class="audit-drawer-close" onclick="closeAuditDrawer()">&times;</button>
+    </div>
+    <div class="audit-body" id="auditBody">
+        <div class="audit-empty">Cliquez sur « Auditer » pour lancer l'analyse.</div>
     </div>
 </div>
 

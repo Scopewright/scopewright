@@ -612,22 +612,75 @@
                     }
                 }
 
-                // Projets: soumissions retournées pour l'utilisateur courant
+                // Projets: soumissions retournées + deadline alerts pour l'utilisateur courant
                 var userId = localStorage.getItem('sb_user_id');
+                var emailLow = (userEmail || '').toLowerCase();
+                var countReturn = 0;
                 if (userId) {
                     var respReturn = await authenticatedFetch(
                         SUPABASE_URL + '/rest/v1/submissions?status=eq.returned&select=id,project_id,projects!inner(user_id)&projects.user_id=eq.' + userId,
                         { headers: { 'Prefer': 'count=exact' } }
                     );
-                    var countReturn = parseInt(respReturn.headers.get('content-range')?.split('/')[1] || '0');
-                    if (countReturn > 0) {
-                        var badgeP = document.getElementById('alertProjets');
-                        var countP = document.getElementById('alertProjetsCount');
-                        if (badgeP) badgeP.classList.add('visible');
-                        if (countP) {
-                            countP.textContent = countReturn + ' retour' + (countReturn > 1 ? 's' : '');
-                            countP.classList.add('visible');
+                    countReturn = parseInt(respReturn.headers.get('content-range')?.split('/')[1] || '0');
+                }
+
+                // Deadline alerts: fetch active submissions with assignment/deadline data
+                var deadlineRed = 0, deadlineOrange = 0;
+                var respDeadlines = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submissions?select=id,submission_number,status,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline,estimateur_accepted_at,is_archived&status=not.in.(accepted,lost)&is_archived=is.false',
+                    {}
+                );
+                if (respDeadlines.ok) {
+                    var deadlineSubs = await respDeadlines.json();
+                    var today = new Date(); today.setHours(0, 0, 0, 0);
+                    deadlineSubs.forEach(function(sub) {
+                        var isEst = (sub.estimateur || '').toLowerCase() === emailLow;
+                        var isVen = (sub.vendeur_cp || '').toLowerCase() === emailLow;
+                        var isApp = (sub.approbateur || '').toLowerCase() === emailLow;
+                        if (!isEst && !isVen && !isApp) return;
+
+                        function dd(dateStr) {
+                            if (!dateStr) return null;
+                            return Math.ceil((new Date(dateStr + 'T00:00:00') - today) / 86400000);
                         }
+
+                        if (isEst) {
+                            if (!sub.estimateur_accepted_at) deadlineOrange++;
+                            var dI = dd(sub.internal_deadline);
+                            if (dI !== null) {
+                                if (dI < 0 || dI === 0) deadlineRed++;
+                                else if (dI <= 3) deadlineOrange++;
+                            }
+                        }
+                        if (isVen) {
+                            var dI2 = dd(sub.internal_deadline);
+                            if (dI2 !== null && dI2 === 0) deadlineOrange++;
+                            var dC = dd(sub.client_deadline);
+                            if (dC !== null) {
+                                if (dC < 0) deadlineRed++;
+                                else if (dC <= 1) deadlineRed++;
+                            }
+                        }
+                        if (isApp && sub.status === 'pending_internal') deadlineOrange++;
+                    });
+                }
+
+                var totalProjets = countReturn + deadlineRed + deadlineOrange;
+                if (totalProjets > 0) {
+                    var badgeP = document.getElementById('alertProjets');
+                    var countP = document.getElementById('alertProjetsCount');
+                    if (badgeP) {
+                        badgeP.textContent = totalProjets;
+                        badgeP.classList.add('visible');
+                        if (deadlineRed > 0) badgeP.style.background = '#dc3545';
+                    }
+                    if (countP) {
+                        var parts2 = [];
+                        if (countReturn > 0) parts2.push(countReturn + ' retour' + (countReturn > 1 ? 's' : ''));
+                        if (deadlineRed > 0) parts2.push(deadlineRed + ' urgent' + (deadlineRed > 1 ? 's' : ''));
+                        if (deadlineOrange > 0) parts2.push(deadlineOrange + ' avis');
+                        countP.textContent = parts2.join(' + ');
+                        countP.classList.add('visible');
                     }
                 }
                 // Admin: unmapped catalogue categories (orange badge)

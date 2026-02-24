@@ -84,6 +84,9 @@
     var _catEditRowId = null; // rowId being edited in catalogue iframe overlay
     let tauxHoraires = [];
     let expenseCategories = [];
+    var _allUserRoles = {};    // { email: roleName } from app_config
+    var _allPermissions = {};  // { roleName: { perm1: true, ... } } from app_config
+    var USER_PROFILES_MAP = {}; // { email: "Prénom Nom" } from user_profiles
     let canEditMinutes = false;
     let canEditMaterials = false;
     let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
@@ -329,7 +332,7 @@
     async function loadProjects() {
         const userId = localStorage.getItem('sb_user_id');
         // Try enriched query with pipeline columns + contacts
-        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline,is_archived),project_contacts(role,is_primary,contacts(first_name,last_name,contact_companies(companies(name))))', {});
+        var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,approved_total,estimateur,vendeur_cp,approbateur,internal_deadline,client_deadline,estimateur_accepted_at,is_archived),project_contacts(role,is_primary,contacts(first_name,last_name,contact_companies(companies(name))))', {});
         if (!r.ok) {
             // Fallback: basic query without pipeline columns (migrations not yet run)
             r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?user_id=eq.' + userId + '&order=updated_at.desc&select=*,submissions(id,submission_number,title,status,current_version,updated_at,bypass_approval,is_archived)', {});
@@ -5511,6 +5514,44 @@
         .project-card-deadline { color: #c62828; font-weight: 600; }
         .project-card-urgent { border-left: 3px solid #c62828; }
 
+        /* ── Alert badge on project cards ── */
+        .project-alert-badge {
+            position: absolute; top: 12px; right: 40px;
+            min-width: 24px; height: 24px; border-radius: 12px;
+            padding: 0 8px; font-size: 11px; font-weight: 700; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: default; z-index: 2;
+        }
+        .project-alert-badge--orange { background: #f0ad4e; box-shadow: 0 2px 6px rgba(240,173,78,0.4); }
+        .project-alert-badge--red { background: #dc3545; box-shadow: 0 2px 6px rgba(220,53,69,0.4); }
+        .project-alert-badge .alert-tooltip {
+            display: none; position: absolute; top: calc(100% + 8px); right: 0;
+            background: #0F172A; color: #fff; padding: 10px 14px; border-radius: 8px;
+            font-size: 12px; font-weight: 400; white-space: nowrap; z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); line-height: 1.6;
+        }
+        .project-alert-badge .alert-tooltip::before {
+            content: ''; position: absolute; bottom: 100%; right: 10px;
+            border: 6px solid transparent; border-bottom-color: #0F172A;
+        }
+        .project-alert-badge:hover .alert-tooltip { display: block; }
+
+        /* ── Accept assignment button ── */
+        .sa-accept-btn {
+            background: #4b6050; color: #fff; border: none;
+            padding: 2px 10px; border-radius: 6px; font-size: 11px;
+            cursor: pointer; margin-left: 6px;
+        }
+        .sa-accept-btn:hover { background: #3a4d3f; }
+
+        /* ── Alert dot in table view ── */
+        .project-alert-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 6px; vertical-align: middle;
+        }
+        .project-alert-dot--orange { background: #f0ad4e; }
+        .project-alert-dot--red { background: #dc3545; }
+
         /* ── Pipeline — Submission assignment ── */
         .sub-assignment-row {
             display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px;
@@ -6713,7 +6754,10 @@
                 <div class="sub-assignment-row" id="subAssignmentRow" style="display:none;">
                     <div class="sa-field">
                         <span class="sa-label">Estimateur</span>
-                        <select id="saEstimateur" onchange="saveSubAssignment()"><option value="">—</option></select>
+                        <div style="display:flex;align-items:center;">
+                            <select id="saEstimateur" onchange="saveSubAssignment()" style="flex:1;"><option value="">—</option></select>
+                            <button id="saEstimateurAccept" class="sa-accept-btn" onclick="acceptEstimateurAssignment()" style="display:none;">Accepter</button>
+                        </div>
                     </div>
                     <div class="sa-field">
                         <span class="sa-label">Vendeur / CP</span>
@@ -7834,6 +7878,19 @@
                     resolve(false);
                 });
             });
+        }
+
+        function loadUserProfilesMap() {
+            return authenticatedFetch(SUPABASE_URL + '/rest/v1/user_profiles?select=contacts(first_name,last_name,email)', {})
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(profiles) {
+                profiles.forEach(function(p) {
+                    if (!p.contacts || !p.contacts.email) return;
+                    var name = ((p.contacts.first_name || '') + ' ' + (p.contacts.last_name || '')).trim();
+                    if (name) USER_PROFILES_MAP[p.contacts.email.toLowerCase()] = name;
+                });
+            })
+            .catch(function(e) { console.warn('Profiles map:', e); });
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -13540,12 +13597,14 @@
                 var prioCls = p.priority === 'urgente' ? ' urgente' : (p.priority === 'haute' ? ' haute' : ' normal');
                 var prioTitle = p.priority === 'urgente' ? 'Urgente' : (p.priority === 'haute' ? 'Haute' : '');
 
+                var tblAlert = getProjectAlerts(p, (localStorage.getItem('sb_user_email') || '').toLowerCase());
                 bHtml += '<tr onclick="pipelineRowClick(\'' + pid + '\')">';
                 // ★ Follow
                 bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + pid + '\',event)">\u2605</span></td>';
-                // Nom with priority indicator
+                // Nom with priority indicator + alert dot
                 bHtml += '<td class="col-name"><div class="name-cell-inner">';
                 bHtml += '<span class="prio-indicator' + prioCls + '" onclick="openPriorityDropdown(this,\'' + pid + '\',event)"' + (prioTitle ? ' title="' + prioTitle + '"' : '') + '></span>';
+                if (tblAlert) bHtml += '<span class="project-alert-dot project-alert-dot--' + tblAlert.top.level + '" title="' + escapeAttr(tblAlert.top.msg) + '"></span>';
                 bHtml += '<span title="' + escapeAttr(p.name || '') + '">' + escapeHtml(p.name || '\u2014') + '</span>';
                 bHtml += '</div></td>';
                 // Architecte
@@ -13737,6 +13796,89 @@
             }
         });
 
+        // ── Deadline alert engine ──
+
+        function getSubAlerts(sub, userEmail, today) {
+            var alerts = [];
+            if (!sub || !userEmail) return alerts;
+            var s = sub.status;
+            if (s === 'accepted' || s === 'lost' || sub.is_archived) return alerts;
+
+            var email = userEmail.toLowerCase();
+            var isEst = (sub.estimateur || '').toLowerCase() === email;
+            var isVen = (sub.vendeur_cp || '').toLowerCase() === email;
+            var isApp = (sub.approbateur || '').toLowerCase() === email;
+
+            function daysDiff(dateStr) {
+                if (!dateStr) return null;
+                var d = new Date(dateStr + 'T00:00:00');
+                return Math.ceil((d - today) / 86400000);
+            }
+            function fmtDate(dateStr) {
+                if (!dateStr) return '';
+                var d = new Date(dateStr + 'T00:00:00');
+                return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long' });
+            }
+
+            // Estimateur alerts
+            if (isEst) {
+                if (!sub.estimateur_accepted_at) {
+                    alerts.push({ level: 'orange', msg: 'Nouvelle assignation', detail: 'Soumission #' + sub.submission_number + ' — nouvelle assignation' });
+                }
+                var dInt = daysDiff(sub.internal_deadline);
+                if (dInt !== null) {
+                    if (dInt < 0) alerts.push({ level: 'red', msg: 'En retard', detail: 'Remise interne d\u00e9pass\u00e9e (' + fmtDate(sub.internal_deadline) + ')' });
+                    else if (dInt === 0) alerts.push({ level: 'red', msg: 'Remise aujourd\'hui', detail: 'Remise interne aujourd\'hui' });
+                    else if (dInt <= 3) alerts.push({ level: 'orange', msg: 'Remise dans ' + dInt + 'j', detail: 'Remise interne dans ' + dInt + ' jour' + (dInt > 1 ? 's' : '') + ' (' + fmtDate(sub.internal_deadline) + ')' });
+                }
+            }
+
+            // Vendeur alerts
+            if (isVen) {
+                var dInt2 = daysDiff(sub.internal_deadline);
+                if (dInt2 !== null && dInt2 === 0) {
+                    alerts.push({ level: 'orange', msg: 'V\u00e9rifier soumission', detail: 'Remise interne aujourd\'hui \u2014 v\u00e9rifier #' + sub.submission_number });
+                }
+                var dCli = daysDiff(sub.client_deadline);
+                if (dCli !== null) {
+                    if (dCli < 0) alerts.push({ level: 'red', msg: 'Remise client d\u00e9pass\u00e9e', detail: 'Remise client d\u00e9pass\u00e9e (' + fmtDate(sub.client_deadline) + ')' });
+                    else if (dCli <= 1) alerts.push({ level: 'red', msg: 'Remise client imminente', detail: 'Remise client ' + (dCli === 0 ? 'aujourd\'hui' : 'demain') + ' (' + fmtDate(sub.client_deadline) + ')' });
+                }
+            }
+
+            // Approbateur alerts
+            if (isApp && s === 'pending_internal') {
+                alerts.push({ level: 'orange', msg: 'En attente d\'approbation', detail: 'Soumission #' + sub.submission_number + ' en attente d\'approbation' });
+            }
+
+            return alerts;
+        }
+
+        function getProjectAlerts(proj, userEmail) {
+            var subs = proj.submissions || [];
+            var today = new Date(); today.setHours(0, 0, 0, 0);
+            var all = [];
+            subs.forEach(function(sub) {
+                all = all.concat(getSubAlerts(sub, userEmail, today));
+            });
+            if (all.length === 0) return null;
+            // Sort: red first, then orange
+            all.sort(function(a, b) {
+                return (a.level === 'red' ? 0 : 1) - (b.level === 'red' ? 0 : 1);
+            });
+            return { top: all[0], all: all };
+        }
+
+        function buildAlertBadgeHtml(projAlert) {
+            if (!projAlert) return '';
+            var top = projAlert.top;
+            var tooltipLines = projAlert.all.map(function(a) { return escapeHtml(a.detail); }).join('<br>');
+            return '<div class="project-alert-badge project-alert-badge--' + top.level + '">' +
+                escapeHtml(top.msg) +
+                '<div class="alert-tooltip">' + tooltipLines + '</div>' +
+                '</div>';
+        }
+
         // ── Card view (enriched) ──
 
         function renderCardView(projects) {
@@ -13790,8 +13932,12 @@
                     cardAmountHtml +
                     '</div>';
 
+                var projAlert = getProjectAlerts(proj, (localStorage.getItem('sb_user_email') || '').toLowerCase());
+                var alertBadgeHtml = buildAlertBadgeHtml(projAlert);
+
                 card.innerHTML =
                     '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
+                    alertBadgeHtml +
                     pipelineWithStar +
                     '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
                     '<div class="project-card-client">' + escapeHtml(proj.client_name || '') + '</div>' +
@@ -13800,7 +13946,7 @@
                     '<button class="btn-add-sub" onclick="handleAddSubmission(\'' + escapeAttr(proj.id) + '\', event)">+ Nouvelle soumission</button>';
 
                 card.addEventListener('click', function(e) {
-                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub') || e.target.closest('.follow-star')) return;
+                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub') || e.target.closest('.follow-star') || e.target.closest('.project-alert-badge')) return;
                     var subLine = e.target.closest('.sub-line');
                     if (subLine) {
                         openSubmission(subLine.getAttribute('data-subid'));
@@ -13882,10 +14028,18 @@
             // Body
             var body = document.getElementById('submissionsTableBody');
             var html = '';
+            var subUserEmail = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+            var subToday = new Date(); subToday.setHours(0, 0, 0, 0);
             allSubs.forEach(function(s) {
                 var deadline = s.internal_deadline || s.client_deadline || '';
+                var subAlerts = getSubAlerts(s, subUserEmail, subToday);
+                var subDot = '';
+                if (subAlerts.length > 0) {
+                    var topLevel = subAlerts.some(function(a) { return a.level === 'red'; }) ? 'red' : 'orange';
+                    subDot = '<span class="project-alert-dot project-alert-dot--' + topLevel + '" title="' + escapeAttr(subAlerts[0].msg) + '"></span>';
+                }
                 html += '<tr onclick="openSubmission(\'' + escapeAttr(s.id) + '\')">';
-                html += '<td style="font-weight:700;color:var(--sw-navy);">#' + escapeHtml(String(s.submission_number)) + '</td>';
+                html += '<td style="font-weight:700;color:var(--sw-navy);">' + subDot + '#' + escapeHtml(String(s.submission_number)) + '</td>';
                 html += '<td class="col-name">' + escapeHtml(s.title || 'Sans titre') + '</td>';
                 html += '<td>' + escapeHtml(s._project.name || '—') + '</td>';
                 html += '<td>' + escapeHtml(s._project.client_name || '—') + '</td>';
@@ -14175,31 +14329,79 @@
             if (!currentSubmission) { row.style.display = 'none'; return; }
             row.style.display = '';
 
-            ['saEstimateur', 'saVendeur', 'saApprobateur'].forEach(function(id) {
-                var sel = document.getElementById(id);
-                var val = sel.value;
-                sel.innerHTML = '<option value="">—</option>';
-                EMPLOYEES_DATA.forEach(function(e) {
-                    sel.innerHTML += '<option value="' + escapeAttr(e.name) + '">' + escapeHtml(e.name) + '</option>';
-                });
+            // Build user lists from _allUserRoles
+            var allUsers = [];
+            var approvers = [];
+            Object.keys(_allUserRoles).forEach(function(email) {
+                var roleName = _allUserRoles[email];
+                var displayName = USER_PROFILES_MAP[email.toLowerCase()] || email;
+                var entry = { value: email, label: displayName };
+                allUsers.push(entry);
+                var rolePerms = _allPermissions[roleName] || {};
+                if (rolePerms.can_approve_quotes || rolePerms.admin) {
+                    approvers.push(entry);
+                }
             });
 
-            document.getElementById('saEstimateur').value = currentSubmission.estimateur || '';
-            document.getElementById('saVendeur').value = currentSubmission.vendeur_cp || '';
-            document.getElementById('saApprobateur').value = currentSubmission.approbateur || '';
+            var sortFn = function(a, b) { return a.label.localeCompare(b.label, 'fr'); };
+            allUsers.sort(sortFn);
+            approvers.sort(sortFn);
+
+            function fillSelect(sel, entries, currentVal) {
+                sel.innerHTML = '<option value="">—</option>';
+                entries.forEach(function(e) {
+                    sel.innerHTML += '<option value="' + escapeAttr(e.value) + '">' + escapeHtml(e.label) + '</option>';
+                });
+                sel.value = currentVal || '';
+            }
+
+            fillSelect(document.getElementById('saEstimateur'), allUsers, currentSubmission.estimateur);
+            fillSelect(document.getElementById('saVendeur'), allUsers, currentSubmission.vendeur_cp);
+            fillSelect(document.getElementById('saApprobateur'), approvers, currentSubmission.approbateur);
+
             document.getElementById('saInternalDeadline').value = currentSubmission.internal_deadline || '';
             document.getElementById('saClientDeadline').value = currentSubmission.client_deadline || '';
+
+            // Show accept button if current user is the assigned estimateur and hasn't accepted yet
+            var acceptBtn = document.getElementById('saEstimateurAccept');
+            if (acceptBtn) {
+                var curEmail = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                if (currentSubmission.estimateur && currentSubmission.estimateur.toLowerCase() === curEmail && !currentSubmission.estimateur_accepted_at) {
+                    acceptBtn.style.display = '';
+                } else {
+                    acceptBtn.style.display = 'none';
+                }
+            }
+        }
+
+        function acceptEstimateurAssignment() {
+            if (!currentSubmission) return;
+            var now = new Date().toISOString();
+            currentSubmission.estimateur_accepted_at = now;
+            updateSubmission(currentSubmission.id, { estimateur_accepted_at: now });
+            document.getElementById('saEstimateurAccept').style.display = 'none';
+            showSaveIndicator();
         }
 
         function saveSubAssignment() {
             if (!currentSubmission) return;
+            var newEstimateur = document.getElementById('saEstimateur').value || null;
             var fields = {
-                estimateur: document.getElementById('saEstimateur').value || null,
+                estimateur: newEstimateur,
                 vendeur_cp: document.getElementById('saVendeur').value || null,
                 approbateur: document.getElementById('saApprobateur').value || null,
                 internal_deadline: document.getElementById('saInternalDeadline').value || null,
                 client_deadline: document.getElementById('saClientDeadline').value || null
             };
+            // Reset accepted_at if estimateur changed
+            if (newEstimateur !== currentSubmission.estimateur) {
+                fields.estimateur_accepted_at = null;
+                var acceptBtn = document.getElementById('saEstimateurAccept');
+                if (acceptBtn) {
+                    var curEmail = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                    acceptBtn.style.display = (newEstimateur && newEstimateur.toLowerCase() === curEmail) ? '' : 'none';
+                }
+            }
             Object.assign(currentSubmission, fields);
             updateSubmission(currentSubmission.id, fields).catch(function(e) { console.error('Save sub assignment:', e); });
             showSaveIndicator();
@@ -16476,6 +16678,8 @@
                         if (row.key === 'user_roles') roles = row.value;
                     });
                 }
+                _allUserRoles = roles;
+                _allPermissions = perms;
                 const email = (localStorage.getItem('sb_user_email') || '').toLowerCase();
                 const role = roles[email] || 'Client';
                 const defaults = DEFAULT_PERMISSIONS[role] || {};
@@ -16563,6 +16767,7 @@
                 await loadTauxAndExpenses();
                 await loadMediaTags();
                 await loadEmployeesData();
+                loadUserProfilesMap(); // non-blocking, populates USER_PROFILES_MAP
                 await loadPipelineConfig();
 
                 // Setup PDF viewer Ctrl+scroll zoom

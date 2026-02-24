@@ -751,6 +751,110 @@
             flex-direction: column;
         }
 
+        /* ═══ Sandbox split layout (admin only) ═══ */
+        .sandbox-split-container {
+            display: flex; width: 96vw; max-width: 1600px;
+            max-height: 92vh; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); background: #fff;
+        }
+        .sandbox-split-container .modal.modal-edit {
+            flex: 0 0 45%; max-width: none; max-height: none;
+            border-radius: 0; box-shadow: none; margin: 0;
+        }
+        .sandbox-panel {
+            flex: 0 0 55%; display: flex; flex-direction: column;
+            border-right: 1px solid #e0e0e0; overflow-y: auto; padding: 20px 24px;
+            background: #fafbfc;
+        }
+        .sb-section-title {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--sw-navy); margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #eee;
+        }
+        .sb-divider { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+
+        /* Material defaults */
+        .sb-mat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .sb-mat-label { font-size: 12px; font-weight: 500; color: #555; min-width: 90px; }
+        .sb-mat-select {
+            flex: 1; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit; background: #fff;
+        }
+
+        /* Description preview */
+        .sb-desc-preview {
+            font-size: 13px; color: #333; line-height: 1.6; min-height: 40px;
+            padding: 10px 12px; background: #fff; border: 1px solid #e8e8e8;
+            border-radius: 6px;
+        }
+        .sb-desc-preview p { margin: 0 0 3px 0; }
+        .sb-desc-preview strong { font-weight: 600; color: #222; }
+        .sb-desc-preview ul { margin: 2px 0 6px 0; padding-left: 18px; }
+        .sb-desc-preview li { margin-bottom: 2px; color: #555; }
+        .sb-desc-placeholder { color: #bbb; font-style: italic; font-size: 12px; }
+
+        /* Sandbox rows */
+        .sb-rows-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .sb-rows-table th {
+            text-align: left; font-size: 11px; font-weight: 600; color: #888;
+            padding: 4px 6px; border-bottom: 1px solid #e0e0e0;
+        }
+        .sb-rows-table td { padding: 5px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+        .sb-rows-table .sb-code { color: #888; font-size: 11px; }
+        .sb-rows-table .sb-desc { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sb-rows-table .sb-auto-tag { font-size: 10px; color: #888; margin-left: 4px; }
+        .sb-rows-table .sb-warn { font-size: 10px; color: #ef6c00; display: block; margin-top: 2px; }
+        .sb-qty-input {
+            width: 50px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 3px;
+            font-size: 12px; text-align: center; font-family: inherit;
+        }
+        .sb-remove-btn {
+            background: none; border: none; color: #ccc; font-size: 16px;
+            cursor: pointer; padding: 0 4px; line-height: 1;
+        }
+        .sb-remove-btn:hover { color: #e74c3c; }
+
+        /* Combobox */
+        .sb-combobox-wrap { position: relative; margin-bottom: 12px; }
+        .sb-combobox-input {
+            width: 100%; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 12px; font-family: inherit;
+        }
+        .sb-combobox-input:focus { outline: none; border-color: var(--sw-navy); }
+        .sb-combobox-dd {
+            position: absolute; top: 100%; left: 0; right: 0; max-height: 260px;
+            overflow-y: auto; background: #fff; border: 1px solid #ddd;
+            border-top: none; border-radius: 0 0 6px 6px; z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
+        }
+        .sb-combobox-dd.open { display: block; }
+        .sb-cb-group { font-size: 10px; font-weight: 600; color: #888; padding: 6px 10px 3px; text-transform: uppercase; }
+        .sb-cb-item {
+            padding: 6px 10px; cursor: pointer; font-size: 12px; display: flex;
+            align-items: center; gap: 8px;
+        }
+        .sb-cb-item:hover { background: #f1f5f9; }
+        .sb-cb-item img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+        .sb-cb-item .sb-cb-desc { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sb-cb-item .sb-cb-price { color: #888; font-size: 11px; white-space: nowrap; }
+
+        /* Subtotal & actions */
+        .sb-subtotal-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; margin-top: 8px; border-top: 1px solid #e0e0e0;
+        }
+        .sb-subtotal-label { font-size: 13px; font-weight: 600; color: #333; }
+        .sb-subtotal-value { font-size: 14px; font-weight: 700; color: var(--sw-navy); }
+        .sb-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .sb-btn {
+            padding: 5px 14px; border: 1px solid #ddd; border-radius: 4px;
+            background: #fff; font-size: 12px; font-family: inherit;
+            cursor: pointer; color: #555; transition: all 0.2s;
+        }
+        .sb-btn:hover { border-color: #999; background: #f5f5f5; }
+        .sb-btn-primary { background: var(--sw-navy); color: #fff; border-color: var(--sw-navy); }
+        .sb-btn-primary:hover { opacity: 0.85; }
+
         .edit-row {
             display: flex;
             gap: 12px;
@@ -1199,6 +1303,11 @@
             .modal.modal-edit {
                 max-width: 98vw;
             }
+        }
+        @media (max-width: 1200px) {
+            .sandbox-split-container { flex-direction: column-reverse; max-height: 95vh; }
+            .sandbox-panel { flex: 0 0 auto; max-height: 40vh; border-right: none; border-top: 1px solid #e0e0e0; }
+            .sandbox-split-container .modal.modal-edit { flex: 1 1 auto; max-height: none; }
         }
 
         /* ═══ Composantes fournisseur ═══ */
@@ -3844,14 +3953,16 @@
             document.getElementById('editHasSalesSheet').checked = item.has_sales_sheet === true;
             toggleSalesSheetBtn();
 
-            // Rafraîchir taux horaires et catégories dépenses depuis app_config
+            // Rafraîchir taux horaires, catégories dépenses, et mappings matériaux
             try {
-                var cfgResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories)&select=key,value', {});
+                var cfgResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories,material_groups,category_group_mapping)&select=key,value', {});
                 if (cfgResp.ok) {
                     var cfgRows = await cfgResp.json();
                     cfgRows.forEach(function(r) {
                         if (r.key === 'taux_horaires') tauxHoraires = r.value;
                         if (r.key === 'expense_categories') expenseCategories = r.value;
+                        if (r.key === 'material_groups' && Array.isArray(r.value) && r.value.length) sbMaterialGroupsFull = r.value;
+                        if (r.key === 'category_group_mapping' && r.value && typeof r.value === 'object') sbCategoryGroupMapping = r.value;
                     });
                 }
             } catch (e) { /* use cached values */ }
@@ -3926,6 +4037,15 @@
 
             document.getElementById('editModal').classList.add('active');
             document.querySelector('.modal-body').scrollTop = 0;
+
+            // ── Sandbox (admin only) ──
+            if (isAdmin) {
+                sbItemOverrides = {};
+                sbRows = [];
+                sbRowCounter = 0;
+                sbInitSandbox();
+                sbSetupReactivity();
+            }
 
             // ── Dirty tracking: snapshot initial state after modal is fully populated ──
             setTimeout(function() { _modalSnapshot = captureModalSnapshot(); _modalDirty = false; }, 100);
@@ -4043,6 +4163,721 @@
             clearAiFeedback('importCompFeedback');
             // Close AI review overlay if open
             closeCatAiReviewChat();
+
+            // Destroy sandbox if active
+            if (isAdmin) sbDestroySandbox();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SANDBOX — Éditeur de règles (admin only)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        var sbRows = [];          // [{ id, catalogueItemId, qty, cascadeOf, warn }]
+        var sbRowCounter = 0;
+        var sbMaterials = {};     // { caisson: {id,desc}, facades: {id,desc}, poignees: {id,desc} }
+        var sbItemOverrides = {}; // Temporary overrides from modal edits
+        var sbActive = false;
+        var sbMaterialGroups = ['Caisson', 'Façades et panneaux apparents', 'Poignées'];
+        var sbCategoryGroupMapping = {};
+        var sbMaterialGroupsFull = [];
+
+        // ── Utility functions (adapted from calculateur.html) ──
+
+        function sbEvalFormula(expr, vars) {
+            if (!expr) return null;
+            var safe = String(expr).replace(/\b(L|H|P|QTY)\b/g, function(m) {
+                return (vars[m] != null) ? Number(vars[m]) : 0;
+            });
+            safe = safe.replace(/\bceil\b/g, 'Math.ceil')
+                       .replace(/\bfloor\b/g, 'Math.floor')
+                       .replace(/\bround\b/g, 'Math.round')
+                       .replace(/\bmin\b/g, 'Math.min')
+                       .replace(/\bmax\b/g, 'Math.max');
+            var check = safe.replace(/Math\.\w+/g, '').replace(/[\d\s+\-*/.(),><=!&|]/g, '');
+            if (check.length > 0) return null;
+            try { return new Function('return ' + safe)(); }
+            catch (e) { return null; }
+        }
+
+        function sbComputePrice(item) {
+            if (!item) return null;
+            var lm = item.labor_minutes, mc = item.material_costs;
+            if ((!lm || Object.keys(lm).length === 0) && (!mc || Object.keys(mc).length === 0)) return null;
+            var laborTotal = 0;
+            if (lm) {
+                for (var dept in lm) {
+                    var minutes = parseFloat(lm[dept]) || 0;
+                    var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+                    laborTotal += (minutes / 60) * (taux ? (taux.taux_horaire || 0) : 0);
+                }
+            }
+            var materialTotal = 0;
+            if (mc) {
+                for (var cat in mc) {
+                    var cost = parseFloat(mc[cat]) || 0;
+                    var expCat = expenseCategories.find(function(c) { return c.name === cat; });
+                    var markup = (expCat ? (expCat.markup || 0) : 0) / 100;
+                    var waste = (expCat ? (expCat.waste || 0) : 0) / 100;
+                    materialTotal += cost * (1 + markup + waste);
+                }
+            }
+            var total = laborTotal + materialTotal;
+            return total > 0 ? total : null;
+        }
+
+        function sbToSentenceCase(str) {
+            if (!str) return '';
+            return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        }
+
+        function sbFormatDescription(text) {
+            if (!text || !text.trim()) return '';
+            var lines = text.split('\n');
+            var keywords = [
+                'CAISSON', 'FAÇADES ET PANNEAUX APPARENTS', 'FAÇADES',
+                'TIROIRS LEGRABOX', 'TIROIRS', 'POIGNÉES', 'ÉCLAIRAGE',
+                'DÉTAILS', 'EXCLUSIONS', 'COMPTOIR', 'QUINCAILLERIE',
+                'FINITION', 'ÉLECTRO', 'RANGEMENT', 'DIMENSIONS',
+                'NOTES', 'PARTICULARITÉS'
+            ];
+            var hasKw = lines.some(function(l) { return keywords.some(function(k) { return l.trim().toUpperCase().startsWith(k); }); });
+            if (!hasKw) return escapeHtml(text).replace(/\n/g, '<br>');
+            var html = '', inList = false;
+            lines.forEach(function(line) {
+                var tr = line.trim();
+                if (!tr) { if (inList) { html += '</ul>'; inList = false; } html += '<br>'; return; }
+                if (tr.startsWith('-') || tr.startsWith('•')) {
+                    if (!inList) { html += '<ul>'; inList = true; }
+                    html += '<li>' + escapeHtml(tr.replace(/^[-•]\s*/, '')) + '</li>';
+                    return;
+                }
+                if (inList) { html += '</ul>'; inList = false; }
+                var matched = false;
+                for (var i = 0; i < keywords.length; i++) {
+                    if (tr.toUpperCase().startsWith(keywords[i])) {
+                        var ci = tr.indexOf(':');
+                        if (ci !== -1) {
+                            html += '<p><strong>' + escapeHtml(sbToSentenceCase(tr.substring(0, ci).trim())) + ' :</strong> ' + escapeHtml(tr.substring(ci + 1).trim()) + '</p>';
+                        } else {
+                            html += '<p><strong>' + escapeHtml(sbToSentenceCase(tr)) + '</strong></p>';
+                        }
+                        matched = true; break;
+                    }
+                }
+                if (!matched) html += '<p>' + escapeHtml(tr) + '</p>';
+            });
+            if (inList) html += '</ul>';
+            return html;
+        }
+
+        // ── Get effective item data (with overrides from modal edits) ──
+
+        function sbGetItem(itemId) {
+            var base = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+            if (!base) return null;
+            var over = sbItemOverrides[itemId];
+            if (!over) return base;
+            return Object.assign({}, base, over);
+        }
+
+        function sbGetPrice(item) {
+            if (!item) return 0;
+            var composed = sbComputePrice(item);
+            return composed != null ? composed : (parseFloat(item.price) || 0);
+        }
+
+        // ── Sandbox initialization / destruction ──
+
+        function sbInitSandbox() {
+            // If already active (navigating between items), just refresh content
+            if (sbActive) {
+                var panel = document.getElementById('sbPanel');
+                if (panel) {
+                    panel.innerHTML = sbBuildPanelHTML();
+                    sbSetupCombobox();
+                    sbSetupMaterialDropdowns();
+                    var currentId = document.getElementById('editItemId').value;
+                    if (currentId) sbAddRow(currentId, 1, null);
+                    sbRefreshAll();
+                }
+                return;
+            }
+
+            sbActive = true;
+
+            var overlay = document.getElementById('editModal');
+            var modal = overlay.querySelector('.modal.modal-edit');
+            if (!modal) return;
+
+            // Wrap modal in split container
+            var container = document.createElement('div');
+            container.className = 'sandbox-split-container';
+            container.id = 'sbSplitContainer';
+
+            // Create sandbox panel
+            var panel = document.createElement('div');
+            panel.className = 'sandbox-panel';
+            panel.id = 'sbPanel';
+            panel.innerHTML = sbBuildPanelHTML();
+
+            // Move modal into container
+            modal.parentNode.insertBefore(container, modal);
+            container.appendChild(panel);
+            container.appendChild(modal);
+
+            // Setup combobox handlers
+            sbSetupCombobox();
+
+            // Setup material dropdown handlers
+            sbSetupMaterialDropdowns();
+
+            // If current item is being edited, auto-add it to sandbox
+            var currentId = document.getElementById('editItemId').value;
+            if (currentId) {
+                sbAddRow(currentId, 1, null);
+            }
+
+            sbRefreshAll();
+        }
+
+        function sbDestroySandbox() {
+            if (!sbActive) return;
+            sbActive = false;
+
+            var container = document.getElementById('sbSplitContainer');
+            if (!container) return;
+
+            var modal = container.querySelector('.modal.modal-edit');
+            if (modal) {
+                container.parentNode.insertBefore(modal, container);
+            }
+            container.remove();
+
+            // Reset state (keep materials)
+            sbRows = [];
+            sbRowCounter = 0;
+            sbItemOverrides = {};
+        }
+
+        function sbResetSandbox() {
+            sbRows = [];
+            sbRowCounter = 0;
+            sbItemOverrides = {};
+            // Keep sbMaterials!
+
+            // Re-add current item
+            var currentId = document.getElementById('editItemId').value;
+            if (currentId) {
+                sbAddRow(currentId, 1, null);
+            }
+
+            sbRefreshAll();
+        }
+
+        // ── Panel HTML template ──
+
+        function sbBuildPanelHTML() {
+            var html = '<div class="sb-section-title">Matériaux par défaut</div>';
+
+            // Material defaults dropdowns
+            sbMaterialGroups.forEach(function(group, idx) {
+                var key = sbMatKey(group);
+                var current = sbMaterials[key];
+                html += '<div class="sb-mat-row">'
+                    + '<span class="sb-mat-label">' + escapeHtml(group) + '</span>'
+                    + '<select class="sb-mat-select" id="sbMat-' + idx + '" data-group="' + escapeAttr(group) + '" onchange="sbOnMaterialChange(' + idx + ')">'
+                    + '<option value="">— Aucun —</option>'
+                    + '</select>'
+                    + '</div>';
+            });
+
+            html += '<hr class="sb-divider">';
+            html += '<div class="sb-section-title">Description client</div>';
+            html += '<div class="sb-desc-preview" id="sbDescPreview"><span class="sb-desc-placeholder">Ajoutez des articles et matériaux...</span></div>';
+
+            html += '<hr class="sb-divider">';
+            html += '<div class="sb-section-title">Lignes catalogue</div>';
+
+            // Combobox
+            html += '<div class="sb-combobox-wrap">'
+                + '<input type="text" class="sb-combobox-input" id="sbComboInput" placeholder="Rechercher un article..." autocomplete="off">'
+                + '<div class="sb-combobox-dd" id="sbComboDd"></div>'
+                + '</div>';
+
+            // Rows table
+            html += '<table class="sb-rows-table">'
+                + '<thead><tr><th>Article</th><th>Code</th><th style="width:70px;text-align:right">Prix</th><th style="width:55px;text-align:center">Qté</th><th style="width:75px;text-align:right">Total</th><th style="width:30px"></th></tr></thead>'
+                + '<tbody id="sbRowsBody"></tbody>'
+                + '</table>';
+
+            // Subtotal
+            html += '<div class="sb-subtotal-row">'
+                + '<span class="sb-subtotal-label">Sous-total</span>'
+                + '<span class="sb-subtotal-value" id="sbSubtotal">0,00 $</span>'
+                + '</div>';
+
+            // Actions
+            html += '<div class="sb-actions">'
+                + '<button class="sb-btn" onclick="sbResetSandbox()">Rétablir</button>'
+                + '</div>';
+
+            return html;
+        }
+
+        // ── Material defaults ──
+
+        function sbMatKey(group) {
+            return group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+        }
+
+        function sbSetupMaterialDropdowns() {
+            sbMaterialGroups.forEach(function(group, idx) {
+                var select = document.getElementById('sbMat-' + idx);
+                if (!select) return;
+
+                // Find allowed categories for this group
+                var allowedCats = sbGetAllowedCategories(group);
+
+                // Filter catalogue items by those categories
+                var items = CATALOGUE_DATA.filter(function(item) {
+                    if (!item.category) return false;
+                    if (item.status === 'pending' || item.status === 'rejected') return false;
+                    return allowedCats.length === 0 || allowedCats.indexOf(item.category) !== -1;
+                });
+
+                // Build options
+                var opts = '<option value="">— Aucun —</option>';
+                var byCategory = {};
+                items.forEach(function(item) {
+                    var cat = item.category || 'Autre';
+                    if (!byCategory[cat]) byCategory[cat] = [];
+                    byCategory[cat].push(item);
+                });
+                Object.keys(byCategory).sort().forEach(function(cat) {
+                    opts += '<optgroup label="' + escapeAttr(cat) + '">';
+                    byCategory[cat].forEach(function(item) {
+                        var label = item.client_text || item.description || item.id;
+                        var key = sbMatKey(group);
+                        var sel = (sbMaterials[key] && sbMaterials[key].id === item.id) ? ' selected' : '';
+                        opts += '<option value="' + escapeAttr(item.id) + '"' + sel + '>' + escapeHtml(label) + '</option>';
+                    });
+                    opts += '</optgroup>';
+                });
+                select.innerHTML = opts;
+            });
+        }
+
+        function sbGetAllowedCategories(group) {
+            if (!sbCategoryGroupMapping || Object.keys(sbCategoryGroupMapping).length === 0) return [];
+            var allowed = [];
+            for (var cat in sbCategoryGroupMapping) {
+                var groups = sbCategoryGroupMapping[cat];
+                if (Array.isArray(groups) && groups.indexOf(group) !== -1) {
+                    allowed.push(cat);
+                }
+            }
+            return allowed;
+        }
+
+        function sbOnMaterialChange(idx) {
+            var select = document.getElementById('sbMat-' + idx);
+            if (!select) return;
+            var group = select.getAttribute('data-group');
+            var key = sbMatKey(group);
+            var itemId = select.value;
+            if (itemId) {
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === itemId; });
+                sbMaterials[key] = { id: itemId, description: item ? (item.client_text || item.description || itemId) : itemId };
+            } else {
+                delete sbMaterials[key];
+            }
+            sbRefreshDescription();
+        }
+
+        // ── Combobox ──
+
+        function sbSetupCombobox() {
+            var input = document.getElementById('sbComboInput');
+            var dd = document.getElementById('sbComboDd');
+            if (!input || !dd) return;
+
+            input.addEventListener('input', function() {
+                sbRenderComboboxItems(input.value.trim());
+                dd.classList.add('open');
+            });
+            input.addEventListener('focus', function() {
+                sbRenderComboboxItems(input.value.trim());
+                dd.classList.add('open');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.sb-combobox-wrap')) {
+                    dd.classList.remove('open');
+                }
+            });
+        }
+
+        function sbRenderComboboxItems(query) {
+            var dd = document.getElementById('sbComboDd');
+            if (!dd) return;
+
+            var items = CATALOGUE_DATA.filter(function(item) {
+                if (item.status === 'pending' || item.status === 'rejected') return false;
+                if (!query) return true;
+                var q = query.toLowerCase();
+                return (item.description && item.description.toLowerCase().indexOf(q) !== -1)
+                    || (item.id && item.id.toLowerCase().indexOf(q) !== -1)
+                    || (item.client_text && item.client_text.toLowerCase().indexOf(q) !== -1);
+            });
+
+            if (items.length === 0) {
+                dd.innerHTML = '<div style="padding:10px;color:#999;font-size:12px;">Aucun article trouvé</div>';
+                return;
+            }
+
+            // Group by category, limit total
+            var byCategory = {};
+            items.slice(0, 50).forEach(function(item) {
+                var cat = item.category || 'Autre';
+                if (!byCategory[cat]) byCategory[cat] = [];
+                byCategory[cat].push(item);
+            });
+
+            var html = '';
+            Object.keys(byCategory).sort().forEach(function(cat) {
+                html += '<div class="sb-cb-group">' + escapeHtml(cat) + '</div>';
+                byCategory[cat].forEach(function(item) {
+                    var price = sbGetPrice(item);
+                    var imgHtml = item.image_url ? '<img src="' + escapeAttr(item.image_url) + '" alt="">' : '';
+                    html += '<div class="sb-cb-item" onclick="sbSelectFromCombobox(\'' + escapeAttr(item.id) + '\')">'
+                        + imgHtml
+                        + '<span class="sb-cb-desc">' + escapeHtml(item.description || item.id) + '</span>'
+                        + '<span class="sb-cb-price">' + formatPrice(price) + '</span>'
+                        + '</div>';
+                });
+            });
+            dd.innerHTML = html;
+        }
+
+        function sbSelectFromCombobox(itemId) {
+            document.getElementById('sbComboDd').classList.remove('open');
+            document.getElementById('sbComboInput').value = '';
+            sbAddRow(itemId, 1, null);
+            sbRefreshAll();
+        }
+
+        // ── Row management ──
+
+        function sbAddRow(itemId, qty, cascadeOf) {
+            var item = sbGetItem(itemId);
+            if (!item) return null;
+
+            sbRowCounter++;
+            var rowData = {
+                id: 'sbr-' + sbRowCounter,
+                catalogueItemId: itemId,
+                qty: qty || 1,
+                cascadeOf: cascadeOf || null,
+                warn: null
+            };
+            sbRows.push(rowData);
+
+            // Process constraints for this item
+            sbProcessConstraints(rowData);
+
+            return rowData;
+        }
+
+        function sbRemoveRow(rowId) {
+            // Also remove cascade children
+            var childrenToRemove = sbRows.filter(function(r) { return r.cascadeOf === rowId; }).map(function(r) { return r.id; });
+            childrenToRemove.forEach(function(childId) { sbRemoveRow(childId); });
+
+            sbRows = sbRows.filter(function(r) { return r.id !== rowId; });
+            sbRefreshAll();
+        }
+
+        function sbOnQtyChange(rowId, val) {
+            var row = sbRows.find(function(r) { return r.id === rowId; });
+            if (!row) return;
+            row.qty = parseFloat(val) || 1;
+
+            // Recalculate cascade children with formulas
+            sbRows.filter(function(r) { return r.cascadeOf === rowId; }).forEach(function(child) {
+                sbRecalcCascadeQty(child, row);
+            });
+
+            sbRefreshAll();
+        }
+
+        function sbRecalcCascadeQty(childRow, parentRow) {
+            var parentItem = sbGetItem(parentRow.catalogueItemId);
+            if (!parentItem || !parentItem.calculation_rule_ai) return;
+
+            var rules = parentItem.calculation_rule_ai;
+            // Check constraints for auto_add_calculated
+            if (rules.constraints) {
+                rules.constraints.forEach(function(c) {
+                    if (c.type === 'auto_add_calculated' && c.item_id === childRow.catalogueItemId && c.quantity_formula) {
+                        var result = sbEvalFormula(c.quantity_formula, { L: 0, H: 0, P: 0, QTY: parentRow.qty });
+                        if (result != null) childRow.qty = Math.max(1, Math.round(result));
+                    }
+                });
+            }
+            // Check cascade
+            if (rules.cascade) {
+                rules.cascade.forEach(function(c) {
+                    if (c.target === childRow.catalogueItemId && c.qty) {
+                        var result = sbEvalFormula(String(c.qty), { L: 0, H: 0, P: 0, QTY: parentRow.qty });
+                        if (result != null) childRow.qty = Math.max(1, Math.round(result));
+                    }
+                });
+            }
+        }
+
+        // ── Constraint engine (simplified) ──
+
+        function sbProcessConstraints(rowData) {
+            var item = sbGetItem(rowData.catalogueItemId);
+            if (!item || !item.calculation_rule_ai) return;
+
+            var rules = item.calculation_rule_ai;
+
+            // Process constraints
+            if (rules.constraints && Array.isArray(rules.constraints)) {
+                rules.constraints.forEach(function(c) {
+                    switch (c.type) {
+                        case 'auto_add':
+                            if (c.item_id && !sbRows.some(function(r) { return r.catalogueItemId === c.item_id && r.cascadeOf === rowData.id; })) {
+                                sbAddRow(c.item_id, c.quantity || 1, rowData.id);
+                            }
+                            break;
+                        case 'auto_add_calculated':
+                            if (c.item_id && !sbRows.some(function(r) { return r.catalogueItemId === c.item_id && r.cascadeOf === rowData.id; })) {
+                                var qty = 1;
+                                if (c.quantity_formula) {
+                                    var result = sbEvalFormula(c.quantity_formula, { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                                    if (result != null && result > 0) qty = Math.round(result);
+                                }
+                                var child = sbAddRow(c.item_id, qty, rowData.id);
+                                if (child && c.quantity_formula) child.warn = 'Qté calculée (sans dimensions)';
+                            }
+                            break;
+                        case 'requires_swap':
+                            rowData.warn = '⚠ Swap requis : ' + (c.warning || 'Vérifier compatibilité avec ' + (c.target_group || ''));
+                            break;
+                        case 'requires_choice':
+                            rowData.warn = '⚠ Choix requis : ' + (c.conditions && c.conditions[0] ? c.conditions[0].message || '' : 'Vérifier les conditions');
+                            break;
+                    }
+                });
+            }
+
+            // Process cascade
+            if (rules.cascade && Array.isArray(rules.cascade)) {
+                rules.cascade.forEach(function(c) {
+                    if (!c.target) return;
+                    // Evaluate condition
+                    if (c.condition) {
+                        var condResult = sbEvalFormula(c.condition, { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                        if (!condResult) return;
+                    }
+                    // Check not already added
+                    if (sbRows.some(function(r) { return r.catalogueItemId === c.target && r.cascadeOf === rowData.id; })) return;
+                    var qty = 1;
+                    if (c.qty) {
+                        var result = sbEvalFormula(String(c.qty), { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                        if (result != null && result > 0) qty = Math.round(result);
+                    }
+                    sbAddRow(c.target, qty, rowData.id);
+                });
+            }
+        }
+
+        // ── Description assembly ──
+
+        function sbBuildDescription() {
+            var lines = [];
+
+            // Material defaults → section headers
+            if (sbMaterials[sbMatKey('Caisson')]) {
+                lines.push('CAISSON : ' + sbMaterials[sbMatKey('Caisson')].description);
+            }
+            if (sbMaterials[sbMatKey('Façades et panneaux apparents')]) {
+                lines.push('FAÇADES ET PANNEAUX APPARENTS : ' + sbMaterials[sbMatKey('Façades et panneaux apparents')].description);
+            }
+            if (sbMaterials[sbMatKey('Poignées')]) {
+                lines.push('POIGNÉES : ' + sbMaterials[sbMatKey('Poignées')].description);
+            }
+
+            // Articles with client_text → Détails section
+            var details = [];
+            sbRows.forEach(function(r) {
+                var item = sbGetItem(r.catalogueItemId);
+                if (item && item.client_text) {
+                    // Avoid duplicates
+                    if (details.indexOf(item.client_text) === -1) {
+                        details.push(item.client_text);
+                    }
+                }
+            });
+            if (details.length > 0) {
+                lines.push('DÉTAILS :');
+                details.forEach(function(d) { lines.push('- ' + d); });
+            }
+
+            return lines.join('\n');
+        }
+
+        // ── Refresh everything ──
+
+        function sbRefreshAll() {
+            sbRefreshRows();
+            sbRefreshDescription();
+            sbRefreshSubtotal();
+        }
+
+        function sbRefreshRows() {
+            var tbody = document.getElementById('sbRowsBody');
+            if (!tbody) return;
+
+            if (sbRows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="color:#bbb;font-size:12px;text-align:center;padding:20px;">Aucun article — utilisez la recherche ci-dessus</td></tr>';
+                return;
+            }
+
+            var html = '';
+            sbRows.forEach(function(r) {
+                var item = sbGetItem(r.catalogueItemId);
+                var price = item ? sbGetPrice(item) : 0;
+                var total = price * r.qty;
+                var isCascade = !!r.cascadeOf;
+
+                html += '<tr id="' + r.id + '">';
+                html += '<td class="sb-desc">' + escapeHtml(item ? item.description : r.catalogueItemId);
+                if (isCascade) html += '<span class="sb-auto-tag">← auto</span>';
+                if (r.warn) html += '<span class="sb-warn">' + escapeHtml(r.warn) + '</span>';
+                html += '</td>';
+                html += '<td class="sb-code">' + escapeHtml(r.catalogueItemId) + '</td>';
+                html += '<td style="text-align:right">' + formatPrice(price) + '</td>';
+                html += '<td style="text-align:center">';
+                if (isCascade) {
+                    html += '<span style="color:#888">' + r.qty + '</span>';
+                } else {
+                    html += '<input class="sb-qty-input" type="number" min="1" step="1" value="' + r.qty + '" onchange="sbOnQtyChange(\'' + r.id + '\', this.value)">';
+                }
+                html += '</td>';
+                html += '<td style="text-align:right;font-weight:500">' + formatPrice(total) + '</td>';
+                html += '<td>';
+                if (!isCascade) {
+                    html += '<button class="sb-remove-btn" onclick="sbRemoveRow(\'' + r.id + '\')" title="Retirer">×</button>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        }
+
+        function sbRefreshDescription() {
+            var el = document.getElementById('sbDescPreview');
+            if (!el) return;
+            var text = sbBuildDescription();
+            if (!text.trim()) {
+                el.innerHTML = '<span class="sb-desc-placeholder">Ajoutez des articles et matériaux...</span>';
+            } else {
+                el.innerHTML = sbFormatDescription(text);
+            }
+        }
+
+        function sbRefreshSubtotal() {
+            var total = 0;
+            sbRows.forEach(function(r) {
+                var item = sbGetItem(r.catalogueItemId);
+                total += sbGetPrice(item) * r.qty;
+            });
+            var el = document.getElementById('sbSubtotal');
+            if (el) el.textContent = formatPrice(total);
+        }
+
+        // ── Reactivity: modal edits → sandbox ──
+
+        function sbSetupReactivity() {
+            if (!sbActive) return;
+
+            var fields = [
+                { id: 'editClientText', key: 'client_text' },
+                { id: 'editPrice', key: 'price' },
+                { id: 'editDescription', key: 'description' }
+            ];
+
+            fields.forEach(function(f) {
+                var el = document.getElementById(f.id);
+                if (!el) return;
+                el.addEventListener('input', function() {
+                    var itemId = document.getElementById('editItemId').value;
+                    if (!itemId) return;
+                    if (!sbItemOverrides[itemId]) sbItemOverrides[itemId] = {};
+                    sbItemOverrides[itemId][f.key] = el.value;
+                    sbRefreshAll();
+                });
+            });
+
+            // Composed price table input changes → refresh sandbox
+            var cpMinutes = document.getElementById('cpMinutesBody');
+            var cpMaterials = document.getElementById('cpMaterialsBody');
+            if (cpMinutes) {
+                cpMinutes.addEventListener('input', function() {
+                    var itemId = document.getElementById('editItemId').value;
+                    if (!itemId || !sbActive) return;
+                    var lm = {};
+                    cpMinutes.querySelectorAll('input[type="number"]').forEach(function(inp) {
+                        var val = parseFloat(inp.value) || 0;
+                        var dept = inp.getAttribute('data-dept');
+                        if (val > 0 && dept) lm[dept] = val;
+                    });
+                    if (!sbItemOverrides[itemId]) sbItemOverrides[itemId] = {};
+                    sbItemOverrides[itemId].labor_minutes = lm;
+                    sbRefreshAll();
+                });
+            }
+            if (cpMaterials) {
+                cpMaterials.addEventListener('input', function() {
+                    var itemId = document.getElementById('editItemId').value;
+                    if (!itemId || !sbActive) return;
+                    var mc = {};
+                    cpMaterials.querySelectorAll('input[type="number"]').forEach(function(inp) {
+                        var val = parseFloat(inp.value) || 0;
+                        var cat = inp.getAttribute('data-cat');
+                        if (val > 0 && cat) mc[cat] = val;
+                    });
+                    if (!sbItemOverrides[itemId]) sbItemOverrides[itemId] = {};
+                    sbItemOverrides[itemId].material_costs = mc;
+                    sbRefreshAll();
+                });
+            }
+
+            // Calc rule JSON changes → reprocess constraints
+            var calcRuleEl = document.getElementById('editCalcRuleAi');
+            if (calcRuleEl) {
+                calcRuleEl.addEventListener('input', function() {
+                    var itemId = document.getElementById('editItemId').value;
+                    if (!itemId || !sbActive) return;
+                    try {
+                        var parsed = JSON.parse(calcRuleEl.value);
+                        if (!sbItemOverrides[itemId]) sbItemOverrides[itemId] = {};
+                        sbItemOverrides[itemId].calculation_rule_ai = parsed;
+
+                        // Remove old cascade children and reprocess
+                        var parentRow = sbRows.find(function(r) { return r.catalogueItemId === itemId && !r.cascadeOf; });
+                        if (parentRow) {
+                            // Remove children
+                            sbRows = sbRows.filter(function(r) { return r.cascadeOf !== parentRow.id; });
+                            // Reprocess
+                            sbProcessConstraints(parentRow);
+                        }
+                        sbRefreshAll();
+                    } catch (e) { /* invalid JSON, ignore */ }
+                });
+            }
         }
 
         // ═══ Animated modal open (AI unit insert) ═══
@@ -4172,6 +5007,15 @@
             });
 
             document.querySelector('.modal-body').scrollTop = 0;
+
+            // Sandbox (admin only) — init after animation starts
+            if (isAdmin) {
+                sbItemOverrides = {};
+                sbRows = [];
+                sbRowCounter = 0;
+                sbInitSandbox();
+                sbSetupReactivity();
+            }
         }
 
         async function deleteItem() {

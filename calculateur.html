@@ -2217,6 +2217,489 @@
         executeCascade(rowId, 0).finally(function() { _cascadeRunning = false; });
     }, 800);
 
+    // ═══════════════════════════════════════════
+    // ── Constraint engine (auto_add, requires_swap, requires_choice) ──
+    // ═══════════════════════════════════════════
+
+    /**
+     * Show a temporary toast at the bottom of the screen.
+     * @param {string} msg — message to display
+     * @param {number} [duration=3000] — ms before auto-hide
+     */
+    function showConstraintToast(msg, duration) {
+        var existing = document.querySelector('.constraint-toast');
+        if (existing) existing.remove();
+        var t = document.createElement('div');
+        t.className = 'constraint-toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(function() {
+            t.classList.add('ct-out');
+            t.addEventListener('animationend', function() { t.remove(); });
+        }, duration || 3000);
+    }
+
+    /**
+     * Find all catalogue item IDs currently present in a given room group.
+     * Returns a Set of catalogue item IDs.
+     */
+    function getRoomCatalogueIds(groupId) {
+        var ids = new Set();
+        var container = document.getElementById(groupId + '-rows');
+        if (!container) return ids;
+        container.querySelectorAll('.calc-row').forEach(function(row) {
+            var sel = row.querySelector('.item-select');
+            if (sel && sel.value && sel.value !== '__PROPOSER__' && sel.value !== '__AJOUT__') {
+                ids.add(sel.value);
+            }
+        });
+        return ids;
+    }
+
+    /**
+     * Handle auto_add constraint: add a linked item with fixed quantity.
+     * If the item is already in the room, show a toast and skip.
+     */
+    async function handleAutoAdd(rule, groupId, sourceRowId) {
+        if (!rule.item_id) return;
+
+        // Check if item already exists in the room
+        var existingIds = getRoomCatalogueIds(groupId);
+        if (existingIds.has(rule.item_id)) {
+            var dupeItem = CATALOGUE_DATA.find(function(i) { return i.id === rule.item_id; });
+            var dupeName = dupeItem ? (dupeItem.client_text || dupeItem.description) : rule.item_id;
+            showConstraintToast(dupeName + ' — déjà présent dans cette pièce');
+            return;
+        }
+
+        // Create a new standalone row
+        var newRowId = addRow(groupId, { skipFocus: true });
+
+        // Wait for itemMap to be populated (async createItem)
+        var waitAttempts = 0;
+        while (!itemMap[newRowId] && waitAttempts < 50) {
+            await new Promise(function(r) { setTimeout(r, 80); });
+            waitAttempts++;
+        }
+        if (!itemMap[newRowId]) {
+            console.error('[Constraint] Timeout creating row for', rule.item_id);
+            return;
+        }
+
+        // Select the target catalogue item
+        var newRow = document.getElementById(newRowId);
+        var newSelect = newRow ? newRow.querySelector('.item-select') : null;
+        if (newSelect) newSelect.value = rule.item_id;
+
+        // Set quantity
+        var newQty = newRow ? newRow.querySelector('.qty-input') : null;
+        if (newQty) newQty.value = rule.quantity || 1;
+
+        // Inherit tag from source row
+        var srcTag = document.getElementById(sourceRowId + '-tag');
+        if (srcTag && srcTag.value) {
+            var newTag = document.getElementById(newRowId + '-tag');
+            if (newTag) newTag.value = srcTag.value;
+        }
+
+        // Visual indicator
+        newRow.classList.add('constraint-added');
+
+        // Update the row (triggers price calc, display, save)
+        updateRow(newRowId);
+
+        // Toast
+        showConstraintToast(rule.message || 'Article ajouté automatiquement');
+    }
+
+    /**
+     * Handle auto_add_calculated constraint: add a linked item with formula-based quantity.
+     * Uses evalFormula() with L/H/P/QTY from the source row dimensions.
+     * If dimensions are not available, adds the item with qty 0 + warning.
+     */
+    async function handleAutoAddCalculated(rule, groupId, sourceRowId) {
+        if (!rule.item_id) return;
+
+        // Check if item already exists in the room
+        var existingIds = getRoomCatalogueIds(groupId);
+        if (existingIds.has(rule.item_id)) {
+            var dupeItem = CATALOGUE_DATA.find(function(i) { return i.id === rule.item_id; });
+            var dupeName = dupeItem ? (dupeItem.client_text || dupeItem.description) : rule.item_id;
+            showConstraintToast(dupeName + ' — déjà présent dans cette pièce');
+            return;
+        }
+
+        // Gather dimensions from source row
+        var dimL = document.getElementById(sourceRowId + '-dim-l');
+        var dimH = document.getElementById(sourceRowId + '-dim-h');
+        var dimP = document.getElementById(sourceRowId + '-dim-p');
+        var srcQty = document.getElementById(sourceRowId)?.querySelector('.qty-input');
+        var vars = {
+            L: dimL ? (parseFloat(dimL.value) || 0) : 0,
+            H: dimH ? (parseFloat(dimH.value) || 0) : 0,
+            P: dimP ? (parseFloat(dimP.value) || 0) : 0,
+            QTY: srcQty ? (parseFloat(srcQty.value) || 0) : 0
+        };
+
+        var hasDims = vars.L > 0 || vars.H > 0 || vars.P > 0;
+        var qty = 0;
+        var warning = null;
+
+        if (hasDims && rule.quantity_formula) {
+            qty = evalFormula(rule.quantity_formula, vars);
+            if (qty === null || qty < 0) qty = 0;
+            qty = Math.round(qty * 100) / 100;
+        }
+
+        if (!hasDims || qty === 0) {
+            warning = 'Quantité à ajuster selon les dimensions';
+            if (rule.quantity_formula) warning += ' (formule : ' + rule.quantity_formula + ')';
+        }
+
+        // Create the row
+        var newRowId = addRow(groupId, { skipFocus: true });
+        var waitAttempts = 0;
+        while (!itemMap[newRowId] && waitAttempts < 50) {
+            await new Promise(function(r) { setTimeout(r, 80); });
+            waitAttempts++;
+        }
+        if (!itemMap[newRowId]) {
+            console.error('[Constraint] Timeout creating row for', rule.item_id);
+            return;
+        }
+
+        var newRow = document.getElementById(newRowId);
+        var newSelect = newRow ? newRow.querySelector('.item-select') : null;
+        if (newSelect) newSelect.value = rule.item_id;
+        var newQty = newRow ? newRow.querySelector('.qty-input') : null;
+        if (newQty) newQty.value = qty;
+
+        // Inherit tag
+        var srcTag = document.getElementById(sourceRowId + '-tag');
+        if (srcTag && srcTag.value) {
+            var newTag = document.getElementById(newRowId + '-tag');
+            if (newTag) newTag.value = srcTag.value;
+        }
+
+        newRow.classList.add('constraint-added');
+        updateRow(newRowId);
+
+        // Show warning if dimensions were missing
+        if (warning) {
+            addConstraintWarning(newRowId, warning);
+            showConstraintToast(warning);
+        } else {
+            showConstraintToast(rule.message || 'Article ajouté automatiquement');
+        }
+    }
+
+    /**
+     * Add a ⚠️ warning indicator on a row with tooltip message.
+     */
+    function addConstraintWarning(rowId, message) {
+        var row = document.getElementById(rowId);
+        if (!row) return;
+        // Remove existing warning if any
+        var existing = row.querySelector('.constraint-warn');
+        if (existing) existing.remove();
+        // Add warning after the combobox
+        var comboDiv = row.querySelector('.cell-select');
+        if (!comboDiv) return;
+        var warn = document.createElement('span');
+        warn.className = 'constraint-warn';
+        warn.innerHTML = '⚠️<span class="cw-tip">' + escapeHtml(message) + '</span>';
+        comboDiv.appendChild(warn);
+    }
+
+    /**
+     * Remove ⚠️ warning indicator from a row.
+     */
+    function removeConstraintWarning(rowId) {
+        var row = document.getElementById(rowId);
+        if (!row) return;
+        var warn = row.querySelector('.constraint-warn');
+        if (warn) warn.remove();
+    }
+
+    /**
+     * Show a constraint modal (for requires_swap and requires_choice).
+     * Returns a Promise that resolves to the button key clicked.
+     */
+    function showConstraintModal(title, message, buttons) {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'constraint-modal-overlay';
+            var modal = document.createElement('div');
+            modal.className = 'constraint-modal';
+            modal.innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
+                + '<p>' + escapeHtml(message) + '</p>';
+            var actions = document.createElement('div');
+            actions.className = 'constraint-modal-actions';
+            buttons.forEach(function(btn) {
+                var b = document.createElement('button');
+                b.className = btn.primary ? 'cm-btn-primary' : 'cm-btn-secondary';
+                b.textContent = btn.label;
+                b.onclick = function() {
+                    overlay.remove();
+                    resolve(btn.key);
+                };
+                actions.appendChild(b);
+            });
+            modal.appendChild(actions);
+            overlay.appendChild(modal);
+            // Close on overlay click (outside modal)
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) { overlay.remove(); resolve('dismiss'); }
+            });
+            document.body.appendChild(overlay);
+        });
+    }
+
+    /**
+     * Find items in a room that belong to a given material group (via category_group_mapping).
+     * Returns array of { rowId, catalogueId, catItem, description }.
+     */
+    function findRoomItemsByGroup(groupId, targetGroup) {
+        var allowedCats = getAllowedCategoriesForGroup(targetGroup);
+        if (!allowedCats) return [];
+        var results = [];
+        var container = document.getElementById(groupId + '-rows');
+        if (!container) return results;
+        container.querySelectorAll('.calc-row').forEach(function(row) {
+            var sel = row.querySelector('.item-select');
+            if (!sel || !sel.value || sel.value === '__PROPOSER__' || sel.value === '__AJOUT__') return;
+            var catItem = CATALOGUE_DATA.find(function(i) { return i.id === sel.value; });
+            if (!catItem) return;
+            if (allowedCats.indexOf(catItem.category) !== -1) {
+                results.push({
+                    rowId: row.id,
+                    catalogueId: sel.value,
+                    catItem: catItem,
+                    description: (catItem.description || '').toLowerCase()
+                });
+            }
+        });
+        return results;
+    }
+
+    /**
+     * Handle requires_swap constraint: verify that an item in the room matches criteria.
+     * If not, propose a swap via modal. If user declines, add ⚠️ warning.
+     */
+    async function handleRequiresSwap(rule, groupId, sourceRowId) {
+        if (!rule.target_group || !rule.current_must_match) return;
+
+        // Find items in the room that belong to target_group
+        var targetItems = findRoomItemsByGroup(groupId, rule.target_group);
+        if (targetItems.length === 0) return; // No item of that group → nothing to check
+
+        var mustMatch = rule.current_must_match.toLowerCase();
+        var searchIn = rule.search_in || 'description';
+
+        // Check if any target item already matches
+        var allMatch = true;
+        var nonMatchingItems = [];
+        targetItems.forEach(function(ti) {
+            var fieldValue = '';
+            if (searchIn === 'description') fieldValue = ti.description;
+            else if (searchIn === 'client_text') fieldValue = ((ti.catItem.client_text || '') + ' ' + ti.description).toLowerCase();
+            else fieldValue = ti.description;
+
+            if (fieldValue.indexOf(mustMatch) === -1) {
+                allMatch = false;
+                nonMatchingItems.push(ti);
+            }
+        });
+
+        if (allMatch) return; // All items match → no issue
+
+        // Find replacement candidates in catalogue
+        for (var ni = 0; ni < nonMatchingItems.length; ni++) {
+            var nonMatch = nonMatchingItems[ni];
+            var replacement = null;
+
+            if (rule.swap_logic === 'same_client_text_with_match') {
+                var originalClientText = (nonMatch.catItem.client_text || '').toLowerCase();
+                if (originalClientText) {
+                    replacement = CATALOGUE_DATA.find(function(c) {
+                        if (c.id === nonMatch.catalogueId) return false;
+                        var cClientText = (c.client_text || '').toLowerCase();
+                        var cDesc = (c.description || '').toLowerCase();
+                        return cClientText === originalClientText && cDesc.indexOf(mustMatch) !== -1;
+                    });
+                }
+            }
+
+            var currentName = nonMatch.catItem.client_text || nonMatch.catItem.description;
+            var replacementName = replacement ? (replacement.client_text || replacement.description) : null;
+
+            var buttons = [];
+            if (replacement) {
+                buttons.push({ key: 'swap', label: 'Remplacer par ' + replacementName, primary: true });
+            }
+            buttons.push({ key: 'keep', label: 'Garder quand même', primary: false });
+
+            var result = await showConstraintModal(
+                'Compatibilité matériaux',
+                rule.warning || ('L\'article « ' + currentName + ' » pourrait être incompatible.'),
+                buttons
+            );
+
+            if (result === 'swap' && replacement) {
+                // Perform the swap: change the item in the existing row
+                var swapRow = document.getElementById(nonMatch.rowId);
+                var swapSelect = swapRow ? swapRow.querySelector('.item-select') : null;
+                if (swapSelect) {
+                    swapSelect.value = replacement.id;
+                    // Reset constraintsProcessed so new item's own constraints can fire
+                    swapRow.dataset.constraintsProcessed = '';
+                    updateRow(nonMatch.rowId);
+                    removeConstraintWarning(nonMatch.rowId);
+                    showConstraintToast('Remplacé par ' + replacementName);
+                }
+            } else if (result === 'keep' || result === 'dismiss') {
+                // Add warning indicator on the non-matching row
+                addConstraintWarning(nonMatch.rowId, rule.warning || 'Compatibilité non vérifiée');
+            }
+        }
+    }
+
+    /**
+     * Handle requires_choice constraint: verify conditions and restrict/warn about items in a group.
+     * If an incompatible item exists in the target group, show modal.
+     * Stores active restrictions for future combobox filtering.
+     */
+    async function handleRequiresChoice(rule, groupId, sourceRowId) {
+        if (!rule.target_group || !rule.conditions || !Array.isArray(rule.conditions)) return;
+
+        // Determine which condition matches the source item
+        var sourceRow = document.getElementById(sourceRowId);
+        var sourceSelect = sourceRow ? sourceRow.querySelector('.item-select') : null;
+        var sourceId = sourceSelect ? sourceSelect.value : '';
+        var sourceCatItem = CATALOGUE_DATA.find(function(i) { return i.id === sourceId; });
+        if (!sourceCatItem) return;
+        var sourceDesc = (sourceCatItem.description || '').toLowerCase();
+
+        var activeCondition = null;
+        for (var ci = 0; ci < rule.conditions.length; ci++) {
+            var cond = rule.conditions[ci];
+            if (cond.if_description_contains && sourceDesc.indexOf(cond.if_description_contains.toLowerCase()) !== -1) {
+                activeCondition = cond;
+                break;
+            }
+        }
+        if (!activeCondition) return; // No condition matched
+
+        // Check existing items in the target group for compatibility
+        var targetItems = findRoomItemsByGroup(groupId, rule.target_group);
+        var restrictPatterns = activeCondition.restrict_to.toLowerCase().split('|');
+
+        for (var ti = 0; ti < targetItems.length; ti++) {
+            var target = targetItems[ti];
+            var targetDesc = target.description;
+            var isCompatible = restrictPatterns.some(function(pat) { return targetDesc.indexOf(pat) !== -1; });
+
+            if (!isCompatible) {
+                // Find a compatible replacement
+                var allowedCats = getAllowedCategoriesForGroup(rule.target_group);
+                var replacement = null;
+                if (allowedCats) {
+                    var originalClientText = (target.catItem.client_text || '').toLowerCase();
+                    replacement = CATALOGUE_DATA.find(function(c) {
+                        if (c.id === target.catalogueId) return false;
+                        if (allowedCats.indexOf(c.category) === -1) return false;
+                        var cDesc = (c.description || '').toLowerCase();
+                        var matches = restrictPatterns.some(function(pat) { return cDesc.indexOf(pat) !== -1; });
+                        if (!matches) return false;
+                        // Prefer same client_text
+                        if (originalClientText) {
+                            return (c.client_text || '').toLowerCase() === originalClientText;
+                        }
+                        return true;
+                    });
+                }
+
+                var targetName = target.catItem.client_text || target.catItem.description;
+                var replacementName = replacement ? (replacement.client_text || replacement.description) : null;
+
+                var buttons = [];
+                if (replacement) {
+                    buttons.push({ key: 'swap', label: 'Remplacer par ' + replacementName, primary: true });
+                }
+                buttons.push({ key: 'keep', label: 'Garder quand même', primary: false });
+
+                var result = await showConstraintModal(
+                    'Choix requis',
+                    activeCondition.message || ('L\'article « ' + targetName + ' » pourrait être incompatible.'),
+                    buttons
+                );
+
+                if (result === 'swap' && replacement) {
+                    var swapRow = document.getElementById(target.rowId);
+                    var swapSelect = swapRow ? swapRow.querySelector('.item-select') : null;
+                    if (swapSelect) {
+                        swapSelect.value = replacement.id;
+                        swapRow.dataset.constraintsProcessed = '';
+                        updateRow(target.rowId);
+                        removeConstraintWarning(target.rowId);
+                        showConstraintToast('Remplacé par ' + replacementName);
+                    }
+                } else if (result === 'keep' || result === 'dismiss') {
+                    addConstraintWarning(target.rowId, activeCondition.message || 'Choix possiblement incompatible');
+                }
+            }
+        }
+    }
+
+    /**
+     * Process all constraints on a catalogue item when it is first selected.
+     * Called from updateRow() — only fires once per item selection (tracked via dataset).
+     */
+    async function processConstraints(rowId) {
+        var row = document.getElementById(rowId);
+        if (!row) return;
+        var select = row.querySelector('.item-select');
+        if (!select) return;
+        var selectedId = select.value;
+        if (!selectedId || selectedId === '__PROPOSER__' || selectedId === '__AJOUT__') return;
+
+        // Only process once per item selection
+        if (row.dataset.constraintsProcessed === selectedId) return;
+        row.dataset.constraintsProcessed = selectedId;
+
+        // Don't process constraints on cascade children (they are auto-managed)
+        if (row.classList.contains('cascade-child')) return;
+
+        // Don't process if submission is not editable
+        if (typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) return;
+
+        var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+        if (!catItem || !catItem.calculation_rule_ai) return;
+
+        var constraints = catItem.calculation_rule_ai.constraints;
+        if (!constraints || !Array.isArray(constraints) || constraints.length === 0) return;
+
+        var groupId = row.dataset.group;
+
+        for (var i = 0; i < constraints.length; i++) {
+            var rule = constraints[i];
+            switch (rule.type) {
+                case 'auto_add':
+                    await handleAutoAdd(rule, groupId, rowId);
+                    break;
+                case 'auto_add_calculated':
+                    await handleAutoAddCalculated(rule, groupId, rowId);
+                    break;
+                case 'requires_swap':
+                    await handleRequiresSwap(rule, groupId, rowId);
+                    break;
+                case 'requires_choice':
+                    await handleRequiresChoice(rule, groupId, rowId);
+                    break;
+            }
+        }
+    }
+
     async function createVersion(submissionId) {
         // Trouver le prochain numéro de version (par project_id pour respecter la contrainte unique)
         var versionQuery = currentProject
@@ -2494,6 +2977,57 @@
             padding: 1px 5px; border-radius: 3px; margin-left: 4px;
             vertical-align: middle; letter-spacing: 0.02em;
         }
+        /* ── Constraint toast (auto_add etc.) ── */
+        .constraint-toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #1e293b; color: #fff; font-size: 13px; padding: 10px 20px;
+            border-radius: 8px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            animation: ctToastIn 0.2s ease; max-width: 400px; text-align: center;
+        }
+        @keyframes ctToastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .constraint-toast.ct-out { animation: ctToastOut 0.2s ease forwards; }
+        @keyframes ctToastOut { to { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+        .calc-row.constraint-added { border-left: 2px solid #1565C0; background: #f0f7ff; }
+        .constraint-badge {
+            font-size: 9px; background: #dbeafe; color: #1565C0;
+            padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+            vertical-align: middle; letter-spacing: 0.02em;
+        }
+        /* ── Constraint warning indicator ⚠️ on row ── */
+        .constraint-warn {
+            position: relative; display: inline-flex; align-items: center;
+            margin-left: 4px; cursor: help; font-size: 14px; color: #f59e0b;
+        }
+        .constraint-warn .cw-tip {
+            display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+            transform: translateX(-50%); white-space: nowrap; background: #1e293b;
+            color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 4px;
+            z-index: 20; pointer-events: none;
+        }
+        .constraint-warn:hover .cw-tip { display: block; }
+        /* ── Constraint modal (requires_swap / requires_choice) ── */
+        .constraint-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+            z-index: 10000; display: flex; align-items: center; justify-content: center;
+            animation: cmFadeIn 0.15s ease;
+        }
+        @keyframes cmFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .constraint-modal {
+            background: #fff; border-radius: 12px; padding: 28px 32px;
+            max-width: 460px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .constraint-modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; color: #0f172a; }
+        .constraint-modal p { margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.5; }
+        .constraint-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .constraint-modal-actions button {
+            padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none; transition: background 0.15s;
+        }
+        .cm-btn-primary { background: var(--sw-navy); color: #fff; }
+        .cm-btn-primary:hover { opacity: 0.9; }
+        .cm-btn-secondary { background: #f1f5f9; color: #475569; }
+        .cm-btn-secondary:hover { background: #e2e8f0; }
+
         .cell-tag input {
             width: 100%; padding: 4px 6px; font-size: 11px; font-family: monospace;
             border: 1px solid #e0e0e0; border-radius: 4px; text-align: center;
@@ -8479,6 +9013,11 @@
                 }
             }
 
+            // Constraints : process auto_add etc. on first item selection
+            if (selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
+                processConstraints(rowId);
+            }
+
             // Sync combobox display
             syncComboboxDisplay(rowId);
         }
@@ -13607,6 +14146,11 @@
                                 if (markupInput) markupInput.value = item.markup || 0;
                             } else if (item.catalogue_item_id) {
                                 select.value = item.catalogue_item_id;
+                            }
+
+                            // Mark constraints as already processed (data already loaded — don't re-trigger auto_add)
+                            if (item.catalogue_item_id) {
+                                row.dataset.constraintsProcessed = item.catalogue_item_id;
                             }
 
                             // Restore tag

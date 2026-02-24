@@ -16,6 +16,19 @@
         }
     </script>
     <style>html { visibility: hidden; }</style>
+    <script>
+    // Embedded mode: inject CSS immediately to prevent catalogue chrome flash
+    if (new URLSearchParams(window.location.search).has('embedded')) {
+        var s = document.createElement('style');
+        s.textContent = '.nav-bar,.catalogue-search-bar,.catalogue-header-bar,#mainCatalogueTable,#aiFilterBadge{display:none!important}'
+            + 'body{background:transparent!important}'
+            + '.modal-overlay{background:transparent!important}'
+            + '.modal-overlay .modal.modal-edit{max-width:none;max-height:none;height:100vh;border-radius:0;box-shadow:none}'
+            + '.modal-overlay .modal.modal-edit .modal-body{flex:1}'
+            + '.sandbox-split-container{max-width:none;max-height:none;height:100vh;border-radius:0;box-shadow:none}';
+        document.head.appendChild(s);
+    }
+    </script>
 
     <script>
     /*

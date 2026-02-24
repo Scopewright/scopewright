@@ -154,7 +154,7 @@
     let roomMap = {};               // { groupDomId: supabaseRoomUUID }
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
-    let roomPriceOverrides = {};    // { groupDomId: number | null }
+    let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
 
@@ -904,14 +904,17 @@
             });
             var descEl = document.getElementById(gid + '-clientDesc');
             var installCb = document.getElementById(gid + '-install');
-            var effectiveTotal = roomPriceOverrides[gid] != null ? Math.round((subtotal + roomPriceOverrides[gid]) * 100) / 100 : Math.round(subtotal * 100) / 100;
+            var roomPct = roomModifiers[gid] || 0;
+            var globalPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
+            var effectiveTotal = getEffectiveRoomTotal(gid);
             rooms.push({
                 groupId: gid,
                 roomId: roomMap[gid] || null,
                 name: name,
                 itemCount: itemCount,
                 subtotal: Math.round(subtotal * 100) / 100,
-                priceOverride: roomPriceOverrides[gid] || null,
+                roomModifierPct: roomPct,
+                globalModifierPct: globalPct,
                 effectiveTotal: effectiveTotal,
                 hasDescription: !!(descEl && descEl.value.trim()),
                 installationIncluded: installCb ? installCb.checked : true
@@ -954,12 +957,20 @@
                 var descInput = row.querySelector('.ajout-description');
                 var priceInput = row.querySelector('.ajout-price');
                 var markupInput = row.querySelector('.ajout-markup');
+                var isPctRow = row.dataset.ajoutMode === 'percentage';
                 var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                var lt = p * qty * (1 + m / 100);
+                var lt;
+                if (isPctRow) {
+                    lt = getRowTotal(row);
+                    var ajoutDims = collectRowDims(row);
+                    items.push({ index: idx, tag: tag || null, type: 'ajout_percentage', description: descInput ? descInput.value : '', percentage: p, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
+                } else {
+                    var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
+                    lt = p * qty * (1 + m / 100);
+                    var ajoutDims = collectRowDims(row);
+                    items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
+                }
                 subtotal += lt;
-                var ajoutDims = collectRowDims(row);
-                items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                 if (item) {
@@ -1009,6 +1020,7 @@
         var totalMatCoutant = 0, totalMatMarkup = 0, totalMatWaste = 0;
         var totalHeuresCharge = 0, totalSalaires = 0, totalFraisFixes = 0, totalProfitMO = 0;
         var totalPrixVente = 0;
+        var totalAjout = 0;
 
         tauxHoraires.forEach(function(t) { deptMinutes[t.department] = 0; });
 
@@ -1020,11 +1032,9 @@
             var qty = parseFloat(qtyInput.value) || 0;
             if (!selectedId || selectedId === '__PROPOSER__') return;
             if (selectedId === '__AJOUT__') {
-                var pi = row.querySelector('.ajout-price');
-                var mi = row.querySelector('.ajout-markup');
-                var p = parseFloat(pi ? pi.value : 0) || 0;
-                var m = parseFloat(mi ? mi.value : 0) || 0;
-                totalPrixVente += p * qty * (1 + m / 100);
+                var ajt = getRowTotal(row);
+                totalPrixVente += ajt;
+                totalAjout += ajt;
                 return;
             }
             var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -1062,7 +1072,10 @@
 
         totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
         var profitNet = totalProfitMO + totalMatMarkup;
-        var margeReelle = totalPrixVente > 0 ? (profitNet / totalPrixVente * 100) : 0;
+        var prixVenteSansAjout = totalPrixVente - totalAjout;
+        var margeReelle = prixVenteSansAjout > 0 ? (profitNet / prixVenteSansAjout * 100) : 0;
+        var profitNetAvecAjout = profitNet + totalAjout;
+        var margeAvecAjout = totalPrixVente > 0 ? (profitNetAvecAjout / totalPrixVente * 100) : 0;
 
         return {
             prixVente: Math.round(totalPrixVente * 100) / 100,
@@ -1073,8 +1086,10 @@
             salaires: Math.round(totalSalaires * 100) / 100,
             fraisFixes: Math.round(totalFraisFixes * 100) / 100,
             profitMO: Math.round(totalProfitMO * 100) / 100,
-            profitNet: Math.round(profitNet * 100) / 100,
+            profitNet: Math.round(profitNetAvecAjout * 100) / 100,
+            ajouts: Math.round(totalAjout * 100) / 100,
             margeReelle: Math.round(margeReelle * 10) / 10,
+            margeAvecAjout: Math.round(margeAvecAjout * 10) / 10,
             margeVisee: 38,
             heuresParDept: deptMinutes
         };
@@ -1177,7 +1192,8 @@
                 status: currentSubmission.status,
                 title: currentSubmission.title,
                 discount_type: currentSubmission.discount_type || null,
-                discount_value: currentSubmission.discount_value || null
+                discount_value: currentSubmission.discount_value || null,
+                global_price_modifier_pct: currentSubmission.global_price_modifier_pct || null
             } : null,
             rooms: collectRoomsSummary(),
             focusRoomDetail: aiCurrentScope === 'room' && aiFocusGroupId ? collectRoomDetail(aiFocusGroupId) : null,
@@ -3370,6 +3386,29 @@
             cursor: pointer;
         }
 
+        /* ── Global modifier row ── */
+        .global-modifier-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 8px 16px;
+            background: var(--sw-text);
+            gap: 12px;
+        }
+        .global-modifier-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+        .global-modifier-badge { font-size: 13px; font-weight: 600; color: #42A5F5; }
+        .global-modifier-input {
+            width: 70px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 13px;
+            color: #fff;
+            text-align: right;
+            background: rgba(255,255,255,0.08);
+            outline: none;
+        }
+
         /* ── Tag filter bar ── */
         .tag-filter-bar {
             display: flex; align-items: center; gap: 6px; padding: 8px 12px;
@@ -3565,53 +3604,46 @@
             text-align: right;
         }
 
-        .group-subtotal-override-wrap {
+        /* Room modifier (%) — subtotal area */
+        .group-subtotal-wrap {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-
-        .group-subtotal-calculated {
-            font-size: 13px;
-            color: #999;
-            text-decoration: line-through;
-        }
-
-        .group-subtotal-override {
-            font-size: 17px;
-            font-weight: 700;
-            color: #1565C0;
-            min-width: 120px;
-            text-align: right;
-        }
-
-        .btn-override-toggle {
+        .btn-room-modifier {
             background: none;
-            border: none;
+            border: 1px solid transparent;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 12px;
             color: #999;
-            padding: 2px 6px;
+            padding: 2px 8px;
             border-radius: 4px;
-            transition: color 0.15s, background 0.15s;
+            transition: color 0.15s, background 0.15s, border-color 0.15s;
         }
-        .btn-override-toggle:hover { color: #1565C0; background: rgba(21,101,192,0.08); }
-        .btn-override-toggle.active { color: #1565C0; }
-
-        .override-input {
-            width: 120px;
+        .btn-room-modifier:hover { color: #1565C0; background: rgba(21,101,192,0.06); border-color: rgba(21,101,192,0.15); }
+        .btn-room-modifier.active { color: #1565C0; font-weight: 600; border-color: rgba(21,101,192,0.2); background: rgba(21,101,192,0.04); }
+        .room-modifier-input {
+            width: 60px;
             border: 1px solid #1565C0;
             border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 15px;
-            font-weight: 700;
+            padding: 2px 6px;
+            font-size: 13px;
+            font-weight: 600;
             color: #1565C0;
             text-align: right;
             background: rgba(21,101,192,0.04);
             outline: none;
         }
-
-        .override-tooltip {
+        .room-modifier-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1565C0;
+            background: rgba(21,101,192,0.08);
+            border-radius: 4px;
+            padding: 1px 6px;
+            white-space: nowrap;
+        }
+        .room-modifier-tooltip {
             position: absolute;
             bottom: calc(100% + 6px);
             right: 0;
@@ -3626,7 +3658,7 @@
             transition: opacity 0.15s;
             z-index: 10;
         }
-        .group-subtotal-container:hover .override-tooltip { opacity: 1; }
+        .group-subtotal-container:hover .room-modifier-tooltip { opacity: 1; }
 
         .group-images-section {
             padding: 14px 16px;
@@ -3744,6 +3776,9 @@
         .ajout-description:focus,
         .ajout-price:focus,
         .ajout-markup:focus { outline: none; border-color: var(--sw-navy); }
+        .ajout-mode-toggle { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #C8C8C8; border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; flex-shrink: 0; transition: all 0.15s; }
+        .ajout-mode-toggle:hover { border-color: var(--sw-navy); color: var(--sw-navy); }
+        .ajout-mode-toggle.mode-pct { background: #e8f0fe; border-color: #1565C0; color: #1565C0; }
 
         /* Modal */
         .modal-overlay {
@@ -5831,6 +5866,7 @@
             .btn-add, .btn-remove, .add-row-container, .group-images-section { display: none !important; }
             .item-select { border: none; background: none; padding: 0; appearance: none; background-image: none; }
             .qty-input, .ajout-description, .ajout-price, .ajout-markup { border: none; background: none; }
+            .ajout-mode-toggle, .btn-room-modifier, .room-modifier-badge { display: none; }
             .calculator-container { page-break-inside: avoid; }
         }
 
@@ -5847,6 +5883,7 @@
             }
             .btn-add, .btn-remove, .btn-add-group { font-size: 12px; }
             .ajout-description, .ajout-price, .ajout-markup { font-size: 11px !important; }
+            .ajout-mode-toggle { width: 24px; height: 24px; font-size: 11px; }
             .calculator-container { font-size: 13px; }
         }
 
@@ -6603,6 +6640,12 @@
 
             <button class="btn-add-group" onclick="addFurnitureGroup()">+ Ajouter un meuble</button>
 
+            <div id="globalModifierRow" class="global-modifier-row" style="display:none;">
+                <span class="global-modifier-label">Modificateur global</span>
+                <span class="global-modifier-badge" id="globalModifierDisplay"></span>
+                <button class="discount-toggle-btn" onclick="editGlobalModifier()" title="Modifier">&#9998;</button>
+                <button class="discount-toggle-btn" onclick="removeGlobalModifier()" title="Retirer">&times;</button>
+            </div>
             <div id="discountRow" class="discount-row" style="display:none;">
                 <span class="discount-label">Rabais</span>
                 <span class="discount-amount" id="discountDisplay"></span>
@@ -6610,7 +6653,8 @@
                 <button class="discount-toggle-btn" onclick="removeDiscount()" title="Retirer le rabais">&times;</button>
             </div>
             <div class="grand-total-container">
-                <button class="discount-toggle-btn" id="addDiscountBtn" onclick="editDiscount()" title="Ajouter un rabais" style="margin-right:auto;">+ Rabais</button>
+                <button class="discount-toggle-btn" id="addGlobalModifierBtn" onclick="editGlobalModifier()" title="Modificateur %" style="margin-right:auto;">% Modificateur</button>
+                <button class="discount-toggle-btn" id="addDiscountBtn" onclick="editDiscount()" title="Ajouter un rabais">+ Rabais</button>
                 <span class="grand-total-label">Total estim&eacute;</span>
                 <span class="grand-total-amount" id="grandTotal">0,00 $</span>
             </div>
@@ -8160,9 +8204,9 @@
                 </div>
                 <div class="group-subtotal-container" style="position:relative;">
                     <span class="group-subtotal-label">Sous-total</span>
-                    <span class="group-subtotal-override-wrap">
+                    <span class="group-subtotal-wrap">
                         <span class="group-subtotal-amount" id="${groupId}-subtotal">0,00 $</span>
-                        <button class="btn-override-toggle" onclick="toggleRoomOverride('${groupId}')" title="Prix vendeur (override)">&#9998;</button>
+                        <button class="btn-room-modifier" onclick="editRoomModifier('${groupId}')" title="Modificateur % pièce">%</button>
                     </span>
                 </div>
                 <div class="group-images-section">
@@ -8312,18 +8356,26 @@
             return rowId;
         }
 
-        function transformToAjoutMode(row, rowId) {
+        function transformToAjoutMode(row, rowId, mode) {
             row.dataset.mode = 'ajout';
+            row.dataset.ajoutMode = mode || 'fixed';
             row.style.background = '#edf0f5';
 
             const codeEl = document.getElementById(`${rowId}-code`);
             const typeEl = document.getElementById(`${rowId}-type`);
             const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
+            const isPct = (mode || 'fixed') === 'percentage';
 
             codeEl.innerHTML = `<input type="text" class="ajout-description" id="${rowId}-desc" placeholder="Description..." oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px;">`;
             codeEl.style.gridColumn = 'span 1';
-            typeEl.innerHTML = `<input type="number" class="ajout-price" id="${rowId}-price" placeholder="Prix" value="0" min="0" step="0.01" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()">`;
-            unitPriceEl.innerHTML = `<div style="display: flex; align-items: center; gap: 4px;"><input type="number" class="ajout-markup" id="${rowId}-markup" value="30" min="0" step="1" oninput="updateRow('${rowId}')" style="width: 60px; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"><span style="font-size: 11px; color: #666;">%</span></div>`;
+
+            if (isPct) {
+                typeEl.innerHTML = `<div style="display: flex; align-items: center; gap: 6px;"><button class="ajout-mode-toggle mode-pct" onclick="toggleAjoutMode('${rowId}')" title="Mode pourcentage actif — cliquer pour montant fixe">%</button><div style="display: flex; align-items: center; gap: 4px; flex: 1;"><input type="number" class="ajout-price" id="${rowId}-price" placeholder="%" value="0" min="0" step="0.1" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #1565C0; border-radius: 4px; text-align: right; -moz-appearance: textfield; background: #f8fbff;" onwheel="this.blur()"><span style="font-size: 11px; color: #1565C0; font-weight: 600;">%</span></div></div>`;
+                unitPriceEl.innerHTML = '';
+            } else {
+                typeEl.innerHTML = `<div style="display: flex; align-items: center; gap: 6px;"><button class="ajout-mode-toggle" onclick="toggleAjoutMode('${rowId}')" title="Mode montant fixe — cliquer pour pourcentage">$</button><input type="number" class="ajout-price" id="${rowId}-price" placeholder="Prix" value="0" min="0" step="0.01" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"></div>`;
+                unitPriceEl.innerHTML = `<div style="display: flex; align-items: center; gap: 4px;"><input type="number" class="ajout-markup" id="${rowId}-markup" value="30" min="0" step="1" oninput="updateRow('${rowId}')" style="width: 60px; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"><span style="font-size: 11px; color: #666;">%</span></div>`;
+            }
 
             setTimeout(() => {
                 const descInput = document.getElementById(`${rowId}-desc`);
@@ -8333,12 +8385,46 @@
 
         function transformToNormalMode(row, rowId) {
             row.dataset.mode = 'normal';
+            delete row.dataset.ajoutMode;
             row.style.background = '';
             document.getElementById(`${rowId}-code`).innerHTML = '—';
             document.getElementById(`${rowId}-code`).style.gridColumn = '';
             document.getElementById(`${rowId}-type`).innerHTML = '—';
             document.getElementById(`${rowId}-unit-price`).innerHTML = '—';
             document.getElementById(`${rowId}-total`).textContent = '0,00 $';
+        }
+
+        function toggleAjoutMode(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var currentMode = row.dataset.ajoutMode || 'fixed';
+            var newMode = currentMode === 'fixed' ? 'percentage' : 'fixed';
+            var descInput = document.getElementById(rowId + '-desc');
+            var savedDesc = descInput ? descInput.value : '';
+            var savedPrice = 0;
+            var priceInput = document.getElementById(rowId + '-price');
+            if (priceInput) savedPrice = priceInput.value;
+            transformToAjoutMode(row, rowId, newMode);
+            var newDescInput = document.getElementById(rowId + '-desc');
+            if (newDescInput) newDescInput.value = savedDesc;
+            var newPriceInput = document.getElementById(rowId + '-price');
+            if (newPriceInput) newPriceInput.value = newMode === 'percentage' ? (savedPrice || 10) : (savedPrice || 0);
+            if (newMode === 'fixed') {
+                var newMarkup = document.getElementById(rowId + '-markup');
+                if (newMarkup) newMarkup.value = 30;
+            }
+            updateRow(rowId);
+        }
+
+        function getRoomBaseSubtotal(groupEl) {
+            var container = document.getElementById(groupEl.id + '-rows');
+            if (!container) return 0;
+            var total = 0;
+            container.querySelectorAll('.calc-row').forEach(function(r) {
+                if (r.dataset.ajoutMode === 'percentage') return;
+                total += getRowTotal(r);
+            });
+            return total;
         }
 
         let configCategories = [];
@@ -8905,12 +8991,20 @@
                     if (currentMode === 'proposer') transformToNormalMode(row, rowId);
                     transformToAjoutMode(row, rowId);
                 }
-                const priceInput = document.getElementById(`${rowId}-price`);
-                const markupInput = document.getElementById(`${rowId}-markup`);
-                if (priceInput && markupInput) {
-                    const price = parseFloat(priceInput.value) || 0;
-                    const markup = parseFloat(markupInput.value) || 0;
-                    totalEl.textContent = formatPrice(price * qty * (1 + markup / 100));
+                if (row.dataset.ajoutMode === 'percentage') {
+                    const pctInput = document.getElementById(`${rowId}-price`);
+                    const pct = parseFloat(pctInput ? pctInput.value : 0) || 0;
+                    const group = row.closest('.furniture-group');
+                    const base = group ? getRoomBaseSubtotal(group) : 0;
+                    totalEl.textContent = formatPrice(base * pct / 100);
+                } else {
+                    const priceInput = document.getElementById(`${rowId}-price`);
+                    const markupInput = document.getElementById(`${rowId}-markup`);
+                    if (priceInput && markupInput) {
+                        const price = parseFloat(priceInput.value) || 0;
+                        const markup = parseFloat(markupInput.value) || 0;
+                        totalEl.textContent = formatPrice(price * qty * (1 + markup / 100));
+                    }
                 }
             } else {
                 if (currentMode === 'ajout' || currentMode === 'proposer') transformToNormalMode(row, rowId);
@@ -9037,12 +9131,13 @@
                 const descInput = row.querySelector('.ajout-description');
                 const priceInput = row.querySelector('.ajout-price');
                 const markupInput = row.querySelector('.ajout-markup');
+                const isPctMode = row.dataset.ajoutMode === 'percentage';
                 fields.item_type = 'custom';
                 fields.catalogue_item_id = null;
                 fields.description = descInput ? descInput.value : '';
                 fields.unit_price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                fields.markup = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                fields.unit_type = '';
+                fields.markup = isPctMode ? 0 : (parseFloat(markupInput ? markupInput.value : 0) || 0);
+                fields.unit_type = isPctMode ? 'percentage' : '';
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
@@ -9120,6 +9215,13 @@
             if (selectedId === '__PROPOSER__') {
                 return 0;
             } else if (selectedId === '__AJOUT__') {
+                if (row.dataset.ajoutMode === 'percentage') {
+                    const pctInput = row.querySelector('.ajout-price');
+                    const pct = parseFloat(pctInput ? pctInput.value : 0) || 0;
+                    const group = row.closest('.furniture-group');
+                    const base = group ? getRoomBaseSubtotal(group) : 0;
+                    return base * pct / 100;
+                }
                 const priceInput = row.querySelector('.ajout-price');
                 const markupInput = row.querySelector('.ajout-markup');
                 if (priceInput && markupInput) {
@@ -9142,19 +9244,34 @@
             let subtotal = 0;
             const container = document.getElementById(`${groupId}-rows`);
             if (!container) return;
+            // Refresh percentage row displays (their total depends on other rows)
+            container.querySelectorAll('.calc-row').forEach(row => {
+                if (row.dataset.ajoutMode === 'percentage') {
+                    var pctTotal = getRowTotal(row);
+                    var totalEl = document.getElementById(row.id + '-total');
+                    if (totalEl) totalEl.textContent = formatPrice(pctTotal);
+                }
+            });
             container.querySelectorAll('.calc-row').forEach(row => { subtotal += getRowTotal(row); });
-            if (roomPriceOverrides[groupId] != null) {
-                applyRoomOverrideDisplay(groupId);
+            if (roomModifiers[groupId]) {
+                applyRoomModifierDisplay(groupId);
             } else {
                 const subtotalEl = document.getElementById(`${groupId}-subtotal`);
                 if (subtotalEl) animateValue(subtotalEl, subtotal, 'price');
             }
         }
 
-        // ── Room price override functions ──
-        // price_override stores a DELTA (adjustment), not an absolute value.
-        // Effective room total = calculated subtotal + delta.
-        // When the vendor types a target price, we compute: delta = target - calculated.
+        // ── Room & global modifier functions ──
+        // Modifiers are percentages applied multiplicatively:
+        // effective_line = base_line × (1 + global_mod/100) × (1 + room_mod/100)
+        // Room subtotal = Σ effective_lines
+        // Grand total = subtotal_before_discount − discount
+
+        function getModifierMultiplier(groupId) {
+            var globalPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
+            var roomPct = roomModifiers[groupId] || 0;
+            return (1 + globalPct / 100) * (1 + roomPct / 100);
+        }
 
         function getRoomCalculatedSubtotal(groupId) {
             var subtotal = 0;
@@ -9165,82 +9282,84 @@
         }
 
         function getEffectiveRoomTotal(groupId) {
-            var calculated = getRoomCalculatedSubtotal(groupId);
-            if (roomPriceOverrides[groupId] != null) return Math.round((calculated + roomPriceOverrides[groupId]) * 100) / 100;
-            return calculated;
+            var base = getRoomCalculatedSubtotal(groupId);
+            return Math.round(base * getModifierMultiplier(groupId) * 100) / 100;
         }
 
-        function toggleRoomOverride(groupId) {
+        // ── Room modifier UI ──
+
+        function editRoomModifier(groupId) {
             if (currentSubmission && !isSubmissionCurrentlyEditable()) return;
             var container = document.querySelector('#' + groupId + ' .group-subtotal-container');
             if (!container) return;
-            if (roomPriceOverrides[groupId] != null) {
-                roomPriceOverrides[groupId] = null;
-                if (roomMap[groupId]) {
-                    updateRoom(roomMap[groupId], { price_override: null });
-                    showSaveIndicator();
-                }
-                applyRoomOverrideDisplay(groupId);
-                updateGrandTotal();
-                return;
-            }
-            var calculated = getRoomCalculatedSubtotal(groupId);
-            var wrap = container.querySelector('.group-subtotal-override-wrap');
+            var wrap = container.querySelector('.group-subtotal-wrap');
             if (!wrap) return;
-            wrap.innerHTML = '<input class="override-input" id="' + groupId + '-overrideInput" type="text" value="' + Math.round(calculated) + '" placeholder="Prix vendeur...">' +
-                '<button class="btn-override-toggle active" onclick="cancelRoomOverride(\'' + groupId + '\')" title="Annuler">&times;</button>';
-            var input = document.getElementById(groupId + '-overrideInput');
+            var currentPct = roomModifiers[groupId] || 0;
+            var subtotalEl = document.getElementById(groupId + '-subtotal');
+            var subtotalHtml = subtotalEl ? subtotalEl.outerHTML : '';
+            wrap.innerHTML = subtotalHtml +
+                '<input class="room-modifier-input" id="' + groupId + '-modInput" type="text" value="' + (currentPct || '') + '" placeholder="0">' +
+                '<span style="font-size:12px;color:#1565C0;font-weight:600;">%</span>' +
+                '<button class="btn-room-modifier active" onclick="saveRoomModifier(\'' + groupId + '\')" title="Confirmer">&#10003;</button>' +
+                '<button class="btn-room-modifier" onclick="cancelRoomModifier(\'' + groupId + '\')" title="Annuler">&times;</button>';
+            var input = document.getElementById(groupId + '-modInput');
             input.focus();
             input.select();
             input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') input.blur();
-                if (e.key === 'Escape') cancelRoomOverride(groupId);
+                if (e.key === 'Enter') saveRoomModifier(groupId);
+                if (e.key === 'Escape') cancelRoomModifier(groupId);
             });
-            input.addEventListener('blur', function() { saveRoomOverride(groupId, input.value.trim()); });
         }
 
-        function cancelRoomOverride(groupId) {
-            applyRoomOverrideDisplay(groupId);
-        }
-
-        async function saveRoomOverride(groupId, rawValue) {
-            var val = rawValue.replace(/[^0-9.,\-]/g, '').replace(',', '.');
-            var targetPrice = val === '' ? null : parseFloat(val);
-            if (val !== '' && isNaN(targetPrice)) { applyRoomOverrideDisplay(groupId); return; }
-            if (targetPrice == null) {
-                roomPriceOverrides[groupId] = null;
-            } else {
-                var calculated = getRoomCalculatedSubtotal(groupId);
-                roomPriceOverrides[groupId] = Math.round((targetPrice - calculated) * 100) / 100;
-            }
-            applyRoomOverrideDisplay(groupId);
+        async function saveRoomModifier(groupId) {
+            var input = document.getElementById(groupId + '-modInput');
+            if (!input) return;
+            var val = parseFloat(input.value.replace(',', '.'));
+            if (isNaN(val)) val = 0;
+            roomModifiers[groupId] = val;
+            applyRoomModifierDisplay(groupId);
             updateGrandTotal();
             if (roomMap[groupId]) {
-                await updateRoom(roomMap[groupId], { price_override: roomPriceOverrides[groupId] });
+                await updateRoom(roomMap[groupId], { price_modifier_pct: val || null });
                 showSaveIndicator();
             }
         }
 
-        function applyRoomOverrideDisplay(groupId) {
+        function cancelRoomModifier(groupId) {
+            applyRoomModifierDisplay(groupId);
+        }
+
+        function applyRoomModifierDisplay(groupId) {
             var container = document.querySelector('#' + groupId + ' .group-subtotal-container');
             if (!container) return;
-            var wrap = container.querySelector('.group-subtotal-override-wrap');
+            var wrap = container.querySelector('.group-subtotal-wrap');
             if (!wrap) return;
-            var calculated = getRoomCalculatedSubtotal(groupId);
-            var delta = roomPriceOverrides[groupId];
+            var base = getRoomCalculatedSubtotal(groupId);
+            var pct = roomModifiers[groupId] || 0;
+            var effective = getEffectiveRoomTotal(groupId);
             var editable = isSubmissionCurrentlyEditable();
-            if (delta != null) {
-                var effective = Math.round((calculated + delta) * 100) / 100;
-                var diffStr = (delta >= 0 ? '+' : '') + formatPrice(delta);
+            if (pct !== 0) {
+                var sign = pct > 0 ? '+' : '';
                 wrap.innerHTML =
-                    '<span class="group-subtotal-calculated">' + formatPrice(calculated) + '</span>' +
-                    '<span class="group-subtotal-override" id="' + groupId + '-subtotal">' + formatPrice(effective) + '</span>' +
-                    (editable ? '<button class="btn-override-toggle active" onclick="toggleRoomOverride(\'' + groupId + '\')" title="Retirer le prix vendeur">&times;</button>' : '') +
-                    '<span class="override-tooltip">Prix calcul\u00e9 : ' + formatPrice(calculated) + ' \u2192 Prix vendeur : ' + formatPrice(effective) + ' (' + diffStr + ')</span>';
+                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(effective) + '</span>' +
+                    '<span class="room-modifier-badge">' + sign + pct + '%</span>' +
+                    (editable ? '<button class="btn-room-modifier active" onclick="editRoomModifier(\'' + groupId + '\')" title="Modifier le %">&#9998;</button>' : '') +
+                    (editable ? '<button class="btn-room-modifier" onclick="removeRoomModifier(\'' + groupId + '\')" title="Retirer le modificateur">&times;</button>' : '') +
+                    '<span class="room-modifier-tooltip">Base : ' + formatPrice(base) + ' \u00d7 ' + sign + pct + '% = ' + formatPrice(effective) + '</span>';
             } else {
                 wrap.innerHTML =
-                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(calculated) + '</span>' +
-                    (editable ? '<button class="btn-override-toggle" onclick="toggleRoomOverride(\'' + groupId + '\')" title="Prix vendeur (override)">&#9998;</button>' : '');
+                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(base) + '</span>' +
+                    (editable ? '<button class="btn-room-modifier" onclick="editRoomModifier(\'' + groupId + '\')" title="Modificateur % pi\u00e8ce">%</button>' : '');
+            }
+        }
+
+        async function removeRoomModifier(groupId) {
+            roomModifiers[groupId] = 0;
+            applyRoomModifierDisplay(groupId);
+            updateGrandTotal();
+            if (roomMap[groupId]) {
+                await updateRoom(roomMap[groupId], { price_modifier_pct: null });
+                showSaveIndicator();
             }
         }
 
@@ -9356,7 +9475,101 @@
                 '<button class="discount-toggle-btn" onclick="removeDiscount()" title="Retirer le rabais">&times;</button>';
         }
 
-        // ── Grand total with overrides + discount ──
+        // ── Global modifier functions ──
+
+        function updateGlobalModifierDisplay() {
+            var row = document.getElementById('globalModifierRow');
+            var addBtn = document.getElementById('addGlobalModifierBtn');
+            var editable = isSubmissionCurrentlyEditable();
+            var pct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
+            if (!pct) {
+                if (row) row.style.display = 'none';
+                if (addBtn) addBtn.style.display = editable ? '' : 'none';
+                return;
+            }
+            if (addBtn) addBtn.style.display = 'none';
+            if (row) {
+                row.style.display = 'flex';
+                var sign = pct > 0 ? '+' : '';
+                var badge = document.getElementById('globalModifierDisplay');
+                if (badge) badge.textContent = sign + pct + '%';
+                row.querySelectorAll('.discount-toggle-btn').forEach(function(btn) {
+                    btn.style.display = editable ? '' : 'none';
+                });
+            }
+        }
+
+        function editGlobalModifier() {
+            if (currentSubmission && !isSubmissionCurrentlyEditable()) return;
+            var row = document.getElementById('globalModifierRow');
+            var addBtn = document.getElementById('addGlobalModifierBtn');
+            if (addBtn) addBtn.style.display = 'none';
+            row.style.display = 'flex';
+            var currentPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || '';
+            row.innerHTML =
+                '<span class="global-modifier-label">Modificateur global</span>' +
+                '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<input class="global-modifier-input" id="globalModInput" type="text" value="' + (currentPct || '') + '" placeholder="0">' +
+                '<span style="font-size:13px;color:#42A5F5;font-weight:600;">%</span>' +
+                '</div>' +
+                '<button class="discount-toggle-btn" onclick="saveGlobalModifier()" title="Confirmer">&#10003;</button>' +
+                '<button class="discount-toggle-btn" onclick="cancelGlobalModifier()" title="Annuler">&times;</button>';
+            var input = document.getElementById('globalModInput');
+            input.focus();
+            input.select();
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') saveGlobalModifier();
+                if (e.key === 'Escape') cancelGlobalModifier();
+            });
+        }
+
+        async function saveGlobalModifier() {
+            var input = document.getElementById('globalModInput');
+            if (!input) return;
+            var val = parseFloat(input.value.replace(',', '.'));
+            if (isNaN(val)) val = 0;
+            if (!currentSubmission) return;
+            currentSubmission.global_price_modifier_pct = val || null;
+            rebuildGlobalModifierRow();
+            updateGlobalModifierDisplay();
+            // Refresh all room modifier displays (multiplier changed)
+            document.querySelectorAll('.furniture-group').forEach(function(g) {
+                if (roomModifiers[g.id]) applyRoomModifierDisplay(g.id);
+            });
+            updateGrandTotal();
+            await updateSubmission(currentSubmission.id, { global_price_modifier_pct: val || null });
+            showSaveIndicator();
+        }
+
+        async function removeGlobalModifier() {
+            if (!currentSubmission) return;
+            currentSubmission.global_price_modifier_pct = null;
+            rebuildGlobalModifierRow();
+            updateGlobalModifierDisplay();
+            document.querySelectorAll('.furniture-group').forEach(function(g) {
+                if (roomModifiers[g.id]) applyRoomModifierDisplay(g.id);
+            });
+            updateGrandTotal();
+            await updateSubmission(currentSubmission.id, { global_price_modifier_pct: null });
+            showSaveIndicator();
+        }
+
+        function cancelGlobalModifier() {
+            rebuildGlobalModifierRow();
+            updateGlobalModifierDisplay();
+        }
+
+        function rebuildGlobalModifierRow() {
+            var row = document.getElementById('globalModifierRow');
+            if (!row) return;
+            row.innerHTML =
+                '<span class="global-modifier-label">Modificateur global</span>' +
+                '<span class="global-modifier-badge" id="globalModifierDisplay"></span>' +
+                '<button class="discount-toggle-btn" onclick="editGlobalModifier()" title="Modifier">&#9998;</button>' +
+                '<button class="discount-toggle-btn" onclick="removeGlobalModifier()" title="Retirer">&times;</button>';
+        }
+
+        // ── Grand total with modifiers + discount ──
 
         function calculerSubtotalBeforeDiscount() {
             let total = 0;
@@ -9370,6 +9583,7 @@
             if (grandEl) animateValue(grandEl, total, 'price');
             var headerEl = document.getElementById('headerTotal');
             if (headerEl) animateValue(headerEl, total, 'currency');
+            updateGlobalModifierDisplay();
             updateDiscountDisplay();
         }
 
@@ -10164,12 +10378,19 @@
                         const descInput = row.querySelector('.ajout-description');
                         const priceInput = row.querySelector('.ajout-price');
                         const markupInput = row.querySelector('.ajout-markup');
-                        if (descInput && priceInput && markupInput) {
-                            const price = parseFloat(priceInput.value) || 0;
-                            const markup = parseFloat(markupInput.value) || 0;
-                            const lineTotal = price * qty * (1 + markup / 100);
+                        if (descInput && priceInput) {
+                            const isPct = row.dataset.ajoutMode === 'percentage';
+                            const val = parseFloat(priceInput.value) || 0;
+                            let lineTotal;
+                            if (isPct) {
+                                lineTotal = getRowTotal(row);
+                                items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: val + ' %', qty: 1, markup: 0, lineTotal: formatPrice(lineTotal), isPercentage: true });
+                            } else {
+                                const markup = parseFloat(markupInput ? markupInput.value : 0) || 0;
+                                lineTotal = val * qty * (1 + markup / 100);
+                                items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: formatPrice(val), qty: qty, markup: markup, lineTotal: formatPrice(lineTotal) });
+                            }
                             subtotal += lineTotal;
-                            items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: formatPrice(price), qty: qty, markup: markup, lineTotal: formatPrice(lineTotal) });
                         }
                     } else {
                         const item = CATALOGUE_DATA.find(i => i.id === selectedId);
@@ -10183,7 +10404,7 @@
 
                 if (items.length > 0) {
                     const groupId = group.id;
-                    var effectiveSubtotal = roomPriceOverrides[groupId] != null ? Math.round((subtotal + roomPriceOverrides[groupId]) * 100) / 100 : subtotal;
+                    var effectiveSubtotal = Math.round(subtotal * getModifierMultiplier(groupId) * 100) / 100;
                     grandTotal += effectiveSubtotal;
                     const imgs = (groupImages[groupId] || []).map(img => ({
                         name: img.name,
@@ -12385,7 +12606,7 @@
                 group.querySelectorAll('.calc-row').forEach(function(row) {
                     calculatedSubtotal += getRowTotal(row);
                 });
-                var subtotal = roomPriceOverrides[groupId] != null ? Math.round((calculatedSubtotal + roomPriceOverrides[groupId]) * 100) / 100 : calculatedSubtotal;
+                var subtotal = Math.round(calculatedSubtotal * getModifierMultiplier(groupId) * 100) / 100;
                 grandTotal += subtotal;
 
                 var allImgs = groupImages[groupId] || [];
@@ -12697,7 +12918,7 @@
             roomMap = {};
             itemMap = {};
             groupImages = {};
-            roomPriceOverrides = {};
+            roomModifiers = {};
             roomDescEN = {};
             roomDescHTML = {};
             renderProjectList();
@@ -14032,7 +14253,7 @@
             roomMap = {};
             itemMap = {};
             groupImages = {};
-            roomPriceOverrides = {};
+            roomModifiers = {};
             roomDescEN = {};
             roomDescHTML = {};
             resetAiChat();
@@ -14079,9 +14300,9 @@
                         roomDescEN[groupId] = room.client_description_en;
                     }
 
-                    // Load room price override
-                    if (room.price_override != null) {
-                        roomPriceOverrides[groupId] = parseFloat(room.price_override);
+                    // Load room price modifier
+                    if (room.price_modifier_pct != null) {
+                        roomModifiers[groupId] = parseFloat(room.price_modifier_pct);
                     }
 
                     // Load legacy images from JSONB
@@ -14137,7 +14358,8 @@
 
                             if (item.item_type === 'custom') {
                                 select.value = '__AJOUT__';
-                                transformToAjoutMode(row, rowId);
+                                var ajoutMode = item.unit_type === 'percentage' ? 'percentage' : 'fixed';
+                                transformToAjoutMode(row, rowId, ajoutMode);
                                 const descInput = document.getElementById(`${rowId}-desc`);
                                 const priceInput = document.getElementById(`${rowId}-price`);
                                 const markupInput = document.getElementById(`${rowId}-markup`);
@@ -14194,10 +14416,11 @@
             var isEditable = isSubmissionCurrentlyEditable();
             setEditable(isEditable);
 
-            // Apply room price override displays after all rows loaded
-            Object.keys(roomPriceOverrides).forEach(function(gid) {
-                if (roomPriceOverrides[gid] != null) applyRoomOverrideDisplay(gid);
+            // Apply room modifier displays after all rows loaded
+            Object.keys(roomModifiers).forEach(function(gid) {
+                if (roomModifiers[gid]) applyRoomModifierDisplay(gid);
             });
+            updateGlobalModifierDisplay();
             updateDiscountDisplay();
 
             showCalculator();
@@ -14372,7 +14595,7 @@
             var container = document.getElementById('calculatorView');
             if (!container) return;
 
-            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup, .client-desc-textarea').forEach(function(el) {
+            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup, .ajout-mode-toggle, .client-desc-textarea').forEach(function(el) {
                 el.disabled = !editable;
                 el.style.opacity = editable ? '' : '0.6';
             });
@@ -14430,10 +14653,18 @@
                 banner.style.display = 'none';
             }
 
-            // Override + discount buttons
-            container.querySelectorAll('.btn-override-toggle').forEach(function(el) {
+            // Room modifier + discount buttons
+            container.querySelectorAll('.btn-room-modifier').forEach(function(el) {
                 el.style.display = editable ? '' : 'none';
             });
+            var addGlobalModBtn = document.getElementById('addGlobalModifierBtn');
+            if (addGlobalModBtn) addGlobalModBtn.style.display = editable ? '' : 'none';
+            var globalModRow = document.getElementById('globalModifierRow');
+            if (globalModRow) {
+                globalModRow.querySelectorAll('.discount-toggle-btn').forEach(function(btn) {
+                    btn.style.display = editable ? '' : 'none';
+                });
+            }
             var addDiscountBtn = document.getElementById('addDiscountBtn');
             if (addDiscountBtn) addDiscountBtn.style.display = editable ? '' : 'none';
             var discountRow = document.getElementById('discountRow');
@@ -16263,6 +16494,7 @@
             var totalFraisFixes = 0;
             var totalProfitMO = 0;
             var totalPrixVente = 0;
+            var totalAjout = 0;
 
             // Init départements
             tauxHoraires.forEach(function(t) { deptMinutes[t.department] = 0; });
@@ -16287,12 +16519,9 @@
 
                 if (!selectedId || selectedId === '__AJOUT__' || selectedId === '__PROPOSER__') {
                     if (selectedId === '__AJOUT__') {
-                        var priceInput = row.querySelector('.ajout-price');
-                        var markupInput = row.querySelector('.ajout-markup');
-                        var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                        var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                        var ajoutTotal = p * qty * (1 + m / 100);
+                        var ajoutTotal = getRowTotal(row);
                         totalPrixVente += ajoutTotal;
+                        totalAjout += ajoutTotal;
                         if (tagPrefix) {
                             if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };
                             tagData[tagPrefix].prixVente += ajoutTotal;
@@ -16362,7 +16591,10 @@
 
             // Marges
             var profitNet = totalProfitMO + totalMatMarkup;
-            var margeBrutReelPct = totalPrixVente > 0 ? (profitNet / totalPrixVente * 100) : 0;
+            var prixVenteSansAjout = totalPrixVente - totalAjout;
+            var margeBrutReelPct = prixVenteSansAjout > 0 ? (profitNet / prixVenteSansAjout * 100) : 0;
+            var profitNetAvecAjout = profitNet + totalAjout;
+            var margeBrutAvecAjoutPct = totalPrixVente > 0 ? (profitNetAvecAjout / totalPrixVente * 100) : 0;
             var margeVisee = 38; // %
             var margeViseeMontant = totalPrixVente * margeVisee / 100;
 
@@ -16395,6 +16627,10 @@
             html += '<tr><td>Total salaires</td><td>' + f(totalSalaires) + '</td></tr>';
             html += '<tr><td>Total frais fixes</td><td>' + f(totalFraisFixes) + '</td></tr>';
             html += '<tr><td>Profit sur taux horaire</td><td>' + f(totalProfitMO) + '</td></tr>';
+            if (totalAjout > 0) {
+                html += '<tr class="spacer"><td></td><td></td></tr>';
+                html += '<tr><td>Ajouts personnalis\u00e9s</td><td style="color:#1565C0;">' + f(totalAjout) + '</td></tr>';
+            }
             html += '</table>';
             html += '</div>';
             html += '</div>';
@@ -16430,7 +16666,10 @@
             html += '<div class="rentab-margins">';
             html += '<div class="rentab-margins-row"><span>Marge brut vis\u00e9e</span><span>' + fPct(margeVisee) + '</span></div>';
             html += '<div class="rentab-margins-row"><span>Marge brut r\u00e9elle</span><span>' + fPct(margeBrutReelPct) + '</span></div>';
-            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span>' + f(profitNet) + '</span></div>';
+            if (totalAjout > 0) {
+                html += '<div class="rentab-margins-row"><span>Marge brut avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(margeBrutAvecAjoutPct) + '</span></div>';
+            }
+            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span>' + f(profitNetAvecAjout) + '</span></div>';
             html += '</div>';
             html += '</div>';
 

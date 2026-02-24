@@ -271,8 +271,10 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
 
   const roomsStr = (context.rooms || [])
     .map((r: any) => {
-      let line = `- ${r.name}: ${r.itemCount} articles, sous-total ${r.subtotal}$`;
-      if (r.priceOverride != null) line += ` (prix vendeur: ${r.effectiveTotal}$, ajustement: ${r.priceOverride > 0 ? '+' : ''}${r.priceOverride}$)`;
+      let line = `- ${r.name}: ${r.itemCount} articles, sous-total base ${r.subtotal}$`;
+      if (r.roomModifierPct) line += ` (mod. pièce: ${r.roomModifierPct > 0 ? '+' : ''}${r.roomModifierPct}%)`;
+      if (r.globalModifierPct) line += ` (mod. global: ${r.globalModifierPct > 0 ? '+' : ''}${r.globalModifierPct}%)`;
+      if (r.effectiveTotal !== r.subtotal) line += ` → effectif ${r.effectiveTotal}$`;
       if (!r.installationIncluded) line += ' (inst. exclue)';
       if (r.hasDescription) line += ' [desc. rédigée]';
       return line;
@@ -354,6 +356,9 @@ Client : ${context.project?.client || 'N/A'}
 Designer : ${context.project?.designer || 'N/A'}
 Soumission #${context.submission?.number || '?'} — Statut : ${context.submission?.status || '?'}
 Sous-total (avant rabais) : ${context.subtotalBeforeDiscount || context.grandTotal || 0}$`;
+  if (context.submission?.global_price_modifier_pct) {
+    dynamicParts += `\nModificateur global : ${context.submission.global_price_modifier_pct > 0 ? '+' : ''}${context.submission.global_price_modifier_pct}%`;
+  }
   if (context.submission?.discount_type && context.submission?.discount_value) {
     const dt = context.submission.discount_type;
     const dv = context.submission.discount_value;

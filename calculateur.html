@@ -2145,6 +2145,24 @@
     }
 
     /**
+     * Resolve a cascade target. If target starts with "$default:", look up
+     * the matching default material from the current submission.
+     * Otherwise return the target as-is.
+     */
+    function resolveCascadeTarget(target) {
+        if (!target) return null;
+        if (!target.startsWith('$default:')) return target;
+        var groupName = target.substring(9);
+        var dm = getDefaultMaterials();
+        for (var i = 0; i < dm.length; i++) {
+            if (dm[i].type === groupName && dm[i].catalogue_item_id) {
+                return dm[i].catalogue_item_id;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Moteur cascade récursif.
      * Exécute les règles `cascade` du calculation_rule_ai de l'article sélectionné.
      * Crée/met à jour/supprime les lignes enfants automatiquement.
@@ -2200,6 +2218,14 @@
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
 
+            // Résoudre $default: targets
+            var resolvedTarget = resolveCascadeTarget(rule.target);
+            if (!resolvedTarget) {
+                if (rule.target.startsWith('$default:'))
+                    showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));
+                continue;
+            }
+
             // Évaluer la condition
             if (rule.condition) {
                 var condResult = evalFormula(rule.condition, vars);
@@ -2214,7 +2240,7 @@
             // Chercher un enfant existant avec le même target
             var existing = null;
             for (var ei = 0; ei < existingChildren.length; ei++) {
-                if (existingChildren[ei].catalogueId === rule.target) {
+                if (existingChildren[ei].catalogueId === resolvedTarget) {
                     existing = existingChildren[ei];
                     break;
                 }
@@ -2242,7 +2268,7 @@
                     waitAttempts++;
                 }
                 if (!itemMap[newRowId]) {
-                    console.error('[Cascade] Timeout création ligne pour', rule.target);
+                    console.error('[Cascade] Timeout création ligne pour', resolvedTarget, '(rule:', rule.target, ')');
                     continue;
                 }
 
@@ -2253,7 +2279,7 @@
                 // Sélectionner l'article cible
                 var childRow2 = document.getElementById(newRowId);
                 var childSelect = childRow2 ? childRow2.querySelector('.item-select') : null;
-                if (childSelect) childSelect.value = rule.target;
+                if (childSelect) childSelect.value = resolvedTarget;
                 var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
                 if (childQtyInput) childQtyInput.value = qty;
 

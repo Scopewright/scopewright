@@ -4300,6 +4300,7 @@
         function sbInitSandbox() {
             // If already active (navigating between items), just refresh content
             if (sbActive) {
+                if (sbMaterialGroupsFull.length > 0) sbMaterialGroups = sbMaterialGroupsFull;
                 var panel = document.getElementById('sbPanel');
                 if (panel) {
                     panel.innerHTML = sbBuildPanelHTML();
@@ -4314,6 +4315,7 @@
             }
 
             sbActive = true;
+            if (sbMaterialGroupsFull.length > 0) sbMaterialGroups = sbMaterialGroupsFull;
 
             var overlay = document.getElementById('editModal');
             var modal = overlay.querySelector('.modal.modal-edit');
@@ -4697,12 +4699,24 @@
             // Check cascade
             if (rules.cascade) {
                 rules.cascade.forEach(function(c) {
-                    if (c.target === childRow.catalogueItemId && c.qty) {
+                    var resolvedTarget = sbResolveCascadeTarget(c.target);
+                    if (resolvedTarget === childRow.catalogueItemId && c.qty) {
                         var result = sbEvalFormula(String(c.qty), sbGetDimVars(parentRow.qty));
                         if (result != null) childRow.qty = Math.max(1, Math.round(result));
                     }
                 });
             }
+        }
+
+        // ── Resolve $default: targets in sandbox ──
+
+        function sbResolveCascadeTarget(target) {
+            if (!target) return null;
+            if (!target.startsWith('$default:')) return target;
+            var groupName = target.substring(9);
+            var key = sbMatKey(groupName);
+            if (sbMaterials[key] && sbMaterials[key].id) return sbMaterials[key].id;
+            return null;
         }
 
         // ── Constraint engine (simplified) ──
@@ -4748,19 +4762,22 @@
             if (rules.cascade && Array.isArray(rules.cascade)) {
                 rules.cascade.forEach(function(c) {
                     if (!c.target) return;
+                    // Resolve $default: targets
+                    var resolvedTarget = sbResolveCascadeTarget(c.target);
+                    if (!resolvedTarget) return;
                     // Evaluate condition
                     if (c.condition) {
                         var condResult = sbEvalFormula(c.condition, sbGetDimVars(rowData.qty));
                         if (!condResult) return;
                     }
                     // Check not already added
-                    if (sbRows.some(function(r) { return r.catalogueItemId === c.target && r.cascadeOf === rowData.id; })) return;
+                    if (sbRows.some(function(r) { return r.catalogueItemId === resolvedTarget && r.cascadeOf === rowData.id; })) return;
                     var qty = 1;
                     if (c.qty) {
                         var result = sbEvalFormula(String(c.qty), sbGetDimVars(rowData.qty));
                         if (result != null && result > 0) qty = Math.round(result);
                     }
-                    sbAddRow(c.target, qty, rowData.id);
+                    sbAddRow(resolvedTarget, qty, rowData.id);
                 });
             }
         }

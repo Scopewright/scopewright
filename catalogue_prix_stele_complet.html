@@ -1499,6 +1499,29 @@
             display: flex;
         }
 
+        /* ── Unsaved changes confirmation dialog ── */
+        .unsaved-confirm-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            z-index: 100001; display: flex; align-items: center; justify-content: center;
+            animation: ucFadeIn 0.12s ease;
+        }
+        @keyframes ucFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .unsaved-confirm {
+            background: #fff; border-radius: 12px; padding: 24px 28px;
+            max-width: 380px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .unsaved-confirm h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #0f172a; }
+        .unsaved-confirm p { margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.5; }
+        .unsaved-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .unsaved-confirm-actions button {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none;
+        }
+        .uc-btn-stay { background: var(--sw-navy, #0F1C2D); color: #fff; }
+        .uc-btn-stay:hover { opacity: 0.9; }
+        .uc-btn-discard { background: #f1f5f9; color: #ef4444; }
+        .uc-btn-discard:hover { background: #fee2e2; }
+
         .modal {
             background: var(--sw-surface);
             border-radius: 8px;
@@ -2152,7 +2175,7 @@
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <span class="modal-proposed-by" id="editProposedBy" style="display:none; font-size:11px; color:#64748b;"></span>
                     <button class="btn-reject-item" id="btnRejectItem" style="display:none;" onclick="rejectItemFromCatalogue()">Rejeter</button>
-                    <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+                    <button class="btn-cancel" onclick="guardedCloseEditModal()">Annuler</button>
                     <button class="btn-approve-item" id="btnApproveItem" style="display:none;" onclick="approveItemFromCatalogue()">Approuver</button>
                     <button class="btn-generate" id="btnEditSave" onclick="saveEditModal()">Sauvegarder</button>
                 </div>
@@ -3813,6 +3836,84 @@
 
             document.getElementById('editModal').classList.add('active');
             document.querySelector('.modal-body').scrollTop = 0;
+
+            // ── Dirty tracking: snapshot initial state after modal is fully populated ──
+            setTimeout(function() { _modalSnapshot = captureModalSnapshot(); _modalDirty = false; }, 100);
+        }
+
+        // ═══ Unsaved changes protection ═══
+        var _modalSnapshot = '';
+        var _modalDirty = false;
+
+        /** Serialize all editable fields into a string for comparison. */
+        function captureModalSnapshot() {
+            var fields = [
+                'editDescription', 'editInstruction', 'editClientText',
+                'editCategory', 'editItemType', 'editType', 'editPrice',
+                'editPresRuleHuman', 'editPresRuleAi', 'editCalcRuleHuman', 'editCalcRuleAi',
+                'editInCalculator', 'editIsDefault', 'editHasSalesSheet',
+                'editDimL', 'editDimH', 'editDimP'
+            ];
+            var parts = [];
+            fields.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                if (el.type === 'checkbox') parts.push(id + ':' + el.checked);
+                else parts.push(id + ':' + (el.value || ''));
+            });
+            // Composed price tables — minutes & materials inputs
+            document.querySelectorAll('#minutesTable input, #materialsTable input').forEach(function(inp) {
+                parts.push('comp:' + (inp.id || inp.name || '') + ':' + inp.value);
+            });
+            // Components
+            document.querySelectorAll('#componentsList input, #componentsList select').forEach(function(inp) {
+                parts.push('cmp:' + (inp.dataset.field || '') + ':' + inp.value);
+            });
+            return parts.join('|');
+        }
+
+        /** Check if modal has unsaved changes. */
+        function isModalDirty() {
+            if (_modalDirty) return true;
+            return captureModalSnapshot() !== _modalSnapshot;
+        }
+
+        /**
+         * Show unsaved changes confirmation dialog.
+         * Returns a Promise that resolves to 'stay' or 'discard'.
+         */
+        function confirmUnsavedChanges() {
+            return new Promise(function(resolve) {
+                var overlay = document.createElement('div');
+                overlay.className = 'unsaved-confirm-overlay';
+                overlay.innerHTML =
+                    '<div class="unsaved-confirm">' +
+                    '<h3>Modifications non sauvegardées</h3>' +
+                    '<p>Vous avez des modifications non sauvegardées. Fermer quand même ?</p>' +
+                    '<div class="unsaved-confirm-actions">' +
+                    '<button class="uc-btn-discard" id="ucDiscard">Fermer sans sauvegarder</button>' +
+                    '<button class="uc-btn-stay" id="ucStay">Rester</button>' +
+                    '</div></div>';
+                document.body.appendChild(overlay);
+                overlay.querySelector('#ucStay').onclick = function() { overlay.remove(); resolve('stay'); };
+                overlay.querySelector('#ucDiscard').onclick = function() { overlay.remove(); resolve('discard'); };
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) { overlay.remove(); resolve('stay'); }
+                });
+                overlay.querySelector('#ucStay').focus();
+            });
+        }
+
+        /**
+         * Guarded close: checks for unsaved changes before closing.
+         * Use this instead of closeEditModal() for user-initiated closes.
+         */
+        async function guardedCloseEditModal() {
+            if (isModalDirty()) {
+                var result = await confirmUnsavedChanges();
+                if (result === 'stay') return;
+            }
+            closeEditModal();
         }
 
         function toggleSalesSheetBtn() {
@@ -4073,6 +4174,7 @@
                         editMediaToDelete.push({ id: media.id, file_url: media.file_url });
                     }
                     editMedia.splice(index, 1);
+                    _modalDirty = true;
                     renderEditMedia();
                 };
                 item.appendChild(removeBtn);
@@ -4109,6 +4211,7 @@
                         cropRatio: result.ratio,
                         cropData: result.cropData
                     });
+                    _modalDirty = true;
                     renderEditMedia();
                 } else {
                     // PDF: no crop
@@ -4121,6 +4224,7 @@
                         isNew: true,
                         file: file
                     });
+                    _modalDirty = true;
                     renderEditMedia();
                 }
             }
@@ -4815,6 +4919,10 @@
                     return;
                 }
 
+                // Reset dirty tracking after successful save
+                _modalSnapshot = captureModalSnapshot();
+                _modalDirty = false;
+
                 if (!silent) {
                     status.textContent = '\u2713 Sauvegardé';
                     status.style.display = '';
@@ -4864,8 +4972,21 @@
             document.getElementById('editModal').addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal-overlay')) {
                     var drawerOpen = document.getElementById('ciDrawer') && document.getElementById('ciDrawer').classList.contains('active');
-                    if (!drawerOpen) closeEditModal();
+                    if (!drawerOpen) guardedCloseEditModal();
                 }
+            });
+
+            // Fermer modal avec Escape (sauf si drawer AI ouvert ou confirmation affichée)
+            document.addEventListener('keydown', function(e) {
+                if (e.key !== 'Escape') return;
+                // Don't intercept if unsaved confirmation dialog is showing
+                if (document.querySelector('.unsaved-confirm-overlay')) return;
+                var modal = document.getElementById('editModal');
+                if (!modal || !modal.classList.contains('active')) return;
+                var drawerOpen = document.getElementById('ciDrawer') && document.getElementById('ciDrawer').classList.contains('active');
+                if (drawerOpen) return;
+                e.preventDefault();
+                guardedCloseEditModal();
             });
         }
 

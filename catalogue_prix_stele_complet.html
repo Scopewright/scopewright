@@ -4365,13 +4365,15 @@
             sbItemOverrides = {};
             // Keep sbMaterials!
 
-            // Re-add current item
-            var currentId = document.getElementById('editItemId').value;
-            if (currentId) {
-                sbAddRow(currentId, 1, null);
-            }
-
             sbRefreshAll();
+
+            // Flash feedback on panel
+            var panel = document.getElementById('sbPanel');
+            if (panel) {
+                panel.style.transition = 'background 0.2s';
+                panel.style.background = '#f0f7f0';
+                setTimeout(function() { panel.style.background = ''; }, 400);
+            }
         }
 
         // ── Panel HTML template ──
@@ -4567,7 +4569,9 @@
 
         // ── Row management ──
 
+        var _sbAddDepth = 0;
         function sbAddRow(itemId, qty, cascadeOf) {
+            if (_sbAddDepth > 10) return null; // guard against infinite recursion
             var item = sbGetItem(itemId);
             if (!item) return null;
 
@@ -4582,7 +4586,9 @@
             sbRows.push(rowData);
 
             // Process constraints for this item
+            _sbAddDepth++;
             sbProcessConstraints(rowData);
+            _sbAddDepth--;
 
             return rowData;
         }

@@ -194,6 +194,47 @@
         }
         .profit-cell.negative { color: #c0392b; }
 
+        /* Category-group mapping chips */
+        .cat-row-mapping { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .cat-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #eef2f7; color: #1e293b; font-size: 12px;
+            padding: 3px 8px 3px 10px; border-radius: 12px;
+            white-space: nowrap;
+        }
+        .cat-chip-x {
+            background: none; border: none; color: #94a3b8; font-size: 14px;
+            cursor: pointer; padding: 0 2px; line-height: 1;
+        }
+        .cat-chip-x:hover { color: #c0392b; }
+        .cat-chip-add {
+            background: none; border: 1px dashed #cbd5e1; color: #94a3b8;
+            font-size: 11px; padding: 3px 8px; border-radius: 12px;
+            cursor: pointer; white-space: nowrap;
+        }
+        .cat-chip-add:hover { border-color: #64748b; color: #475569; }
+        .cat-unmapped {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: #d97706; font-size: 11px; font-weight: 500;
+        }
+        .cat-chip-menu {
+            position: fixed; background: #fff; border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 200;
+            min-width: 180px; padding: 4px 0;
+            animation: sdFadeIn 0.12s ease-out;
+        }
+        .cat-chip-menu-item {
+            padding: 8px 14px; font-size: 13px; cursor: pointer;
+            color: #1e293b;
+        }
+        .cat-chip-menu-item:hover { background: #f1f5f9; }
+        .section-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 20px; height: 20px; padding: 0 6px;
+            background: #f0ad4e; color: #fff; font-size: 11px; font-weight: 700;
+            border-radius: 10px; margin-left: 8px;
+        }
+
         /* Footer */
         .app-footer {
             padding: 20px 40px; text-align: center;
@@ -408,8 +449,8 @@
             <div class="section collapsed" id="sectionCategories">
                 <div class="section-toggle" onclick="toggleSection('sectionCategories')">
                     <div class="section-toggle-left">
-                        <div class="section-title">Cat&eacute;gories du catalogue</div>
-                        <div class="section-desc">G&eacute;rez les cat&eacute;gories disponibles pour classer les articles du catalogue.</div>
+                        <div class="section-title">Cat&eacute;gories du catalogue<span class="section-badge" id="unmappedBadge" style="display:none"></span></div>
+                        <div class="section-desc">G&eacute;rez les cat&eacute;gories et leurs groupes mat&eacute;riaux associ&eacute;s.</div>
                     </div>
                     <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
@@ -417,8 +458,9 @@
                     <table class="roles-table">
                         <thead>
                             <tr>
-                                <th style="width:85%">Cat&eacute;gorie</th>
-                                <th style="width:15%"></th>
+                                <th style="width:35%">Cat&eacute;gorie</th>
+                                <th style="width:55%">Groupes mat&eacute;riaux associ&eacute;s</th>
+                                <th style="width:10%"></th>
                             </tr>
                         </thead>
                         <tbody id="categoriesBody"></tbody>
@@ -427,6 +469,33 @@
                     <div class="save-bar">
                         <button class="btn-save" onclick="saveCategories()">Sauvegarder les cat&eacute;gories</button>
                         <span class="save-feedback" id="categoriesFeedback"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Groupes materiaux soumission -->
+            <div class="section collapsed" id="sectionMaterialGroups">
+                <div class="section-toggle" onclick="toggleSection('sectionMaterialGroups')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Groupes mat&eacute;riaux (soumission)</div>
+                        <div class="section-desc">Les groupes utilis&eacute;s pour les mat&eacute;riaux par d&eacute;faut dans le calculateur.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <table class="roles-table">
+                        <thead>
+                            <tr>
+                                <th style="width:85%">Groupe</th>
+                                <th style="width:15%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="materialGroupsBody"></tbody>
+                    </table>
+                    <button class="btn-add" onclick="addMaterialGroupRow()">+ Ajouter un groupe</button>
+                    <div class="save-bar">
+                        <button class="btn-save" onclick="saveMaterialGroups()">Sauvegarder les groupes</button>
+                        <span class="save-feedback" id="materialGroupsFeedback"></span>
                     </div>
                 </div>
             </div>
@@ -1052,6 +1121,9 @@
     var rolesFromDB = []; // Roles loaded from database
     var mediaTags = [];
     var catalogueCategories = [];
+    var materialGroups = [];
+    var categoryGroupMapping = {};
+    var DEFAULT_MATERIAL_GROUPS = ['Caisson', 'Fa\u00e7ades et panneaux apparents', 'Tiroirs', 'Poign\u00e9es', '\u00c9clairage', 'Autre'];
     var DEFAULT_MEDIA_TAGS = ['fiche_client', 'catalogue', 'technique', 'dessin'];
     var DEFAULT_CATEGORIES = ['Budg\u00e9taire', 'Panneaux', 'Poign\u00e9es', 'Tiroirs', '\u00c9clairage', 'Portes int\u00e9rieures'];
     var DEPARTMENTS = [
@@ -1232,6 +1304,8 @@
                     if (rows[i].key === 'pipeline_statuses') pipelineStatuses = rows[i].value;
                     if (rows[i].key === 'project_sources') projectSources = rows[i].value;
                     if (rows[i].key === 'project_types') projectTypes = rows[i].value;
+                    if (rows[i].key === 'material_groups') materialGroups = rows[i].value;
+                    if (rows[i].key === 'category_group_mapping') categoryGroupMapping = rows[i].value;
                 }
             }
             await loadUserProfiles();
@@ -1283,6 +1357,12 @@
         if (!Array.isArray(catalogueCategories) || !catalogueCategories.length) {
             catalogueCategories = DEFAULT_CATEGORIES.slice();
         }
+        if (!Array.isArray(materialGroups) || !materialGroups.length) {
+            materialGroups = DEFAULT_MATERIAL_GROUPS.slice();
+        }
+        if (!categoryGroupMapping || typeof categoryGroupMapping !== 'object' || Array.isArray(categoryGroupMapping)) {
+            categoryGroupMapping = {};
+        }
         if (!Array.isArray(tauxHoraires) || !tauxHoraires.length) {
             tauxHoraires = DEPARTMENTS.map(function(d) {
                 return { department: d, taux_horaire: 0, frais_fixe: 0, salaire: 0 };
@@ -1324,6 +1404,7 @@
         renderManageRolesTable();
         renderRolesTable();
         renderCategoriesTable();
+        renderMaterialGroupsTable();
         renderTagsTable();
         renderTauxTable();
         renderExpensesTable();
@@ -1464,7 +1545,9 @@
         return div.innerHTML;
     }
 
-    // ── Categories du catalogue table ──
+    // ── Categories du catalogue table (with group mapping chips) ──
+
+    var _chipMenuOpen = null; // currently open chip menu element
 
     function renderCategoriesTable() {
         var body = document.getElementById('categoriesBody');
@@ -1473,11 +1556,28 @@
             html += buildCategoryRowHtml(catalogueCategories[i]);
         }
         body.innerHTML = html;
+        updateUnmappedBadge();
     }
 
     function buildCategoryRowHtml(cat) {
+        var groups = categoryGroupMapping[cat] || [];
+        var chipsHtml = '<div class="cat-row-mapping">';
+        for (var g = 0; g < groups.length; g++) {
+            chipsHtml += '<span class="cat-chip">' + escapeHtml(groups[g]) +
+                '<button class="cat-chip-x" onclick="removeCatGroup(\'' + escapeAttr(cat) + '\',\'' + escapeAttr(groups[g]) + '\')">&times;</button></span>';
+        }
+        // Available groups not yet assigned
+        var available = materialGroups.filter(function(mg) { return groups.indexOf(mg) === -1; });
+        if (available.length > 0) {
+            chipsHtml += '<button class="cat-chip-add" onclick="openChipMenu(event,\'' + escapeAttr(cat) + '\')">+ Ajouter</button>';
+        }
+        if (groups.length === 0) {
+            chipsHtml += '<span class="cat-unmapped">\u26a0 Non li\u00e9e</span>';
+        }
+        chipsHtml += '</div>';
         return '<tr>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(cat) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
+            '<td>' + chipsHtml + '</td>' +
             '<td><button class="btn-remove" onclick="removeCategoryRow(this)" title="Retirer">&times;</button></td>' +
             '</tr>';
     }
@@ -1490,9 +1590,15 @@
     }
 
     async function removeCategoryRow(btn) {
-        if (!await steleConfirm('Retirer cette catégorie ?')) return;
-        var row = btn.parentNode.parentNode;
+        if (!await steleConfirm('Retirer cette cat\u00e9gorie ?')) return;
+        var row = btn.closest('tr');
+        var catName = row.querySelector('.input-email').value.trim();
         row.parentNode.removeChild(row);
+        // Clean mapping
+        if (catName && categoryGroupMapping[catName]) {
+            delete categoryGroupMapping[catName];
+            saveConfig('category_group_mapping', categoryGroupMapping, 'categoriesFeedback');
+        }
     }
 
     function saveCategories() {
@@ -1504,8 +1610,144 @@
             if (newCats.indexOf(val) !== -1) continue;
             newCats.push(val);
         }
+        // Rename mapping keys if categories were renamed
+        var oldCats = catalogueCategories;
+        var newMapping = {};
+        for (var j = 0; j < rows.length; j++) {
+            var newName = rows[j].querySelector('.input-email').value.trim();
+            var oldName = oldCats[j];
+            if (!newName) continue;
+            if (oldName && categoryGroupMapping[oldName]) {
+                newMapping[newName] = categoryGroupMapping[oldName];
+            } else if (categoryGroupMapping[newName]) {
+                newMapping[newName] = categoryGroupMapping[newName];
+            }
+        }
         catalogueCategories = newCats;
+        categoryGroupMapping = newMapping;
         saveConfig('catalogue_categories', catalogueCategories, 'categoriesFeedback');
+        saveConfig('category_group_mapping', categoryGroupMapping, 'categoriesFeedback');
+        updateUnmappedBadge();
+    }
+
+    // ── Chip menu for adding group to category ──
+
+    function openChipMenu(e, catName) {
+        e.stopPropagation();
+        closeChipMenu();
+        var existing = categoryGroupMapping[catName] || [];
+        var available = materialGroups.filter(function(mg) { return existing.indexOf(mg) === -1; });
+        if (!available.length) return;
+
+        var menu = document.createElement('div');
+        menu.className = 'cat-chip-menu';
+        menu.id = 'chipMenuActive';
+        available.forEach(function(g) {
+            var item = document.createElement('div');
+            item.className = 'cat-chip-menu-item';
+            item.textContent = g;
+            item.onclick = function(ev) { ev.stopPropagation(); addCatGroup(catName, g); };
+            menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+
+        var btn = e.currentTarget;
+        var r = btn.getBoundingClientRect();
+        menu.style.left = r.left + 'px';
+        var spaceBelow = window.innerHeight - r.bottom;
+        if (spaceBelow < 200) {
+            menu.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+            menu.style.top = 'auto';
+        } else {
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.style.bottom = 'auto';
+        }
+        _chipMenuOpen = menu;
+        setTimeout(function() { document.addEventListener('mousedown', _chipMenuOutside); }, 0);
+    }
+
+    function _chipMenuOutside(e) {
+        var menu = document.getElementById('chipMenuActive');
+        if (menu && !menu.contains(e.target)) closeChipMenu();
+    }
+
+    function closeChipMenu() {
+        document.removeEventListener('mousedown', _chipMenuOutside);
+        var menu = document.getElementById('chipMenuActive');
+        if (menu) menu.remove();
+        _chipMenuOpen = null;
+    }
+
+    function addCatGroup(catName, groupName) {
+        if (!categoryGroupMapping[catName]) categoryGroupMapping[catName] = [];
+        if (categoryGroupMapping[catName].indexOf(groupName) === -1) {
+            categoryGroupMapping[catName].push(groupName);
+        }
+        closeChipMenu();
+        saveConfig('category_group_mapping', categoryGroupMapping, 'categoriesFeedback');
+        renderCategoriesTable();
+    }
+
+    function removeCatGroup(catName, groupName) {
+        if (!categoryGroupMapping[catName]) return;
+        categoryGroupMapping[catName] = categoryGroupMapping[catName].filter(function(g) { return g !== groupName; });
+        if (categoryGroupMapping[catName].length === 0) delete categoryGroupMapping[catName];
+        saveConfig('category_group_mapping', categoryGroupMapping, 'categoriesFeedback');
+        renderCategoriesTable();
+    }
+
+    function updateUnmappedBadge() {
+        var count = 0;
+        for (var i = 0; i < catalogueCategories.length; i++) {
+            if (!categoryGroupMapping[catalogueCategories[i]] || categoryGroupMapping[catalogueCategories[i]].length === 0) count++;
+        }
+        var badge = document.getElementById('unmappedBadge');
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? '' : 'none';
+        }
+    }
+
+    // ── Material groups table ──
+
+    function renderMaterialGroupsTable() {
+        var body = document.getElementById('materialGroupsBody');
+        var html = '';
+        for (var i = 0; i < materialGroups.length; i++) {
+            html += '<tr>' +
+                '<td><input type="text" class="input-email" value="' + escapeHtml(materialGroups[i]) + '" placeholder="Nom du groupe"></td>' +
+                '<td><button class="btn-remove" onclick="removeMaterialGroupRow(this)" title="Retirer">&times;</button></td>' +
+                '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    function addMaterialGroupRow() {
+        var body = document.getElementById('materialGroupsBody');
+        body.insertAdjacentHTML('beforeend', '<tr><td><input type="text" class="input-email" value="" placeholder="Nom du groupe"></td><td><button class="btn-remove" onclick="removeMaterialGroupRow(this)" title="Retirer">&times;</button></td></tr>');
+        var inputs = body.querySelectorAll('.input-email');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    async function removeMaterialGroupRow(btn) {
+        if (!await steleConfirm('Retirer ce groupe ?')) return;
+        var row = btn.closest('tr');
+        row.parentNode.removeChild(row);
+    }
+
+    function saveMaterialGroups() {
+        var newGroups = [];
+        var rows = document.querySelectorAll('#materialGroupsBody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var val = rows[i].querySelector('.input-email').value.trim();
+            if (!val) continue;
+            if (newGroups.indexOf(val) !== -1) continue;
+            newGroups.push(val);
+        }
+        materialGroups = newGroups;
+        saveConfig('material_groups', materialGroups, 'materialGroupsFeedback');
+        // Re-render categories to update available chips
+        renderCategoriesTable();
     }
 
     // ── Tags médias table ──

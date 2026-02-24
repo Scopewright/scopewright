@@ -1679,7 +1679,7 @@
     // ═══════════════════════════════════════════════════════════════════════
     // Structure: [ { type: "Caisson", catalogue_item_id: "uuid", description: "Mélamine blanc ME1" }, ... ]
 
-    var DM_TYPES = ['Caisson', 'Façades et panneaux apparents', 'Tiroirs', 'Poignées', 'Éclairage', 'Autre'];
+    function getDmTypes() { return materialGroups; }
     var dmActiveAC = null; // currently open autocomplete index
 
     function toggleDefaultMaterials() {
@@ -1730,7 +1730,7 @@
     }
 
     function renderDmRow(idx, entry) {
-        var typeOptions = DM_TYPES.map(function(t) {
+        var typeOptions = getDmTypes().map(function(t) {
             return '<option value="' + escapeAttr(t) + '"' + (entry.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
         }).join('');
         // Show client_text if the catalogue item has one, otherwise fall back to stored description
@@ -1755,7 +1755,7 @@
 
     function addDefaultMaterial() {
         var dm = getDefaultMaterials();
-        dm.push({ type: DM_TYPES[0], catalogue_item_id: null, description: '' });
+        dm.push({ type: getDmTypes()[0], catalogue_item_id: null, description: '' });
         if (currentSubmission) currentSubmission.default_materials = dm;
         saveDefaultMaterials(dm);
         renderDefaultMaterials();
@@ -1775,6 +1775,19 @@
         saveDefaultMaterials(dm);
     }
 
+    // Build set of allowed catalogue categories for a given material group
+    function getAllowedCategoriesForGroup(groupName) {
+        if (!groupName || !categoryGroupMapping || typeof categoryGroupMapping !== 'object') return null;
+        // Invert the mapping: category → groups[] → find categories that include this group
+        var allowed = [];
+        Object.keys(categoryGroupMapping).forEach(function(cat) {
+            if (Array.isArray(categoryGroupMapping[cat]) && categoryGroupMapping[cat].indexOf(groupName) !== -1) {
+                allowed.push(cat);
+            }
+        });
+        return allowed.length > 0 ? allowed : null; // null = no filter (show all)
+    }
+
     function dmSearchCatalogue(idx, input) {
         var query = input.value.trim().toLowerCase();
         var acDiv = document.getElementById('dmAC-' + idx);
@@ -1783,7 +1796,17 @@
         // Mark as unresolved when user edits
         input.classList.remove('dm-resolved');
 
+        // Get the selected group for this row to filter by allowed categories
+        var dm = getDefaultMaterials();
+        var selectedGroup = dm[idx] ? dm[idx].type : null;
+        var allowedCats = getAllowedCategoriesForGroup(selectedGroup);
+
         var items = CATALOGUE_DATA || [];
+        // Pre-filter by allowed categories if mapping exists
+        if (allowedCats) {
+            items = items.filter(function(item) { return allowedCats.indexOf(item.category) !== -1; });
+        }
+
         var results;
         if (query.length < 2) {
             // No query: show all items grouped by category (browseable)
@@ -7299,19 +7322,55 @@
                            (item.client_text || '').toLowerCase().indexOf(q) !== -1;
                 });
             }
+            // Prioritize items matching submission default materials
+            var dmIds = {};
+            var dm = getDefaultMaterials();
+            dm.forEach(function(entry) {
+                if (entry.catalogue_item_id) dmIds[entry.catalogue_item_id] = true;
+            });
+            var hasDmIds = Object.keys(dmIds).length > 0;
+            var priorityItems = [];
+            var restItems = [];
+            if (hasDmIds) {
+                items.forEach(function(item) {
+                    if (dmIds[item.id]) priorityItems.push(item);
+                    else restItems.push(item);
+                });
+            } else {
+                restItems = items;
+            }
+
             var html = '';
+            var globalIdx = 0;
+
+            // Render priority items first
+            if (priorityItems.length > 0) {
+                html += '<div class="cb-group-label" style="color:#1565C0;font-weight:600;">Matériaux par défaut</div>';
+                priorityItems.forEach(function(item) {
+                    var pending = (item.status === 'pending') ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
+                    html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + globalIdx + '">'
+                        + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
+                        + '<span class="cb-item-desc">' + escapeHtml(item.description) + pending + '</span>'
+                        + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
+                        + '</div>';
+                    globalIdx++;
+                });
+            }
+
+            // Render rest grouped by category
             var currentCat = '';
-            items.forEach(function(item, idx) {
+            restItems.forEach(function(item) {
                 if (item.category !== currentCat) {
                     currentCat = item.category;
                     html += '<div class="cb-group-label">' + escapeHtml(currentCat || 'Autre') + '</div>';
                 }
                 var pending = (item.status === 'pending') ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
-                html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + idx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + idx + '">'
+                html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + globalIdx + '">'
                     + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
                     + '<span class="cb-item-desc">' + escapeHtml(item.description) + pending + '</span>'
                     + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
                     + '</div>';
+                globalIdx++;
             });
             // Special options
             html += '<div class="cb-group-label">Autre</div>';
@@ -7749,10 +7808,13 @@
             { prefix: 'A', label_fr: 'Accessoire', label_en: 'Accessory' }
         ];
 
+        var materialGroups = ['Caisson', 'Fa\u00e7ades et panneaux apparents', 'Tiroirs', 'Poign\u00e9es', '\u00c9clairage', 'Autre'];
+        var categoryGroupMapping = {};
+
         async function loadTauxAndExpenses() {
             try {
                 const r = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories,tag_prefixes)&select=key,value', {}
+                    SUPABASE_URL + '/rest/v1/app_config?key=in.(taux_horaires,expense_categories,tag_prefixes,material_groups,category_group_mapping)&select=key,value', {}
                 );
                 if (r.ok) {
                     const rows = await r.json();
@@ -7760,6 +7822,8 @@
                         if (row.key === 'taux_horaires') tauxHoraires = row.value || [];
                         if (row.key === 'expense_categories') expenseCategories = row.value || [];
                         if (row.key === 'tag_prefixes') tagPrefixes = row.value || tagPrefixes;
+                        if (row.key === 'material_groups' && Array.isArray(row.value) && row.value.length) materialGroups = row.value;
+                        if (row.key === 'category_group_mapping' && row.value && typeof row.value === 'object') categoryGroupMapping = row.value;
                     });
                 }
             } catch (e) { /* keep defaults */ }

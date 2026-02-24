@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyJWT, corsHeaders, authErrorResponse } from "../_shared/auth.ts";
+import { verifyJWT, getCorsHeaders, authErrorResponse } from "../_shared/auth.ts";
 
 // Load organizational learnings from ai_learnings table
 async function loadLearnings(supabase: any): Promise<string[]> {
@@ -274,8 +274,10 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
 }
 
 serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -283,7 +285,7 @@ serve(async (req) => {
     try {
       await verifyJWT(req);
     } catch (err) {
-      return authErrorResponse(err as Error);
+      return authErrorResponse(err as Error, req);
     }
 
     // Create Supabase client with the original token (RLS needs it)
@@ -300,7 +302,7 @@ serve(async (req) => {
         JSON.stringify({ error: "API key not configured" }),
         {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         }
       );
     }
@@ -309,7 +311,7 @@ serve(async (req) => {
 
     if (!texts || texts.length === 0) {
       return new Response(JSON.stringify({ translations: {} }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
@@ -318,7 +320,7 @@ serve(async (req) => {
     );
     if (nonEmpty.length === 0) {
       return new Response(JSON.stringify({ translations: {} }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
@@ -410,7 +412,7 @@ serve(async (req) => {
       if (data.error) {
         return new Response(
           JSON.stringify({ error: data.error.message || JSON.stringify(data.error), debug: data }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
         );
       }
 
@@ -423,7 +425,7 @@ serve(async (req) => {
       translations[nonEmpty[0].key] = result.trim();
 
       return new Response(JSON.stringify({ translations, debug: { model: data.model, stop_reason: data.stop_reason, result_length: result.length } }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
@@ -459,7 +461,7 @@ serve(async (req) => {
     if (data.error) {
       return new Response(
         JSON.stringify({ error: data.error.message || JSON.stringify(data.error) }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
 
@@ -474,12 +476,12 @@ serve(async (req) => {
     });
 
     return new Response(JSON.stringify({ translations }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 });

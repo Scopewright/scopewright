@@ -3428,7 +3428,8 @@
             if (item.labor_minutes && tauxHoraires) {
                 for (var dept in item.labor_minutes) {
                     var mins = item.labor_minutes[dept] || 0;
-                    var rate = tauxHoraires[dept] || 0;
+                    var th = tauxHoraires.find(function(t) { return t.department === dept; });
+                    var rate = th ? th.taux_horaire : 0;
                     total += (mins / 60) * rate;
                 }
             }
@@ -3453,14 +3454,6 @@
             contextParts.push('Description: ' + (item.description || '—'));
             contextParts.push('Catégorie: ' + (item.category || '—'));
             contextParts.push('Type d\'unité: ' + (item.type || '—'));
-            var computedPriceForContext = computeCatItemPrice(item);
-            if (item.price != null && item.price > 0) {
-                contextParts.push('Prix fixe: ' + item.price + ' $');
-            } else if (computedPriceForContext > 0) {
-                contextParts.push('Prix: calculé (composé MO + matériaux) = ' + computedPriceForContext.toFixed(2) + ' $ — PAS de prix fixe, c\'est normal pour un article à prix composé');
-            } else {
-                contextParts.push('Prix: AUCUN (ni fixe ni composé) — à vérifier');
-            }
             contextParts.push('Proposé par: ' + (item.proposed_by || '—'));
             contextParts.push('Instruction: ' + (item.instruction || '—'));
 
@@ -3470,32 +3463,65 @@
             if (item.presentation_rule_human) contextParts.push('Règle présentation: ' + item.presentation_rule_human);
             if (item.presentation_rule) contextParts.push('JSON présentation: ' + JSON.stringify(item.presentation_rule));
 
-            // Labor minutes
-            if (item.labor_minutes && typeof item.labor_minutes === 'object') {
-                var lmParts = [];
-                for (var dept in item.labor_minutes) {
-                    if (item.labor_minutes[dept] > 0) lmParts.push(dept + ': ' + item.labor_minutes[dept] + ' min');
-                }
-                contextParts.push('Minutes MO: ' + (lmParts.length > 0 ? lmParts.join(', ') : 'aucune'));
-            }
+            // Price type + calculated breakdown
+            var hasLM = item.labor_minutes && typeof item.labor_minutes === 'object' && Object.keys(item.labor_minutes).some(function(d) { return item.labor_minutes[d] > 0; });
+            var hasMC = item.material_costs && typeof item.material_costs === 'object' && Object.keys(item.material_costs).some(function(c) { var m = item.material_costs[c]; return m && m.cost > 0; });
+            var isComposed = hasLM || hasMC;
 
-            // Material costs
-            if (item.material_costs && typeof item.material_costs === 'object') {
-                var mcParts = [];
-                for (var cat in item.material_costs) {
-                    var mc = item.material_costs[cat];
-                    if (mc && mc.cost > 0) mcParts.push(cat + ': ' + mc.cost + ' $ (qty: ' + (mc.qty || 1) + ')');
-                }
-                contextParts.push('Coûts matériaux: ' + (mcParts.length > 0 ? mcParts.join(', ') : 'aucun'));
-            }
+            if (item.price != null && item.price > 0 && !isComposed) {
+                contextParts.push('Type de prix: fixe (' + item.price + ' $)');
+            } else if (isComposed) {
+                var computedPriceForContext = computeCatItemPrice(item);
+                contextParts.push('Type de prix: composé (calculé à partir des composantes MO + matériaux)');
 
-            // Computed price total (recap)
-            if (computedPriceForContext > 0) contextParts.push('Total prix composé: ' + computedPriceForContext.toFixed(2) + ' $ (= MO + matériaux avec markup/perte)');
+                // Labor detail
+                var laborTotal = 0;
+                if (hasLM) {
+                    contextParts.push('');
+                    var lmLines = [];
+                    for (var dept in item.labor_minutes) {
+                        var mins = item.labor_minutes[dept] || 0;
+                        if (mins <= 0) continue;
+                        var th = tauxHoraires.find(function(t) { return t.department === dept; });
+                        var rate = th ? th.taux_horaire : 0;
+                        var laborCost = (mins / 60) * rate;
+                        laborTotal += laborCost;
+                        lmLines.push('  - ' + dept + ': ' + mins + ' min × ' + rate.toFixed(2) + ' $/h = ' + laborCost.toFixed(2) + ' $');
+                    }
+                    contextParts.push('Main-d\'oeuvre (total: ' + laborTotal.toFixed(2) + ' $):');
+                    lmLines.forEach(function(l) { contextParts.push(l); });
+                }
+
+                // Material detail
+                var matTotal = 0;
+                if (hasMC) {
+                    contextParts.push('');
+                    var mcLines = [];
+                    for (var mcat in item.material_costs) {
+                        var mc = item.material_costs[mcat];
+                        if (!mc || !mc.cost || mc.cost <= 0) continue;
+                        var baseCost = mc.cost * (mc.qty || 1);
+                        var ec = (expenseCategories || []).find(function(e) { return e.name === mcat; });
+                        var markup = ec ? (ec.markup || 0) : 0;
+                        var waste = ec ? (ec.waste || 0) : 0;
+                        var matCost = baseCost * (1 + markup / 100 + waste / 100);
+                        matTotal += matCost;
+                        mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ × (1 + ' + markup + '% markup + ' + waste + '% perte) = ' + matCost.toFixed(2) + ' $');
+                    }
+                    contextParts.push('Matériaux (total: ' + matTotal.toFixed(2) + ' $):');
+                    mcLines.forEach(function(l) { contextParts.push(l); });
+                }
+
+                contextParts.push('');
+                contextParts.push('PRIX COMPOSÉ TOTAL: ' + computedPriceForContext.toFixed(2) + ' $ (MO: ' + laborTotal.toFixed(2) + ' + Mat: ' + matTotal.toFixed(2) + ')');
+            } else {
+                contextParts.push('Type de prix: AUCUN (ni fixe ni composé) — à vérifier');
+            }
 
             // Taux horaires
-            if (tauxHoraires && Object.keys(tauxHoraires).length > 0) {
+            if (tauxHoraires && tauxHoraires.length > 0) {
                 var thParts = [];
-                for (var d in tauxHoraires) { thParts.push(d + ': ' + tauxHoraires[d] + ' $/h'); }
+                tauxHoraires.forEach(function(t) { thParts.push(t.department + ': ' + t.taux_horaire + ' $/h'); });
                 contextParts.push('\n=== TAUX HORAIRES ===');
                 contextParts.push(thParts.join(', '));
             }

@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyJWT, corsHeaders, authErrorResponse } from "../_shared/auth.ts";
+import { verifyJWT, getCorsHeaders, authErrorResponse } from "../_shared/auth.ts";
 
 // ═══════════════════════════════════════════════════════════════════════
 // DEFAULT STATIC PROMPT — Single editable block, stored in app_config
@@ -534,8 +534,10 @@ const SAVE_LEARNING_TOOL = {
 };
 
 serve(async (req) => {
+  const cors = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -544,7 +546,7 @@ serve(async (req) => {
     try {
       authResult = await verifyJWT(req);
     } catch (err) {
-      return authErrorResponse(err as Error);
+      return authErrorResponse(err as Error, req);
     }
 
     // Create Supabase client with the original token (RLS needs it)
@@ -561,7 +563,7 @@ serve(async (req) => {
         JSON.stringify({ error: "API key not configured" }),
         {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         }
       );
     }
@@ -573,7 +575,7 @@ serve(async (req) => {
         JSON.stringify({ error: "No messages provided" }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         }
       );
     }
@@ -638,7 +640,7 @@ serve(async (req) => {
         }),
         {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         }
       );
     }
@@ -676,7 +678,7 @@ serve(async (req) => {
           if (data.error) {
             return new Response(
               JSON.stringify({ error: data.error.message || JSON.stringify(data.error) }),
-              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
             );
           }
         }
@@ -692,7 +694,7 @@ serve(async (req) => {
         usage: data.usage,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       }
     );
   } catch (err) {
@@ -700,7 +702,7 @@ serve(async (req) => {
       JSON.stringify({ error: (err as Error).message }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       }
     );
   }

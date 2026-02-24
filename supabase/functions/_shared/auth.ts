@@ -100,26 +100,34 @@ export async function verifyJWT(req: Request): Promise<AuthResult> {
 }
 
 /**
- * Headers CORS standard pour les Edge Functions.
+ * Origines autorisées pour les headers CORS.
  */
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = ["https://scopewright.ca", "https://www.scopewright.ca"];
+
+/**
+ * Headers CORS dynamiques — valide l'Origin de la requête contre la liste autorisée.
+ */
+export function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 /**
  * Réponse d'erreur standardisée pour les erreurs d'authentification.
  * Token expired → 401 (permet le refresh côté client via authenticatedFetch).
  * Autres erreurs → 403.
  */
-export function authErrorResponse(error: Error): Response {
+export function authErrorResponse(error: Error, req: Request): Response {
   const status = error.message.includes("expired") ? 401 : 403;
   return new Response(
     JSON.stringify({ error: error.message }),
     {
       status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     }
   );
 }

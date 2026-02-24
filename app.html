@@ -422,7 +422,9 @@
                     </a>
 
                     <!-- Administration -->
-                    <a href="admin.html" class="tool-card" data-page="admin">
+                    <a href="admin.html" class="tool-card" data-page="admin" id="cardAdmin">
+                        <div class="alert-badge" id="alertAdmin" style="background:#e67e22;box-shadow:0 2px 6px rgba(230,126,34,0.4);"></div>
+                        <span class="alert-badge-count" id="alertAdminCount" style="color:#e67e22;"></span>
                         <div class="tool-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -626,6 +628,40 @@
                             countP.textContent = countReturn + ' retour' + (countReturn > 1 ? 's' : '');
                             countP.classList.add('visible');
                         }
+                    }
+                }
+                // Admin: unmapped catalogue categories (orange badge)
+                var categories = [];
+                var mapping = {};
+                if (Array.isArray(rows)) {
+                    // rows already loaded above — reuse
+                }
+                // Fetch config for categories + mapping
+                var respConfig = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/app_config?select=key,value&key=in.(catalogue_categories,category_group_mapping)',
+                    {}
+                );
+                if (respConfig.ok) {
+                    var cfgRows = await respConfig.json();
+                    cfgRows.forEach(function(r) {
+                        if (r.key === 'catalogue_categories') categories = r.value || [];
+                        if (r.key === 'category_group_mapping') mapping = r.value || {};
+                    });
+                }
+                var unmapped = 0;
+                categories.forEach(function(cat) {
+                    if (!mapping[cat] || !Array.isArray(mapping[cat]) || mapping[cat].length === 0) unmapped++;
+                });
+                if (unmapped > 0) {
+                    var badgeAdmin = document.getElementById('alertAdmin');
+                    var countAdmin = document.getElementById('alertAdminCount');
+                    if (badgeAdmin) {
+                        badgeAdmin.textContent = unmapped;
+                        badgeAdmin.classList.add('visible');
+                    }
+                    if (countAdmin) {
+                        countAdmin.textContent = unmapped + ' cat\u00e9gorie' + (unmapped > 1 ? 's' : '') + ' sans groupe';
+                        countAdmin.classList.add('visible');
                     }
                 }
             } catch (e) {

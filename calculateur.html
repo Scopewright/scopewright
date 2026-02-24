@@ -9398,11 +9398,26 @@
                 // Check exact match (C1) or prefix match (C)
                 var isExact = /[0-9]/.test(value);
                 if (isExact) {
-                    row.classList.toggle('tag-hidden', tag !== value && tag !== '');
+                    row.classList.toggle('tag-hidden', tag !== value);
                 } else {
-                    row.classList.toggle('tag-hidden', rowPrefix !== value && tag !== '');
+                    row.classList.toggle('tag-hidden', !tag || rowPrefix !== value);
                 }
             });
+            // Auto-sort visible rows by tag within each group
+            if (value !== null) {
+                document.querySelectorAll('.furniture-group').forEach(function(group) {
+                    var container = group.querySelector('.calc-rows');
+                    if (!container) return;
+                    var rows = Array.from(container.querySelectorAll('.calc-row'));
+                    var addRowBtn = container.querySelector('.add-row-container');
+                    rows.sort(function(a, b) {
+                        var ta = getRowSortValue(a, 'tag');
+                        var tb = getRowSortValue(b, 'tag');
+                        return String(ta).localeCompare(String(tb), 'fr', { numeric: true });
+                    });
+                    rows.forEach(function(row) { container.insertBefore(row, addRowBtn); });
+                });
+            }
             refreshTagFilterBar();
         }
 

@@ -151,6 +151,37 @@
         }
         .btn-approve:hover { opacity: 0.85; }
 
+        /* Proposal context display */
+        .proposal-context-display { font-size: 13px; color: #444; line-height: 1.6; }
+        .proposal-context-display .ctx-row { display: flex; gap: 6px; margin-bottom: 4px; }
+        .proposal-context-display .ctx-label { font-weight: 600; color: #333; white-space: nowrap; }
+        .proposal-context-display .ctx-value { color: #555; }
+
+        /* AI suggestions */
+        .ai-suggest-header { display: flex; align-items: center; justify-content: space-between; }
+        .btn-ai-suggest {
+            background: var(--sw-navy); color: #fff; border: none;
+            padding: 4px 12px; font-size: 11px; font-family: inherit;
+            cursor: pointer; border-radius: 4px; font-weight: 500; transition: opacity 0.2s;
+        }
+        .btn-ai-suggest:hover { opacity: 0.85; }
+        .btn-ai-suggest:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ai-suggest-loading { font-size: 12px; color: #888; padding: 8px 0; }
+        .ai-suggest-card {
+            background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 6px;
+            padding: 10px 12px; margin-bottom: 8px;
+        }
+        .ai-suggest-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .ai-suggest-card-title { font-size: 12px; font-weight: 600; color: #333; }
+        .btn-apply-suggest {
+            background: none; border: 1px solid #ccc; color: #555;
+            padding: 2px 10px; font-size: 11px; font-family: inherit;
+            cursor: pointer; border-radius: 3px; transition: all 0.2s;
+        }
+        .btn-apply-suggest:hover { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+        .btn-apply-suggest.applied { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; pointer-events: none; }
+        .ai-suggest-card-body { font-size: 12px; color: #555; line-height: 1.5; white-space: pre-wrap; }
+
         .btn-reject {
             background: none; color: #c0392b; border: 1px solid #e0c0c0;
             padding: 7px 18px; font-size: 13px; font-family: inherit;
@@ -753,6 +784,22 @@
                     <div class="cat-media-list" id="catMediaList"></div>
                 </div>
 
+                <!-- Contexte de la proposition -->
+                <div class="form-group" id="proposalContextGroup" style="display:none;">
+                    <div class="cp-section-title">Contexte de la proposition</div>
+                    <div id="proposalContextDisplay" class="proposal-context-display"></div>
+                </div>
+
+                <!-- Suggestions AI -->
+                <div class="form-group" id="aiSuggestionsGroup" style="display:none;">
+                    <div class="cp-section-title ai-suggest-header">
+                        <span>Suggestions AI</span>
+                        <button class="btn-ai-suggest" id="btnAiSuggest" onclick="generateAiSuggestions()">G&eacute;n&eacute;rer</button>
+                    </div>
+                    <div id="aiSuggestionsLoading" class="ai-suggest-loading" style="display:none;">Analyse en cours...</div>
+                    <div id="aiSuggestionsContent"></div>
+                </div>
+
                 <!-- Toggles -->
                 <div class="form-group" style="margin-bottom:0;">
                     <div class="edit-toggle-row">
@@ -947,7 +994,7 @@
     async function loadPending() {
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator,instruction,labor_minutes,material_costs,image_url,has_sales_sheet',
+                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator,instruction,labor_minutes,material_costs,image_url,has_sales_sheet,proposal_context',
                 {}
             );
             if (!r.ok) { showMsg('error', 'Erreur chargement: ' + r.status); return; }
@@ -1275,6 +1322,18 @@
         // Load & render media from item_media
         loadMedia(itemId);
 
+        // Render proposal context
+        renderProposalContext(item.proposal_context);
+
+        // Reset AI suggestions
+        appliedSuggestions = {};
+        document.getElementById('aiSuggestionsContent').innerHTML = '';
+        document.getElementById('aiSuggestionsLoading').style.display = 'none';
+        document.getElementById('btnAiSuggest').disabled = false;
+        document.getElementById('btnAiSuggest').textContent = 'G\u00e9n\u00e9rer';
+        // Show AI suggestions section always (can generate even without context)
+        document.getElementById('aiSuggestionsGroup').style.display = '';
+
         // Reset status
         var st = document.getElementById('modalStatus');
         st.className = 'modal-status';
@@ -1289,12 +1348,260 @@
         currentItemId = null;
         editMedia = [];
         editMediaToDelete = [];
+        appliedSuggestions = {};
     }
 
     // Click outside to close
     document.getElementById('examineModal').addEventListener('click', function(e) {
         if (e.target === this) closeModal();
     });
+
+    // ═══ Proposal context & AI suggestions ═══
+
+    var appliedSuggestions = {};
+
+    var CONTEXT_LABELS = {
+        custom_or_standard: 'Type de produit',
+        includes_installation: 'Installation incluse',
+        approximate_price: 'Prix approximatif',
+        constraints: 'Contraintes',
+        notes_for_approver: 'Notes'
+    };
+
+    var CONTEXT_VALUES = {
+        sur_mesure: 'Sur mesure',
+        standard: 'Standard',
+        oui: 'Oui',
+        non: 'Non',
+        ne_sait_pas: 'Ne sait pas'
+    };
+
+    function renderProposalContext(ctx) {
+        var group = document.getElementById('proposalContextGroup');
+        var display = document.getElementById('proposalContextDisplay');
+
+        if (!ctx || Object.keys(ctx).length === 0) {
+            group.style.display = 'none';
+            display.innerHTML = '';
+            return;
+        }
+
+        group.style.display = '';
+        var html = '';
+        var keys = ['custom_or_standard', 'includes_installation', 'approximate_price', 'constraints', 'notes_for_approver'];
+        keys.forEach(function(key) {
+            if (ctx[key] == null || ctx[key] === '') return;
+            var label = CONTEXT_LABELS[key] || key;
+            var val = ctx[key];
+            if (typeof val === 'string' && CONTEXT_VALUES[val]) val = CONTEXT_VALUES[val];
+            if (key === 'approximate_price') val = parseFloat(val).toFixed(2) + ' $';
+            html += '<div class="ctx-row"><span class="ctx-label">' + escapeHtml(label) + ' :</span> <span class="ctx-value">' + escapeHtml(String(val)) + '</span></div>';
+        });
+        display.innerHTML = html;
+    }
+
+    async function loadSimilarItems(category) {
+        try {
+            var url = SUPABASE_URL + '/rest/v1/catalogue_items?category=eq.' + encodeURIComponent(category)
+                + '&or=(status.eq.approved,status.is.null)'
+                + '&select=id,description,type,price,client_text,calculation_rule_human,presentation_rule_human'
+                + '&limit=5';
+            var r = await authenticatedFetch(url, {});
+            if (!r.ok) return [];
+            return await r.json();
+        } catch (e) { return []; }
+    }
+
+    function buildSuggestionContext(item, similar) {
+        var ctx = item.proposal_context || {};
+        var lines = [];
+        lines.push('Article propos\u00e9 :');
+        lines.push('- Code : ' + (item.id || ''));
+        lines.push('- Cat\u00e9gorie : ' + (item.category || ''));
+        lines.push('- Description : ' + (item.description || ''));
+        lines.push('- Type : ' + (item.type || ''));
+        if (item.price) lines.push('- Prix : ' + item.price + ' $');
+        if (item.instruction) lines.push('- Instruction : ' + item.instruction);
+
+        if (Object.keys(ctx).length > 0) {
+            lines.push('');
+            lines.push('Contexte de la proposition :');
+            if (ctx.custom_or_standard) lines.push('- Type produit : ' + (CONTEXT_VALUES[ctx.custom_or_standard] || ctx.custom_or_standard));
+            if (ctx.includes_installation) lines.push('- Installation : ' + (CONTEXT_VALUES[ctx.includes_installation] || ctx.includes_installation));
+            if (ctx.approximate_price) lines.push('- Prix approximatif : ' + ctx.approximate_price + ' $');
+            if (ctx.constraints) lines.push('- Contraintes : ' + ctx.constraints);
+            if (ctx.notes_for_approver) lines.push('- Notes : ' + ctx.notes_for_approver);
+        }
+
+        if (similar && similar.length > 0) {
+            lines.push('');
+            lines.push('Articles similaires dans la m\u00eame cat\u00e9gorie :');
+            similar.forEach(function(s, i) {
+                var parts = [(i + 1) + '. ' + s.id + ' \u2014 ' + (s.description || '')];
+                if (s.price) parts.push('prix: ' + s.price + ' $');
+                if (s.client_text) parts.push('texte client: "' + s.client_text + '"');
+                if (s.calculation_rule_human) parts.push('r\u00e8gle calcul: "' + s.calculation_rule_human + '"');
+                if (s.presentation_rule_human) parts.push('r\u00e8gle pr\u00e9sentation: "' + s.presentation_rule_human + '"');
+                lines.push(parts.join(' | '));
+            });
+        }
+
+        return lines.join('\n');
+    }
+
+    async function generateAiSuggestions() {
+        if (!currentItemId) return;
+
+        var item = pendingItems.find(function(it) { return it.id === currentItemId; });
+        if (!item) return;
+
+        var btn = document.getElementById('btnAiSuggest');
+        var loading = document.getElementById('aiSuggestionsLoading');
+        var content = document.getElementById('aiSuggestionsContent');
+
+        btn.disabled = true;
+        btn.textContent = 'G\u00e9n\u00e9ration...';
+        loading.style.display = '';
+        content.innerHTML = '';
+        appliedSuggestions = {};
+
+        try {
+            // Load similar items
+            var similar = await loadSimilarItems(item.category);
+
+            // Build context
+            var contextText = buildSuggestionContext(item, similar);
+
+            // Call Edge Function
+            var token = localStorage.getItem('sb_access_token');
+            var r = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    texts: [{ key: 'suggest', text: contextText }],
+                    action: 'approval_suggest'
+                })
+            });
+
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            var data = await r.json();
+
+            // Parse the response
+            var translations = data.translations || {};
+            var resultText = translations['suggest'] || '';
+
+            // Try to parse as JSON
+            var suggestions = {};
+            try {
+                suggestions = JSON.parse(resultText);
+            } catch (e) {
+                // If not valid JSON, try to extract from the text
+                if (resultText.indexOf('{') !== -1) {
+                    var jsonStr = resultText.substring(resultText.indexOf('{'));
+                    var lastBrace = jsonStr.lastIndexOf('}');
+                    if (lastBrace !== -1) jsonStr = jsonStr.substring(0, lastBrace + 1);
+                    try { suggestions = JSON.parse(jsonStr); } catch (e2) { /* ignore */ }
+                }
+            }
+
+            renderAiSuggestions(suggestions);
+
+        } catch (e) {
+            console.error('AI suggestions error:', e);
+            content.innerHTML = '<div style="color:#c0392b; font-size:12px;">Erreur lors de la g\u00e9n\u00e9ration. V\u00e9rifiez votre connexion.</div>';
+        } finally {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.textContent = 'Reg\u00e9n\u00e9rer';
+        }
+    }
+
+    function renderAiSuggestions(suggestions) {
+        var content = document.getElementById('aiSuggestionsContent');
+        if (!suggestions || Object.keys(suggestions).length === 0) {
+            content.innerHTML = '<div style="color:#888; font-size:12px;">Aucune suggestion g\u00e9n\u00e9r\u00e9e.</div>';
+            return;
+        }
+
+        var cards = [];
+
+        if (suggestions.client_text) {
+            cards.push({
+                key: 'client_text',
+                title: 'Texte client',
+                body: suggestions.client_text
+            });
+        }
+
+        if (suggestions.calc_rule_human) {
+            cards.push({
+                key: 'calc_rule_human',
+                title: 'R\u00e8gle de calcul',
+                body: suggestions.calc_rule_human
+            });
+        }
+
+        if (suggestions.pres_rule_human) {
+            cards.push({
+                key: 'pres_rule_human',
+                title: 'R\u00e8gle de pr\u00e9sentation',
+                body: suggestions.pres_rule_human
+            });
+        }
+
+        if (suggestions.classification) {
+            cards.push({
+                key: 'classification',
+                title: 'Classification',
+                body: typeof suggestions.classification === 'string' ? suggestions.classification : JSON.stringify(suggestions.classification)
+            });
+        }
+
+        // Store raw JSON rules for application
+        if (suggestions.calc_rule) appliedSuggestions._calc_rule_json = suggestions.calc_rule;
+        if (suggestions.pres_rule) appliedSuggestions._pres_rule_json = suggestions.pres_rule;
+
+        var html = '';
+        cards.forEach(function(card) {
+            html += '<div class="ai-suggest-card">'
+                + '<div class="ai-suggest-card-header">'
+                + '<span class="ai-suggest-card-title">' + escapeHtml(card.title) + '</span>'
+                + '<button class="btn-apply-suggest" onclick="applySuggestion(\'' + escapeAttr(card.key) + '\', this)">Appliquer</button>'
+                + '</div>'
+                + '<div class="ai-suggest-card-body">' + escapeHtml(card.body) + '</div>'
+                + '</div>';
+        });
+
+        if (suggestions.warnings && suggestions.warnings.length > 0) {
+            html += '<div style="font-size:11px; color:#ef6c00; margin-top:4px;">';
+            suggestions.warnings.forEach(function(w) { html += '\u26a0 ' + escapeHtml(w) + '<br>'; });
+            html += '</div>';
+        }
+
+        content.innerHTML = html;
+    }
+
+    function applySuggestion(key, btnEl) {
+        var item = pendingItems.find(function(it) { return it.id === currentItemId; });
+        if (!item) return;
+
+        // Find the card body text
+        var card = btnEl.closest('.ai-suggest-card');
+        var bodyText = card ? card.querySelector('.ai-suggest-card-body').textContent : '';
+
+        appliedSuggestions[key] = bodyText;
+
+        // Also store JSON rules if applying calc/pres rules
+        if (key === 'calc_rule_human' && appliedSuggestions._calc_rule_json) {
+            appliedSuggestions.calc_rule = appliedSuggestions._calc_rule_json;
+        }
+        if (key === 'pres_rule_human' && appliedSuggestions._pres_rule_json) {
+            appliedSuggestions.pres_rule = appliedSuggestions._pres_rule_json;
+        }
+
+        btnEl.textContent = 'Appliqu\u00e9 \u2713';
+        btnEl.classList.add('applied');
+    }
 
     function removeItemFromList(itemId) {
         pendingItems = pendingItems.filter(function(it) { return it.id !== itemId; });
@@ -1304,6 +1611,16 @@
             document.getElementById('approvalTable').style.display = 'none';
             document.getElementById('emptyState').style.display = '';
         }
+    }
+
+    function buildAiRulesPatch() {
+        var patch = {};
+        if (appliedSuggestions.client_text) patch.client_text = appliedSuggestions.client_text;
+        if (appliedSuggestions.calc_rule_human) patch.calculation_rule_human = appliedSuggestions.calc_rule_human;
+        if (appliedSuggestions.calc_rule) patch.calculation_rule_ai = appliedSuggestions.calc_rule;
+        if (appliedSuggestions.pres_rule_human) patch.presentation_rule_human = appliedSuggestions.pres_rule_human;
+        if (appliedSuggestions.pres_rule) patch.presentation_rule = appliedSuggestions.pres_rule;
+        return patch;
     }
 
     async function approveFromModal() {
@@ -1332,7 +1649,7 @@
                 {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                    body: JSON.stringify({
+                    body: JSON.stringify(Object.assign({
                         status: 'approved',
                         category: category,
                         description: description,
@@ -1343,7 +1660,7 @@
                         has_sales_sheet: hasSalesSheet,
                         labor_minutes: laborMinutes,
                         material_costs: materialCosts
-                    })
+                    }, buildAiRulesPatch()))
                 }
             );
             if (!r.ok) { showModalStatus('error', 'Erreur approbation: ' + r.status); return; }

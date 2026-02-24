@@ -3971,6 +3971,32 @@
         .edit-row { display: flex; gap: 12px; }
         .edit-row .form-group { flex: 1; }
 
+        /* Wizard proposer article */
+        .wizard-steps { display: flex; gap: 12px; margin-top: 4px; }
+        .wizard-step { font-size: 12px; color: #aaa; font-weight: 500; transition: color 0.2s; }
+        .wizard-step.active { color: var(--stele-green); }
+        .wizard-question { margin-bottom: 16px; }
+        .wizard-question > label { font-size: 13px; font-weight: 500; color: #333; margin-bottom: 6px; display: block; }
+        .wizard-radio-group { display: flex; gap: 14px; margin-top: 6px; }
+        .wizard-radio-group label { font-weight: 400; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .wizard-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+        .prop-photo-wrap { display: flex; align-items: flex-start; gap: 12px; }
+        .prop-photo-dropzone {
+            width: 100%; padding: 16px; border: 2px dashed #ddd; border-radius: 8px;
+            text-align: center; cursor: pointer; color: #999; font-size: 13px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .prop-photo-dropzone:hover { border-color: #bbb; background: #fafafa; }
+        .prop-photo-dropzone .prop-photo-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+        .prop-photo-preview-img {
+            width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #e0e0e0;
+        }
+        .prop-photo-remove {
+            position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+            border-radius: 50%; background: #e74c3c; color: #fff; border: none;
+            font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
         /* Prix composé */
         .composed-price-section { display: flex; gap: 16px; margin-top: 8px; }
         .cp-table-wrap { flex: 1; min-width: 0; }
@@ -7020,84 +7046,73 @@
     <div class="modal-overlay" id="proposerModal">
         <div class="modal modal-edit">
             <div class="modal-header">
-                <h3 class="modal-title">Proposer un nouvel article</h3>
+                <div>
+                    <h3 class="modal-title">Proposer un article</h3>
+                    <div class="wizard-steps">
+                        <span class="wizard-step active" id="wizStep1">1. Essentiels</span>
+                        <span class="wizard-step" id="wizStep2">2. D&eacute;tails</span>
+                    </div>
+                </div>
             </div>
             <div class="modal-body">
-                <div class="edit-row">
+                <!-- Étape 1 : Essentiels -->
+                <div id="wizPage1">
+                    <input type="hidden" id="propCode">
                     <div class="form-group">
-                        <label class="form-label">Code</label>
-                        <input type="text" class="form-input" id="propCode" readonly style="background:#f5f5f5; color:#888;">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Cat&eacute;gorie</label>
+                        <label class="form-label">Cat&eacute;gorie <span style="color:#e74c3c;">*</span></label>
                         <select class="form-input" id="propCategory" onchange="updatePropCode()"></select>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <input type="text" class="form-input" id="propDescription" placeholder="ex: Poign&eacute;e en bois massif...">
-                </div>
-                <div class="edit-row">
+                    <div class="form-group">
+                        <label class="form-label">Description <span style="color:#e74c3c;">*</span></label>
+                        <input type="text" class="form-input" id="propDescription" placeholder="ex: Poign&eacute;e en bois massif...">
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Type</label>
                         <select class="form-input" id="propType"></select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Prix</label>
-                        <input type="hidden" id="propPrice">
-                        <div class="form-input" id="propPriceDisplay" style="background:#f5f5f5; color:#888; min-height:38px; display:flex; align-items:center;">Calcul&eacute; automatiquement</div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Instruction</label>
-                    <textarea class="form-input" id="propInstruction" rows="2" style="resize:vertical;" placeholder="Instructions sp&eacute;ciales..."></textarea>
-                </div>
-
-                <!-- Prix composé — Minutes & Matériaux -->
-                <div class="form-group" id="propComposedPriceGroup">
-                    <div class="cp-section-title">Prix compos&eacute;</div>
-                    <div class="composed-price-section">
-                        <div class="cp-table-wrap">
-                            <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
-                            <table class="cp-table">
-                                <thead><tr><th>D&eacute;partement</th><th style="width:70px">Min.</th></tr></thead>
-                                <tbody id="propCpMinutesBody"></tbody>
-                            </table>
+                        <label class="form-label">Photo <span style="color:#aaa; font-weight:400;">(optionnel)</span></label>
+                        <div class="prop-photo-wrap">
+                            <div class="prop-photo-dropzone" id="propDropzone">
+                                <span class="prop-photo-icon">+</span>
+                                <span>Ajouter une photo</span>
+                            </div>
+                            <input type="file" id="propMediaInput" accept="image/*" style="display:none;">
+                            <div id="propPhotoPreview" style="display:none;"></div>
                         </div>
-                        <div class="cp-table-wrap">
-                            <div class="cp-sub-title">Mat&eacute;riaux</div>
-                            <table class="cp-table">
-                                <thead><tr><th>Cat&eacute;gorie</th><th style="width:80px">Co&ucirc;t ($)</th></tr></thead>
-                                <tbody id="propCpMaterialsBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="cp-calculated">
-                        <div>
-                            <span class="cp-total-label">Prix calcul&eacute;</span>
-                            <span class="cp-breakdown" id="propCpBreakdown"></span>
-                        </div>
-                        <span class="cp-total-value" id="propCpTotalValue">&mdash;</span>
                     </div>
                 </div>
 
-                <!-- Médias tagués -->
-                <div class="form-group">
-                    <div class="cat-media-title">M&eacute;dias</div>
-                    <div class="cat-dropzone" id="propDropzone">
-                        Cliquer ou glisser des images / PDFs ici
+                <!-- Étape 2 : Détails guidés -->
+                <div id="wizPage2" style="display:none;">
+                    <div class="wizard-question">
+                        <label>Ce produit est-il sur mesure ou standard ?</label>
+                        <div class="wizard-radio-group">
+                            <label><input type="radio" name="propCustom" value="sur_mesure"> Sur mesure</label>
+                            <label><input type="radio" name="propCustom" value="standard"> Standard</label>
+                            <label><input type="radio" name="propCustom" value="ne_sait_pas" checked> Ne sait pas</label>
+                        </div>
                     </div>
-                    <input type="file" id="propMediaInput" accept="image/*,.pdf,application/pdf" multiple style="display:none;">
-                    <div class="cat-media-list" id="propMediaList"></div>
-                </div>
-
-                <div class="form-group" style="margin-bottom:0;">
-                    <div class="edit-toggle-row">
-                        <label class="edit-toggle">
-                            <input type="checkbox" id="propInCalculator" checked>
-                            <span class="slider"></span>
-                        </label>
-                        <span class="edit-toggle-label">Visible dans le calculateur</span>
+                    <div class="wizard-question">
+                        <label>Inclut-il l'installation ?</label>
+                        <div class="wizard-radio-group">
+                            <label><input type="radio" name="propInstall" value="oui"> Oui</label>
+                            <label><input type="radio" name="propInstall" value="non"> Non</label>
+                            <label><input type="radio" name="propInstall" value="ne_sait_pas" checked> Ne sait pas</label>
+                        </div>
+                    </div>
+                    <div class="wizard-question">
+                        <label>Prix approximatif <span style="color:#aaa; font-weight:400;">(optionnel)</span></label>
+                        <input type="number" class="form-input" id="propApproxPrice" placeholder="ex: 450" step="0.01" min="0" style="max-width:200px;">
+                        <div class="wizard-hint">L'approbateur fixera le prix final.</div>
+                    </div>
+                    <div class="wizard-question">
+                        <label>Contraintes ou conditions d'utilisation</label>
+                        <textarea class="form-input" id="propConstraints" rows="2" placeholder="ex: Doit &ecirc;tre install&eacute; sur un mur porteur..." style="resize:vertical;"></textarea>
+                    </div>
+                    <div class="wizard-question" style="margin-bottom:0;">
+                        <label>Notes pour l'approbateur</label>
+                        <textarea class="form-input" id="propNotes" rows="2" placeholder="Informations suppl&eacute;mentaires..." style="resize:vertical;"></textarea>
                     </div>
                 </div>
 
@@ -7105,7 +7120,9 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeProposerModal()">Annuler</button>
-                <button class="btn-generate" id="btnProposerSave" onclick="saveProposedItem()">Enregistrer</button>
+                <button class="btn-generate" id="btnWizBack" onclick="wizardBack()" style="display:none;">&larr; Retour</button>
+                <button class="btn-generate" id="btnWizNext" onclick="wizardNext()">Suivant &rarr;</button>
+                <button class="btn-generate" id="btnProposerSave" onclick="saveProposedItem()" style="display:none;">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -8652,23 +8669,28 @@
             CATALOGUE_DATA.forEach(function(i) { if (i.type) types.add(i.type); });
             typeSelect.innerHTML = Array.from(types).map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
 
-            // Réinitialiser les champs
+            // Réinitialiser les champs — étape 1
             document.getElementById('propDescription').value = '';
             document.getElementById('propType').value = 'unitaire';
-            document.getElementById('propPrice').value = '';
-            document.getElementById('propPriceDisplay').textContent = 'Calcul\u00e9 automatiquement';
-            document.getElementById('propInstruction').value = '';
-            document.getElementById('propInCalculator').checked = true;
+
+            // Réinitialiser — étape 2
+            var radiosCustom = document.querySelectorAll('input[name="propCustom"]');
+            radiosCustom.forEach(function(r) { r.checked = r.value === 'ne_sait_pas'; });
+            var radiosInstall = document.querySelectorAll('input[name="propInstall"]');
+            radiosInstall.forEach(function(r) { r.checked = r.value === 'ne_sait_pas'; });
+            document.getElementById('propApproxPrice').value = '';
+            document.getElementById('propConstraints').value = '';
+            document.getElementById('propNotes').value = '';
 
             // Code auto-généré
             updatePropCode();
 
-            // Tableaux prix composé
-            renderPropComposedTables();
-
-            // Médias
+            // Photo
             propMedia = [];
-            renderPropMedia();
+            renderPropPhoto();
+
+            // Reset wizard to step 1
+            wizardGoToStep(1);
 
             // Reset status
             var status = document.getElementById('propStatus');
@@ -8697,97 +8719,50 @@
             }
         }
 
-        // ── Prix composé pour le modal de proposition ──
+        // ── Wizard navigation ──
 
-        function renderPropComposedTables() {
-            var mBody = document.getElementById('propCpMinutesBody');
-            var mHtml = '';
-            for (var i = 0; i < tauxHoraires.length; i++) {
-                var dept = tauxHoraires[i].department;
-                mHtml += '<tr><td>' + escapeHtml(dept) + '</td>' +
-                    '<td><input type="number" step="0.1" placeholder="0" value=""' +
-                    ' data-dept="' + escapeAttr(dept) + '"' +
-                    (canEditMinutes ? '' : ' disabled') +
-                    ' oninput="updatePropComposedPrice()"></td></tr>';
-            }
-            mBody.innerHTML = mHtml;
+        function wizardGoToStep(step) {
+            var page1 = document.getElementById('wizPage1');
+            var page2 = document.getElementById('wizPage2');
+            var step1 = document.getElementById('wizStep1');
+            var step2 = document.getElementById('wizStep2');
+            var btnNext = document.getElementById('btnWizNext');
+            var btnBack = document.getElementById('btnWizBack');
+            var btnSave = document.getElementById('btnProposerSave');
 
-            var cBody = document.getElementById('propCpMaterialsBody');
-            var cHtml = '';
-            for (var j = 0; j < expenseCategories.length; j++) {
-                var cat = expenseCategories[j].name;
-                cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
-                    '<td><input type="number" step="0.01" placeholder="0.00" value=""' +
-                    ' data-cat="' + escapeAttr(cat) + '"' +
-                    (canEditMaterials ? '' : ' disabled') +
-                    ' oninput="updatePropComposedPrice()"></td></tr>';
-            }
-            cBody.innerHTML = cHtml;
-
-            updatePropComposedPrice();
-        }
-
-        function updatePropComposedPrice() {
-            var laborTotal = 0;
-            var mInputs = document.querySelectorAll('#propCpMinutesBody input[type="number"]');
-            for (var i = 0; i < mInputs.length; i++) {
-                var minutes = parseFloat(mInputs[i].value) || 0;
-                var dept = mInputs[i].getAttribute('data-dept');
-                var taux = tauxHoraires.find(function(t) { return t.department === dept; });
-                laborTotal += (minutes / 60) * (taux ? (taux.taux_horaire || 0) : 0);
-            }
-
-            var materialTotal = 0;
-            var cInputs = document.querySelectorAll('#propCpMaterialsBody input[type="number"]');
-            for (var j = 0; j < cInputs.length; j++) {
-                var cost = parseFloat(cInputs[j].value) || 0;
-                var catName = cInputs[j].getAttribute('data-cat');
-                var expCat = expenseCategories.find(function(c) { return c.name === catName; });
-                var markup = (expCat ? (expCat.markup || 0) : 0) / 100;
-                var waste = (expCat ? (expCat.waste || 0) : 0) / 100;
-                materialTotal += cost * (1 + markup + waste);
-            }
-
-            var total = laborTotal + materialTotal;
-            var totalEl = document.getElementById('propCpTotalValue');
-            var breakdownEl = document.getElementById('propCpBreakdown');
-            var priceField = document.getElementById('propPrice');
-            var priceDisplay = document.getElementById('propPriceDisplay');
-
-            if (total > 0) {
-                totalEl.textContent = formatPrice(total);
-                breakdownEl.textContent = '(MO: ' + formatPrice(laborTotal) + ' + Mat: ' + formatPrice(materialTotal) + ')';
-                priceField.value = total.toFixed(2);
-                priceDisplay.textContent = formatPrice(total);
+            if (step === 1) {
+                page1.style.display = '';
+                page2.style.display = 'none';
+                step1.classList.add('active');
+                step2.classList.remove('active');
+                btnNext.style.display = '';
+                btnBack.style.display = 'none';
+                btnSave.style.display = 'none';
             } else {
-                totalEl.textContent = '\u2014';
-                breakdownEl.textContent = '';
-                priceField.value = '';
-                priceDisplay.textContent = 'Calcul\u00e9 automatiquement';
+                page1.style.display = 'none';
+                page2.style.display = '';
+                step1.classList.remove('active');
+                step2.classList.add('active');
+                btnNext.style.display = 'none';
+                btnBack.style.display = '';
+                btnSave.style.display = '';
             }
         }
 
-        function collectPropLaborMinutes() {
-            var data = {};
-            var inputs = document.querySelectorAll('#propCpMinutesBody input[type="number"]');
-            for (var i = 0; i < inputs.length; i++) {
-                var val = parseFloat(inputs[i].value) || 0;
-                if (val > 0) data[inputs[i].getAttribute('data-dept')] = val;
+        function wizardNext() {
+            var desc = document.getElementById('propDescription').value.trim();
+            if (!desc) {
+                document.getElementById('propDescription').focus();
+                return;
             }
-            return data;
+            wizardGoToStep(2);
         }
 
-        function collectPropMaterialCosts() {
-            var data = {};
-            var inputs = document.querySelectorAll('#propCpMaterialsBody input[type="number"]');
-            for (var i = 0; i < inputs.length; i++) {
-                var val = parseFloat(inputs[i].value) || 0;
-                if (val > 0) data[inputs[i].getAttribute('data-cat')] = val;
-            }
-            return data;
+        function wizardBack() {
+            wizardGoToStep(1);
         }
 
-        // ── Médias pour le modal de proposition ──
+        // ── Photo simplifiée pour le modal de proposition ──
 
         function setupProposerMediaHandlers() {
             var dropzone = document.getElementById('propDropzone');
@@ -8800,97 +8775,76 @@
             dropzone.addEventListener('drop', function(e) {
                 e.preventDefault();
                 dropzone.classList.remove('dragover');
-                handlePropMediaFiles(e.dataTransfer.files);
+                handlePropPhotoFile(e.dataTransfer.files);
             });
             fileInput.addEventListener('change', function() {
-                handlePropMediaFiles(fileInput.files);
+                handlePropPhotoFile(fileInput.files);
                 fileInput.value = '';
             });
         }
 
-        function handlePropMediaFiles(files) {
-            Array.from(files).forEach(function(file) {
-                var isPdf = file.type === 'application/pdf';
-                var isImage = file.type.startsWith('image/');
-                if (!isPdf && !isImage) return;
+        function handlePropPhotoFile(files) {
+            if (!files || files.length === 0) return;
+            var file = files[0];
+            if (!file.type.startsWith('image/')) return;
 
-                var mediaEntry = {
-                    id: null, file_url: null, previewUrl: null,
-                    file_type: isPdf ? 'pdf' : 'image',
-                    tags: [], isNew: true, file: file
-                };
+            var mediaEntry = {
+                id: null, file_url: null, previewUrl: null,
+                file_type: 'image', tags: ['catalogue'], isNew: true, file: file
+            };
 
-                if (isImage) {
-                    var reader = new FileReader();
-                    reader.onload = function(e) {
-                        mediaEntry.previewUrl = e.target.result;
-                        propMedia.push(mediaEntry);
-                        renderPropMedia();
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    propMedia.push(mediaEntry);
-                    renderPropMedia();
-                }
-            });
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                mediaEntry.previewUrl = e.target.result;
+                propMedia = [mediaEntry]; // Max 1 photo
+                renderPropPhoto();
+            };
+            reader.readAsDataURL(file);
         }
 
-        function renderPropMedia() {
-            var list = document.getElementById('propMediaList');
-            list.innerHTML = '';
+        function renderPropPhoto() {
+            var dropzone = document.getElementById('propDropzone');
+            var preview = document.getElementById('propPhotoPreview');
 
-            propMedia.forEach(function(media, index) {
-                var item = document.createElement('div');
-                item.className = 'cat-media-item';
+            if (propMedia.length === 0) {
+                dropzone.style.display = '';
+                preview.style.display = 'none';
+                preview.innerHTML = '';
+                return;
+            }
 
-                if (media.file_type === 'pdf') {
-                    var pdfIcon = document.createElement('div');
-                    pdfIcon.className = 'cat-pdf-icon';
-                    pdfIcon.textContent = 'PDF';
-                    item.appendChild(pdfIcon);
-                } else {
-                    var img = document.createElement('img');
-                    img.src = media.file_url || media.previewUrl || '';
-                    img.alt = '';
-                    item.appendChild(img);
-                }
+            dropzone.style.display = 'none';
+            preview.style.display = '';
+            var m = propMedia[0];
+            preview.innerHTML = '<div style="position:relative; display:inline-block;">'
+                + '<img class="prop-photo-preview-img" src="' + escapeAttr(m.previewUrl || m.file_url || '') + '" alt="">'
+                + '<button class="prop-photo-remove" onclick="removePropPhoto()" title="Supprimer">&times;</button>'
+                + '</div>';
+        }
 
-                var info = document.createElement('div');
-                info.className = 'cat-media-info';
-                var tags = document.createElement('div');
-                tags.className = 'cat-media-tags';
-
-                mediaTagsList.forEach(function(tag) {
-                    var chip = document.createElement('span');
-                    chip.className = 'cat-tag' + (media.tags.indexOf(tag) !== -1 ? ' active' : '');
-                    chip.textContent = tag.replace(/_/g, ' ');
-                    chip.onclick = function() {
-                        var idx = media.tags.indexOf(tag);
-                        if (idx !== -1) media.tags.splice(idx, 1);
-                        else media.tags.push(tag);
-                        chip.classList.toggle('active');
-                    };
-                    tags.appendChild(chip);
-                });
-
-                info.appendChild(tags);
-                item.appendChild(info);
-
-                var removeBtn = document.createElement('button');
-                removeBtn.className = 'cat-media-remove';
-                removeBtn.innerHTML = '&times;';
-                removeBtn.title = 'Supprimer';
-                removeBtn.onclick = function() {
-                    propMedia.splice(index, 1);
-                    renderPropMedia();
-                };
-                item.appendChild(removeBtn);
-
-                list.appendChild(item);
-            });
+        function removePropPhoto() {
+            propMedia = [];
+            renderPropPhoto();
         }
 
         // ── Sauvegarde ──
+
+        function collectProposalContext() {
+            var customRadio = document.querySelector('input[name="propCustom"]:checked');
+            var installRadio = document.querySelector('input[name="propInstall"]:checked');
+            var approxPrice = parseFloat(document.getElementById('propApproxPrice').value) || null;
+            var constraints = document.getElementById('propConstraints').value.trim();
+            var notes = document.getElementById('propNotes').value.trim();
+
+            var ctx = {};
+            if (customRadio && customRadio.value !== 'ne_sait_pas') ctx.custom_or_standard = customRadio.value;
+            if (installRadio && installRadio.value !== 'ne_sait_pas') ctx.includes_installation = installRadio.value;
+            if (approxPrice) ctx.approximate_price = approxPrice;
+            if (constraints) ctx.constraints = constraints;
+            if (notes) ctx.notes_for_approver = notes;
+
+            return Object.keys(ctx).length > 0 ? ctx : null;
+        }
 
         async function saveProposedItem() {
             if (!proposerRowId) return;
@@ -8898,20 +8852,13 @@
             const category = document.getElementById('propCategory').value;
             const description = document.getElementById('propDescription').value.trim();
             const type = document.getElementById('propType').value;
-            const priceVal = document.getElementById('propPrice').value;
-            const price = priceVal !== '' ? parseFloat(priceVal) : null;
-            const instruction = document.getElementById('propInstruction').value.trim();
-            const inCalculator = document.getElementById('propInCalculator').checked;
-            const laborMinutes = collectPropLaborMinutes();
-            const materialCosts = collectPropMaterialCosts();
+            const proposalContext = collectProposalContext();
+            const approxPrice = parseFloat(document.getElementById('propApproxPrice').value) || null;
 
-            if (!description) { document.getElementById('propDescription').focus(); return; }
-            if (!price || price <= 0) {
-                // Vérifier s'il y a des données composées
-                if (Object.keys(laborMinutes).length === 0 && Object.keys(materialCosts).length === 0) {
-                    steleAlert('Veuillez remplir les minutes ou mat\u00e9riaux pour calculer le prix.');
-                    return;
-                }
+            if (!description) {
+                wizardGoToStep(1);
+                document.getElementById('propDescription').focus();
+                return;
             }
 
             const btn = document.getElementById('btnProposerSave');
@@ -8926,14 +8873,12 @@
                 category: category,
                 description: description,
                 type: type,
-                price: price,
-                instruction: instruction || null,
-                labor_minutes: Object.keys(laborMinutes).length > 0 ? laborMinutes : null,
-                material_costs: Object.keys(materialCosts).length > 0 ? materialCosts : null,
+                price: approxPrice,
                 status: 'pending',
                 proposed_by: email,
-                in_calculator: inCalculator,
-                sort_order: 9999
+                in_calculator: true,
+                sort_order: 9999,
+                proposal_context: proposalContext
             };
 
             try {
@@ -8946,42 +8891,36 @@
                 const data = await r.json();
                 const newItem = data[0] || payload;
 
-                // Upload des médias
-                for (var mi = 0; mi < propMedia.length; mi++) {
-                    var m = propMedia[mi];
-                    if (m.isNew && m.file) {
-                        var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
-                        var path = newId + '/' + Date.now() + '_' + mi + '.' + ext;
-                        var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                // Upload photo (max 1)
+                if (propMedia.length > 0 && propMedia[0].isNew && propMedia[0].file) {
+                    var m = propMedia[0];
+                    var ext = m.file.name.split('.').pop().toLowerCase() || 'bin';
+                    var path = newId + '/' + Date.now() + '_0.' + ext;
+                    var uploadResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/fiche-images/' + path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
+                        body: m.file
+                    });
+                    if (uploadResp.ok) {
+                        var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
                             method: 'POST',
-                            headers: { 'Content-Type': m.file.type, 'x-upsert': 'true' },
-                            body: m.file
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({
+                                catalogue_item_id: newId,
+                                file_url: fileUrl,
+                                file_type: 'image',
+                                tags: ['catalogue'],
+                                sort_order: 0
+                            })
                         });
-                        if (uploadResp.ok) {
-                            var fileUrl = SUPABASE_URL + '/storage/v1/object/public/fiche-images/' + path;
-                            await authenticatedFetch(SUPABASE_URL + '/rest/v1/item_media', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                                body: JSON.stringify({
-                                    catalogue_item_id: newId,
-                                    file_url: fileUrl,
-                                    file_type: m.file_type,
-                                    tags: m.tags,
-                                    sort_order: mi
-                                })
-                            });
-                            // Auto-sync image_url si tag "catalogue"
-                            if (mi === 0 || m.tags.indexOf('catalogue') !== -1) {
-                                if (m.file_type === 'image' && m.tags.indexOf('catalogue') !== -1) {
-                                    await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(newId), {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                                        body: JSON.stringify({ image_url: fileUrl })
-                                    });
-                                    newItem.image_url = fileUrl;
-                                }
-                            }
-                        }
+                        // Sync image_url on catalogue item
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(newId), {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ image_url: fileUrl })
+                        });
+                        newItem.image_url = fileUrl;
                     }
                 }
 
@@ -9005,7 +8944,7 @@
                 const statusEl = document.getElementById('propStatus');
                 statusEl.style.display = 'block';
                 statusEl.className = 'edit-status success';
-                statusEl.textContent = 'Votre article a \u00e9t\u00e9 ajout\u00e9 \u00e0 votre soumission mais est en attente d\u2019approbation pour \u00eatre ajout\u00e9 au catalogue officiellement.';
+                statusEl.textContent = 'Article propos\u00e9! En attente d\u2019approbation pour le catalogue.';
                 btn.textContent = 'Enregistr\u00e9!';
 
                 setTimeout(() => {

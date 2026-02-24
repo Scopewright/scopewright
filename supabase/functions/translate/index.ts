@@ -28,7 +28,7 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
         "ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr",
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
         "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
-        "ai_prompt_description_calculateur", "ai_prompt_import_components"
+        "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -242,6 +242,34 @@ RÈGLES :
 - "warnings" : max 3 messages courts en français expliquant les doutes
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
+const APPROVAL_SUGGEST_SYSTEM = `Tu es un expert en catalogues de cuisine et meubles sur mesure pour Stele, atelier d'ébénisterie haut de gamme.
+Un estimateur a proposé un nouvel article au catalogue. Tu reçois :
+1. Les détails de l'article proposé (description, catégorie, type, contexte de proposition)
+2. Des articles similaires existants dans la même catégorie (avec leurs règles et textes client)
+
+Tu dois générer des suggestions pour enrichir cet article :
+
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
+{
+  "status": "ok" | "needs_review",
+  "warnings": [],
+  "client_text": "Fragment de texte concis pour la description client visible dans la soumission",
+  "classification": "Recommandation de catégorie et type si différent de ce qui est proposé, sinon null",
+  "calc_rule_human": "Explication en français simple de comment calculer/ajuster le prix (conditions, majorations, articles liés)",
+  "pres_rule_human": "Explication en français simple de comment présenter cet article au client (ordre des éléments, préfixes)",
+  "calc_rule": { "cascade": [], "ask": [], "notes": "" },
+  "pres_rule": { "order": [], "prefix": "", "include": [], "exclude": [], "notes": "" }
+}
+
+RÈGLES :
+- Inspire-toi des articles similaires fournis pour le style et le niveau de détail
+- Le "client_text" doit être court, professionnel, en français — c'est un fragment qui apparaîtra dans la soumission client
+- Les règles humaines doivent être compréhensibles par un non-développeur
+- Les règles JSON doivent être cohérentes avec les explications humaines
+- Si les données sont insuffisantes, mets "status": "needs_review" et ajoute des warnings
+- Si tu ne peux pas déterminer de règle de calcul, retourne un objet vide pour calc_rule
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
 // Prompt map for action → override key + default prompt
 const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   optimize:                { key: "ai_prompt_fiche_optimize", prompt: OPTIMIZE_SYSTEM },
@@ -254,6 +282,7 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   catalogue_calc_rule:     { key: "ai_prompt_calc_rule", prompt: CATALOGUE_CALC_RULE_SYSTEM },
   calculateur_description: { key: "ai_prompt_description_calculateur", prompt: CALCULATEUR_DESCRIPTION_SYSTEM },
   import_components:       { key: "ai_prompt_import_components", prompt: IMPORT_COMPONENTS_SYSTEM },
+  approval_suggest:        { key: "ai_prompt_approval_suggest", prompt: APPROVAL_SUGGEST_SYSTEM },
 };
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
@@ -338,7 +367,7 @@ serve(async (req) => {
     }
 
     // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
-    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components"];
+    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest"];
     const model = SONNET_ACTIONS.includes(action)
       ? "claude-sonnet-4-20250514"
       : "claude-haiku-4-5-20251001";
@@ -370,6 +399,8 @@ serve(async (req) => {
           ? nonEmpty[0].text
           : action === "import_components"
           ? `Extrais les composantes fournisseur depuis les données ci-dessous (texte et/ou image jointe).\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
+          : action === "approval_suggest"
+          ? `Voici un article proposé par un estimateur, avec des articles similaires existants.\n\n${nonEmpty[0].text}\n\nGénère des suggestions pour enrichir cet article. Retourne UNIQUEMENT le JSON valide.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       // Build multimodal content when images are provided (for import_components with vision)
@@ -389,7 +420,7 @@ serve(async (req) => {
       }
 
       // Actions that require strict JSON output: use assistant prefill to force JSON
-      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components"];
+      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest"];
       const useJsonPrefill = JSON_ACTIONS.includes(action);
       const messages: any[] = [{ role: "user", content: userContent }];
       if (useJsonPrefill) {

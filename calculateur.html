@@ -262,6 +262,60 @@
         return tmp.textContent || tmp.innerText || '';
     }
 
+    // Format description text for display (MAJUSCULES → sentence case, bold keywords, lists)
+    function formatDescriptionForDisplay(text) {
+        if (!text || !text.trim()) return '';
+        var lines = text.split('\n');
+        var keywords = [
+            'CAISSON', 'FAÇADES ET PANNEAUX APPARENTS', 'FAÇADES',
+            'TIROIRS LEGRABOX', 'TIROIRS', 'POIGNÉES', 'ÉCLAIRAGE',
+            'DÉTAILS', 'EXCLUSIONS', 'COMPTOIR', 'QUINCAILLERIE',
+            'FINITION', 'ÉLECTRO', 'RANGEMENT', 'DIMENSIONS',
+            'NOTES', 'PARTICULARITÉS'
+        ];
+        var hasKeyword = lines.some(function(l) {
+            var upper = l.trim().toUpperCase();
+            return keywords.some(function(k) { return upper.startsWith(k); });
+        });
+        if (!hasKeyword) return escapeHtml(text).replace(/\n/g, '<br>');
+        var html = '';
+        var inList = false;
+        lines.forEach(function(line) {
+            var trimmed = line.trim();
+            if (!trimmed) { if (inList) { html += '</ul>'; inList = false; } return; }
+            if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+                if (!inList) { html += '<ul>'; inList = true; }
+                html += '<li>' + escapeHtml(trimmed.replace(/^[-•]\s*/, '')) + '</li>';
+                return;
+            }
+            if (inList) { html += '</ul>'; inList = false; }
+            var matched = false;
+            var upper = trimmed.toUpperCase();
+            for (var i = 0; i < keywords.length; i++) {
+                if (upper.startsWith(keywords[i])) {
+                    var colonIdx = trimmed.indexOf(':');
+                    if (colonIdx !== -1) {
+                        var label = trimmed.substring(0, colonIdx).trim();
+                        var value = trimmed.substring(colonIdx + 1).trim();
+                        html += '<p><strong>' + escapeHtml(toSentenceCase(label)) + ' :</strong> ' + escapeHtml(value) + '</p>';
+                    } else {
+                        html += '<p><strong>' + escapeHtml(toSentenceCase(trimmed)) + '</strong></p>';
+                    }
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) html += '<p>' + escapeHtml(trimmed) + '</p>';
+        });
+        if (inList) html += '</ul>';
+        return html;
+    }
+
+    function toSentenceCase(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+
     function debounce(fn, delay) {
         let timer;
         return function(...args) {
@@ -3695,6 +3749,17 @@
             background: #fafafa; color: #333; line-height: 1.5;
         }
         .client-desc-textarea:focus { outline: none; border-color: var(--sw-navy); background: #fff; }
+        .client-desc-display {
+            width: 100%; padding: 8px 12px; border: 1px solid #e8e8e8; border-radius: 6px;
+            font-family: inherit; font-size: 13px; min-height: 40px;
+            background: #fafafa; color: #333; line-height: 1.5; cursor: text;
+        }
+        .client-desc-display:hover { border-color: #ccc; }
+        .client-desc-display p { margin: 0 0 4px 0; }
+        .client-desc-display strong { font-weight: 600; color: #222; }
+        .client-desc-display ul { margin: 2px 0 6px 0; padding-left: 18px; }
+        .client-desc-display li { margin-bottom: 2px; color: #555; }
+        .client-desc-display .desc-placeholder { color: #aaa; font-style: italic; }
         .ai-field-wrap { position: relative; }
         .btn-ai-dot {
             position: absolute; top: 6px; right: 6px; z-index: 2;
@@ -8174,10 +8239,11 @@
                 <div class="client-description-section">
                     <label class="client-desc-label">Description client</label>
                     <div class="ai-field-wrap">
+                        <div class="client-desc-display" id="${groupId}-clientDescDisplay" onclick="editClientDescription('${groupId}')"><span class="desc-placeholder">Description visible par le client...</span></div>
                         <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
                                   placeholder="Description visible par le client pour cette pi&egrave;ce..."
-                                  rows="2"
-                                  onblur="saveClientDescription('${groupId}')"></textarea>
+                                  rows="2" style="display:none;"
+                                  onblur="finishEditDescription('${groupId}')"></textarea>
                         <button class="btn-ai-dot" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
@@ -10307,6 +10373,38 @@
             showSaveIndicator();
         }
 
+        function editClientDescription(groupId) {
+            var display = document.getElementById(groupId + '-clientDescDisplay');
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!display || !textarea) return;
+            if (currentSubmission && !isSubmissionCurrentlyEditable()) return;
+            display.style.display = 'none';
+            textarea.style.display = '';
+            textarea.focus();
+        }
+
+        function finishEditDescription(groupId) {
+            saveClientDescription(groupId);
+            var display = document.getElementById(groupId + '-clientDescDisplay');
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!display || !textarea) return;
+            textarea.style.display = 'none';
+            display.style.display = '';
+            refreshDescriptionDisplay(groupId);
+        }
+
+        function refreshDescriptionDisplay(groupId) {
+            var display = document.getElementById(groupId + '-clientDescDisplay');
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!display || !textarea) return;
+            var text = textarea.value.trim();
+            if (!text) {
+                display.innerHTML = '<span class="desc-placeholder">Description visible par le client...</span>';
+            } else {
+                display.innerHTML = formatDescriptionForDisplay(text);
+            }
+        }
+
         function saveClientDescription(groupId) {
             if (!roomMap[groupId]) return;
             var textarea = document.getElementById(groupId + '-clientDesc');
@@ -11802,6 +11900,7 @@
                     var html = results['desc'];
                     roomDescHTML[groupId] = html;
                     textarea.value = htmlToText(html);
+                    refreshDescriptionDisplay(groupId);
                     roomDescEN[groupId] = '';
                     if (roomMap[groupId]) {
                         authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
@@ -11873,9 +11972,9 @@
                         if (roomMap[gid]) {
                             updateRoom(roomMap[gid], { client_description: results[key], client_description_en: '' });
                         }
-                        // Sync calc textarea with plain text
+                        // Sync calc textarea + display with plain text
                         var calcDesc = document.getElementById(gid + '-clientDesc');
-                        if (calcDesc) calcDesc.value = htmlToText(results[key]);
+                        if (calcDesc) { calcDesc.value = htmlToText(results[key]); refreshDescriptionDisplay(gid); }
                         // Clear stale EN
                         roomDescEN[gid] = '';
                     }
@@ -11933,6 +12032,9 @@
                     if (roomMap[gid]) {
                         updateRoom(roomMap[gid], { client_description: optimized, client_description_en: '' });
                     }
+                    // Sync calculator textarea + display
+                    var descTA = document.getElementById(gid + '-clientDesc');
+                    if (descTA) { descTA.value = htmlToText(optimized); refreshDescriptionDisplay(gid); }
                     // Clear stale EN
                     roomDescEN[gid] = '';
                     showSaveIndicator();
@@ -14314,6 +14416,7 @@
                         var descEl = document.getElementById(groupId + '-clientDesc');
                         if (descEl) descEl.value = htmlToText(room.client_description);
                         roomDescHTML[groupId] = room.client_description;
+                        refreshDescriptionDisplay(groupId);
                     }
                     if (room.client_description_en) {
                         roomDescEN[groupId] = room.client_description_en;

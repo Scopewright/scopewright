@@ -655,19 +655,27 @@ serve(async (req) => {
         // Execute the INSERT server-side
         const userId = authResult.userId;
         const sourceCtx = saveTool.input.source_context || effectiveKey.replace("ai_prompt_", "");
-        await supabase.from("ai_learnings").insert({
+        const { error: insertError } = await supabase.from("ai_learnings").insert({
           rule: saveTool.input.rule,
           source_context: sourceCtx,
           source_example: saveTool.input.example || "",
           created_by: userId,
         });
 
+        if (insertError) {
+          console.error("[save_learning] INSERT failed:", insertError.message, insertError.code, insertError.details);
+        }
+
+        const toolResult = insertError
+          ? `{"success": false, "error": "${insertError.message}"}`
+          : '{"success": true, "message": "Règle enregistrée avec succès"}';
+
         if (!otherToolUse) {
           // save_learning was the only tool — loop back to Anthropic for final text
           const loopMessages = [
             ...messages,
             { role: "assistant", content: data.content },
-            { role: "user", content: [{ type: "tool_result", tool_use_id: saveTool.id, content: '{"success": true, "message": "Règle enregistrée avec succès"}' }] },
+            { role: "user", content: [{ type: "tool_result", tool_use_id: saveTool.id, content: toolResult }] },
           ];
           const loopResp = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",

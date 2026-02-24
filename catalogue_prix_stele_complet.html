@@ -2242,6 +2242,17 @@
                     <label class="form-label">Instruction</label>
                     <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
                 </div>
+                <!-- Proposal context (non-admin proposers + approvers) -->
+                <div class="form-group" id="proposalContextGroup" style="display:none;">
+                    <label class="form-label">Contraintes ou conditions d'utilisation</label>
+                    <textarea class="form-input" id="editPropConstraints" rows="2"
+                        placeholder="ex: Doit &ecirc;tre install&eacute; sur un mur porteur..."
+                        style="resize:vertical;"></textarea>
+                    <label class="form-label" style="margin-top:10px;">Notes pour l'approbateur</label>
+                    <textarea class="form-input" id="editPropNotes" rows="2"
+                        placeholder="Informations suppl&eacute;mentaires..."
+                        style="resize:vertical;"></textarea>
+                </div>
                 <!-- Présentation client (admin only) -->
                 <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
@@ -3940,6 +3951,11 @@
             document.getElementById('editPriceDisplay').textContent = item.price != null ? formatPrice(item.price) : 'Calculé automatiquement';
             document.getElementById('editInstruction').value = item.instruction || '';
 
+            // Proposal context (visible for non-editors proposing, or approvers reviewing pending)
+            var pc = item.proposal_context || {};
+            document.getElementById('editPropConstraints').value = pc.constraints || '';
+            document.getElementById('editPropNotes').value = pc.notes_for_approver || '';
+
             // Présentation client (admin only)
             document.getElementById('editClientText').value = item.client_text || '';
             document.getElementById('clientTextGroup').style.display = isAdmin ? '' : 'none';
@@ -4034,6 +4050,10 @@
                 document.getElementById('presRuleGroup').style.display = '';
             }
 
+            // Proposal context: visible for non-editors (proposers) or approvers reviewing pending
+            var showProposalCtx = !canEditCatalogue || showApproval;
+            document.getElementById('proposalContextGroup').style.display = showProposalCtx ? '' : 'none';
+
             // Navigation — use scoped list if set (from audit), else full catalogue
             if (_navScopedList) {
                 navItemList = _navScopedList;
@@ -4072,7 +4092,8 @@
                 'editCategory', 'editItemType', 'editType', 'editPrice',
                 'editPresRuleHuman', 'editPresRuleAi', 'editCalcRuleHuman', 'editCalcRuleAi',
                 'editInCalculator', 'editIsDefault', 'editHasSalesSheet',
-                'editDimL', 'editDimH', 'editDimP'
+                'editDimL', 'editDimH', 'editDimP',
+                'editPropConstraints', 'editPropNotes'
             ];
             var parts = [];
             fields.forEach(function(id) {
@@ -6198,10 +6219,28 @@
                     })()
                 };
 
+                // Proposal context (constraints + notes for approver)
+                var propConstraints = document.getElementById('editPropConstraints').value.trim();
+                var propNotes = document.getElementById('editPropNotes').value.trim();
+                if (propConstraints || propNotes) {
+                    var pCtx = {};
+                    if (propConstraints) pCtx.constraints = propConstraints;
+                    if (propNotes) pCtx.notes_for_approver = propNotes;
+                    payload.proposal_context = pCtx;
+                } else {
+                    payload.proposal_context = null;
+                }
+
                 let resp;
                 if (isNewItem && newItemData) {
                     // Nouvel item : POST avec id et sort_order
                     const createPayload = Object.assign({ id: itemId, sort_order: newItemData.sort_order }, payload);
+                    // Non-editors proposing: auto-set pending status
+                    if (!canEditCatalogue) {
+                        createPayload.status = 'pending';
+                        createPayload.proposed_by = (localStorage.getItem('sb_user_email') || '').toLowerCase();
+                        createPayload.in_calculator = true;
+                    }
                     resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
                         method: 'POST',
                         headers: {
@@ -8054,6 +8093,9 @@
                 document.getElementById('filterPendingBtn').style.display = '';
                 setupImportDrawerHandlers();
                 updatePendingBadge();
+            } else if (isEmbedded) {
+                // Non-editors in embedded mode (proposer flow) need modal handlers too
+                setupEditModalHandlers();
             }
 
             // Embedded mode: hide catalogue chrome, only show modal
@@ -8080,6 +8122,13 @@
                     var row = document.querySelector('tr[data-id="' + CSS.escape(editId) + '"]');
                     if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+            }
+
+            // Auto-create new item if URL has ?new=1 (from calculator proposer flow)
+            var newParam = urlParams.get('new');
+            if (newParam && (canEditCatalogue || isEmbedded)) {
+                var defaultCat = configCategories.length > 0 ? configCategories[0] : 'Autre';
+                createNewItem(defaultCat);
             }
         });
     </script>

@@ -3342,6 +3342,14 @@
 
         // ── Navigation entre articles ──
         let navItemList = [];  // liste ordonnée des IDs navigables
+        var _navScopedList = null; // temporary scoped list from audit drawer
+
+        /** Open modal with navigation scoped to a specific list of item IDs. */
+        function openEditModalScoped(itemId, scopedIds) {
+            _navScopedList = scopedIds;
+            closeAuditDrawer();
+            openEditModal(itemId);
+        }
 
         function buildNavList() {
             navItemList = CATALOGUE_DATA.slice()
@@ -3907,8 +3915,13 @@
                 document.getElementById('presRuleGroup').style.display = '';
             }
 
-            // Navigation
-            if (navItemList.length === 0) buildNavList();
+            // Navigation — use scoped list if set (from audit), else full catalogue
+            if (_navScopedList) {
+                navItemList = _navScopedList;
+                _navScopedList = null;
+            } else if (navItemList.length === 0) {
+                buildNavList();
+            }
             updateNavButtons(item.id);
 
             document.getElementById('editModal').classList.add('active');
@@ -5079,9 +5092,11 @@
                     html += '<span class="audit-section-count">' + finding.items.length + '</span>';
                     html += '<span class="audit-section-chevron">▼</span>';
                     html += '</div>';
+                    var groupIds = finding.items.map(function(i) { return i.id; });
+                    var groupIdsJson = JSON.stringify(groupIds).replace(/'/g, "\\'");
                     html += '<div class="audit-section-items">';
                     finding.items.forEach(function(item) {
-                        html += '<div class="audit-item" onclick="closeAuditDrawer();openEditModal(\'' + escapeAttr(item.id) + '\')">';
+                        html += '<div class="audit-item" onclick="openEditModalScoped(\'' + escapeAttr(item.id) + '\',' + groupIdsJson + ')">';
                         html += '<span class="audit-item-code">' + escapeHtml(item.id) + '</span>';
                         html += '<span class="audit-item-desc">' + escapeHtml(item.desc) + '</span>';
                         if (item.detail) html += '<span class="audit-item-detail">' + escapeHtml(item.detail) + '</span>';

@@ -845,6 +845,14 @@
         }
         .sb-subtotal-label { font-size: 13px; font-weight: 600; color: #333; }
         .sb-subtotal-value { font-size: 14px; font-weight: 700; color: var(--sw-navy); }
+        .sb-dims-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+        .sb-dims-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--sw-navy); }
+        .sb-dim-input {
+            width: 70px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 13px; font-family: inherit; text-align: right;
+        }
+        .sb-dim-input:focus { border-color: var(--sw-navy); outline: none; }
+        .sb-dim-unit { font-size: 11px; color: #888; margin-left: -2px; }
         .sb-actions { display: flex; gap: 8px; margin-top: 8px; }
         .sb-btn {
             padding: 5px 14px; border: 1px solid #ddd; border-radius: 4px;
@@ -4177,6 +4185,7 @@
         var sbMaterials = {};     // { caisson: {id,desc}, facades: {id,desc}, poignees: {id,desc} }
         var sbItemOverrides = {}; // Temporary overrides from modal edits
         var sbActive = false;
+        var sbDims = { L: 0, H: 0, P: 0 }; // Sandbox dimensions
         var sbMaterialGroups = ['Caisson', 'Façades et panneaux apparents', 'Poignées'];
         var sbCategoryGroupMapping = {};
         var sbMaterialGroupsFull = [];
@@ -4296,6 +4305,7 @@
                     panel.innerHTML = sbBuildPanelHTML();
                     sbSetupCombobox();
                     sbSetupMaterialDropdowns();
+                    sbUpdateDimsVisibility();
                     var currentId = document.getElementById('editItemId').value;
                     if (currentId) sbAddRow(currentId, 1, null);
                     sbRefreshAll();
@@ -4330,6 +4340,9 @@
 
             // Setup material dropdown handlers
             sbSetupMaterialDropdowns();
+
+            // Setup dimension fields visibility
+            sbUpdateDimsVisibility();
 
             // If current item is being edited, auto-add it to sandbox
             var currentId = document.getElementById('editItemId').value;
@@ -4396,6 +4409,17 @@
             html += '<hr class="sb-divider">';
             html += '<div class="sb-section-title">Description client</div>';
             html += '<div class="sb-desc-preview" id="sbDescPreview"><span class="sb-desc-placeholder">Ajoutez des articles et matériaux...</span></div>';
+
+            // Dimensions (visible only if current item has dims_config)
+            html += '<div id="sbDimsSection" style="display:none;">';
+            html += '<hr class="sb-divider">';
+            html += '<div class="sb-section-title">Dimensions</div>';
+            html += '<div class="sb-dims-row">'
+                + '<label id="sbDimLGroup" style="display:none;">L <input type="number" class="sb-dim-input" id="sbDimL" min="0" step="0.1" value="' + (sbDims.L || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
+                + '<label id="sbDimHGroup" style="display:none;">H <input type="number" class="sb-dim-input" id="sbDimH" min="0" step="0.1" value="' + (sbDims.H || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
+                + '<label id="sbDimPGroup" style="display:none;">P <input type="number" class="sb-dim-input" id="sbDimP" min="0" step="0.1" value="' + (sbDims.P || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
+                + '</div>';
+            html += '</div>';
 
             html += '<hr class="sb-divider">';
             html += '<div class="sb-section-title">Lignes catalogue</div>';
@@ -4494,6 +4518,47 @@
                 delete sbMaterials[key];
             }
             sbRefreshDescription();
+        }
+
+        // ── Dimensions ──
+
+        function sbUpdateDimsVisibility() {
+            var currentId = document.getElementById('editItemId').value;
+            var item = sbGetItem(currentId);
+            var dc = (item && item.dims_config) ? item.dims_config : {};
+            var anyDim = (dc.l !== false) || (dc.h !== false) || (dc.p !== false);
+            // Only show section for fabrication items with at least one dim
+            var isFab = item && item.item_type === 'fabrication';
+            var section = document.getElementById('sbDimsSection');
+            if (section) section.style.display = (isFab && anyDim) ? '' : 'none';
+            var lG = document.getElementById('sbDimLGroup');
+            var hG = document.getElementById('sbDimHGroup');
+            var pG = document.getElementById('sbDimPGroup');
+            if (lG) lG.style.display = (dc.l !== false) ? '' : 'none';
+            if (hG) hG.style.display = (dc.h !== false) ? '' : 'none';
+            if (pG) pG.style.display = (dc.p !== false) ? '' : 'none';
+        }
+
+        function sbOnDimChange() {
+            var lEl = document.getElementById('sbDimL');
+            var hEl = document.getElementById('sbDimH');
+            var pEl = document.getElementById('sbDimP');
+            sbDims.L = lEl ? (parseFloat(lEl.value) || 0) : 0;
+            sbDims.H = hEl ? (parseFloat(hEl.value) || 0) : 0;
+            sbDims.P = pEl ? (parseFloat(pEl.value) || 0) : 0;
+
+            // Recalculate all cascade quantities with new dimensions
+            sbRows.forEach(function(r) {
+                if (r.cascadeOf) {
+                    var parent = sbRows.find(function(p) { return p.id === r.cascadeOf; });
+                    if (parent) sbRecalcCascadeQty(r, parent);
+                }
+            });
+            sbRefreshAll();
+        }
+
+        function sbGetDimVars(qty) {
+            return { L: sbDims.L, H: sbDims.H, P: sbDims.P, QTY: qty || 1 };
         }
 
         // ── Combobox ──
@@ -4624,7 +4689,7 @@
             if (rules.constraints) {
                 rules.constraints.forEach(function(c) {
                     if (c.type === 'auto_add_calculated' && c.item_id === childRow.catalogueItemId && c.quantity_formula) {
-                        var result = sbEvalFormula(c.quantity_formula, { L: 0, H: 0, P: 0, QTY: parentRow.qty });
+                        var result = sbEvalFormula(c.quantity_formula, sbGetDimVars(parentRow.qty));
                         if (result != null) childRow.qty = Math.max(1, Math.round(result));
                     }
                 });
@@ -4633,7 +4698,7 @@
             if (rules.cascade) {
                 rules.cascade.forEach(function(c) {
                     if (c.target === childRow.catalogueItemId && c.qty) {
-                        var result = sbEvalFormula(String(c.qty), { L: 0, H: 0, P: 0, QTY: parentRow.qty });
+                        var result = sbEvalFormula(String(c.qty), sbGetDimVars(parentRow.qty));
                         if (result != null) childRow.qty = Math.max(1, Math.round(result));
                     }
                 });
@@ -4661,11 +4726,12 @@
                             if (c.item_id && !sbRows.some(function(r) { return r.catalogueItemId === c.item_id && r.cascadeOf === rowData.id; })) {
                                 var qty = 1;
                                 if (c.quantity_formula) {
-                                    var result = sbEvalFormula(c.quantity_formula, { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                                    var result = sbEvalFormula(c.quantity_formula, sbGetDimVars(rowData.qty));
                                     if (result != null && result > 0) qty = Math.round(result);
                                 }
                                 var child = sbAddRow(c.item_id, qty, rowData.id);
-                                if (child && c.quantity_formula) child.warn = 'Qté calculée (sans dimensions)';
+                                var hasDims = sbDims.L > 0 || sbDims.H > 0 || sbDims.P > 0;
+                                if (child && c.quantity_formula && !hasDims) child.warn = 'Qté calculée (sans dimensions)';
                             }
                             break;
                         case 'requires_swap':
@@ -4684,14 +4750,14 @@
                     if (!c.target) return;
                     // Evaluate condition
                     if (c.condition) {
-                        var condResult = sbEvalFormula(c.condition, { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                        var condResult = sbEvalFormula(c.condition, sbGetDimVars(rowData.qty));
                         if (!condResult) return;
                     }
                     // Check not already added
                     if (sbRows.some(function(r) { return r.catalogueItemId === c.target && r.cascadeOf === rowData.id; })) return;
                     var qty = 1;
                     if (c.qty) {
-                        var result = sbEvalFormula(String(c.qty), { L: 0, H: 0, P: 0, QTY: rowData.qty });
+                        var result = sbEvalFormula(String(c.qty), sbGetDimVars(rowData.qty));
                         if (result != null && result > 0) qty = Math.round(result);
                     }
                     sbAddRow(c.target, qty, rowData.id);
@@ -4884,6 +4950,24 @@
                     } catch (e) { /* invalid JSON, ignore */ }
                 });
             }
+
+            // Dims config checkboxes → update sandbox dimension fields visibility
+            ['editDimL', 'editDimH', 'editDimP'].forEach(function(cbId) {
+                var cb = document.getElementById(cbId);
+                if (cb) {
+                    cb.addEventListener('change', function() {
+                        var itemId = document.getElementById('editItemId').value;
+                        if (!itemId || !sbActive) return;
+                        if (!sbItemOverrides[itemId]) sbItemOverrides[itemId] = {};
+                        sbItemOverrides[itemId].dims_config = {
+                            l: document.getElementById('editDimL').checked,
+                            h: document.getElementById('editDimH').checked,
+                            p: document.getElementById('editDimP').checked
+                        };
+                        sbUpdateDimsVisibility();
+                    });
+                }
+            });
         }
 
         // ═══ Animated modal open (AI unit insert) ═══

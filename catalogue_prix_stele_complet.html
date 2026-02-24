@@ -4519,7 +4519,70 @@
             } else {
                 delete sbMaterials[key];
             }
+
+            // Re-process cascades that use $default: for this group
+            sbReprocessDefaultCascades(group);
+
             sbRefreshDescription();
+            sbRefreshAll();
+        }
+
+        function sbReprocessDefaultCascades(changedGroup) {
+            var token = '$default:' + changedGroup;
+            // Find parent rows whose items have cascade rules targeting this $default:
+            var parentsToReprocess = [];
+            sbRows.forEach(function(r) {
+                if (r.cascadeOf) return; // skip children
+                var item = sbGetItem(r.catalogueItemId);
+                if (!item || !item.calculation_rule_ai || !item.calculation_rule_ai.cascade) return;
+                var hasDynamic = item.calculation_rule_ai.cascade.some(function(c) {
+                    return c.target === token;
+                });
+                if (hasDynamic) parentsToReprocess.push(r);
+            });
+
+            // For each affected parent: remove old cascade children and re-process
+            parentsToReprocess.forEach(function(parentRow) {
+                // Remove children that came from cascade (not from constraints)
+                var item = sbGetItem(parentRow.catalogueItemId);
+                var cascadeTargets = {};
+                if (item && item.calculation_rule_ai && item.calculation_rule_ai.cascade) {
+                    item.calculation_rule_ai.cascade.forEach(function(c) {
+                        if (c.target) cascadeTargets[c.target] = true;
+                    });
+                }
+                sbRows = sbRows.filter(function(r) {
+                    if (r.cascadeOf !== parentRow.id) return true;
+                    // Keep constraint children (auto_add etc.), remove cascade children
+                    var resolved = sbResolveCascadeTarget(r.catalogueItemId);
+                    // Check if this child's item matches any cascade target (resolved)
+                    for (var t in cascadeTargets) {
+                        var rt = sbResolveCascadeTarget(t);
+                        if (rt === r.catalogueItemId || t === r.catalogueItemId) return false; // remove
+                    }
+                    return true;
+                });
+                // Re-process cascade rules only
+                var rules = item.calculation_rule_ai;
+                if (rules.cascade && Array.isArray(rules.cascade)) {
+                    rules.cascade.forEach(function(c) {
+                        if (!c.target) return;
+                        var resolvedTarget = sbResolveCascadeTarget(c.target);
+                        if (!resolvedTarget) return;
+                        if (c.condition) {
+                            var condResult = sbEvalFormula(c.condition, sbGetDimVars(parentRow.qty));
+                            if (!condResult) return;
+                        }
+                        if (sbRows.some(function(r) { return r.catalogueItemId === resolvedTarget && r.cascadeOf === parentRow.id; })) return;
+                        var qty = 1;
+                        if (c.qty) {
+                            var result = sbEvalFormula(String(c.qty), sbGetDimVars(parentRow.qty));
+                            if (result != null && result > 0) qty = Math.round(result);
+                        }
+                        sbAddRow(resolvedTarget, qty, parentRow.id);
+                    });
+                }
+            });
         }
 
         // ── Dimensions ──

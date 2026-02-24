@@ -1840,9 +1840,13 @@
     function updateDmType(idx, newType) {
         var dm = getDefaultMaterials();
         if (!dm[idx]) return;
+        var oldType = dm[idx].type;
         dm[idx].type = newType;
         if (currentSubmission) currentSubmission.default_materials = dm;
         saveDefaultMaterials(dm);
+        // Re-trigger cascades for both old and new group
+        if (oldType) reprocessDefaultCascades(oldType);
+        if (newType && newType !== oldType) reprocessDefaultCascades(newType);
     }
 
     // Build set of allowed catalogue categories for a given material group
@@ -1955,6 +1959,7 @@
     function dmSelectItem(idx, itemId, itemDesc) {
         var dm = getDefaultMaterials();
         if (!dm[idx]) return;
+        var changedGroup = dm[idx].type;
         dm[idx].catalogue_item_id = itemId;
         dm[idx].description = itemDesc;
         if (currentSubmission) currentSubmission.default_materials = dm;
@@ -1968,11 +1973,14 @@
             if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
         }
         dmActiveAC = null;
+        // Re-trigger cascades that use $default: for this group
+        reprocessDefaultCascades(changedGroup);
     }
 
     function removeDmEntry(idx) {
         var dm = getDefaultMaterials();
         var label = (dm[idx] && dm[idx].description) ? dm[idx].description : 'ce matériau';
+        var changedGroup = (dm[idx] && dm[idx].type) ? dm[idx].type : null;
         steleConfirm('Supprimer « ' + label + ' » ?').then(function(ok) {
             if (!ok) return;
             var dm2 = getDefaultMaterials();
@@ -1980,6 +1988,8 @@
             if (currentSubmission) currentSubmission.default_materials = dm2;
             saveDefaultMaterials(dm2);
             renderDefaultMaterials();
+            // Re-trigger cascades — material removed, $default: will now resolve to null
+            reprocessDefaultCascades(changedGroup);
         });
     }
 
@@ -2160,6 +2170,31 @@
             }
         }
         return null;
+    }
+
+    /**
+     * Re-trigger cascades on all parent rows that use $default: for the given group.
+     * Called when a default material changes (dmSelectItem, removeDmEntry, updateDmType).
+     */
+    async function reprocessDefaultCascades(changedGroup) {
+        if (!changedGroup) return;
+        var token = '$default:' + changedGroup;
+        // Find all non-cascade rows whose catalogue item has a $default: cascade for this group
+        var rowIds = [];
+        document.querySelectorAll('.calc-row:not(.cascade-child)').forEach(function(row) {
+            var select = row.querySelector('.item-select');
+            if (!select || !select.value) return;
+            var catItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
+            if (!catItem || !catItem.calculation_rule_ai || !catItem.calculation_rule_ai.cascade) return;
+            var hasDynamic = catItem.calculation_rule_ai.cascade.some(function(c) {
+                return c.target === token;
+            });
+            if (hasDynamic) rowIds.push(row.id);
+        });
+        // Execute cascades sequentially (each executeCascade handles orphan cleanup)
+        for (var i = 0; i < rowIds.length; i++) {
+            await executeCascade(rowIds[i], 0);
+        }
     }
 
     /**

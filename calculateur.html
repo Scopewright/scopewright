@@ -2544,11 +2544,15 @@
             border-radius: 6px; margin: 1px 4px;
         }
         .cb-item:hover, .cb-item.cb-active { background: #f1f5f9; }
+        .cb-item.cb-pending { opacity: 0.45; cursor: not-allowed; }
+        .cb-item.cb-pending:hover, .cb-item.cb-pending.cb-active { background: transparent; }
         .cb-item-code { color: #94a3b8; font-size: 10px; font-family: monospace; min-width: 60px; }
         .cb-item-desc { flex: 1; color: #0f172a; }
         .cb-item-type { color: #94a3b8; font-size: 10px; }
         .cb-item-special { color: var(--sw-navy); font-weight: 500; }
         .cb-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
+        .cb-pending-toast { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 12px; padding: 6px 14px; border-radius: 6px; white-space: nowrap; z-index: 10; animation: cbToastIn 0.15s ease; }
+        @keyframes cbToastIn { from { opacity: 0; transform: translateX(-50%) translateY(4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
         .calc-row:nth-child(even) { background: #fafafa; }
         .calc-row:last-child { border-bottom: none; }
@@ -7343,18 +7347,25 @@
             var html = '';
             var globalIdx = 0;
 
+            function renderCbItem(item) {
+                var isPending = item.status === 'pending';
+                var pendingBadge = isPending ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
+                var cls = 'cb-item' + (isPending ? ' cb-pending' : '');
+                var click = isPending
+                    ? 'showPendingToast(event)'
+                    : 'selectComboboxItem(\'' + escapeAttr(item.id) + '\')';
+                html += '<div class="' + cls + '" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="' + click + '" onmouseenter="_cbIdx=' + globalIdx + '">'
+                    + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
+                    + '<span class="cb-item-desc">' + escapeHtml(item.description) + pendingBadge + '</span>'
+                    + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
+                    + '</div>';
+                globalIdx++;
+            }
+
             // Render priority items first
             if (priorityItems.length > 0) {
                 html += '<div class="cb-group-label" style="color:#1565C0;font-weight:600;">Matériaux par défaut</div>';
-                priorityItems.forEach(function(item) {
-                    var pending = (item.status === 'pending') ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
-                    html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + globalIdx + '">'
-                        + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
-                        + '<span class="cb-item-desc">' + escapeHtml(item.description) + pending + '</span>'
-                        + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
-                        + '</div>';
-                    globalIdx++;
-                });
+                priorityItems.forEach(renderCbItem);
             }
 
             // Render rest grouped by category
@@ -7364,13 +7375,7 @@
                     currentCat = item.category;
                     html += '<div class="cb-group-label">' + escapeHtml(currentCat || 'Autre') + '</div>';
                 }
-                var pending = (item.status === 'pending') ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
-                html += '<div class="cb-item" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="selectComboboxItem(\'' + escapeAttr(item.id) + '\')" onmouseenter="_cbIdx=' + globalIdx + '">'
-                    + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
-                    + '<span class="cb-item-desc">' + escapeHtml(item.description) + pending + '</span>'
-                    + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
-                    + '</div>';
-                globalIdx++;
+                renderCbItem(item);
             });
             // Special options
             html += '<div class="cb-group-label">Autre</div>';
@@ -7394,6 +7399,21 @@
             updateRow(rowId);
         }
 
+        var _pendingToastTimer = null;
+        function showPendingToast(e) {
+            if (e) e.stopPropagation();
+            var dd = document.getElementById('cbDropdown');
+            if (!dd) return;
+            var existing = dd.querySelector('.cb-pending-toast');
+            if (existing) existing.remove();
+            clearTimeout(_pendingToastTimer);
+            var toast = document.createElement('div');
+            toast.className = 'cb-pending-toast';
+            toast.textContent = 'Cet article est en attente d\u2019approbation';
+            dd.appendChild(toast);
+            _pendingToastTimer = setTimeout(function() { if (toast.parentNode) toast.remove(); }, 3000);
+        }
+
         function handleComboboxKey(e, rowId) {
             var dd = document.getElementById('cbDropdown');
             if (!dd) return;
@@ -7411,7 +7431,11 @@
             } else if (e.key === 'Enter') {
                 e.preventDefault();
                 if (_cbIdx >= 0 && allItems[_cbIdx]) {
-                    allItems[_cbIdx].click();
+                    if (allItems[_cbIdx].classList.contains('cb-pending')) {
+                        showPendingToast();
+                    } else {
+                        allItems[_cbIdx].click();
+                    }
                 }
             } else if (e.key === 'Escape') {
                 e.preventDefault();

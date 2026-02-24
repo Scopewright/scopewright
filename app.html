@@ -633,9 +633,6 @@
                 // Admin: unmapped catalogue categories (orange badge)
                 var categories = [];
                 var mapping = {};
-                if (Array.isArray(rows)) {
-                    // rows already loaded above — reuse
-                }
                 // Fetch config for categories + mapping
                 var respConfig = await authenticatedFetch(
                     SUPABASE_URL + '/rest/v1/app_config?select=key,value&key=in.(catalogue_categories,category_group_mapping)',

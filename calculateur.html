@@ -8991,19 +8991,21 @@
                     if (currentMode === 'proposer') transformToNormalMode(row, rowId);
                     transformToAjoutMode(row, rowId);
                 }
+                var ajoutGroup = row.closest('.furniture-group');
+                var ajoutMult = ajoutGroup ? getModifierMultiplier(ajoutGroup.id) : 1;
                 if (row.dataset.ajoutMode === 'percentage') {
                     const pctInput = document.getElementById(`${rowId}-price`);
                     const pct = parseFloat(pctInput ? pctInput.value : 0) || 0;
                     const group = row.closest('.furniture-group');
                     const base = group ? getRoomBaseSubtotal(group) : 0;
-                    totalEl.textContent = formatPrice(base * pct / 100);
+                    totalEl.textContent = formatPrice(base * pct / 100 * ajoutMult);
                 } else {
                     const priceInput = document.getElementById(`${rowId}-price`);
                     const markupInput = document.getElementById(`${rowId}-markup`);
                     if (priceInput && markupInput) {
                         const price = parseFloat(priceInput.value) || 0;
                         const markup = parseFloat(markupInput.value) || 0;
-                        totalEl.textContent = formatPrice(price * qty * (1 + markup / 100));
+                        totalEl.textContent = formatPrice(price * qty * (1 + markup / 100) * ajoutMult);
                     }
                 }
             } else {
@@ -9024,8 +9026,10 @@
                         var includeInstall = installCb ? installCb.checked : true;
                         var composedPrice = computeComposedPrice(item, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
-                        unitPriceEl.textContent = formatPrice(effectivePrice);
-                        totalEl.textContent = formatPrice(effectivePrice * qty);
+                        var rowGroup = row.closest('.furniture-group');
+                        var mult = rowGroup ? getModifierMultiplier(rowGroup.id) : 1;
+                        unitPriceEl.textContent = formatPrice(effectivePrice * mult);
+                        totalEl.textContent = formatPrice(effectivePrice * qty * mult);
                     }
                 } else {
                     codeEl.textContent = '—';
@@ -9244,16 +9248,18 @@
             let subtotal = 0;
             const container = document.getElementById(`${groupId}-rows`);
             if (!container) return;
+            var mult = getModifierMultiplier(groupId);
             // Refresh percentage row displays (their total depends on other rows)
             container.querySelectorAll('.calc-row').forEach(row => {
                 if (row.dataset.ajoutMode === 'percentage') {
                     var pctTotal = getRowTotal(row);
                     var totalEl = document.getElementById(row.id + '-total');
-                    if (totalEl) totalEl.textContent = formatPrice(pctTotal);
+                    if (totalEl) totalEl.textContent = formatPrice(pctTotal * mult);
                 }
             });
             container.querySelectorAll('.calc-row').forEach(row => { subtotal += getRowTotal(row); });
-            if (roomModifiers[groupId]) {
+            var hasModifier = roomModifiers[groupId] || ((currentSubmission && currentSubmission.global_price_modifier_pct) || 0);
+            if (hasModifier) {
                 applyRoomModifierDisplay(groupId);
             } else {
                 const subtotalEl = document.getElementById(`${groupId}-subtotal`);
@@ -9263,6 +9269,8 @@
 
         // ── Room & global modifier functions ──
         // Modifiers are percentages applied multiplicatively:
+        // Displayed per line: unit_price × mult, total × mult
+        // Room subtotal = Σ base_lines × mult
         // effective_line = base_line × (1 + global_mod/100) × (1 + room_mod/100)
         // Room subtotal = Σ effective_lines
         // Grand total = subtotal_before_discount − discount
@@ -9284,6 +9292,17 @@
         function getEffectiveRoomTotal(groupId) {
             var base = getRoomCalculatedSubtotal(groupId);
             return Math.round(base * getModifierMultiplier(groupId) * 100) / 100;
+        }
+
+        function refreshGroupRows(groupId) {
+            var container = document.getElementById(groupId + '-rows');
+            if (!container) return;
+            container.querySelectorAll('.calc-row').forEach(function(row) { updateRow(row.id); });
+            updateGroupSubtotal(groupId);
+        }
+
+        function refreshAllRowsAndSubtotals() {
+            document.querySelectorAll('.furniture-group').forEach(function(g) { refreshGroupRows(g.id); });
         }
 
         // ── Room modifier UI ──
@@ -9317,7 +9336,7 @@
             var val = parseFloat(input.value.replace(',', '.'));
             if (isNaN(val)) val = 0;
             roomModifiers[groupId] = val;
-            applyRoomModifierDisplay(groupId);
+            refreshGroupRows(groupId);
             updateGrandTotal();
             if (roomMap[groupId]) {
                 await updateRoom(roomMap[groupId], { price_modifier_pct: val || null });
@@ -9335,27 +9354,32 @@
             var wrap = container.querySelector('.group-subtotal-wrap');
             if (!wrap) return;
             var base = getRoomCalculatedSubtotal(groupId);
-            var pct = roomModifiers[groupId] || 0;
+            var roomPct = roomModifiers[groupId] || 0;
+            var globalPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
             var effective = getEffectiveRoomTotal(groupId);
             var editable = isSubmissionCurrentlyEditable();
-            if (pct !== 0) {
-                var sign = pct > 0 ? '+' : '';
+            if (roomPct !== 0) {
+                var sign = roomPct > 0 ? '+' : '';
+                var tooltipParts = 'Base : ' + formatPrice(base);
+                if (globalPct) tooltipParts += ' \u00d7 global ' + (globalPct > 0 ? '+' : '') + globalPct + '%';
+                tooltipParts += ' \u00d7 pi\u00e8ce ' + sign + roomPct + '% = ' + formatPrice(effective);
                 wrap.innerHTML =
                     '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(effective) + '</span>' +
-                    '<span class="room-modifier-badge">' + sign + pct + '%</span>' +
+                    '<span class="room-modifier-badge">' + sign + roomPct + '%</span>' +
                     (editable ? '<button class="btn-room-modifier active" onclick="editRoomModifier(\'' + groupId + '\')" title="Modifier le %">&#9998;</button>' : '') +
                     (editable ? '<button class="btn-room-modifier" onclick="removeRoomModifier(\'' + groupId + '\')" title="Retirer le modificateur">&times;</button>' : '') +
-                    '<span class="room-modifier-tooltip">Base : ' + formatPrice(base) + ' \u00d7 ' + sign + pct + '% = ' + formatPrice(effective) + '</span>';
+                    '<span class="room-modifier-tooltip">' + tooltipParts + '</span>';
             } else {
+                // No room modifier, but might have global modifier
                 wrap.innerHTML =
-                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(base) + '</span>' +
+                    '<span class="group-subtotal-amount" id="' + groupId + '-subtotal">' + formatPrice(effective) + '</span>' +
                     (editable ? '<button class="btn-room-modifier" onclick="editRoomModifier(\'' + groupId + '\')" title="Modificateur % pi\u00e8ce">%</button>' : '');
             }
         }
 
         async function removeRoomModifier(groupId) {
             roomModifiers[groupId] = 0;
-            applyRoomModifierDisplay(groupId);
+            refreshGroupRows(groupId);
             updateGrandTotal();
             if (roomMap[groupId]) {
                 await updateRoom(roomMap[groupId], { price_modifier_pct: null });
@@ -9532,10 +9556,7 @@
             currentSubmission.global_price_modifier_pct = val || null;
             rebuildGlobalModifierRow();
             updateGlobalModifierDisplay();
-            // Refresh all room modifier displays (multiplier changed)
-            document.querySelectorAll('.furniture-group').forEach(function(g) {
-                if (roomModifiers[g.id]) applyRoomModifierDisplay(g.id);
-            });
+            refreshAllRowsAndSubtotals();
             updateGrandTotal();
             await updateSubmission(currentSubmission.id, { global_price_modifier_pct: val || null });
             showSaveIndicator();
@@ -9546,9 +9567,7 @@
             currentSubmission.global_price_modifier_pct = null;
             rebuildGlobalModifierRow();
             updateGlobalModifierDisplay();
-            document.querySelectorAll('.furniture-group').forEach(function(g) {
-                if (roomModifiers[g.id]) applyRoomModifierDisplay(g.id);
-            });
+            refreshAllRowsAndSubtotals();
             updateGrandTotal();
             await updateSubmission(currentSubmission.id, { global_price_modifier_pct: null });
             showSaveIndicator();

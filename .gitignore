@@ -41,6 +41,8 @@
 !landing-page/.env.example
 !images/
 !images/*
+!docs/
+!docs/*
 
 # Landing page env files
 landing-page/.env

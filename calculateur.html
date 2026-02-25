@@ -4986,6 +4986,24 @@
             font-weight: 400; font-size: 9px; color: #888;
         }
 
+        /* Pourquoi stele page */
+        .pv-page-why {
+            display: grid; grid-template-columns: 42% 1fr;
+            grid-template-rows: 1fr auto; padding: 0; overflow: hidden;
+        }
+        .pv-why-image { grid-row: 1; grid-column: 1; overflow: hidden; border-radius: 8px; margin: 32px 0 0 32px; }
+        .pv-why-image img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; border-radius: 8px; filter: grayscale(100%) contrast(1.05); box-shadow: none; }
+        .pv-why-content { grid-row: 1; grid-column: 2; padding: 40px 24px 32px 48px; display: flex; flex-direction: column; justify-content: center; }
+        .pv-why-rule { width: 48px; height: 1px; background: #1A1A1A; margin-bottom: 52px; }
+        .pv-why-title { font-family: 'Inter', -apple-system, sans-serif; font-size: 28px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.3; color: #1A1A1A; margin-bottom: 48px; }
+        .pv-why-title strong { font-weight: 600; }
+        .pv-why-body { max-width: 460px; }
+        .pv-why-body p { font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; font-weight: 400; line-height: 1.7; color: #555555; margin-bottom: 20px; }
+        .pv-why-body p:last-child { margin-bottom: 0; }
+        .pv-why-bottom { grid-column: 1 / -1; grid-row: 2; display: flex; justify-content: space-between; align-items: center; padding: 0 56px 8px 32px; }
+        .pv-why-bottom-url { font-family: 'Inter', -apple-system, sans-serif; font-size: 9px; font-weight: 400; letter-spacing: 0.02em; color: #1a1a1a; }
+        .pv-why-bottom-page { font-family: 'Inter', -apple-system, sans-serif; font-size: 9px; font-weight: 400; color: #888; }
+
         /* Tools panel */
         .pv-tools-header {
             padding: 14px 20px; font-size: 13px; font-weight: 700;
@@ -12267,7 +12285,20 @@
             '.pv-intro-bottom{position:absolute;bottom:8px;left:32px;right:56px;display:flex;justify-content:space-between;align-items:center}\n' +
             '.pv-intro-bottom-url{font-family:Inter,-apple-system,sans-serif;font-weight:400;font-size:9px;color:#1a1a1a;text-decoration:none;letter-spacing:0.02em}\n' +
             '.pv-intro-bottom-page{font-family:Inter,-apple-system,sans-serif;font-weight:400;font-size:9px;color:#888}\n' +
-            '@media print{.pv-page{page-break-after:always} .pv-page-room-media .pv-img-wrap{box-shadow:none}}';
+            '.pv-page-why{display:grid;grid-template-columns:42% 1fr;grid-template-rows:1fr auto;padding:0;overflow:hidden}\n' +
+            '.pv-why-image{grid-row:1;grid-column:1;overflow:hidden;border-radius:8px;margin:32px 0 0 32px}\n' +
+            '.pv-why-image img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;border-radius:8px;filter:grayscale(100%) contrast(1.05);box-shadow:none}\n' +
+            '.pv-why-content{grid-row:1;grid-column:2;padding:40px 24px 32px 48px;display:flex;flex-direction:column;justify-content:center}\n' +
+            '.pv-why-rule{width:48px;height:1px;background:#1A1A1A;margin-bottom:52px}\n' +
+            '.pv-why-title{font-family:Inter,-apple-system,sans-serif;font-size:28px;font-weight:400;letter-spacing:-0.02em;line-height:1.3;color:#1A1A1A;margin-bottom:48px}\n' +
+            '.pv-why-title strong{font-weight:600}\n' +
+            '.pv-why-body{max-width:460px}\n' +
+            '.pv-why-body p{font-family:Inter,-apple-system,sans-serif;font-size:14px;font-weight:400;line-height:1.7;color:#555555;margin-bottom:20px}\n' +
+            '.pv-why-body p:last-child{margin-bottom:0}\n' +
+            '.pv-why-bottom{grid-column:1/-1;grid-row:2;display:flex;justify-content:space-between;align-items:center;padding:0 56px 8px 32px}\n' +
+            '.pv-why-bottom-url{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;letter-spacing:0.02em;color:#1a1a1a}\n' +
+            '.pv-why-bottom-page{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;color:#888}\n' +
+            '@media print{.pv-page{page-break-after:always} .pv-page-room-media .pv-img-wrap{box-shadow:none} .pv-page-why{page-break-after:always;break-inside:avoid}}';
 
         function generateSnapshotHtml(pagesHtml) {
             return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n' +
@@ -12578,6 +12609,38 @@
 
                 html += '</div>'; // end pv-page-intro
             }
+
+            // ── Page "Pourquoi stele" ──
+            var whyArchName = '';
+            if (currentProject && currentProject.project_contacts) {
+                var archPC = currentProject.project_contacts.find(function(pc) {
+                    var r = (pc.role || '').toLowerCase();
+                    return r.indexOf('architecte') >= 0 || r.indexOf('architect') >= 0 || r.indexOf('designer') >= 0;
+                });
+                if (archPC && archPC.contacts) {
+                    var ac = archPC.contacts;
+                    whyArchName = ((ac.first_name || '') + ' ' + (ac.last_name || '')).trim();
+                }
+            }
+            var whyDesigner = whyArchName || 'votre architecte';
+            html += '<div class="pv-page pv-page-why">';
+            html += '<div class="pv-why-image">';
+            html += '<img src="images/why-stele.jpg" alt="Atelier stele" onerror="this.style.display=\'none\'" />';
+            html += '</div>';
+            html += '<div class="pv-why-content">';
+            html += '<div class="pv-why-rule"></div>';
+            html += '<h2 class="pv-why-title">Pourquoi <strong>stele</strong></h2>';
+            html += '<div class="pv-why-body">';
+            html += '<p>Parce que, comme vous, nous estimons et admirons le travail de ' + escapeHtml(whyDesigner) + ', et souhaitons rendre hommage \u00e0 leur vision avec la m\u00eame exigence.</p>';
+            html += '<p>Parce que nos ann\u00e9es d\u2019exp\u00e9rience dans la r\u00e9alisation de projets d\u2019\u00e9b\u00e9nisterie d\u2019envergure nous ont appris \u00e0 ma\u00eetriser la complexit\u00e9, et que notre \u00e9quipe se distingue par son habilet\u00e9 l\u00e0 o\u00f9 la technologie atteint ses limites.</p>';
+            html += '<p>Parce que stele, c\u2019est avant tout une \u00e9quipe de gens passionn\u00e9s, anim\u00e9s par le d\u00e9sir de cr\u00e9er des pi\u00e8ces uniques. Si chaque projet apporte son lot de d\u00e9fis, nous sommes pr\u00eats \u00e0 les relever pour que chaque \u00e9tape se fasse en toute simplicit\u00e9.</p>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div class="pv-why-bottom">';
+            html += '<span class="pv-why-bottom-url">stele.ca</span>';
+            html += '<span class="pv-why-bottom-page">2</span>';
+            html += '</div>';
+            html += '</div>'; // end pv-page-why
 
             // ── Room pages (one per room) — text left, images right ──
             var grandTotal = 0;

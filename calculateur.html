@@ -12622,18 +12622,31 @@
                     whyArchName = ((ac.first_name || '') + ' ' + (ac.last_name || '')).trim();
                 }
             }
-            var whyDesigner = whyArchName || 'votre architecte';
+            var whyDesignerFr = whyArchName || 'votre architecte';
+            var whyDesignerEn = whyArchName || 'your architect';
+            var whyEn = currentLang === 'en';
+            var whyDesigner = whyEn ? whyDesignerEn : whyDesignerFr;
+            var whyTitle = whyEn ? 'Why' : 'Pourquoi';
+            var whyP1 = whyEn
+                ? 'Because, like you, we value and admire the work of ' + escapeHtml(whyDesigner) + ', and wish to honour their vision with the same dedication.'
+                : 'Parce que, comme vous, nous estimons et admirons le travail de ' + escapeHtml(whyDesigner) + ', et souhaitons rendre hommage \u00e0 leur vision avec la m\u00eame exigence.';
+            var whyP2 = whyEn
+                ? 'Because our years of experience in executing large-scale cabinetry projects have taught us to master complexity, and our team stands out through its craftsmanship where technology reaches its limits.'
+                : 'Parce que nos ann\u00e9es d\u2019exp\u00e9rience dans la r\u00e9alisation de projets d\u2019\u00e9b\u00e9nisterie d\u2019envergure nous ont appris \u00e0 ma\u00eetriser la complexit\u00e9, et que notre \u00e9quipe se distingue par son habilet\u00e9 l\u00e0 o\u00f9 la technologie atteint ses limites.';
+            var whyP3 = whyEn
+                ? 'Because stele is above all a team of passionate people, driven by the desire to create unique pieces. While every project brings its own challenges, we are ready to meet them so that every step unfolds seamlessly.'
+                : 'Parce que stele, c\u2019est avant tout une \u00e9quipe de gens passionn\u00e9s, anim\u00e9s par le d\u00e9sir de cr\u00e9er des pi\u00e8ces uniques. Si chaque projet apporte son lot de d\u00e9fis, nous sommes pr\u00eats \u00e0 les relever pour que chaque \u00e9tape se fasse en toute simplicit\u00e9.';
             html += '<div class="pv-page pv-page-why">';
             html += '<div class="pv-why-image">';
             html += '<img src="images/why-stele.jpg" alt="Atelier stele" onerror="this.style.display=\'none\'" />';
             html += '</div>';
             html += '<div class="pv-why-content">';
             html += '<div class="pv-why-rule"></div>';
-            html += '<h2 class="pv-why-title">Pourquoi <strong>stele</strong></h2>';
+            html += '<h2 class="pv-why-title">' + whyTitle + ' <strong>stele</strong></h2>';
             html += '<div class="pv-why-body">';
-            html += '<p>Parce que, comme vous, nous estimons et admirons le travail de ' + escapeHtml(whyDesigner) + ', et souhaitons rendre hommage \u00e0 leur vision avec la m\u00eame exigence.</p>';
-            html += '<p>Parce que nos ann\u00e9es d\u2019exp\u00e9rience dans la r\u00e9alisation de projets d\u2019\u00e9b\u00e9nisterie d\u2019envergure nous ont appris \u00e0 ma\u00eetriser la complexit\u00e9, et que notre \u00e9quipe se distingue par son habilet\u00e9 l\u00e0 o\u00f9 la technologie atteint ses limites.</p>';
-            html += '<p>Parce que stele, c\u2019est avant tout une \u00e9quipe de gens passionn\u00e9s, anim\u00e9s par le d\u00e9sir de cr\u00e9er des pi\u00e8ces uniques. Si chaque projet apporte son lot de d\u00e9fis, nous sommes pr\u00eats \u00e0 les relever pour que chaque \u00e9tape se fasse en toute simplicit\u00e9.</p>';
+            html += '<p>' + whyP1 + '</p>';
+            html += '<p>' + whyP2 + '</p>';
+            html += '<p>' + whyP3 + '</p>';
             html += '</div>';
             html += '</div>';
             html += '<div class="pv-why-bottom">';

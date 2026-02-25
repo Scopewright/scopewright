@@ -87,6 +87,11 @@
     var _allUserRoles = {};    // { email: roleName } from app_config
     var _allPermissions = {};  // { roleName: { perm1: true, ... } } from app_config
     var USER_PROFILES_MAP = {}; // { email: "Prénom Nom" } from user_profiles
+    var SUPPLIER_COMPANIES = [];     // [{id, name}] from companies where company_type='Fournisseurs'
+    var _customItemDataMap = {};     // { rowId: { description, unit_price, markup, custom_data } }
+    var _cimRowId = null;            // rowId being edited in custom item modal
+    var _cimAttachments = [];        // [{path, name, type, size, isNew, file}]
+    var _cimAttachmentsToDelete = []; // storage paths to delete on save
     let canEditMinutes = false;
     let canEditMaterials = false;
     let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
@@ -1009,22 +1014,13 @@
             var tagInput = row.querySelector('.cell-tag input');
             var tag = tagInput ? tagInput.value.trim() : '';
             if (selectedId === '__AJOUT__') {
-                var descInput = row.querySelector('.ajout-description');
-                var priceInput = row.querySelector('.ajout-price');
-                var markupInput = row.querySelector('.ajout-markup');
-                var isPctRow = row.dataset.ajoutMode === 'percentage';
-                var p = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                var lt;
-                if (isPctRow) {
-                    lt = getRowTotal(row);
-                    var ajoutDims = collectRowDims(row);
-                    items.push({ index: idx, tag: tag || null, type: 'ajout_percentage', description: descInput ? descInput.value : '', percentage: p, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
-                } else {
-                    var m = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                    lt = p * qty * (1 + m / 100);
-                    var ajoutDims = collectRowDims(row);
-                    items.push({ index: idx, tag: tag || null, type: 'ajout', description: descInput ? descInput.value : '', unitPrice: p, qty: qty, markup: m, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims });
-                }
+                var cdCtx = _customItemDataMap[row.id] || {};
+                var ajP = cdCtx.unit_price || 0;
+                var ajM = cdCtx.markup || 0;
+                var lt = ajP * qty * (1 + ajM / 100);
+                var ajoutDims = collectRowDims(row);
+                var ajSupplier = (cdCtx.custom_data && cdCtx.custom_data.supplier_name) || '';
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
                 subtotal += lt;
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -3899,13 +3895,59 @@
             display: none; /* Hidden - replaced by timeline CTA */
         }
 
-        /* Ajout personnalis&eacute; */
-        .ajout-description:focus,
-        .ajout-price:focus,
-        .ajout-markup:focus { outline: none; border-color: var(--sw-navy); }
-        .ajout-mode-toggle { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #C8C8C8; border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; flex-shrink: 0; transition: all 0.15s; }
-        .ajout-mode-toggle:hover { border-color: var(--sw-navy); color: var(--sw-navy); }
-        .ajout-mode-toggle.mode-pct { background: #e8f0fe; border-color: #1565C0; color: #1565C0; }
+        /* Ajout personnalis&eacute; — summary row */
+        .ajout-edit-btn {
+            background: none; border: 1px dashed #cbd5e1; border-radius: 6px;
+            padding: 4px 10px; font-size: 11px; color: #475569; cursor: pointer;
+            max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .ajout-edit-btn:hover { border-color: var(--stele-green); color: var(--stele-green); }
+
+        /* Custom item modal */
+        .custom-item-modal {
+            background: #fff; border-radius: 12px; width: 520px; max-height: 90vh;
+            overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .cim-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; }
+        .cim-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .cim-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; padding: 4px 8px; }
+        .cim-close:hover { color: #000; }
+        .cim-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+        .cim-label { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: -6px; }
+        .cim-body textarea, .cim-body input[type="number"], .cim-body select {
+            padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px;
+            font-size: 13px; font-family: inherit; width: 100%; box-sizing: border-box;
+        }
+        .cim-body textarea:focus, .cim-body input:focus, .cim-body select:focus {
+            outline: none; border-color: var(--stele-green);
+        }
+        .cim-body textarea { resize: vertical; }
+        .cim-row { display: flex; gap: 12px; }
+        .cim-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .cim-computed { font-size: 15px; font-weight: 700; padding: 8px 0; color: var(--stele-green); }
+        .cim-dropzone {
+            border: 2px dashed #d1d5db; border-radius: 8px; padding: 20px;
+            text-align: center; color: #666; font-size: 13px; cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .cim-dropzone.dragover { border-color: var(--stele-green); background: #f0fdf4; }
+        .cim-dropzone a { color: var(--stele-green); text-decoration: underline; }
+        .cim-file-list { display: flex; flex-direction: column; gap: 6px; }
+        .cim-file-item {
+            display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+            background: #f9fafb; border-radius: 6px; font-size: 12px;
+        }
+        .cim-file-icon { font-size: 16px; flex-shrink: 0; }
+        .cim-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cim-file-size { color: #9ca3af; flex-shrink: 0; }
+        .cim-file-del { margin-left: auto; cursor: pointer; color: #dc3545; background: none; border: none; font-size: 14px; padding: 2px 6px; }
+        .cim-file-del:hover { color: #b02a37; }
+        .cim-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #f1f5f9; }
+        .cim-btn-cancel { background: #f3f4f6; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .cim-btn-cancel:hover { background: #e5e7eb; }
+        .cim-btn-save { background: var(--stele-green); color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .cim-btn-save:hover { background: #3a4d3f; }
 
         /* Modal */
         .modal-overlay {
@@ -6030,8 +6072,9 @@
             .nav-bar { display: none; }
             .btn-add, .btn-remove, .add-row-container, .group-images-section { display: none !important; }
             .item-select { border: none; background: none; padding: 0; appearance: none; background-image: none; }
-            .qty-input, .ajout-description, .ajout-price, .ajout-markup { border: none; background: none; }
-            .ajout-mode-toggle, .btn-room-modifier, .room-modifier-badge { display: none; }
+            .qty-input { border: none; background: none; }
+            .ajout-edit-btn { border: none; background: none; }
+            .btn-room-modifier, .room-modifier-badge { display: none; }
             .calculator-container { page-break-inside: avoid; }
         }
 
@@ -6047,8 +6090,7 @@
                 font-size: 10px;
             }
             .btn-add, .btn-remove, .btn-add-group { font-size: 12px; }
-            .ajout-description, .ajout-price, .ajout-markup { font-size: 11px !important; }
-            .ajout-mode-toggle { width: 24px; height: 24px; font-size: 11px; }
+            .ajout-edit-btn { font-size: 10px !important; }
             .calculator-container { font-size: 13px; }
         }
 
@@ -8464,64 +8506,42 @@
             return rowId;
         }
 
-        function transformToAjoutMode(row, rowId, mode) {
+        function transformToAjoutMode(row, rowId) {
             row.dataset.mode = 'ajout';
-            row.dataset.ajoutMode = mode || 'fixed';
+            row.dataset.ajoutMode = 'fixed';
             row.style.background = '#edf0f5';
 
-            const codeEl = document.getElementById(`${rowId}-code`);
-            const typeEl = document.getElementById(`${rowId}-type`);
-            const unitPriceEl = document.getElementById(`${rowId}-unit-price`);
-            const isPct = (mode || 'fixed') === 'percentage';
+            var cd = _customItemDataMap[rowId] || {};
+            var desc = cd.description || '';
+            var supplierName = (cd.custom_data && cd.custom_data.supplier_name) || '';
+            var cost = cd.unit_price || 0;
+            var markup = cd.markup || 0;
+            var sellPrice = cost * (1 + markup / 100);
 
-            codeEl.innerHTML = `<input type="text" class="ajout-description" id="${rowId}-desc" placeholder="Description..." oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px;">`;
+            var codeEl = document.getElementById(rowId + '-code');
+            var typeEl = document.getElementById(rowId + '-type');
+            var unitPriceEl = document.getElementById(rowId + '-unit-price');
+
+            codeEl.innerHTML = '<span style="font-size:11px;color:#64748b;cursor:pointer;" onclick="openCustomItemModal(\'' + rowId + '\')">' +
+                escapeHtml(supplierName || 'Personnalis\u00e9') + '</span>';
             codeEl.style.gridColumn = 'span 1';
 
-            if (isPct) {
-                typeEl.innerHTML = `<div style="display: flex; align-items: center; gap: 6px;"><button class="ajout-mode-toggle mode-pct" onclick="toggleAjoutMode('${rowId}')" title="Mode pourcentage actif — cliquer pour montant fixe">%</button><div style="display: flex; align-items: center; gap: 4px; flex: 1;"><input type="number" class="ajout-price" id="${rowId}-price" placeholder="%" value="0" min="0" step="0.1" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #1565C0; border-radius: 4px; text-align: right; -moz-appearance: textfield; background: #f8fbff;" onwheel="this.blur()"><span style="font-size: 11px; color: #1565C0; font-weight: 600;">%</span></div></div>`;
-                unitPriceEl.innerHTML = '';
-            } else {
-                typeEl.innerHTML = `<div style="display: flex; align-items: center; gap: 6px;"><button class="ajout-mode-toggle" onclick="toggleAjoutMode('${rowId}')" title="Mode montant fixe — cliquer pour pourcentage">$</button><input type="number" class="ajout-price" id="${rowId}-price" placeholder="Prix" value="0" min="0" step="0.01" oninput="updateRow('${rowId}')" style="width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"></div>`;
-                unitPriceEl.innerHTML = `<div style="display: flex; align-items: center; gap: 4px;"><input type="number" class="ajout-markup" id="${rowId}-markup" value="30" min="0" step="1" oninput="updateRow('${rowId}')" style="width: 60px; padding: 6px 8px; font-size: 12px; border: 1px solid #C8C8C8; border-radius: 4px; text-align: right; -moz-appearance: textfield;" onwheel="this.blur()"><span style="font-size: 11px; color: #666;">%</span></div>`;
-            }
+            typeEl.innerHTML = '<button class="ajout-edit-btn" onclick="openCustomItemModal(\'' + rowId + '\')" title="Modifier">' +
+                escapeHtml(desc || 'Cliquer pour configurer...') + '</button>';
 
-            setTimeout(() => {
-                const descInput = document.getElementById(`${rowId}-desc`);
-                if (descInput) descInput.focus();
-            }, 50);
+            unitPriceEl.textContent = formatPrice(sellPrice);
         }
 
         function transformToNormalMode(row, rowId) {
             row.dataset.mode = 'normal';
             delete row.dataset.ajoutMode;
             row.style.background = '';
-            document.getElementById(`${rowId}-code`).innerHTML = '—';
-            document.getElementById(`${rowId}-code`).style.gridColumn = '';
-            document.getElementById(`${rowId}-type`).innerHTML = '—';
-            document.getElementById(`${rowId}-unit-price`).innerHTML = '—';
-            document.getElementById(`${rowId}-total`).textContent = '0,00 $';
-        }
-
-        function toggleAjoutMode(rowId) {
-            var row = document.getElementById(rowId);
-            if (!row) return;
-            var currentMode = row.dataset.ajoutMode || 'fixed';
-            var newMode = currentMode === 'fixed' ? 'percentage' : 'fixed';
-            var descInput = document.getElementById(rowId + '-desc');
-            var savedDesc = descInput ? descInput.value : '';
-            var savedPrice = 0;
-            var priceInput = document.getElementById(rowId + '-price');
-            if (priceInput) savedPrice = priceInput.value;
-            transformToAjoutMode(row, rowId, newMode);
-            var newDescInput = document.getElementById(rowId + '-desc');
-            if (newDescInput) newDescInput.value = savedDesc;
-            var newPriceInput = document.getElementById(rowId + '-price');
-            if (newPriceInput) newPriceInput.value = newMode === 'percentage' ? (savedPrice || 10) : (savedPrice || 0);
-            if (newMode === 'fixed') {
-                var newMarkup = document.getElementById(rowId + '-markup');
-                if (newMarkup) newMarkup.value = 30;
-            }
-            updateRow(rowId);
+            document.getElementById(rowId + '-code').innerHTML = '\u2014';
+            document.getElementById(rowId + '-code').style.gridColumn = '';
+            document.getElementById(rowId + '-type').innerHTML = '\u2014';
+            document.getElementById(rowId + '-unit-price').innerHTML = '\u2014';
+            document.getElementById(rowId + '-total').textContent = '0,00 $';
+            delete _customItemDataMap[rowId];
         }
 
         function getRoomBaseSubtotal(groupEl) {
@@ -8529,10 +8549,228 @@
             if (!container) return 0;
             var total = 0;
             container.querySelectorAll('.calc-row').forEach(function(r) {
-                if (r.dataset.ajoutMode === 'percentage') return;
                 total += getRowTotal(r);
             });
             return total;
+        }
+
+        // ═══════════════════════════════════════
+        // ── Custom Item Modal (Ajout personnalisé) ──
+        // ═══════════════════════════════════════
+
+        function loadSupplierCompanies() {
+            return authenticatedFetch(SUPABASE_URL + '/rest/v1/companies?company_type=eq.Fournisseurs&select=id,name&order=name', {})
+                .then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(data) { SUPPLIER_COMPANIES = data; })
+                .catch(function() {});
+        }
+
+        function openCustomItemModal(rowId) {
+            _cimRowId = rowId;
+            var cd = _customItemDataMap[rowId] || { description: '', unit_price: 0, markup: 30, custom_data: {} };
+            var cData = cd.custom_data || {};
+
+            // Populate supplier dropdown
+            var sel = document.getElementById('cimSupplier');
+            sel.innerHTML = '<option value="">\u2014 Aucun \u2014</option>';
+            SUPPLIER_COMPANIES.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                if (cData.supplier_id && cData.supplier_id === c.id) opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            // Populate fields
+            document.getElementById('cimDescription').value = cd.description || '';
+            document.getElementById('cimCost').value = cd.unit_price || 0;
+            document.getElementById('cimMarkup').value = cd.markup != null ? cd.markup : 30;
+            document.getElementById('cimSupplierNotes').value = cData.supplier_notes || '';
+
+            // Populate attachments
+            _cimAttachments = (cData.attachments || []).map(function(a) {
+                return { path: a.path, name: a.name, type: a.type, size: a.size, isNew: false };
+            });
+            _cimAttachmentsToDelete = [];
+            renderCimFiles();
+
+            updateCimSellPrice();
+            document.getElementById('customItemModal').classList.add('active');
+
+            // Setup drag & drop
+            setupCimDragDrop();
+        }
+
+        function closeCustomItemModal() {
+            document.getElementById('customItemModal').classList.remove('active');
+            _cimRowId = null;
+            _cimAttachments = [];
+            _cimAttachmentsToDelete = [];
+        }
+
+        function updateCimSellPrice() {
+            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
+            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
+            var sell = cost * (1 + markup / 100);
+            document.getElementById('cimSellPrice').textContent = formatPrice(sell);
+        }
+
+        async function saveCustomItemModal() {
+            if (!_cimRowId) return;
+            var rowId = _cimRowId;
+
+            var description = document.getElementById('cimDescription').value.trim();
+            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
+            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
+            var supplierId = document.getElementById('cimSupplier').value || null;
+            var supplierName = '';
+            if (supplierId) {
+                var found = SUPPLIER_COMPANIES.find(function(c) { return c.id === supplierId; });
+                if (found) supplierName = found.name;
+            }
+            var supplierNotes = document.getElementById('cimSupplierNotes').value.trim();
+
+            // Upload new files
+            var itemId = itemMap[rowId];
+            var uploadedAttachments = [];
+            for (var i = 0; i < _cimAttachments.length; i++) {
+                var att = _cimAttachments[i];
+                if (att.isNew && att.file) {
+                    var ts = Date.now() + '_' + i;
+                    var storagePath = 'custom-attachments/' + itemId + '/' + ts + '_' + att.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    var uploadResp = await authenticatedFetch(
+                        SUPABASE_URL + '/storage/v1/object/room-images/' + storagePath,
+                        { method: 'POST', headers: { 'Content-Type': att.type || 'application/octet-stream', 'x-upsert': 'true' }, body: att.file }
+                    );
+                    if (uploadResp.ok) {
+                        uploadedAttachments.push({ path: storagePath, name: att.name, type: att.type, size: att.size });
+                    }
+                } else if (!att.isNew) {
+                    uploadedAttachments.push({ path: att.path, name: att.name, type: att.type, size: att.size });
+                }
+            }
+
+            // Delete removed files
+            for (var d = 0; d < _cimAttachmentsToDelete.length; d++) {
+                await authenticatedFetch(
+                    SUPABASE_URL + '/storage/v1/object/room-images/' + _cimAttachmentsToDelete[d],
+                    { method: 'DELETE' }
+                ).catch(function() {});
+            }
+
+            var customData = {
+                supplier_id: supplierId,
+                supplier_name: supplierName,
+                supplier_notes: supplierNotes || null,
+                attachments: uploadedAttachments
+            };
+
+            // Update in-memory map
+            _customItemDataMap[rowId] = {
+                description: description,
+                unit_price: cost,
+                markup: markup,
+                custom_data: customData
+            };
+
+            // Save to DB
+            if (itemId) {
+                updateItem(itemId, {
+                    item_type: 'custom',
+                    catalogue_item_id: null,
+                    description: description,
+                    unit_price: cost,
+                    markup: markup,
+                    unit_type: '',
+                    custom_data: customData
+                });
+                showSaveIndicator();
+            }
+
+            // Update row display
+            var row = document.getElementById(rowId);
+            if (row) {
+                transformToAjoutMode(row, rowId);
+                updateRow(rowId);
+            }
+
+            closeCustomItemModal();
+        }
+
+        // ── Drag & drop + file management ──
+
+        function setupCimDragDrop() {
+            var dropZone = document.getElementById('cimDropZone');
+            var fileInput = document.getElementById('cimFileInput');
+
+            // Remove old listeners by replacing node
+            var newDrop = dropZone.cloneNode(true);
+            dropZone.parentNode.replaceChild(newDrop, dropZone);
+
+            newDrop.addEventListener('dragover', function(e) { e.preventDefault(); newDrop.classList.add('dragover'); });
+            newDrop.addEventListener('dragleave', function() { newDrop.classList.remove('dragover'); });
+            newDrop.addEventListener('drop', function(e) {
+                e.preventDefault();
+                newDrop.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) addCimFiles(e.dataTransfer.files);
+            });
+
+            var newInput = newDrop.querySelector('#cimFileInput');
+            if (newInput) {
+                newInput.addEventListener('change', function() {
+                    if (this.files.length > 0) addCimFiles(this.files);
+                    this.value = '';
+                });
+            }
+
+            var link = newDrop.querySelector('a');
+            if (link) {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var fi = newDrop.querySelector('#cimFileInput');
+                    if (fi) fi.click();
+                });
+            }
+        }
+
+        function addCimFiles(fileList) {
+            for (var i = 0; i < fileList.length; i++) {
+                var f = fileList[i];
+                _cimAttachments.push({
+                    path: null,
+                    name: f.name,
+                    type: f.type,
+                    size: f.size,
+                    isNew: true,
+                    file: f
+                });
+            }
+            renderCimFiles();
+        }
+
+        function removeCimFile(idx) {
+            var att = _cimAttachments[idx];
+            if (att && !att.isNew && att.path) {
+                _cimAttachmentsToDelete.push(att.path);
+            }
+            _cimAttachments.splice(idx, 1);
+            renderCimFiles();
+        }
+
+        function renderCimFiles() {
+            var container = document.getElementById('cimFileList');
+            container.innerHTML = '';
+            _cimAttachments.forEach(function(att, idx) {
+                var icon = (att.type || '').indexOf('pdf') >= 0 ? '\uD83D\uDCC4' : '\uD83D\uDDBC';
+                var sizeStr = att.size ? (att.size < 1024 ? att.size + ' o' : (att.size / 1024).toFixed(0) + ' Ko') : '';
+                var div = document.createElement('div');
+                div.className = 'cim-file-item';
+                div.innerHTML = '<span class="cim-file-icon">' + icon + '</span>' +
+                    '<span class="cim-file-name">' + escapeHtml(att.name) + '</span>' +
+                    '<span class="cim-file-size">' + sizeStr + '</span>' +
+                    '<button class="cim-file-del" onclick="removeCimFile(' + idx + ')" title="Supprimer">&times;</button>';
+                container.appendChild(div);
+            });
         }
 
         let configCategories = [];
@@ -8704,24 +8942,15 @@
             } else if (selectedId === '__AJOUT__') {
                 if (currentMode !== 'ajout') {
                     transformToAjoutMode(row, rowId);
+                    // Open modal immediately for new custom lines
+                    setTimeout(function() { openCustomItemModal(rowId); }, 100);
                 }
+                var cd = _customItemDataMap[rowId] || {};
+                var cost = cd.unit_price || 0;
+                var markup = cd.markup || 0;
                 var ajoutGroup = row.closest('.furniture-group');
                 var ajoutMult = ajoutGroup ? getModifierMultiplier(ajoutGroup.id) : 1;
-                if (row.dataset.ajoutMode === 'percentage') {
-                    const pctInput = document.getElementById(`${rowId}-price`);
-                    const pct = parseFloat(pctInput ? pctInput.value : 0) || 0;
-                    const group = row.closest('.furniture-group');
-                    const base = group ? getRoomBaseSubtotal(group) : 0;
-                    totalEl.textContent = formatPrice(base * pct / 100 * ajoutMult);
-                } else {
-                    const priceInput = document.getElementById(`${rowId}-price`);
-                    const markupInput = document.getElementById(`${rowId}-markup`);
-                    if (priceInput && markupInput) {
-                        const price = parseFloat(priceInput.value) || 0;
-                        const markup = parseFloat(markupInput.value) || 0;
-                        totalEl.textContent = formatPrice(price * qty * (1 + markup / 100) * ajoutMult);
-                    }
-                }
+                totalEl.textContent = formatPrice(cost * (1 + markup / 100) * qty * ajoutMult);
             } else {
                 if (currentMode === 'ajout') transformToNormalMode(row, rowId);
                 const codeEl = document.getElementById(`${rowId}-code`);
@@ -8846,16 +9075,14 @@
             if (selectedId === '__PROPOSER__') return;
 
             if (selectedId === '__AJOUT__') {
-                const descInput = row.querySelector('.ajout-description');
-                const priceInput = row.querySelector('.ajout-price');
-                const markupInput = row.querySelector('.ajout-markup');
-                const isPctMode = row.dataset.ajoutMode === 'percentage';
+                var cd = _customItemDataMap[rowId] || {};
                 fields.item_type = 'custom';
                 fields.catalogue_item_id = null;
-                fields.description = descInput ? descInput.value : '';
-                fields.unit_price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                fields.markup = isPctMode ? 0 : (parseFloat(markupInput ? markupInput.value : 0) || 0);
-                fields.unit_type = isPctMode ? 'percentage' : '';
+                fields.description = cd.description || '';
+                fields.unit_price = cd.unit_price || 0;
+                fields.markup = cd.markup || 0;
+                fields.unit_type = '';
+                fields.custom_data = cd.custom_data || null;
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
@@ -8918,6 +9145,7 @@
                 }
                 row.remove();
                 delete cascadeParentMap[rowId];
+                delete _customItemDataMap[rowId];
                 if (groupId) updateGroupSubtotal(groupId);
                 updateGrandTotal();
             }
@@ -8933,18 +9161,10 @@
             if (selectedId === '__PROPOSER__') {
                 return 0;
             } else if (selectedId === '__AJOUT__') {
-                if (row.dataset.ajoutMode === 'percentage') {
-                    const pctInput = row.querySelector('.ajout-price');
-                    const pct = parseFloat(pctInput ? pctInput.value : 0) || 0;
-                    const group = row.closest('.furniture-group');
-                    const base = group ? getRoomBaseSubtotal(group) : 0;
-                    return base * pct / 100;
-                }
-                const priceInput = row.querySelector('.ajout-price');
-                const markupInput = row.querySelector('.ajout-markup');
-                if (priceInput && markupInput) {
-                    return (parseFloat(priceInput.value) || 0) * qty * (1 + (parseFloat(markupInput.value) || 0) / 100);
-                }
+                var cd = _customItemDataMap[row.id] || {};
+                var ajCost = cd.unit_price || 0;
+                var ajMarkup = cd.markup || 0;
+                return ajCost * (1 + ajMarkup / 100) * qty;
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
@@ -8963,14 +9183,6 @@
             const container = document.getElementById(`${groupId}-rows`);
             if (!container) return;
             var mult = getModifierMultiplier(groupId);
-            // Refresh percentage row displays (their total depends on other rows)
-            container.querySelectorAll('.calc-row').forEach(row => {
-                if (row.dataset.ajoutMode === 'percentage') {
-                    var pctTotal = getRowTotal(row);
-                    var totalEl = document.getElementById(row.id + '-total');
-                    if (totalEl) totalEl.textContent = formatPrice(pctTotal * mult);
-                }
-            });
             container.querySelectorAll('.calc-row').forEach(row => { subtotal += getRowTotal(row); });
             var hasModifier = roomModifiers[groupId] || ((currentSubmission && currentSubmission.global_price_modifier_pct) || 0);
             if (hasModifier) {
@@ -9545,8 +9757,9 @@
             if (col === 'price') {
                 var priceSpan = row.querySelector('[id$="-unit-price"]');
                 if (priceSpan) return parseFloat(priceSpan.textContent.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
-                var ajoutPrice = row.querySelector('.ajout-price');
-                if (ajoutPrice) return parseFloat(ajoutPrice.value) || 0;
+                // Fallback for custom items: read from in-memory data
+                var cdSort = _customItemDataMap[row.id];
+                if (cdSort) return (cdSort.unit_price || 0) * (1 + (cdSort.markup || 0) / 100);
                 return 0;
             }
             if (col === 'qty') {
@@ -10154,23 +10367,12 @@
                     const qty = parseFloat(qtyInput.value) || 0;
 
                     if (selectedId === '__AJOUT__') {
-                        const descInput = row.querySelector('.ajout-description');
-                        const priceInput = row.querySelector('.ajout-price');
-                        const markupInput = row.querySelector('.ajout-markup');
-                        if (descInput && priceInput) {
-                            const isPct = row.dataset.ajoutMode === 'percentage';
-                            const val = parseFloat(priceInput.value) || 0;
-                            let lineTotal;
-                            if (isPct) {
-                                lineTotal = getRowTotal(row);
-                                items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: val + ' %', qty: 1, markup: 0, lineTotal: formatPrice(lineTotal), isPercentage: true });
-                            } else {
-                                const markup = parseFloat(markupInput ? markupInput.value : 0) || 0;
-                                lineTotal = val * qty * (1 + markup / 100);
-                                items.push({ type: 'ajout', description: descInput.value || 'Ajout sans description', unitPrice: formatPrice(val), qty: qty, markup: markup, lineTotal: formatPrice(lineTotal) });
-                            }
-                            subtotal += lineTotal;
-                        }
+                        var cdExport = _customItemDataMap[row.id] || {};
+                        var ajCostE = cdExport.unit_price || 0;
+                        var ajMarkE = cdExport.markup || 0;
+                        var lineTotalE = ajCostE * qty * (1 + ajMarkE / 100);
+                        items.push({ type: 'ajout', description: cdExport.description || 'Ajout sans description', unitPrice: formatPrice(ajCostE), qty: qty, markup: ajMarkE, lineTotal: formatPrice(lineTotalE) });
+                        subtotal += lineTotalE;
                     } else {
                         const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                         if (item) {
@@ -14239,14 +14441,13 @@
 
                             if (item.item_type === 'custom') {
                                 select.value = '__AJOUT__';
-                                var ajoutMode = item.unit_type === 'percentage' ? 'percentage' : 'fixed';
-                                transformToAjoutMode(row, rowId, ajoutMode);
-                                const descInput = document.getElementById(`${rowId}-desc`);
-                                const priceInput = document.getElementById(`${rowId}-price`);
-                                const markupInput = document.getElementById(`${rowId}-markup`);
-                                if (descInput) descInput.value = item.description || '';
-                                if (priceInput) priceInput.value = item.unit_price || 0;
-                                if (markupInput) markupInput.value = item.markup || 0;
+                                _customItemDataMap[rowId] = {
+                                    description: item.description || '',
+                                    unit_price: item.unit_price || 0,
+                                    markup: item.markup || 0,
+                                    custom_data: item.custom_data || {}
+                                };
+                                transformToAjoutMode(row, rowId);
                             } else if (item.catalogue_item_id) {
                                 select.value = item.catalogue_item_id;
                             }
@@ -14524,7 +14725,7 @@
             var container = document.getElementById('calculatorView');
             if (!container) return;
 
-            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-desc, .ajout-price, .ajout-markup, .ajout-mode-toggle, .client-desc-textarea').forEach(function(el) {
+            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-edit-btn, .client-desc-textarea').forEach(function(el) {
                 el.disabled = !editable;
                 el.style.opacity = editable ? '' : '0.6';
             });
@@ -16768,6 +16969,7 @@
                 await loadMediaTags();
                 await loadEmployeesData();
                 loadUserProfilesMap(); // non-blocking, populates USER_PROFILES_MAP
+                loadSupplierCompanies(); // non-blocking, populates SUPPLIER_COMPANIES
                 await loadPipelineConfig();
 
                 // Setup PDF viewer Ctrl+scroll zoom
@@ -16809,6 +17011,52 @@
             }
         });
     </script>
+
+<!-- Custom item modal -->
+<div id="customItemModal" class="modal-overlay" onclick="if(event.target===this)closeCustomItemModal()">
+  <div class="custom-item-modal">
+    <div class="cim-header">
+      <h3>Ajout personnalis&eacute;</h3>
+      <button class="cim-close" onclick="closeCustomItemModal()">&times;</button>
+    </div>
+    <div class="cim-body">
+      <label class="cim-label">Description</label>
+      <textarea id="cimDescription" rows="2" placeholder="Description de l'article..."></textarea>
+
+      <label class="cim-label">Fournisseur</label>
+      <select id="cimSupplier"><option value="">— Aucun —</option></select>
+
+      <div class="cim-row">
+        <div class="cim-field">
+          <label class="cim-label">Co&ucirc;t fournisseur ($)</label>
+          <input id="cimCost" type="number" min="0" step="0.01" value="0" oninput="updateCimSellPrice()">
+        </div>
+        <div class="cim-field">
+          <label class="cim-label">Marge (%)</label>
+          <input id="cimMarkup" type="number" min="0" step="1" value="30" oninput="updateCimSellPrice()">
+        </div>
+        <div class="cim-field">
+          <label class="cim-label">Prix de vente</label>
+          <div id="cimSellPrice" class="cim-computed">0,00 $</div>
+        </div>
+      </div>
+
+      <label class="cim-label">Notes / Soumission fournisseur</label>
+      <textarea id="cimSupplierNotes" rows="3" placeholder="D&eacute;tails de la soumission, conditions, d&eacute;lais..."></textarea>
+
+      <label class="cim-label">Pi&egrave;ces jointes</label>
+      <div id="cimDropZone" class="cim-dropzone">
+        <input type="file" id="cimFileInput" multiple accept="image/*,.pdf" style="display:none">
+        <span>Glisser un fichier ou <a href="#" onclick="event.preventDefault();document.getElementById('cimFileInput').click()">parcourir</a></span>
+      </div>
+      <div id="cimFileList" class="cim-file-list"></div>
+    </div>
+    <div class="cim-footer">
+      <button class="cim-btn-cancel" onclick="closeCustomItemModal()">Annuler</button>
+      <button class="cim-btn-save" onclick="saveCustomItemModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Catalogue edit overlay (iframe) -->
 <div class="cat-edit-overlay" id="catEditOverlay" onclick="if(event.target===this)closeCatEditOverlay()">

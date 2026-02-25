@@ -5906,27 +5906,18 @@
                     return c.category === category && c.id !== itemId;
                 });
 
-                // Check 2: Exact client_text duplicate in same category
-                var exactDupe = sameCategory.find(function(c) {
-                    return normalizeText(c.client_text) === normalizedCT;
-                });
-                if (exactDupe) {
-                    warnings.push({ level: 'warn', msg: 'Texte client identique à ' + exactDupe.id + ' (' + exactDupe.description + ') dans la même catégorie.' });
-                }
-
-                // Check 1: Near-duplicate (Levenshtein < 3, but not exact)
-                if (!exactDupe) {
-                    for (var si = 0; si < sameCategory.length; si++) {
-                        var otherNorm = normalizeText(sameCategory[si].client_text);
-                        if (!otherNorm) continue;
-                        var dist = levenshtein(normalizedCT, otherNorm);
-                        if (dist > 0 && dist <= 3) {
-                            warnings.push({
-                                level: 'warn',
-                                msg: 'Texte client très similaire à ' + sameCategory[si].id + ' : « ' + (sameCategory[si].client_text || '') + ' ». Vérifier l\'orthographe.'
-                            });
-                            break; // one match is enough
-                        }
+                // Outlier check: warn only if this item's client_text is a near-duplicate
+                // (Levenshtein 1-3) of another item — exact duplicates are normal/intentional
+                for (var si = 0; si < sameCategory.length; si++) {
+                    var otherNorm = normalizeText(sameCategory[si].client_text);
+                    if (!otherNorm) continue;
+                    var dist = levenshtein(normalizedCT, otherNorm);
+                    if (dist > 0 && dist <= 3) {
+                        warnings.push({
+                            level: 'warn',
+                            msg: 'Texte client très similaire à ' + sameCategory[si].id + ' : « ' + (sameCategory[si].client_text || '') + ' ». Variante possible (apostrophe, espace, coquille) — vérifier.'
+                        });
+                        break;
                     }
                 }
             } else {
@@ -5982,26 +5973,54 @@
                 var statsMap = {};
                 stats.forEach(function(s) { statsMap[s.id] = s; });
 
-                // ── Check 1: Duplicate client_text (exact, normalized) ──
-                var ctGroups = {};
+                // ── Check 1: Near-duplicate client_text outliers ──
+                // Exact duplicates are intentional (same text for similar items).
+                // Flag only VARIANTS: items whose client_text differs by Levenshtein 1-3
+                // from another item in the same category (typo, missing apostrophe, etc.)
+                var ctGrouped = {};
                 items.forEach(function(item) {
                     var ct = normalizeText(item.client_text);
                     if (!ct) return;
                     var key = item.category + '::' + ct;
-                    if (!ctGroups[key]) ctGroups[key] = [];
-                    ctGroups[key].push(item);
+                    if (!ctGrouped[key]) ctGrouped[key] = [];
+                    ctGrouped[key].push(item);
                 });
-                Object.keys(ctGroups).forEach(function(key) {
-                    var group = ctGroups[key];
-                    if (group.length > 1) {
-                        findings.warning.push({
-                            title: 'Doublons texte client',
-                            items: group.map(function(g) {
-                                return { id: g.id, desc: g.description, detail: '« ' + (g.client_text || '') + ' »' };
-                            })
-                        });
+                // Compare distinct normalized texts within each category
+                var catTexts = {};
+                Object.keys(ctGrouped).forEach(function(key) {
+                    var cat = key.split('::')[0];
+                    var norm = key.split('::').slice(1).join('::');
+                    if (!catTexts[cat]) catTexts[cat] = [];
+                    catTexts[cat].push({ norm: norm, items: ctGrouped[key] });
+                });
+                var outlierItems = [];
+                Object.keys(catTexts).forEach(function(cat) {
+                    var entries = catTexts[cat];
+                    for (var ai = 0; ai < entries.length; ai++) {
+                        for (var bi = ai + 1; bi < entries.length; bi++) {
+                            var dist = levenshtein(entries[ai].norm, entries[bi].norm);
+                            if (dist > 0 && dist <= 3) {
+                                // Flag the smaller group as the outlier (minority variant)
+                                var majority = entries[ai].items.length >= entries[bi].items.length ? entries[ai] : entries[bi];
+                                var minority = entries[ai].items.length < entries[bi].items.length ? entries[ai] : entries[bi];
+                                minority.items.forEach(function(item) {
+                                    var majorityText = majority.items[0].client_text || '';
+                                    outlierItems.push({
+                                        id: item.id,
+                                        desc: item.description,
+                                        detail: '« ' + (item.client_text || '') + ' » — variante probable de « ' + majorityText + ' »'
+                                    });
+                                });
+                            }
+                        }
                     }
                 });
+                if (outlierItems.length > 0) {
+                    findings.warning.push({
+                        title: 'Variantes texte client suspectes (' + outlierItems.length + ')',
+                        items: outlierItems
+                    });
+                }
 
                 // ── Check 2: No client_text ──
                 var noClientText = items.filter(function(i) { return !i.client_text || !i.client_text.trim(); });
@@ -7000,11 +7019,95 @@
                     if (!parsed.warnings) parsed.warnings = [];
                     return parsed;
                 }
-            } catch (e) { /* not JSON */ }
+            } catch (e) { /* not JSON — try to extract JSON object from mixed content */ }
+
+            // Try to extract a JSON object from text that may contain narrative + JSON
+            var firstBrace = cleaned.indexOf('{');
+            if (firstBrace >= 0) {
+                // Find matching closing brace using balanced counting
+                var depth = 0, lastBrace = -1;
+                for (var i = firstBrace; i < cleaned.length; i++) {
+                    if (cleaned[i] === '{') depth++;
+                    else if (cleaned[i] === '}') { depth--; if (depth === 0) { lastBrace = i; break; } }
+                }
+                if (lastBrace > firstBrace) {
+                    try {
+                        var extracted = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+                        if (extracted && typeof extracted === 'object') {
+                            if (extracted.status) return extracted;
+                            extracted.status = 'ok';
+                            if (!extracted.warnings) extracted.warnings = [];
+                            return extracted;
+                        }
+                    } catch (e2) { /* still not valid JSON */ }
+                }
+            }
+
             // Raw text → wrap with fallbackField
             var result = { status: 'ok', warnings: [] };
             result[fallbackField || 'text'] = raw.trim();
             return result;
+        }
+
+        /**
+         * Post-parse: separate explication text from embedded JSON in AI envelope.
+         * jsonKeys: array of key names that identify a valid json field (e.g. ["cascade","ask"] or ["sections","order","prefix"])
+         */
+        function fixEnvelopeJsonSplit(envelope, jsonKeys) {
+            if (!envelope) return;
+            // Case 1: json is a string → try to parse it
+            if (envelope.json && typeof envelope.json === 'string') {
+                try { envelope.json = JSON.parse(envelope.json); } catch (e) { /* leave as-is */ }
+            }
+            // Case 2: json missing but explication contains embedded JSON
+            if (!envelope.json && envelope.explication && typeof envelope.explication === 'string') {
+                var exp = envelope.explication;
+                function hasKey(obj) { return jsonKeys.some(function(k) { return obj[k] !== undefined; }); }
+                function hasKeyStr(str) { return jsonKeys.some(function(k) { return str.indexOf('"' + k + '"') >= 0; }); }
+                // Try code block: ```json { ... } ```
+                var cbm = exp.match(/```json?\s*(\{[\s\S]*?\})\s*```/);
+                if (cbm) {
+                    try {
+                        var p = JSON.parse(cbm[1]);
+                        if (p && hasKey(p)) {
+                            envelope.json = p;
+                            envelope.explication = exp.replace(cbm[0], '').trim();
+                            return;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                // Scan for balanced { } containing expected keys
+                for (var i = 0; i < exp.length; i++) {
+                    if (exp[i] === '{') {
+                        var d = 0, e2 = -1;
+                        for (var j = i; j < exp.length; j++) {
+                            if (exp[j] === '{') d++;
+                            else if (exp[j] === '}') { d--; if (d === 0) { e2 = j; break; } }
+                        }
+                        if (e2 > i) {
+                            var candidate = exp.substring(i, e2 + 1);
+                            if (hasKeyStr(candidate)) {
+                                try {
+                                    var pc = JSON.parse(candidate);
+                                    if (pc && hasKey(pc)) {
+                                        envelope.json = pc;
+                                        envelope.explication = (exp.substring(0, i) + exp.substring(e2 + 1)).replace(/\s{2,}/g, ' ').trim();
+                                        return;
+                                    }
+                                } catch (e) { /* continue scanning */ }
+                            }
+                        }
+                    }
+                }
+            }
+            // Case 3: explication is actually a JSON object
+            if (envelope.explication && typeof envelope.explication === 'object') {
+                var expObj = envelope.explication;
+                if (jsonKeys.some(function(k) { return expObj[k] !== undefined; })) {
+                    envelope.json = expObj;
+                    envelope.explication = '';
+                }
+            }
         }
 
         /**
@@ -7243,6 +7346,7 @@
             try {
                 var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
                 var envelope = parseAiEnvelope(results['pr'], 'explication');
+                fixEnvelopeJsonSplit(envelope, ['sections', 'order', 'prefix']);
 
                 var applyData = function() {
                     if (envelope.explication) humanTextarea.value = envelope.explication;
@@ -7316,6 +7420,7 @@
             try {
                 var results = await callEdgeFunction([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
                 var envelope = parseAiEnvelope(results['cr'], 'explication');
+                fixEnvelopeJsonSplit(envelope, ['cascade', 'ask']);
 
                 var applyData = function() {
                     if (envelope.explication) humanTextarea.value = envelope.explication;

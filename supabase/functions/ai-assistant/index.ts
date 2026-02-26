@@ -29,6 +29,7 @@ Quand tu proposes une action, utilise ce format :
 Prix de vente = Main-d'œuvre + Matériaux
 - Main-d'œuvre : Σ(minutes/60 × taux_horaire_département)
 - Matériaux : Σ(coût × (1 + markup%/100 + perte%/100))
+  - perte% = article.loss_override_pct si défini, sinon catégorie_dépense.waste
 - Marge brute visée : 38%
 - Profit net = (profit sur taux horaire) + (markup matériaux)
 - Prix coûtant matériaux = coût × (1 + perte/100)

@@ -772,6 +772,9 @@
                         </div>
                         <span class="cp-total-value" id="cpTotalValue">—</span>
                     </div>
+                    <div id="cpLossOverrideInfo" style="display:none; font-size:11px; color:#e67e22; margin-top:6px; padding:4px 8px; background:#fffaf0; border-radius:4px; border-left:3px solid #e67e22;">
+                        Perte personnalis&eacute;e : <span id="cpLossOverrideValue"></span>% (remplace les valeurs par cat&eacute;gorie)
+                    </div>
                 </div>
 
                 <!-- Médias -->
@@ -994,7 +997,7 @@
     async function loadPending() {
         try {
             var r = await authenticatedFetch(
-                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator,instruction,labor_minutes,material_costs,image_url,has_sales_sheet,proposal_context',
+                SUPABASE_URL + '/rest/v1/catalogue_items?status=eq.pending&order=id&select=id,category,description,type,price,proposed_by,sort_order,in_calculator,instruction,labor_minutes,material_costs,image_url,has_sales_sheet,proposal_context,loss_override_pct',
                 {}
             );
             if (!r.ok) { showMsg('error', 'Erreur chargement: ' + r.status); return; }
@@ -1041,6 +1044,7 @@
     // ═══ Modal ═══
 
     var currentItemId = null;
+    var currentItemLossOverride = null;
     var tauxHoraires = [];
     var expenseCategories = [];
     var editMedia = [];
@@ -1102,7 +1106,7 @@
             var catName = cInputs[j].getAttribute('data-cat');
             var expCat = expenseCategories.find(function(c) { return c.name === catName; });
             var markup = expCat ? (expCat.markup || 0) : 0;
-            var waste = expCat ? (expCat.waste || 0) : 0;
+            var waste = currentItemLossOverride != null ? currentItemLossOverride : (expCat ? (expCat.waste || 0) : 0);
             materialTotal += cost * (1 + markup / 100 + waste / 100);
         }
 
@@ -1318,6 +1322,18 @@
 
         // Render composed price (editable inputs)
         renderComposedTables(item);
+        currentItemLossOverride = item.loss_override_pct != null ? item.loss_override_pct : null;
+
+        // Loss override indicator
+        var lossInfo = document.getElementById('cpLossOverrideInfo');
+        if (lossInfo) {
+            if (item.loss_override_pct != null) {
+                document.getElementById('cpLossOverrideValue').textContent = item.loss_override_pct;
+                lossInfo.style.display = '';
+            } else {
+                lossInfo.style.display = 'none';
+            }
+        }
 
         // Load & render media from item_media
         loadMedia(itemId);
@@ -2013,10 +2029,11 @@
                     var baseCost = mc.cost * (mc.qty || 1);
                     var ec = (expenseCategories || []).find(function(e) { return e.name === mcat; });
                     var markup = ec ? (ec.markup || 0) : 0;
-                    var waste = ec ? (ec.waste || 0) : 0;
+                    var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
                     var matCost = baseCost * (1 + markup / 100 + waste / 100);
                     matTotal += matCost;
-                    mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ × (1 + ' + markup + '% markup + ' + waste + '% perte) = ' + matCost.toFixed(2) + ' $');
+                    var wasteLabel = item.loss_override_pct != null ? waste + '% perte [override]' : waste + '% perte';
+                    mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ \u00d7 (1 + ' + markup + '% markup + ' + wasteLabel + ') = ' + matCost.toFixed(2) + ' $');
                 }
                 contextParts.push('Matériaux (total: ' + matTotal.toFixed(2) + ' $):');
                 mcLines.forEach(function(l) { contextParts.push(l); });
@@ -2089,7 +2106,7 @@
                 var cost = mc.cost * (mc.qty || 1);
                 var ec = (expenseCategories || []).find(function(e) { return e.name === cat; });
                 var markup = ec ? (ec.markup || 0) : 0;
-                var waste = ec ? (ec.waste || 0) : 0;
+                var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
                 total += cost * (1 + markup / 100 + waste / 100);
             }
         }

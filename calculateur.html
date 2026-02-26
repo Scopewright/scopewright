@@ -1114,7 +1114,8 @@
                 var cost = (materialCosts[c.name] || 0) * qty;
                 totalMatCoutant += cost;
                 totalMatMarkup += cost * ((c.markup || 0) / 100);
-                totalMatWaste += cost * ((c.waste || 0) / 100);
+                var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
+                totalMatWaste += cost * (wasteRate / 100);
             });
 
             // Fallback: si pas de données composées, utiliser item.price
@@ -8336,7 +8337,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config,loss_override_pct&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -9351,7 +9352,7 @@
                 var cost = materialCosts[cat] || 0;
                 if (cost > 0) {
                     var markup = (expenseCategories[j].markup || 0) / 100;
-                    var waste = (expenseCategories[j].waste || 0) / 100;
+                    var waste = (item.loss_override_pct != null ? item.loss_override_pct : (expenseCategories[j].waste || 0)) / 100;
                     materialTotal += cost * (1 + markup + waste);
                     hasComposed = true;
                 }
@@ -17230,9 +17231,10 @@
                     matCoutant[c.name] = (matCoutant[c.name] || 0) + cost;
                     totalMatCoutant += cost;
                     totalMatMarkup += cost * ((c.markup || 0) / 100);
-                    totalMatWaste += cost * ((c.waste || 0) / 100);
+                    var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
+                    totalMatWaste += cost * (wasteRate / 100);
                     rowMatCout += cost;
-                    rowPrixVente += cost + cost * ((c.markup || 0) / 100) + cost * ((c.waste || 0) / 100);
+                    rowPrixVente += cost + cost * ((c.markup || 0) / 100) + cost * (wasteRate / 100);
                     rowProfit += cost * ((c.markup || 0) / 100);
                 });
 

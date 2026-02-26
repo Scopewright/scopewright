@@ -1301,6 +1301,7 @@
             color: #888;
             margin-left: 8px;
         }
+        #cpLossOverride.has-override { border-color: #e67e22 !important; background: #fffaf0; }
         @media (max-width: 768px) {
             .composed-price-section {
                 flex-direction: column;
@@ -2319,6 +2320,13 @@
                 <!-- Prix composé — Minutes & Matériaux -->
                 <div class="form-group" id="composedPriceGroup">
                     <div class="cp-section-title">Prix compos&eacute;</div>
+                    <div id="cpLossOverrideWrap" style="margin:6px 0 10px; display:flex; align-items:center; gap:8px;">
+                        <label style="font-size:11px; font-weight:600; color:#555; white-space:nowrap;">Perte (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" id="cpLossOverride"
+                            style="width:70px; padding:4px 6px; border:1px solid #e0e0e0; border-radius:3px; font-size:12px; text-align:right; font-family:inherit;"
+                            oninput="onLossOverrideChange()" placeholder="">
+                        <span id="cpLossOverrideHint" style="font-size:10px; color:#999;"></span>
+                    </div>
                     <div class="composed-price-section">
                         <div class="cp-table-wrap">
                             <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
@@ -3091,7 +3099,7 @@
                 var statusFilter = canEditCatalogue
                     ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
                     : '&or=(status.eq.approved,status.is.null)';
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config' + statusFilter + '&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config,loss_override_pct' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -3683,7 +3691,7 @@
                     var cost = mc.cost * (mc.qty || 1);
                     var ec = (expenseCategories || []).find(function(e) { return e.name === cat; });
                     var markup = ec ? (ec.markup || 0) : 0;
-                    var waste = ec ? (ec.waste || 0) : 0;
+                    var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
                     total += cost * (1 + markup / 100 + waste / 100);
                 }
             }
@@ -3746,10 +3754,11 @@
                         var baseCost = mc.cost * (mc.qty || 1);
                         var ec = (expenseCategories || []).find(function(e) { return e.name === mcat; });
                         var markup = ec ? (ec.markup || 0) : 0;
-                        var waste = ec ? (ec.waste || 0) : 0;
+                        var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
                         var matCost = baseCost * (1 + markup / 100 + waste / 100);
                         matTotal += matCost;
-                        mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ × (1 + ' + markup + '% markup + ' + waste + '% perte) = ' + matCost.toFixed(2) + ' $');
+                        var wasteLabel = item.loss_override_pct != null ? waste + '% perte [override]' : waste + '% perte';
+                        mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ \u00d7 (1 + ' + markup + '% markup + ' + wasteLabel + ') = ' + matCost.toFixed(2) + ' $');
                     }
                     contextParts.push('Matériaux (total: ' + matTotal.toFixed(2) + ' $):');
                     mcLines.forEach(function(l) { contextParts.push(l); });
@@ -4011,6 +4020,17 @@
 
             // Prix composé — tableaux minutes & matériaux
             renderComposedTables(item);
+
+            // Perte override
+            var lossInput = document.getElementById('cpLossOverride');
+            if (item.loss_override_pct != null) {
+                lossInput.value = item.loss_override_pct;
+                lossInput.classList.add('has-override');
+            } else {
+                lossInput.value = '';
+                lossInput.classList.remove('has-override');
+            }
+            updateLossOverrideHint();
 
             // Composantes fournisseur
             var realItemId = (isNewItem && newItemData) ? null : item.id;
@@ -5429,13 +5449,15 @@
 
             // Calcul matériaux
             var materialTotal = 0;
+            var cpLossRaw = document.getElementById('cpLossOverride').value.trim();
+            var cpLossOverride = cpLossRaw !== '' ? parseFloat(cpLossRaw) : null;
             var cInputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
             for (var j = 0; j < cInputs.length; j++) {
                 var cost = parseFloat(cInputs[j].value) || 0;
                 var catName = cInputs[j].getAttribute('data-cat');
                 var expCat = expenseCategories.find(function(c) { return c.name === catName; });
                 var markup = expCat ? (expCat.markup || 0) : 0;
-                var waste = expCat ? (expCat.waste || 0) : 0;
+                var waste = cpLossOverride != null ? cpLossOverride : (expCat ? (expCat.waste || 0) : 0);
                 materialTotal += cost * (1 + markup / 100 + waste / 100);
             }
 
@@ -5455,6 +5477,34 @@
                 breakdownEl.textContent = '';
                 priceField.value = '';
                 priceDisplay.textContent = 'Calculé automatiquement';
+            }
+        }
+
+        function onLossOverrideChange() {
+            var input = document.getElementById('cpLossOverride');
+            var val = input.value.trim();
+            if (val !== '' && parseFloat(val) >= 0) {
+                input.classList.add('has-override');
+            } else {
+                input.classList.remove('has-override');
+            }
+            updateLossOverrideHint();
+            updateComposedPrice();
+        }
+
+        function updateLossOverrideHint() {
+            var input = document.getElementById('cpLossOverride');
+            var hint = document.getElementById('cpLossOverrideHint');
+            var val = input.value.trim();
+            if (val !== '') {
+                hint.textContent = 'Remplace la perte par cat\u00e9gorie';
+                hint.style.color = '#e67e22';
+            } else {
+                var defaults = expenseCategories
+                    .filter(function(c) { return c.waste > 0; })
+                    .map(function(c) { return c.name + ': ' + c.waste + '%'; });
+                hint.textContent = defaults.length > 0 ? 'D\u00e9faut: ' + defaults.slice(0, 3).join(', ') + (defaults.length > 3 ? '...' : '') : '';
+                hint.style.color = '#999';
             }
         }
 
@@ -6244,6 +6294,10 @@
                     has_sales_sheet: document.getElementById('editHasSalesSheet').checked,
                     labor_minutes: collectLaborMinutes(),
                     material_costs: collectMaterialCosts(),
+                    loss_override_pct: (function() {
+                        var v = document.getElementById('cpLossOverride').value.trim();
+                        return v !== '' ? parseFloat(v) : null;
+                    })(),
                     calculation_rule_human: document.getElementById('editCalcRuleHuman').value || null,
                     calculation_rule_ai: (function() {
                         var v = document.getElementById('editCalcRuleAi').value.trim();

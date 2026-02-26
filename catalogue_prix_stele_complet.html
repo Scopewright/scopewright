@@ -2798,6 +2798,14 @@
             document.removeEventListener('click', _catDdOutsideClick);
         }
 
+        // ── Event delegation for edit buttons (survives table re-renders) ──
+        document.getElementById('mainCatalogueTable').addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-edit-row');
+            if (!btn) return;
+            var itemId = btn.getAttribute('data-edit-id');
+            if (itemId) openEditModal(itemId);
+        });
+
         // Générer la table de prix unique
         function generatePriceTables() {
             // Grouper par catégorie (en conservant l'ordre d'apparition)
@@ -2934,7 +2942,7 @@
                             (item.status === 'pending' ? '<span class="item-pending-badge" onclick="approveItem(\'' + escapeAttr(item.id) + '\', event)" title="Cliquer pour approuver">en attente</span>' : '') +
                         '</td>' +
                         '<td>' + formatPrice(item.price) + '</td>' +
-                        (canEditCatalogue ? '<td class="col-edit"><button class="btn-edit-row" onclick="openEditModal(\'' + escapeAttr(item.id) + '\')" title="Modifier">&#9998;</button></td>' : '') +
+                        (canEditCatalogue ? '<td class="col-edit"><button class="btn-edit-row" data-edit-id="' + escapeAttr(item.id) + '" title="Modifier">&#9998;</button></td>' : '') +
                         '</tr>';
                 });
             });

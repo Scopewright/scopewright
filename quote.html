@@ -446,16 +446,16 @@
         .pv-page-why {
             display: grid;
             grid-template-columns: 42% 1fr;
-            grid-template-rows: 1fr auto;
-            padding: 0;
+            grid-template-rows: 1fr;
+            padding: 32px;
             overflow: hidden;
+            position: relative;
         }
         .pv-why-image {
             grid-row: 1;
             grid-column: 1;
             overflow: hidden;
             border-radius: 8px;
-            margin: 32px 0 32px 32px;
         }
         .pv-why-image img {
             width: 100%;
@@ -508,12 +508,13 @@
             margin-bottom: 0;
         }
         .pv-why-bottom {
-            grid-column: 1 / -1;
-            grid-row: 2;
+            position: absolute;
+            bottom: 8px;
+            left: 32px;
+            right: 56px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 56px 8px 32px;
         }
         .pv-why-bottom-url {
             font-family: 'Inter', -apple-system, sans-serif;
@@ -811,13 +812,14 @@
             /* Why page mobile */
             .pv-page-why {
                 grid-template-columns: 1fr;
-                grid-template-rows: 50vh auto auto;
+                grid-template-rows: 50vh auto;
                 height: auto; max-height: none;
+                padding: 0;
             }
-            .pv-why-image { grid-row: 1; grid-column: 1; margin: 0; border-radius: 0; }
+            .pv-why-image { grid-row: 1; grid-column: 1; border-radius: 0; }
             .pv-why-image img { border-radius: 0; }
             .pv-why-content { grid-column: 1; padding: 32px 24px; }
-            .pv-why-bottom { padding: 0 24px 8px 24px; }
+            .pv-why-bottom { position: static; padding: 0 24px 8px 24px; }
         }
 
         @media (max-width: 480px) {

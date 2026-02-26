@@ -355,6 +355,8 @@ Si la règle contient une "condition" (ex: "Caisson au sol uniquement"), appliqu
 
 Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, demande la quantité à l'estimateur.
 
+**Dimensions** : Quand l'estimateur fournit des dimensions (L, H, P en pouces), TOUJOURS les passer dans le tool add_catalogue_item via les paramètres length, height, depth. C'est crucial pour que le moteur cascade puisse calculer les articles enfants automatiquement.
+
 **Cascade automatique** : Les articles avec une clé "cascade" dans leur règle de calcul déclenchent automatiquement des articles enfants côté client quand les dimensions L/H/P sont saisies. Tu n'as PAS besoin de gérer ces cascades — elles sont gérées par le moteur JS du calculateur. Tu peux toutefois expliquer ou ajuster les résultats si l'estimateur le demande.
 
 ${rulesLines}`;
@@ -467,6 +469,18 @@ const TOOLS = [
           type: "string",
           description: "Tag de l'élément physique (ex: C1, F2)",
         },
+        length: {
+          type: "number",
+          description: "Largeur (L) en pouces — pour les articles de type fabrication",
+        },
+        height: {
+          type: "number",
+          description: "Hauteur (H) en pouces — pour les articles de type fabrication",
+        },
+        depth: {
+          type: "number",
+          description: "Profondeur (P) en pouces — pour les articles de type fabrication",
+        },
       },
       required: ["room_name", "catalogue_item_id", "quantity"],
     },
@@ -487,6 +501,9 @@ const TOOLS = [
             unit_price: { type: "number" },
             description: { type: "string" },
             markup: { type: "number" },
+            length: { type: "number", description: "Largeur (L) en pouces" },
+            height: { type: "number", description: "Hauteur (H) en pouces" },
+            depth: { type: "number", description: "Profondeur (P) en pouces" },
           },
         },
       },

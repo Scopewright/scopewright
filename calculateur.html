@@ -1566,6 +1566,31 @@
                         saveRowTag(rowId);
                     }
                 }
+                // Set dimensions L, H, P if provided
+                if (input.length || input.height || input.depth) {
+                    var dimsEl = document.getElementById(rowId + '-dims');
+                    if (dimsEl) {
+                        dimsEl.dataset.l = input.length || '';
+                        dimsEl.dataset.h = input.height || '';
+                        dimsEl.dataset.p = input.depth || '';
+                    }
+                    // Force updateRow to create dim inputs (it checks dims-hidden)
+                    updateRow(rowId);
+                    // Now set values in the created inputs
+                    if (input.length) {
+                        var dimL = document.getElementById(rowId + '-dim-l');
+                        if (dimL) dimL.value = input.length;
+                    }
+                    if (input.height) {
+                        var dimH = document.getElementById(rowId + '-dim-h');
+                        if (dimH) dimH.value = input.height;
+                    }
+                    if (input.depth) {
+                        var dimP = document.getElementById(rowId + '-dim-p');
+                        if (dimP) dimP.value = input.depth;
+                    }
+                    updateRow(rowId);
+                }
                 updateGrandTotal();
                 return { success: true, rowId: rowId, room: input.room_name, tag: input.tag || null };
             }
@@ -2692,11 +2717,29 @@
         }
     }
 
-    var debouncedCascade = debounce(function(rowId) {
-        if (_cascadeRunning) return;
+    var _pendingCascadeRowId = null;
+
+    function runCascadeNow(rowId) {
         _cascadeRunning = true;
-        executeCascade(rowId, 0).finally(function() { _cascadeRunning = false; });
-    }, 800);
+        _pendingCascadeRowId = null;
+        executeCascade(rowId, 0).finally(function() {
+            _cascadeRunning = false;
+            // If a cascade was queued while we were running, execute it now
+            if (_pendingCascadeRowId) {
+                var pending = _pendingCascadeRowId;
+                runCascadeNow(pending);
+            }
+        });
+    }
+
+    var debouncedCascade = debounce(function(rowId) {
+        if (_cascadeRunning) {
+            // Queue this cascade to run after the current one finishes
+            _pendingCascadeRowId = rowId;
+            return;
+        }
+        runCascadeNow(rowId);
+    }, 400);
 
     // ═══════════════════════════════════════════
     // ── Constraint engine (auto_add, requires_swap, requires_choice) ──
@@ -9436,11 +9479,11 @@
                         var dc = (dimItem && dimItem.dims_config) ? dimItem.dims_config : { l: true, h: true, p: true };
 
                         var parts = [];
-                        if (dc.l) parts.push('<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.l) parts.push('<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
                         if (dc.l && (dc.h || dc.p)) parts.push('<span class="dim-sep">\u00d7</span>');
-                        if (dc.h) parts.push('<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.h) parts.push('<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
                         if (dc.h && dc.p) parts.push('<span class="dim-sep">\u00d7</span>');
-                        if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
 
                         dimsEl.innerHTML = parts.join('');
                     }

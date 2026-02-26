@@ -47,7 +47,7 @@ const OPTIMIZE_SYSTEM = `Tu fais du nettoyage technique + mise au format Stele p
 
 FORMAT HTML OBLIGATOIRE :
 - Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
-- Les catégories possibles : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
+- Les catégories possibles : Caisson, Façades, Panneaux, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
 - Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
 - Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
 - Paragraphes informatifs sans catégorie : <p>texte</p>
@@ -131,7 +131,7 @@ Tu rédiges ou améliores les descriptions client des pièces/meubles dans les s
 
 FORMAT HTML OBLIGATOIRE :
 - Chaque catégorie en <strong> suivi du texte : <p><strong>Caisson :</strong> ME1</p>
-- Catégories : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions
+- Catégories : Caisson, Façades, Panneaux, Tiroirs Legrabox, Poignées, Détails, Exclusions
 - Détails : <p><strong>Détails :</strong></p> suivi de <ul><li>...</li></ul>
 - Exclusions : <p><strong>Exclusions :</strong> texte</p> — JAMAIS de puces
 - Uniquement <p>, <strong>, <ul>, <li> — pas de <h1-h3>, <div>, <html>

@@ -95,7 +95,7 @@ Medias (images, PDF) associes a un article du catalogue.
 | `expense_categories` | Array | Categories de depenses materiaux : `[{ "name": "Quincaillerie", "markup": 30, "waste": 5 }, ...]` |
 | `catalogue_categories` | Array | Liste des categories disponibles dans le dropdown. |
 | `media_tags` | Array | Tags disponibles pour les medias : `["fiche_client", "catalogue", "technique", ...]` |
-| `material_groups` | Array | Groupes de materiaux pour les soumissions : `["Caisson", "Facades et panneaux apparents", "Tiroirs", "Poignees", ...]` |
+| `material_groups` | Array | Groupes de materiaux pour les soumissions : `["Caisson", "Facades", "Panneaux", "Tiroirs", "Poignees", "Eclairage", "Autre"]` |
 | `category_group_mapping` | Object | Mapping categories catalogue vers groupes soumission. Voir section E. |
 | `permissions` | Object | Permissions par role. |
 | `user_roles` | Object | Mapping email vers role. |
@@ -291,7 +291,7 @@ Dans `calculation_rule_ai.cascade` :
       "condition": "L > 0"
     },
     {
-      "target": "$default:Facades et panneaux apparents",
+      "target": "$default:Facades",
       "qty": "L * H / 144",
       "condition": null
     }
@@ -313,7 +313,7 @@ La syntaxe `$default:NomDuGroupe` permet de referencer le materiau par defaut de
 ```javascript
 function resolveCascadeTarget(target) {
     if (!target.startsWith('$default:')) return target;
-    var groupName = target.substring(9);  // "Facades et panneaux apparents"
+    var groupName = target.substring(9);  // "Facades" ou "Panneaux"
     var dm = getDefaultMaterials();        // depuis currentSubmission.default_materials
     for (var i = 0; i < dm.length; i++) {
         if (dm[i].type === groupName && dm[i].catalogue_item_id) {
@@ -324,7 +324,7 @@ function resolveCascadeTarget(target) {
 }
 ```
 
-**Exemple concret** : Un article "Caisson base" a la cascade `$default:Facades et panneaux apparents`. Si le materiau par defaut pour les facades est "Placage chene blanc FC" (code ST-0012), la cascade ajoute ST-0012 avec la quantite calculee.
+**Exemple concret** : Un article "Caisson base" a la cascade `$default:Facades`. Si le materiau par defaut pour les facades est "Placage chene blanc FC" (code ST-0012), la cascade ajoute ST-0012 avec la quantite calculee.
 
 **Quand le defaut change** : La fonction `reprocessDefaultCascades(changedGroup)` scanne toutes les lignes du calculateur, trouve celles dont les cascades utilisent `$default:{changedGroup}`, et re-execute les cascades. Les anciens enfants sont supprimes et remplaces.
 
@@ -448,7 +448,7 @@ Verifie la compatibilite d'un article avec ceux de la piece et propose un rempla
 ```json
 {
   "type": "requires_swap",
-  "target_group": "Facades et panneaux apparents",
+  "target_group": "Facades",
   "current_must_match": "replaq",
   "search_in": "description",
   "warning": "Cette poignee necessite des panneaux a replaquer",
@@ -553,7 +553,7 @@ Les groupes definissent les sections de materiaux par defaut dans une soumission
 
 Defauts hardcodes (surcharges par `app_config`) :
 ```json
-["Caisson", "Facades et panneaux apparents", "Tiroirs", "Poignees", "Eclairage", "Autre"]
+["Caisson", "Facades", "Panneaux", "Tiroirs", "Poignees", "Eclairage", "Autre"]
 ```
 
 ### Mapping categories -> groupes (`category_group_mapping`)
@@ -568,7 +568,8 @@ Structure dans `app_config` :
   "Poignees": ["Poignees"],
   "Tiroirs": ["Tiroirs"],
   "Carcasses": ["Caisson"],
-  "Facades": ["Facades et panneaux apparents"],
+  "Facades": ["Facades"],
+  "Panneaux": ["Panneaux"],
   "Eclairage LED": ["Eclairage"]
 }
 ```
@@ -609,15 +610,16 @@ Chaque soumission peut definir des materiaux par defaut pour chaque groupe. Stoc
 ```json
 [
   { "type": "Caisson", "catalogue_item_id": "ST-0005", "description": "Melamine blanche" },
-  { "type": "Facades et panneaux apparents", "catalogue_item_id": "ST-0012", "description": "Placage chene blanc FC" },
+  { "type": "Facades", "catalogue_item_id": "ST-0012", "description": "Placage chene blanc FC shaker" },
+  { "type": "Panneaux", "catalogue_item_id": "ST-0013", "description": "Placage chene blanc FC flat" },
   { "type": "Poignees", "catalogue_item_id": "ST-0028", "description": "Barre inox 128mm" }
 ]
 ```
 
 ### Utilisation dans les cascades
 
-Quand une regle cascade a `target: "$default:Facades et panneaux apparents"`, le systeme :
-1. Cherche dans `default_materials` l'entree de type `"Facades et panneaux apparents"`
+Quand une regle cascade a `target: "$default:Facades"`, le systeme :
+1. Cherche dans `default_materials` l'entree de type `"Facades"`
 2. Retourne son `catalogue_item_id` (ex: `ST-0012`)
 3. Utilise cet article comme cible de la cascade
 

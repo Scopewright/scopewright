@@ -4192,7 +4192,7 @@
         var sbItemOverrides = {}; // Temporary overrides from modal edits
         var sbActive = false;
         var sbDims = { L: 0, H: 0, P: 0 }; // Sandbox dimensions
-        var sbMaterialGroups = ['Caisson', 'Façades et panneaux apparents', 'Poignées'];
+        var sbMaterialGroups = ['Caisson', 'Façades', 'Panneaux', 'Poignées'];
         var sbCategoryGroupMapping = {};
         var sbMaterialGroupsFull = [];
 
@@ -4860,8 +4860,11 @@
             if (sbMaterials[sbMatKey('Caisson')]) {
                 lines.push('CAISSON : ' + sbMaterials[sbMatKey('Caisson')].description);
             }
-            if (sbMaterials[sbMatKey('Façades et panneaux apparents')]) {
-                lines.push('FAÇADES ET PANNEAUX APPARENTS : ' + sbMaterials[sbMatKey('Façades et panneaux apparents')].description);
+            if (sbMaterials[sbMatKey('Façades')]) {
+                lines.push('FAÇADES : ' + sbMaterials[sbMatKey('Façades')].description);
+            }
+            if (sbMaterials[sbMatKey('Panneaux')]) {
+                lines.push('PANNEAUX : ' + sbMaterials[sbMatKey('Panneaux')].description);
             }
             if (sbMaterials[sbMatKey('Poignées')]) {
                 lines.push('POIGNÉES : ' + sbMaterials[sbMatKey('Poignées')].description);

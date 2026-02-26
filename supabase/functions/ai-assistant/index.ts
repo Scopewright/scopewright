@@ -146,7 +146,7 @@ Ne propose PAS de sauvegarder des informations triviales, ponctuelles, ou spéci
 const DESCRIPTION_FORMAT_RULES = `
 FORMAT HTML OBLIGATOIRE :
 - Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
-- Les catégories possibles : Caisson, Façades et panneaux apparents, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
+- Les catégories possibles : Caisson, Façades, Panneaux, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
 - Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
 - Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
 - Paragraphes informatifs sans catégorie : <p>texte</p>

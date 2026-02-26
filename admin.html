@@ -1575,7 +1575,7 @@
             chipsHtml += '<span class="cat-unmapped">\u26a0 Non li\u00e9e</span>';
         }
         chipsHtml += '</div>';
-        return '<tr>' +
+        return '<tr data-original-cat="' + escapeAttr(cat) + '">' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(cat) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
             '<td>' + chipsHtml + '</td>' +
             '<td><button class="btn-remove" onclick="removeCategoryRow(this)" title="Retirer">&times;</button></td>' +
@@ -1610,12 +1610,11 @@
             if (newCats.indexOf(val) !== -1) continue;
             newCats.push(val);
         }
-        // Rename mapping keys if categories were renamed
-        var oldCats = catalogueCategories;
+        // Rebuild mapping using data-original-cat to handle renames correctly
         var newMapping = {};
         for (var j = 0; j < rows.length; j++) {
             var newName = rows[j].querySelector('.input-email').value.trim();
-            var oldName = oldCats[j];
+            var oldName = rows[j].getAttribute('data-original-cat') || '';
             if (!newName) continue;
             if (oldName && categoryGroupMapping[oldName]) {
                 newMapping[newName] = categoryGroupMapping[oldName];

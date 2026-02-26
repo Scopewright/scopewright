@@ -186,6 +186,52 @@ BEGIN
 END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
+-- PHASE 5b : NETTOYER LES REFERENCES ORPHELINES
+-- (room_items qui referencent des articles supprimes du catalogue)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Backup des orphelins avant nettoyage
+DROP TABLE IF EXISTS _backup_orphan_room_items;
+CREATE TABLE _backup_orphan_room_items AS
+SELECT ri.id, ri.catalogue_item_id, ri.description, ri.room_id
+FROM room_items ri
+LEFT JOIN catalogue_items ci ON ri.catalogue_item_id = ci.id
+WHERE ri.catalogue_item_id IS NOT NULL AND ci.id IS NULL;
+
+-- Mettre a NULL les FK orphelines dans room_items
+UPDATE room_items ri
+SET catalogue_item_id = NULL
+WHERE catalogue_item_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM catalogue_items ci WHERE ci.id = ri.catalogue_item_id);
+
+-- Supprimer les composants orphelins
+DELETE FROM catalogue_item_components cic
+WHERE NOT EXISTS (SELECT 1 FROM catalogue_items ci WHERE ci.id = cic.catalogue_item_id);
+
+-- item_media orphelins (si la table existe)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'item_media' AND table_schema = 'public') THEN
+        EXECUTE '
+            DELETE FROM item_media im
+            WHERE NOT EXISTS (SELECT 1 FROM catalogue_items ci WHERE ci.id = im.catalogue_item_id)';
+    END IF;
+END $$;
+
+-- fiches_vente orphelins (si la table existe)
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'fiches_vente' AND column_name = 'catalogue_item_id' AND table_schema = 'public'
+    ) THEN
+        EXECUTE '
+            UPDATE fiches_vente fv
+            SET catalogue_item_id = NULL
+            WHERE catalogue_item_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM catalogue_items ci WHERE ci.id = fv.catalogue_item_id)';
+    END IF;
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
 -- PHASE 6 : RECREER LES FK AVEC ON UPDATE CASCADE
 -- ═══════════════════════════════════════════════════════════════════════════════
 

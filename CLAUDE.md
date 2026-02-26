@@ -90,7 +90,7 @@ fonctionne normalement.
 - `room_media` — images des meubles (Storage bucket `room-images`)
 - `submission_plans` — plans PDF (Storage bucket `submission-plans`)
 - `chat_messages` — conversations AI par soumission
-- `catalogue_items` — produits du catalogue (PK = code texte ex: `BUD-001`)
+- `catalogue_items` — produits du catalogue (PK = code texte ex: `ST-0001`). Codes auto-generes par trigger DB (prefixe configurable via `app_config.shop_code_prefix`)
 - `app_config` — configuration clé-valeur (permissions, taux_horaires, expense_categories, tag_prefixes...)
 - `room_items.line_total` est une **colonne générée PostgreSQL** — ne pas essayer de l'écrire directement
 

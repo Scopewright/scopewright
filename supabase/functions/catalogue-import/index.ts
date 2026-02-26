@@ -66,13 +66,13 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - Ne jamais créer de catégorie toi-même
 
 ### Codes
-- Format : PREFIXE-XXX (ex: TIR-001, PAN-005, QUI-012)
-- Le préfixe dépend de la catégorie
-- Utilise le prochain numéro disponible (voir les codes existants dans le contexte)
+- Les codes sont générés automatiquement par le système au format ST-XXXX (ex: ST-0001, ST-0042)
+- Ne génère PAS de code toi-même — laisse le champ code vide, le serveur attribuera le prochain numéro disponible
+- Le préfixe (ST) est configurable dans l'administration
 
 ### Doublons
 - Avant de créer, vérifie si un article similaire existe déjà dans le catalogue
-- Si doublon probable : "Attention, TIR-001 'Bois massif queue d'aronde' existe déjà à 400$. C'est le même article ou un nouveau ?"
+- Si doublon probable : "Attention, ST-0023 'Bois massif queue d'aronde' existe déjà à 400$. C'est le même article ou un nouveau ?"
 
 ### Prix composé et prix de vente
 - Le prix de vente est CALCULÉ automatiquement : (minutes × taux horaire) + (matériaux × (1 + markup + waste))
@@ -104,8 +104,8 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 
 ### Règles d'utilisation des tools
 - **create** : toujours proposer le récapitulatif AVANT de créer. Attendre confirmation.
-- **update** : toujours montrer l'ancien vs le nouveau AVANT de modifier. "TIR-001 : Assemblage 10min → 15min. Confirmer ?"
-- **delete** : toujours demander confirmation explicite. "Supprimer TIR-001 'Tiroir 4x12 plaine' ? Cette action est irréversible."
+- **update** : toujours montrer l'ancien vs le nouveau AVANT de modifier. "ST-0023 : Assemblage 10min → 15min. Confirmer ?"
+- **delete** : toujours demander confirmation explicite. "Supprimer ST-0023 'Tiroir 4x12 plaine' ? Cette action est irréversible."
 - **update en lot** : si l'utilisateur dit "change tous les tiroirs de 10 à 15 minutes assemblage", lister les articles affectés et demander confirmation avant d'appliquer.
 
 ## Filtrage de la table
@@ -290,7 +290,7 @@ const TOOLS = [
     input_schema: {
       type: "object",
       properties: {
-        code: { type: "string", description: "Code article (ex: TIR-001). Généré auto si non fourni." },
+        code: { type: "string", description: "Code article (ex: ST-0042). Généré automatiquement par le serveur si non fourni (recommandé)." },
         category: { type: "string", description: "Catégorie du catalogue" },
         item_type: { type: "string", enum: ["fabrication", "materiau"], description: "Classification: fabrication (ce qu'on fabrique) ou materiau (ce qu'on utilise pour fabriquer)" },
         description: { type: "string", description: "Nom/description de l'article" },
@@ -405,7 +405,7 @@ const TOOLS = [
         },
         catalogue_item_id: {
           type: "string",
-          description: "Code de l'article pour le mode 'by_item' (ex: TIR-001)",
+          description: "Code de l'article pour le mode 'by_item' (ex: ST-0023)",
         },
         category: {
           type: "string",

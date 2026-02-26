@@ -1,6 +1,6 @@
 # ARCHITECTURE -- Scopewright (Stele)
 
-> Documentation technique de reference du projet. Derniere mise a jour : 2026-02-23.
+> Documentation technique de reference du projet. Derniere mise a jour : 2026-02-25.
 
 ---
 
@@ -50,14 +50,14 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Lignes | Taille | Role | Auth |
 |---------|-------:|-------:|------|:----:|
-| `calculateur.html` | 16 019 | 832 Ko | Application principale -- projets, soumissions, meubles, lignes, AI chatbox, annotations, pipeline | Oui |
-| `catalogue_prix_stele_complet.html` | 6 526 | 314 Ko | Catalogue de prix -- CRUD items, images, prix compose, AI import | Oui |
-| `admin.html` | 2 622 | 165 Ko | Administration -- permissions, roles, taux horaires, categories, prompts AI | Oui |
+| `calculateur.html` | 17 145 | 890 Ko | Application principale -- projets, soumissions, meubles, lignes, AI chatbox, annotations, pipeline, cascades | Oui |
+| `catalogue_prix_stele_complet.html` | 8 293 | 402 Ko | Catalogue de prix -- CRUD items, images, prix compose, AI import, sandbox editeur de regles | Oui |
+| `admin.html` | 2 864 | 176 Ko | Administration -- permissions, roles, taux horaires, categories, prompts AI | Oui |
 | `clients.html` | 2 343 | 126 Ko | CRM -- contacts, entreprises, communications, AI import | Oui |
-| `approbation.html` | 1 927 | 79 Ko | Approbation soumissions + articles proposes au catalogue | Oui |
-| `quote.html` | 1 765 | 75 Ko | Vue client publique -- soumission + acceptation + signature | Non (token URL) |
+| `approbation.html` | 2 270 | 95 Ko | Approbation soumissions + articles proposes au catalogue + formulaire guide | Oui |
+| `quote.html` | 1 914 | 81 Ko | Vue client publique -- soumission + acceptation + signature (FR/EN) | Non (token URL) |
 | `fiche.html` | 1 177 | 49 Ko | Fiches de vente produits -- affichage public + editeur authentifie | Optionnel |
-| `app.html` | 659 | 30 Ko | Tableau de bord (grille 2 colonnes responsive, cartes filtrees par permissions) | Oui |
+| `app.html` | 745 | 35 Ko | Tableau de bord (grille 2 colonnes responsive, cartes filtrees par permissions) | Oui |
 | `index.html` | 316 | 16 Ko | Landing page / marketing | Non |
 | `login.html` | 247 | 8 Ko | Authentification Supabase (email/mot de passe) | Non |
 
@@ -65,10 +65,11 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Lignes | Role |
 |---------|-------:|------|
-| `supabase/functions/ai-assistant/index.ts` | 748 | Assistant AI principal -- Claude Sonnet 4.5, 7 outils |
-| `supabase/functions/catalogue-import/index.ts` | 588 | Assistant AI catalogue -- Claude Sonnet 4.5, streaming SSE, 7 outils |
-| `supabase/functions/contacts-import/index.ts` | 515 | Assistant AI contacts -- Claude Sonnet 4.5, streaming SSE, 10 outils |
-| `supabase/functions/translate/index.ts` | 511 | Traduction et optimisation -- Claude Haiku 4.5 / Sonnet 4, 10 actions |
+| `supabase/functions/ai-assistant/index.ts` | 722 | Assistant AI principal -- Claude Sonnet 4.5, 7 outils |
+| `supabase/functions/catalogue-import/index.ts` | 564 | Assistant AI catalogue -- Claude Sonnet 4.5, streaming SSE, 7 outils |
+| `supabase/functions/contacts-import/index.ts` | 492 | Assistant AI contacts -- Claude Sonnet 4.5, streaming SSE, 10 outils |
+| `supabase/functions/translate/index.ts` | 518 | Traduction et optimisation -- Claude Haiku 4.5 / Sonnet 4, 10 actions |
+| `supabase/functions/_shared/auth.ts` | 134 | Module partage : verification JWT cryptographique (ES256 JWKS + HS256 fallback) + CORS whitelist |
 
 ### 2.3 Autres fichiers de support
 
@@ -76,10 +77,12 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|
 | `google_apps_script.gs` | Cloud function Google Apps Script : generation email HTML + PDF d'estimation |
 | `catalogue.json` | Donnees de catalogue en JSON (export/fallback) |
+| `_headers` | Headers de securite Netlify (X-Frame-Options, HSTS, nosniff, Referrer-Policy, Permissions-Policy) |
+| `docs/CATALOGUE-GUIDE.md` | Documentation technique complete du catalogue (cascades, contraintes, sandbox, prix compose) |
 
 ### 2.4 Migrations SQL
 
-36 fichiers dans `sql/`, executes manuellement dans le SQL Editor de Supabase. Pas de runner de migrations, pas de versioning automatique, pas de up/down.
+42 fichiers dans `sql/`, executes manuellement dans le SQL Editor de Supabase. Pas de runner de migrations, pas de versioning automatique, pas de up/down.
 
 Fichiers notables :
 
@@ -100,6 +103,13 @@ Fichiers notables :
 | `sql/room_price_override.sql` | Override de prix par meuble |
 | `sql/submission_discount.sql` | Rabais sur soumissions |
 | `sql/dimensions.sql` | Colonnes dimensions sur `room_items` |
+| `sql/price_modifiers.sql` | Modificateurs % par meuble et global sur soumission |
+| `sql/app_config_rls_write.sql` | RLS ecriture admin-only sur `app_config` (fonction `is_admin()`) |
+| `sql/submission_status_guard.sql` | Trigger validation transitions de statut |
+| `sql/custom_item_data.sql` | Colonne `custom_data` JSONB sur `room_items` |
+| `sql/estimateur_accepted.sql` | Colonne `estimateur_accepted_at` sur `submissions` |
+| `sql/proposal_context.sql` | Colonne `proposal_context` JSONB sur `catalogue_items` |
+| `sql/category_group_mapping_seed.sql` | Donnees initiales mapping categories-groupes |
 
 ### 2.5 Fichiers hors application (non deployes)
 
@@ -138,7 +148,7 @@ auth.users
   |      +--- project_contacts (project_id) --- contacts / companies
   |      +--- project_follows (project_id, user_id)
   |
-  catalogue_items (id = code texte, ex: BUD-001)
+  catalogue_items (id = code texte, ex: ST-0001, auto-genere par trigger)
   |      +--- catalogue_item_components (catalogue_item_id)
   |      +--- item_media (catalogue_item_id)
   |      +--- fiches_vente (catalogue_item_id)
@@ -315,7 +325,7 @@ draft --> pending_internal <--> returned
 
 | Colonne | Type | Description |
 |---------|------|-------------|
-| `id` | TEXT (PK) | Code produit (ex: `BUD-001`, `PAN-003`) |
+| `id` | TEXT (PK) | Code produit auto-genere (ex: `ST-0001`, `ST-0042`). Sequence `catalogue_code_seq` + trigger `trg_catalogue_auto_code`. Prefixe configurable via `app_config.shop_code_prefix`. |
 | `category` | TEXT | Categorie |
 | `description` | TEXT | Description du produit |
 | `type` | TEXT | Type d'unite (`unitaire`, `pi2`, `lineaire`, `%`) |
@@ -458,8 +468,10 @@ draft --> pending_internal <--> returned
 | `project_types` | Array | Types de projets |
 | `project_code_prefix` | String | Prefixe des codes projet |
 | `ai_prompt_overrides` | Object | Prompts AI personnalisables |
+| `material_groups` | Array | Groupes de materiaux pour les soumissions |
+| `category_group_mapping` | Object | Mapping categories catalogue -> groupes soumission |
 
-**RLS** : lecture authentifiee, **pas de protection ecriture** (point d'attention securite).
+**RLS** : lecture authentifiee. **Ecriture restreinte aux Admin** via migration `app_config_rls_write.sql` (fonction `is_admin()` SECURITY DEFINER). A verifier si appliquee.
 
 ---
 
@@ -522,11 +534,11 @@ draft --> pending_internal <--> returned
 
 | Propriete | Valeur |
 |-----------|--------|
-| **Fichier** | `supabase/functions/ai-assistant/index.ts` (748 lignes) |
+| **Fichier** | `supabase/functions/ai-assistant/index.ts` (722 lignes) |
 | **Modele** | `claude-sonnet-4-5-20250929` (Claude Sonnet 4.5) |
 | **Max tokens** | 4 096 |
 | **Transport** | Non-streaming (reponse JSON complete) |
-| **JWT** | Deploye avec `--no-verify-jwt` ; verification manuelle (base64 decode + exp, pas de verification de signature) |
+| **JWT** | Deploye avec `--no-verify-jwt` ; verification cryptographique via `_shared/auth.ts` (ES256 JWKS + HS256 fallback) |
 | **Secret** | `ANTHROPIC_API_KEY` |
 
 **7 outils disponibles** :
@@ -551,12 +563,12 @@ draft --> pending_internal <--> returned
 
 | Propriete | Valeur |
 |-----------|--------|
-| **Fichier** | `supabase/functions/translate/index.ts` (511 lignes) |
+| **Fichier** | `supabase/functions/translate/index.ts` (518 lignes) |
 | **Modele texte** | `claude-haiku-4-5-20251001` (Claude Haiku 4.5) |
 | **Modele JSON/vision** | `claude-sonnet-4-20250514` (Claude Sonnet 4) -- pour les actions complexes |
 | **Max tokens** | 4 096 (simple) / 8 192 (batch) |
 | **Transport** | Non-streaming (reponse JSON) |
-| **JWT** | Deploye avec `--no-verify-jwt` ; verification manuelle |
+| **JWT** | Deploye avec `--no-verify-jwt` ; verification cryptographique via `_shared/auth.ts` |
 | **Retry** | `fetchWithRetry` avec backoff exponentiel |
 
 **10 actions disponibles** :
@@ -582,11 +594,11 @@ draft --> pending_internal <--> returned
 
 | Propriete | Valeur |
 |-----------|--------|
-| **Fichier** | `supabase/functions/catalogue-import/index.ts` (588 lignes) |
+| **Fichier** | `supabase/functions/catalogue-import/index.ts` (564 lignes) |
 | **Modele** | `claude-sonnet-4-5-20250929` (Claude Sonnet 4.5) |
 | **Max tokens** | 4 096 |
 | **Transport** | Streaming SSE (Server-Sent Events) |
-| **JWT** | Deploye avec `--no-verify-jwt` ; verification manuelle |
+| **JWT** | Deploye avec `--no-verify-jwt` ; verification cryptographique via `_shared/auth.ts` |
 | **Retry** | Aucune logique de retry |
 
 **7 outils disponibles** :
@@ -609,11 +621,11 @@ draft --> pending_internal <--> returned
 
 | Propriete | Valeur |
 |-----------|--------|
-| **Fichier** | `supabase/functions/contacts-import/index.ts` (515 lignes) |
+| **Fichier** | `supabase/functions/contacts-import/index.ts` (492 lignes) |
 | **Modele** | `claude-sonnet-4-5-20250929` (Claude Sonnet 4.5) |
 | **Max tokens** | 4 096 |
 | **Transport** | Streaming SSE (Server-Sent Events) |
-| **JWT** | Deploye avec `--no-verify-jwt` ; verification manuelle |
+| **JWT** | Deploye avec `--no-verify-jwt` ; verification cryptographique via `_shared/auth.ts` |
 | **Retry** | 429 rate limit : 2 retries, delai 5s |
 
 **10 outils disponibles** :
@@ -676,13 +688,15 @@ Chaque page authentifiee verifie la presence du token en localStorage au chargem
 
 ### 5.5 Edge Functions -- Verification JWT
 
-Les 4 Edge Functions sont deployees avec `--no-verify-jwt` (la verification JWT native de Supabase retournait "Invalid JWT" sur des tokens valides). Chaque fonction effectue une verification manuelle :
+Les 4 Edge Functions sont deployees avec `--no-verify-jwt` (la verification JWT native de Supabase retournait "Invalid JWT" sur des tokens valides). La verification est effectuee par le module partage `_shared/auth.ts` qui utilise la bibliotheque `jose` :
 
 1. Verifie la presence du header `Authorization: Bearer ...`
-2. Decode le payload JWT en base64
-3. Verifie la presence du claim `sub` (user ID)
-4. Verifie que `exp` n'est pas depasse (grace period de 30s)
-5. **Pas de verification de signature** -- le client Supabase initialise avec le token enforce le RLS
+2. **ES256 (methode primaire)** : charge la cle publique via JWKS (`/auth/v1/.well-known/jwks.json`), verifie la signature cryptographique, cache la cle 1h
+3. **HS256 (fallback)** : si ES256 echoue, verifie avec le secret partage `JWT_SECRET`
+4. Verifie l'expiration (tolerance de 30s)
+5. Extrait `sub` (userId), `email`, `role` du payload
+6. **CORS** : whitelist dynamique (`scopewright.ca`, `www.scopewright.ca`)
+7. Token expire -> 401 (permet refresh cote client), autres erreurs -> 403
 
 ### 5.6 Points d'attention
 
@@ -774,7 +788,7 @@ Les prompts systeme des Edge Functions `catalogue-import` et `contacts-import` s
 | **Source** | GitHub -- `Scopewright/scopewright` |
 | **Branche** | `main` |
 | **Build** | Aucun (pas de build step) |
-| **Configuration** | Pas de `netlify.toml`, pas de `_headers` |
+| **Configuration** | `_headers` (security headers : HSTS, X-Frame-Options SAMEORIGIN, nosniff, Referrer-Policy, Permissions-Policy) |
 | **Deploiement** | Auto-deploy a chaque push sur `main` |
 
 Tous les fichiers HTML sont servis directement sans transformation.
@@ -785,7 +799,7 @@ Tous les fichiers HTML sont servis directement sans transformation.
 |-----------|--------|
 | **URL** | `https://rplzbtjfnwahqodrhpny.supabase.co` |
 | **Services** | PostgreSQL + Auth + Storage + Edge Functions |
-| **Migrations** | 36 fichiers SQL dans `sql/`, executes manuellement dans le SQL Editor |
+| **Migrations** | 42 fichiers SQL dans `sql/`, executes manuellement dans le SQL Editor |
 | **Edge Functions** | 4 fonctions Deno deployees via CLI |
 
 ### 7.3 Deploiement des Edge Functions
@@ -814,7 +828,7 @@ Les 4 fonctions sont deployees avec `--no-verify-jwt` (verification manuelle dan
 
 ### 7.5 Migrations SQL
 
-- 36 fichiers dans `sql/`
+- 42 fichiers dans `sql/`
 - Executees manuellement dans le SQL Editor de Supabase
 - Pas de runner de migrations automatique
 - Pas de versioning (pas de up/down)

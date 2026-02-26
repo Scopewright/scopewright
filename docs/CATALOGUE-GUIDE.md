@@ -30,7 +30,7 @@ Table principale du catalogue. Chaque ligne est un article (produit, materiau, s
 
 | Colonne | Type | Role |
 |---------|------|------|
-| `id` | TEXT (PK) | Code unique, ex: `BUD-001`, `TIR-003`. Sert de cle primaire textuelle. |
+| `id` | TEXT (PK) | Code unique auto-genere, ex: `ST-0001`, `ST-0042`. Format `{prefixe}-{XXXX}`. Genere par trigger DB (`trg_catalogue_auto_code`) + sequence `catalogue_code_seq`. Prefixe configurable via `app_config.shop_code_prefix` (defaut: `ST`). |
 | `category` | TEXT | Categorie de l'article (ex: "Budgetaire", "Tiroirs", "Poignees"). |
 | `description` | TEXT | Description technique interne (non visible au client). |
 | `type` | TEXT | Unite de mesure : `pi2`, `unitaire`, `lineaire`, `%`. |
@@ -286,7 +286,7 @@ Dans `calculation_rule_ai.cascade` :
 {
   "cascade": [
     {
-      "target": "GRA-001",
+      "target": "ST-0015",
       "qty": "L * P / 144",
       "condition": "L > 0"
     },
@@ -301,7 +301,7 @@ Dans `calculation_rule_ai.cascade` :
 
 | Champ | Type | Role |
 |-------|------|------|
-| `target` | String | Code article (`GRA-001`) ou reference dynamique (`$default:NomGroupe`). **Obligatoire.** |
+| `target` | String | Code article (`ST-0015`) ou reference dynamique (`$default:NomGroupe`). **Obligatoire.** |
 | `qty` | String/Number | Quantite ou formule. Par defaut `1`. |
 | `condition` | String/null | Formule booleenne. Si presente, la cascade ne s'execute que si la condition est vraie. |
 
@@ -317,14 +317,14 @@ function resolveCascadeTarget(target) {
     var dm = getDefaultMaterials();        // depuis currentSubmission.default_materials
     for (var i = 0; i < dm.length; i++) {
         if (dm[i].type === groupName && dm[i].catalogue_item_id) {
-            return dm[i].catalogue_item_id;   // retourne "FAC-012"
+            return dm[i].catalogue_item_id;   // retourne "ST-0012"
         }
     }
     return null;  // pas de defaut defini -> cascade ignoree
 }
 ```
 
-**Exemple concret** : Un article "Caisson base" a la cascade `$default:Facades et panneaux apparents`. Si le materiau par defaut pour les facades est "Placage chene blanc FC" (code FAC-012), la cascade ajoute FAC-012 avec la quantite calculee.
+**Exemple concret** : Un article "Caisson base" a la cascade `$default:Facades et panneaux apparents`. Si le materiau par defaut pour les facades est "Placage chene blanc FC" (code ST-0012), la cascade ajoute ST-0012 avec la quantite calculee.
 
 **Quand le defaut change** : La fonction `reprocessDefaultCascades(changedGroup)` scanne toutes les lignes du calculateur, trouve celles dont les cascades utilisent `$default:{changedGroup}`, et re-execute les cascades. Les anciens enfants sont supprimes et remplaces.
 
@@ -393,7 +393,7 @@ Ajoute un article avec quantite fixe.
 ```json
 {
   "type": "auto_add",
-  "item_id": "PAT-001",
+  "item_id": "ST-0030",
   "quantity": 4,
   "message": "Pattes de caisson ajoutees automatiquement"
 }
@@ -608,9 +608,9 @@ Chaque soumission peut definir des materiaux par defaut pour chaque groupe. Stoc
 
 ```json
 [
-  { "type": "Caisson", "catalogue_item_id": "CAI-001", "description": "Melamine blanche" },
-  { "type": "Facades et panneaux apparents", "catalogue_item_id": "FAC-012", "description": "Placage chene blanc FC" },
-  { "type": "Poignees", "catalogue_item_id": "POI-005", "description": "Barre inox 128mm" }
+  { "type": "Caisson", "catalogue_item_id": "ST-0005", "description": "Melamine blanche" },
+  { "type": "Facades et panneaux apparents", "catalogue_item_id": "ST-0012", "description": "Placage chene blanc FC" },
+  { "type": "Poignees", "catalogue_item_id": "ST-0028", "description": "Barre inox 128mm" }
 ]
 ```
 
@@ -618,7 +618,7 @@ Chaque soumission peut definir des materiaux par defaut pour chaque groupe. Stoc
 
 Quand une regle cascade a `target: "$default:Facades et panneaux apparents"`, le systeme :
 1. Cherche dans `default_materials` l'entree de type `"Facades et panneaux apparents"`
-2. Retourne son `catalogue_item_id` (ex: `FAC-012`)
+2. Retourne son `catalogue_item_id` (ex: `ST-0012`)
 3. Utilise cet article comme cible de la cascade
 
 Si aucun materiau par defaut n'est defini pour ce groupe, la cascade est **ignoree silencieusement** (affiche un toast "Aucun materiau par defaut pour : NomGroupe").

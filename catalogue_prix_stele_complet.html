@@ -52,66 +52,37 @@
     // Mode embedded (ouvert dans iframe depuis calculateur)
     var isEmbedded = new URLSearchParams(window.location.search).has('embedded');
 
-    // Données par défaut (utilisées uniquement si jamais connecté et pas de cache)
+    // Donnees par defaut (utilisees uniquement si jamais connecte et pas de cache)
+    // Les codes ST-XXXX correspondent au mapping post-migration.
+    // En production, les donnees viennent de Supabase.
     let CATALOGUE_DATA = [
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // BUDGÉTAIRE — Façades et caissons
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'BUD-001', category: 'Budgétaire', description: 'Façade (placage de bois) et caisson (mélamine)', type: 'pi²', price: 165.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Inclut le placage de bois sur les façades et la mélamine pour les caissons.' },
-        { id: 'BUD-002', category: 'Budgétaire', description: 'Façade (laque opaque) et caisson (mélamine)', type: 'pi²', price: 150.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Finition laque opaque sur les façades.' },
-        { id: 'BUD-003', category: 'Budgétaire', description: 'Façade (Shaker mince opaque) et caisson (mélamine)', type: 'pi²', price: 180.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Style Shaker avec profil mince, finition opaque.' },
-        { id: 'BUD-004', category: 'Budgétaire', description: 'Façade (Shaker mince placage) et caisson (mélamine)', type: 'pi²', price: 195.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Style Shaker avec profil mince, finition placage.' },
-        { id: 'BUD-005', category: 'Budgétaire', description: 'Façade (type AGT) et caisson (mélamine)', type: 'pi²', price: 100.00, instruction: 'Calculer la surface totale des façades en pieds carrés. Panneau AGT (acrylique haute brillance).' },
-        { id: 'BUD-006', category: 'Budgétaire', description: 'Caisson ouvert (placage de bois)', type: 'pi²', price: 250.00, instruction: 'Calculer la surface visible du caisson ouvert. Toutes les surfaces visibles sont plaquées.' },
-        { id: 'BUD-007', category: 'Budgétaire', description: 'Caisson ouvert (laque opaque)', type: 'pi²', price: 235.00, instruction: 'Calculer la surface visible du caisson ouvert. Toutes les surfaces visibles sont laquées.' },
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // PANNEAUX
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'PAN-001', category: 'Panneaux', description: 'Revêtement mural (placage)', type: 'pi²', price: 65.00, instruction: 'Calculer la surface murale à couvrir en pieds carrés. Placage de bois sur panneau.' },
-        { id: 'PAN-002', category: 'Panneaux', description: 'Panneaux ajouté (placage)', type: 'pi²', price: 55.00, instruction: 'Surface des panneaux décoratifs ajoutés. Placage de bois.' },
-        { id: 'PAN-003', category: 'Panneaux', description: 'Panneaux électro (placage)', type: 'pi²', price: 40.00, instruction: 'Panneaux pour habillage d\'électroménagers. Placage de bois.' },
-        { id: 'PAN-004', category: 'Panneaux', description: 'Revêtement mural (opaque)', type: 'pi²', price: 58.00, instruction: 'Calculer la surface murale à couvrir en pieds carrés. Finition laque opaque.' },
-        { id: 'PAN-005', category: 'Panneaux', description: 'Panneaux ajouté (opaque)', type: 'pi²', price: 48.00, instruction: 'Surface des panneaux décoratifs ajoutés. Finition laque opaque.' },
-        { id: 'PAN-006', category: 'Panneaux', description: 'Panneaux électro (opaque)', type: 'pi²', price: 32.00, instruction: 'Panneaux pour habillage d\'électroménagers. Finition laque opaque.' },
-        { id: 'PAN-007', category: 'Panneaux', description: 'Intérieur de caisson en stratifié sur CP versus mélamine', type: '%', price: 20, instruction: 'Appliquer ce pourcentage sur le prix total du mobilier concerné.' },
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // POIGNÉES
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'POI-001', category: 'Poignées', description: 'Ouverture à pression', type: 'unitaire', price: 40.00, instruction: 'Nombre de portes/tiroirs avec système push-to-open.' },
-        { id: 'POI-002', category: 'Poignées', description: 'Placage : finger grip 45° avec traverse caisson', type: 'unitaire', price: 220.00, instruction: 'Nombre de poignées intégrées. Inclut la traverse de caisson modifiée. Finition placage.' },
-        { id: 'POI-003', category: 'Poignées', description: 'Opaque : finger grip 45° avec traverse caisson', type: 'unitaire', price: 140.00, instruction: 'Nombre de poignées intégrées. Inclut la traverse de caisson modifiée. Finition opaque.' },
-        { id: 'POI-004', category: 'Poignées', description: 'Placage : finger grip avec bois massif et replacage', type: 'unitaire', price: 275.00, instruction: 'Nombre de poignées. Poignée en bois massif avec replacage pour continuité du grain.' },
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // TIROIRS
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'TIR-001', category: 'Tiroirs', description: 'Bois massif à queue d\'aronde', type: 'unitaire', price: 400.00, instruction: 'Nombre de tiroirs. Caisson de tiroir en bois massif avec assemblage traditionnel.' },
-        { id: 'TIR-002', category: 'Tiroirs', description: 'Legrabox avec façade', type: 'unitaire', price: 300.00, instruction: 'Nombre de tiroirs. Système Blum Legrabox avec façade incluse.' },
-        { id: 'TIR-003', category: 'Tiroirs', description: 'Legrabox avec verre (à l\'anglaise)', type: 'unitaire', price: 350.00, instruction: 'Nombre de tiroirs. Système Blum Legrabox avec côtés en verre.' },
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // ÉCLAIRAGE
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'ECL-001', category: 'Éclairage', description: 'Bande Flexydel 3000K avec encastrement', type: 'linéaire', price: 53.00, instruction: 'Longueur totale en pieds linéaires. Bande LED encastrée, blanc chaud 3000K.' },
-        { id: 'ECL-002', category: 'Éclairage', description: 'Œil magique', type: 'unitaire', price: 140.00, instruction: 'Nombre de spots. Luminaire encastré miniature.' },
-        { id: 'ECL-003', category: 'Éclairage', description: 'Transformateur', type: 'unitaire', price: 250.00, instruction: 'Nombre de transformateurs requis. Généralement 1 par zone d\'éclairage.' },
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // PORTES INTÉRIEURES
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        { id: 'POR-001', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur penture invisible avec cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
-        { id: 'POR-002', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur penture invisible sans cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
-        { id: 'POR-003', category: 'Portes intérieures', description: 'Porte 30" × 96" en placage sur système coulissant (pocket door)', type: 'unitaire', price: null, instruction: 'Prix sur demande. Contacter pour soumission détaillée.' },
-
+        { id: 'ST-0001', category: 'Budg\u00e9taire', description: 'Fa\u00e7ade (placage de bois) et caisson (m\u00e9lamine)', type: 'pi\u00b2', price: 165.00, instruction: 'Calculer la surface totale des fa\u00e7ades en pieds carr\u00e9s.' },
+        { id: 'ST-0002', category: 'Budg\u00e9taire', description: 'Fa\u00e7ade (laque opaque) et caisson (m\u00e9lamine)', type: 'pi\u00b2', price: 150.00, instruction: 'Calculer la surface totale des fa\u00e7ades en pieds carr\u00e9s.' },
+        { id: 'ST-0003', category: 'Budg\u00e9taire', description: 'Fa\u00e7ade (Shaker mince opaque) et caisson (m\u00e9lamine)', type: 'pi\u00b2', price: 180.00, instruction: '' },
+        { id: 'ST-0004', category: 'Budg\u00e9taire', description: 'Fa\u00e7ade (Shaker mince placage) et caisson (m\u00e9lamine)', type: 'pi\u00b2', price: 195.00, instruction: '' },
+        { id: 'ST-0005', category: 'Budg\u00e9taire', description: 'Fa\u00e7ade (type AGT) et caisson (m\u00e9lamine)', type: 'pi\u00b2', price: 100.00, instruction: '' },
+        { id: 'ST-0006', category: 'Budg\u00e9taire', description: 'Caisson ouvert (placage de bois)', type: 'pi\u00b2', price: 250.00, instruction: '' },
+        { id: 'ST-0007', category: 'Budg\u00e9taire', description: 'Caisson ouvert (laque opaque)', type: 'pi\u00b2', price: 235.00, instruction: '' },
+        { id: 'ST-0008', category: '\u00c9clairage', description: 'Bande Flexydel 3000K avec encastrement', type: 'lin\u00e9aire', price: 53.00, instruction: '' },
+        { id: 'ST-0009', category: '\u00c9clairage', description: '\u0152il magique', type: 'unitaire', price: 140.00, instruction: '' },
+        { id: 'ST-0010', category: '\u00c9clairage', description: 'Transformateur', type: 'unitaire', price: 250.00, instruction: '' },
+        { id: 'ST-0011', category: 'Panneaux', description: 'Rev\u00eatement mural (placage)', type: 'pi\u00b2', price: 65.00, instruction: '' },
+        { id: 'ST-0012', category: 'Panneaux', description: 'Panneaux ajout\u00e9 (placage)', type: 'pi\u00b2', price: 55.00, instruction: '' },
+        { id: 'ST-0013', category: 'Panneaux', description: 'Panneaux \u00e9lectro (placage)', type: 'pi\u00b2', price: 40.00, instruction: '' },
+        { id: 'ST-0014', category: 'Panneaux', description: 'Rev\u00eatement mural (opaque)', type: 'pi\u00b2', price: 58.00, instruction: '' },
+        { id: 'ST-0015', category: 'Panneaux', description: 'Panneaux ajout\u00e9 (opaque)', type: 'pi\u00b2', price: 48.00, instruction: '' },
+        { id: 'ST-0016', category: 'Panneaux', description: 'Panneaux \u00e9lectro (opaque)', type: 'pi\u00b2', price: 32.00, instruction: '' },
+        { id: 'ST-0017', category: 'Panneaux', description: 'Int\u00e9rieur de caisson en stratifi\u00e9 sur CP versus m\u00e9lamine', type: '%', price: 20, instruction: '' },
+        { id: 'ST-0018', category: 'Poign\u00e9es', description: 'Ouverture \u00e0 pression', type: 'unitaire', price: 40.00, instruction: '' },
+        { id: 'ST-0019', category: 'Poign\u00e9es', description: 'Placage : finger grip 45\u00b0 avec traverse caisson', type: 'unitaire', price: 220.00, instruction: '' },
+        { id: 'ST-0020', category: 'Poign\u00e9es', description: 'Opaque : finger grip 45\u00b0 avec traverse caisson', type: 'unitaire', price: 140.00, instruction: '' },
+        { id: 'ST-0021', category: 'Poign\u00e9es', description: 'Placage : finger grip avec bois massif et replacage', type: 'unitaire', price: 275.00, instruction: '' },
+        { id: 'ST-0022', category: 'Portes int\u00e9rieures', description: 'Porte 30" x 96" en placage sur penture invisible avec cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande.' },
+        { id: 'ST-0023', category: 'Portes int\u00e9rieures', description: 'Porte 30" x 96" en placage sur penture invisible sans cadre', type: 'unitaire', price: null, instruction: 'Prix sur demande.' },
+        { id: 'ST-0024', category: 'Portes int\u00e9rieures', description: 'Porte 30" x 96" en placage sur syst\u00e8me coulissant (pocket door)', type: 'unitaire', price: null, instruction: 'Prix sur demande.' },
+        { id: 'ST-0025', category: 'Tiroirs', description: 'Bois massif \u00e0 queue d\'aronde', type: 'unitaire', price: 400.00, instruction: '' },
+        { id: 'ST-0026', category: 'Tiroirs', description: 'Legrabox avec fa\u00e7ade', type: 'unitaire', price: 300.00, instruction: '' },
+        { id: 'ST-0027', category: 'Tiroirs', description: 'Legrabox avec verre (\u00e0 l\'anglaise)', type: 'unitaire', price: 350.00, instruction: '' },
     ];
 
     /*
@@ -3439,28 +3410,29 @@
         let isNewItem = false;
         let newItemData = null;
 
-        function generateNextCode(category) {
-            const items = CATALOGUE_DATA.filter(i => i.category === category);
-            if (items.length === 0) {
-                // Catégorie nouvelle : 3 premières lettres
-                const prefix = category.substring(0, 3).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                return prefix + '-001';
+        function generateNextCode() {
+            // Code auto-genere par le trigger DB (generate_catalogue_code).
+            // Cote client, on genere un code preview base sur le max existant.
+            // Le code final est celui retourne par le serveur apres INSERT.
+            var shopPrefix = 'ST';
+            var cfgEntry = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG) ? APP_CONFIG.find(function(c) { return c.key === 'shop_code_prefix'; }) : null;
+            if (cfgEntry && cfgEntry.value) {
+                var v = typeof cfgEntry.value === 'string' ? cfgEntry.value.replace(/"/g, '') : String(cfgEntry.value);
+                if (v) shopPrefix = v;
             }
-            // Extraire le préfixe et le numéro max
-            const prefix = items[0].id.split('-')[0];
-            let maxNum = 0;
-            items.forEach(item => {
-                const parts = item.id.split('-');
+            var maxNum = 0;
+            CATALOGUE_DATA.forEach(function(item) {
+                var parts = (item.id || '').split('-');
                 if (parts.length === 2) {
-                    const num = parseInt(parts[1], 10);
-                    if (num > maxNum) maxNum = num;
+                    var num = parseInt(parts[1], 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
             });
-            return prefix + '-' + String(maxNum + 1).padStart(3, '0');
+            return shopPrefix + '-' + String(maxNum + 1).padStart(4, '0');
         }
 
         function createNewItem(category) {
-            const newCode = generateNextCode(category);
+            const newCode = generateNextCode();
             const maxSort = CATALOGUE_DATA.reduce((max, i) => Math.max(max, i.sort_order || 0), 0);
 
             // Préparer l'item en mémoire seulement (pas de POST)
@@ -6265,8 +6237,8 @@
 
                 let resp;
                 if (isNewItem && newItemData) {
-                    // Nouvel item : POST avec id et sort_order
-                    const createPayload = Object.assign({ id: itemId, sort_order: newItemData.sort_order }, payload);
+                    // Nouvel item : POST sans id (le trigger DB genere le code ST-XXXX)
+                    const createPayload = Object.assign({ sort_order: newItemData.sort_order }, payload);
                     // Non-editors proposing: auto-set pending status
                     if (!canEditCatalogue) {
                         createPayload.status = 'pending';
@@ -6285,7 +6257,10 @@
                     if (!resp.ok) throw new Error('Erreur cr\u00e9ation: ' + resp.status);
 
                     const data = await resp.json();
-                    CATALOGUE_DATA.push(data[0]);
+                    var serverItem = data[0];
+                    CATALOGUE_DATA.push(serverItem);
+                    // Mettre a jour itemId avec le code genere par le serveur
+                    itemId = serverItem.id;
                 } else {
                     // Item existant : PATCH
                     resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
@@ -8042,7 +8017,6 @@
                 try {
                     var maxSort = CATALOGUE_DATA.reduce(function(max, ci) { return Math.max(max, ci.sort_order || 0); }, 0);
                     var payload = {
-                        id: input.code,
                         category: input.category,
                         item_type: input.item_type || null,
                         dims_config: input.dims_config || null,
@@ -8059,6 +8033,7 @@
                         in_calculator: input.visible_calculator !== false,
                         sort_order: maxSort + 1
                     };
+                    // Code auto-genere par le trigger DB (shop_code_prefix + sequence)
 
                     var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items', {
                         method: 'POST',
@@ -8070,6 +8045,7 @@
 
                     var createdItems = await resp.json();
                     var createdItem = Array.isArray(createdItems) ? createdItems[0] : createdItems;
+                    var actualCode = createdItem.id;
                     CATALOGUE_DATA.push(createdItem);
 
                     // Insert supplier components if provided
@@ -8080,7 +8056,7 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    catalogue_item_id: input.code,
+                                    catalogue_item_id: actualCode,
                                     supplier_name: comp.supplier_name || null,
                                     supplier_sku: comp.supplier_sku || null,
                                     unit_cost: comp.cost || 0,
@@ -8091,9 +8067,9 @@
                         }
                     }
 
-                    return { success: true, action: 'created', code: input.code, errors: [], message: input.code + ' cr\u00e9\u00e9' };
+                    return { success: true, action: 'created', code: actualCode, errors: [], message: actualCode + ' cr\u00e9\u00e9' };
                 } catch (e) {
-                    return { success: false, action: 'created', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
+                    return { success: false, action: 'created', code: input.code || '?', errors: [{ id: input.code || '?', error: e.message }], message: 'Erreur: ' + e.message };
                 }
             }
 

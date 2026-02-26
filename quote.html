@@ -1332,7 +1332,7 @@ async function renderQuote() {
         if (hasImages) {
             html += '<div class="pv-page-room-text">';
             html += '<div class="pv-page-room-desc">';
-            html += textToHtml(desc);
+            html += formatRoomDescription(desc);
             html += '</div>';
             html += '</div>';
 
@@ -1349,7 +1349,7 @@ async function renderQuote() {
             // No images — description takes full width
             html += '<div class="pv-page-room-text" style="flex:1;">';
             html += '<div class="pv-page-room-desc">';
-            html += textToHtml(desc);
+            html += formatRoomDescription(desc);
             html += '</div>';
             html += '</div>';
         }
@@ -1908,6 +1908,70 @@ function textToHtml(str) {
         return str; // already HTML
     }
     return escapeHtml(str).replace(/\n/g, '<br>');
+}
+
+function toSentenceCase(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function formatDescriptionForDisplay(text) {
+    if (!text || !text.trim()) return '';
+    var lines = text.split('\n');
+    var keywords = [
+        'CAISSON', 'FAÇADES ET PANNEAUX APPARENTS', 'FAÇADES',
+        'TIROIRS LEGRABOX', 'TIROIRS', 'POIGNÉES', 'ÉCLAIRAGE',
+        'DÉTAILS', 'EXCLUSIONS', 'COMPTOIR', 'QUINCAILLERIE',
+        'FINITION', 'ÉLECTRO', 'RANGEMENT', 'DIMENSIONS',
+        'NOTES', 'PARTICULARITÉS'
+    ];
+    var hasKeyword = lines.some(function(l) {
+        var upper = l.trim().toUpperCase();
+        return keywords.some(function(k) { return upper.startsWith(k); });
+    });
+    if (!hasKeyword) return escapeHtml(text).replace(/\n/g, '<br>');
+    var html = '';
+    var inList = false;
+    lines.forEach(function(line) {
+        var trimmed = line.trim();
+        if (!trimmed) { if (inList) { html += '</ul>'; inList = false; } return; }
+        if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+            if (!inList) { html += '<ul>'; inList = true; }
+            html += '<li>' + escapeHtml(trimmed.replace(/^[-•]\s*/, '')) + '</li>';
+            return;
+        }
+        if (inList) { html += '</ul>'; inList = false; }
+        var matched = false;
+        var upper = trimmed.toUpperCase();
+        for (var i = 0; i < keywords.length; i++) {
+            if (upper.startsWith(keywords[i])) {
+                var colonIdx = trimmed.indexOf(':');
+                if (colonIdx !== -1) {
+                    var label = trimmed.substring(0, colonIdx).trim();
+                    var value = trimmed.substring(colonIdx + 1).trim();
+                    html += '<p><strong>' + escapeHtml(toSentenceCase(label)) + ' :</strong> ' + escapeHtml(value) + '</p>';
+                } else {
+                    html += '<p><strong>' + escapeHtml(toSentenceCase(trimmed)) + '</strong></p>';
+                }
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) html += '<p>' + escapeHtml(trimmed) + '</p>';
+    });
+    if (inList) html += '</ul>';
+    return html;
+}
+
+function formatRoomDescription(str) {
+    if (!str) return '';
+    // Already rich HTML from AI optimizer
+    if (str.indexOf('<p>') !== -1 || str.indexOf('<strong>') !== -1 || str.indexOf('<ul>') !== -1) {
+        return str;
+    }
+    // Convert stored <br> to newlines, strip remaining tags, then format
+    var text = str.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+    return formatDescriptionForDisplay(text);
 }
 </script>
 </body>

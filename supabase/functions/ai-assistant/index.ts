@@ -266,7 +266,11 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
     .join("\n");
 
   const matStr = (context.expenseCategories || [])
-    .map((c: any) => `${c.name}: markup ${c.markup}%, perte ${c.waste}%`)
+    .map((c: any) => {
+      let line = `${c.name}: markup ${c.markup}%, perte ${c.waste}%`;
+      if (c.rules_template) line += `\n  Règles de base: ${c.rules_template}`;
+      return line;
+    })
     .join("\n");
 
   const roomsStr = (context.rooms || [])

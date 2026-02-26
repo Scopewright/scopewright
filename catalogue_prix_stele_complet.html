@@ -867,6 +867,18 @@
             flex: 1;
             min-width: 0;
         }
+        .template-hint {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: #f0f4f8; border: 1px solid #d0d8e0; border-radius: 6px;
+            padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #475569;
+            line-height: 1.5;
+        }
+        .template-hint-icon { flex-shrink: 0; font-size: 15px; margin-top: 1px; opacity: 0.6; }
+        .template-hint-content { flex: 1; min-width: 0; }
+        .template-hint-content strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: #334155; display: block; margin-bottom: 3px; }
+        .template-hint-text { white-space: pre-wrap; max-height: 80px; overflow-y: auto; }
+        .template-hint-link { flex-shrink: 0; font-size: 11px; color: #64748b; text-decoration: underline; white-space: nowrap; margin-top: 1px; }
+        .template-hint-link:hover { color: #334155; }
         .calc-rule-json {
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 12px;
@@ -2249,6 +2261,15 @@
                             <span class="ai-dot"></span>
                         </button>
                     </div>
+                </div>
+                <!-- Template hint banner (admin only) -->
+                <div class="template-hint" id="templateHintBanner" style="display:none;">
+                    <span class="template-hint-icon">&#8505;</span>
+                    <div class="template-hint-content">
+                        <strong>R&egrave;gles de base actives</strong>
+                        <div class="template-hint-text" id="templateHintText"></div>
+                    </div>
+                    <a href="admin.html" target="_blank" class="template-hint-link">Modifier</a>
                 </div>
                 <!-- Comment décrire au client (admin only) -->
                 <div class="form-group" id="presRuleGroup" style="display:none;">
@@ -3945,6 +3966,17 @@
             // Présentation client (admin only)
             document.getElementById('editClientText').value = item.client_text || '';
             document.getElementById('clientTextGroup').style.display = isAdmin ? '' : 'none';
+
+            // Template hint banner (admin only)
+            var hintBanner = document.getElementById('templateHintBanner');
+            var hintText = document.getElementById('templateHintText');
+            var templates = getAllRulesTemplates();
+            if (isAdmin && templates) {
+                hintText.textContent = templates;
+                hintBanner.style.display = '';
+            } else {
+                hintBanner.style.display = 'none';
+            }
 
             // Règles de calcul (admin only)
             document.getElementById('editCalcRuleHuman').value = item.calculation_rule_human || '';
@@ -6265,6 +6297,11 @@
                     CATALOGUE_DATA.push(serverItem);
                     // Mettre a jour itemId avec le code genere par le serveur
                     itemId = serverItem.id;
+
+                    // Auto-fill calc/pres rules from templates (non-blocking)
+                    if (!serverItem.calculation_rule_ai && !serverItem.presentation_rule && getAllRulesTemplates()) {
+                        autoGenerateBaseRules(serverItem);
+                    }
                 } else {
                     // Item existant : PATCH
                     resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + itemId, {
@@ -7176,6 +7213,14 @@
 
         // ── AI context helpers ──
 
+        function getAllRulesTemplates() {
+            if (!expenseCategories) return '';
+            return expenseCategories
+                .filter(function(c) { return c.rules_template; })
+                .map(function(c) { return c.name + ' : ' + c.rules_template; })
+                .join('\n');
+        }
+
         function buildArticleContext() {
             var code = (document.getElementById('editCode').value || '').trim();
             var desc = (document.getElementById('editDescription').value || '').trim();
@@ -7309,6 +7354,12 @@
 
             prompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
 
+            var templatesText = getAllRulesTemplates();
+            if (templatesText) {
+                prompt += '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText;
+                prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
+            }
+
             var similar = getSimilarItems(category, 10);
             var similarRules = similar.filter(function(i) { return i.presentation_rule_human; })
                 .map(function(i) { return i.id + ': ' + i.presentation_rule_human; });
@@ -7382,6 +7433,12 @@
             }).join(', ');
             if (matCatInfo) prompt += '\n\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
 
+            var templatesText = getAllRulesTemplates();
+            if (templatesText) {
+                prompt += '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText;
+                prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
+            }
+
             prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
 
             var examples = getCalcRuleExamples(category, 3);
@@ -7426,6 +7483,76 @@
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
                 if (!hadError) flashAiDotDone(btn);
+            }
+        }
+
+        // ── Auto-generate base rules from templates on item creation ──
+
+        async function autoGenerateBaseRules(item) {
+            var templatesText = getAllRulesTemplates();
+            if (!templatesText) return;
+
+            var context = '=== ARTICLE ===\nCode: ' + (item.id || '') +
+                '\nDescription: ' + (item.description || '') +
+                '\nCat\u00e9gorie: ' + (item.category || '') +
+                '\nType: ' + (item.type || '');
+
+            var matCatInfo = expenseCategories.map(function(c) {
+                var defaultItem = CATALOGUE_DATA.find(function(i) { return i.is_default && i.category === c.name; });
+                return c.name + (defaultItem ? ' (d\u00e9faut: ' + defaultItem.id + ')' : '');
+            }).join(', ');
+
+            var basePrompt = context +
+                '\nCat\u00e9gories existantes: ' + getCategoryList() +
+                '\n\n=== CODES ARTICLES EXISTANTS ===\n' + getArticleCodesList() +
+                '\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo +
+                '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText +
+                '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+
+            // Calc rule prompt
+            var calcPrompt = basePrompt + '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+            var category = item.category || '';
+            var calcExamples = getCalcRuleExamples(category, 3);
+            if (calcExamples) calcPrompt += '\n\n=== EXEMPLES JSON (articles similaires) ===\n' + calcExamples;
+
+            // Pres rule prompt
+            var presPrompt = basePrompt + '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
+            var similar = getSimilarItems(category, 10);
+            var similarRules = similar.filter(function(i) { return i.presentation_rule_human; })
+                .map(function(i) { return i.id + ': ' + i.presentation_rule_human; });
+            if (similarRules.length) presPrompt += '\n\n=== EXEMPLES EXPLICATIONS (m\u00eame cat\u00e9gorie) ===\n' + similarRules.join('\n');
+
+            try {
+                var results = await Promise.all([
+                    callEdgeFunction([{ key: 'cr', text: calcPrompt }], 'catalogue_calc_rule'),
+                    callEdgeFunction([{ key: 'pr', text: presPrompt }], 'catalogue_pres_rule')
+                ]);
+
+                var calcEnv = parseAiEnvelope(results[0]['cr'], 'explication');
+                fixEnvelopeJsonSplit(calcEnv, ['cascade', 'ask']);
+                var presEnv = parseAiEnvelope(results[1]['pr'], 'explication');
+                fixEnvelopeJsonSplit(presEnv, ['sections', 'order', 'prefix']);
+
+                var patch = {};
+                if (calcEnv.json) patch.calculation_rule_ai = calcEnv.json;
+                if (calcEnv.explication) patch.calculation_rule_human = calcEnv.explication;
+                if (presEnv.json) patch.presentation_rule = presEnv.json;
+                if (presEnv.explication) patch.presentation_rule_human = presEnv.explication;
+
+                if (Object.keys(patch).length === 0) return;
+
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + item.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(patch)
+                });
+
+                var local = CATALOGUE_DATA.find(function(i) { return i.id === item.id; });
+                if (local) Object.assign(local, patch);
+
+                console.log('Auto-generated base rules for ' + item.id);
+            } catch (err) {
+                console.warn('Auto-generate base rules failed for ' + item.id + ':', err);
             }
         }
 

@@ -206,6 +206,28 @@
             background: none; border: none; color: #94a3b8; font-size: 14px;
             cursor: pointer; padding: 0 2px; line-height: 1;
         }
+
+        /* Expense template expand */
+        .btn-expand-template {
+            background: none; border: none; color: #94a3b8; font-size: 13px;
+            cursor: pointer; padding: 2px 6px; transition: color 0.2s, transform 0.2s;
+            display: inline-flex; align-items: center;
+        }
+        .btn-expand-template:hover { color: #475569; }
+        .btn-expand-template.open { transform: rotate(90deg); color: #475569; }
+        .expense-template-row td { padding: 0 12px 10px !important; border-bottom: 1px solid #f0f0f0; }
+        .input-template {
+            width: 100%; min-height: 60px; padding: 10px 12px;
+            border: 1px solid #e0e0e0; border-radius: 4px;
+            font-family: inherit; font-size: 12px; line-height: 1.5;
+            resize: vertical; color: #1f2937;
+            transition: border-color 0.2s;
+        }
+        .input-template:focus { outline: none; border-color: var(--sw-navy); }
+        .template-label {
+            font-size: 11px; color: #94a3b8; margin-bottom: 4px;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
         .cat-chip-x:hover { color: #c0392b; }
         .cat-chip-add {
             background: none; border: 1px dashed #cbd5e1; color: #94a3b8;
@@ -605,10 +627,11 @@
                     <table class="roles-table" id="expensesTable">
                         <thead>
                             <tr>
-                                <th style="width:50%">Cat&eacute;gorie</th>
-                                <th style="width:20%">Markup (%)</th>
-                                <th style="width:20%">Perte (%)</th>
-                                <th style="width:10%"></th>
+                                <th style="width:4%"></th>
+                                <th style="width:46%">Cat&eacute;gorie</th>
+                                <th style="width:18%">Markup (%)</th>
+                                <th style="width:18%">Perte (%)</th>
+                                <th style="width:14%"></th>
                             </tr>
                         </thead>
                         <tbody id="expensesBody"></tbody>
@@ -1845,43 +1868,76 @@
         var body = document.getElementById('expensesBody');
         var html = '';
         for (var i = 0; i < expenseCategories.length; i++) {
-            html += buildExpenseRowHtml(expenseCategories[i].name, expenseCategories[i].markup, expenseCategories[i].waste);
+            var c = expenseCategories[i];
+            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.rules_template || '');
         }
         body.innerHTML = html;
     }
 
-    function buildExpenseRowHtml(name, markup, waste) {
-        return '<tr>' +
+    function buildExpenseRowHtml(name, markup, waste, rulesTemplate) {
+        var hasTemplate = rulesTemplate ? ' open' : '';
+        return '<tr class="expense-main-row">' +
+            '<td><button class="btn-expand-template' + hasTemplate + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
             '<td><input type="number" class="input-number" value="' + (markup || 0) + '" placeholder="0" step="1" min="0"></td>' +
             '<td><input type="number" class="input-number input-waste" value="' + (waste || 0) + '" placeholder="0" step="1" min="0"></td>' +
             '<td><button class="btn-remove" onclick="removeExpenseRow(this)" title="Retirer">&times;</button></td>' +
+            '</tr>' +
+            '<tr class="expense-template-row" style="display:' + (rulesTemplate ? 'table-row' : 'none') + ';">' +
+            '<td colspan="5">' +
+            '<div class="template-label">Template r\u00e8gles AI</div>' +
+            '<textarea class="input-template" placeholder="Instructions pour l\u2019AI lors de la g\u00e9n\u00e9ration des r\u00e8gles de calcul et pr\u00e9sentation pour cette cat\u00e9gorie\u2026">' + escapeHtml(rulesTemplate) + '</textarea>' +
+            '</td>' +
             '</tr>';
+    }
+
+    function toggleExpenseTemplate(btn) {
+        btn.classList.toggle('open');
+        var mainRow = btn.closest('tr');
+        var templateRow = mainRow.nextElementSibling;
+        if (templateRow && templateRow.classList.contains('expense-template-row')) {
+            templateRow.style.display = templateRow.style.display === 'none' ? 'table-row' : 'none';
+        }
     }
 
     function addExpenseRow() {
         var body = document.getElementById('expensesBody');
-        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0));
-        var inputs = body.querySelectorAll('.input-email');
-        if (inputs.length) inputs[inputs.length - 1].focus();
+        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0, ''));
+        var mainRows = body.querySelectorAll('.expense-main-row');
+        if (mainRows.length) {
+            var lastMain = mainRows[mainRows.length - 1];
+            lastMain.querySelector('.input-email').focus();
+        }
     }
 
     async function removeExpenseRow(btn) {
         if (!await steleConfirm('Retirer cette catégorie de dépense ?')) return;
-        var row = btn.parentNode.parentNode;
-        row.parentNode.removeChild(row);
+        var mainRow = btn.closest('.expense-main-row');
+        var templateRow = mainRow.nextElementSibling;
+        if (templateRow && templateRow.classList.contains('expense-template-row')) {
+            templateRow.parentNode.removeChild(templateRow);
+        }
+        mainRow.parentNode.removeChild(mainRow);
     }
 
     function saveExpenseCategories() {
         var newCats = [];
-        var rows = document.querySelectorAll('#expensesBody tr');
-        for (var i = 0; i < rows.length; i++) {
-            var nameVal = rows[i].querySelector('.input-email').value.trim();
+        var mainRows = document.querySelectorAll('#expensesBody .expense-main-row');
+        for (var i = 0; i < mainRows.length; i++) {
+            var nameVal = mainRows[i].querySelector('.input-email').value.trim();
             if (!nameVal) continue;
-            var markupVal = parseFloat(rows[i].querySelector('.input-number').value) || 0;
-            var wasteInput = rows[i].querySelector('.input-waste');
+            var markupVal = parseFloat(mainRows[i].querySelector('.input-number').value) || 0;
+            var wasteInput = mainRows[i].querySelector('.input-waste');
             var wasteVal = parseFloat(wasteInput ? wasteInput.value : 0) || 0;
-            newCats.push({ name: nameVal, markup: markupVal, waste: wasteVal });
+            var templateRow = mainRows[i].nextElementSibling;
+            var templateVal = '';
+            if (templateRow && templateRow.classList.contains('expense-template-row')) {
+                var ta = templateRow.querySelector('.input-template');
+                templateVal = ta ? ta.value.trim() : '';
+            }
+            var cat = { name: nameVal, markup: markupVal, waste: wasteVal };
+            if (templateVal) cat.rules_template = templateVal;
+            newCats.push(cat);
         }
         expenseCategories = newCats;
         saveConfig('expense_categories', expenseCategories, 'expensesFeedback');

@@ -2268,7 +2268,14 @@
                     <span class="template-hint-icon">&#8505;</span>
                     <div class="template-hint-content">
                         <strong>R&egrave;gles de base actives</strong>
-                        <div class="template-hint-text" id="templateHintText"></div>
+                        <div id="templateHintCalcWrap" style="display:none; margin-top:4px;">
+                            <span style="font-weight:600; font-size:10px; color:#888;">CALCUL</span>
+                            <div class="template-hint-text" id="templateHintCalc"></div>
+                        </div>
+                        <div id="templateHintPresWrap" style="display:none; margin-top:4px;">
+                            <span style="font-weight:600; font-size:10px; color:#888;">PR&Eacute;SENTATION</span>
+                            <div class="template-hint-text" id="templateHintPres"></div>
+                        </div>
                     </div>
                     <a href="admin.html" target="_blank" class="template-hint-link">Modifier</a>
                 </div>
@@ -3978,10 +3985,19 @@
 
             // Template hint banner (admin only)
             var hintBanner = document.getElementById('templateHintBanner');
-            var hintText = document.getElementById('templateHintText');
-            var templates = getAllRulesTemplates();
-            if (isAdmin && templates) {
-                hintText.textContent = templates;
+            var calcTemplates = getCalcTemplates();
+            var presTemplates = getPresTemplates();
+            var calcWrap = document.getElementById('templateHintCalcWrap');
+            var presWrap = document.getElementById('templateHintPresWrap');
+            if (isAdmin && (calcTemplates || presTemplates)) {
+                if (calcTemplates) {
+                    document.getElementById('templateHintCalc').textContent = calcTemplates;
+                    calcWrap.style.display = '';
+                } else { calcWrap.style.display = 'none'; }
+                if (presTemplates) {
+                    document.getElementById('templateHintPres').textContent = presTemplates;
+                    presWrap.style.display = '';
+                } else { presWrap.style.display = 'none'; }
                 hintBanner.style.display = '';
             } else {
                 hintBanner.style.display = 'none';
@@ -7267,12 +7283,24 @@
 
         // ── AI context helpers ──
 
-        function getAllRulesTemplates() {
+        function getCalcTemplates() {
             if (!expenseCategories) return '';
             return expenseCategories
-                .filter(function(c) { return c.rules_template; })
-                .map(function(c) { return c.name + ' : ' + c.rules_template; })
+                .filter(function(c) { return c.calc_template || c.rules_template; })
+                .map(function(c) { return c.name + ' : ' + (c.calc_template || c.rules_template); })
                 .join('\n');
+        }
+
+        function getPresTemplates() {
+            if (!expenseCategories) return '';
+            return expenseCategories
+                .filter(function(c) { return c.pres_template; })
+                .map(function(c) { return c.name + ' : ' + c.pres_template; })
+                .join('\n');
+        }
+
+        function getAllRulesTemplates() {
+            return getCalcTemplates() || getPresTemplates();
         }
 
         function buildArticleContext() {
@@ -7408,9 +7436,9 @@
 
             prompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
 
-            var templatesText = getAllRulesTemplates();
-            if (templatesText) {
-                prompt += '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText;
+            var presTemplates = getPresTemplates();
+            if (presTemplates) {
+                prompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE ===\n' + presTemplates;
                 prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
             }
 
@@ -7487,9 +7515,9 @@
             }).join(', ');
             if (matCatInfo) prompt += '\n\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
 
-            var templatesText = getAllRulesTemplates();
-            if (templatesText) {
-                prompt += '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText;
+            var calcTemplates = getCalcTemplates();
+            if (calcTemplates) {
+                prompt += '\n\n=== R\u00c8GLES DE CALCUL PAR CAT\u00c9GORIE ===\n' + calcTemplates;
                 prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
             }
 
@@ -7543,8 +7571,9 @@
         // ── Auto-generate base rules from templates on item creation ──
 
         async function autoGenerateBaseRules(item) {
-            var templatesText = getAllRulesTemplates();
-            if (!templatesText) return;
+            var calcTemplates = getCalcTemplates();
+            var presTemplates = getPresTemplates();
+            if (!calcTemplates && !presTemplates) return;
 
             var context = '=== ARTICLE ===\nCode: ' + (item.id || '') +
                 '\nDescription: ' + (item.description || '') +
@@ -7556,21 +7585,25 @@
                 return c.name + (defaultItem ? ' (d\u00e9faut: ' + defaultItem.id + ')' : '');
             }).join(', ');
 
-            var basePrompt = context +
+            var baseContext = context +
                 '\nCat\u00e9gories existantes: ' + getCategoryList() +
                 '\n\n=== CODES ARTICLES EXISTANTS ===\n' + getArticleCodesList() +
-                '\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo +
-                '\n\n=== R\u00c8GLES DE BASE PAR CAT\u00c9GORIE ===\n' + templatesText +
-                '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+                '\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
 
             // Calc rule prompt
-            var calcPrompt = basePrompt + '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+            var calcPrompt = baseContext;
+            if (calcTemplates) calcPrompt += '\n\n=== R\u00c8GLES DE CALCUL PAR CAT\u00c9GORIE ===\n' + calcTemplates;
+            calcPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+            calcPrompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
             var category = item.category || '';
             var calcExamples = getCalcRuleExamples(category, 3);
             if (calcExamples) calcPrompt += '\n\n=== EXEMPLES JSON (articles similaires) ===\n' + calcExamples;
 
             // Pres rule prompt
-            var presPrompt = basePrompt + '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
+            var presPrompt = baseContext;
+            if (presTemplates) presPrompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE ===\n' + presTemplates;
+            presPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+            presPrompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
             var similar = getSimilarItems(category, 10);
             var similarRules = similar.filter(function(i) { return i.presentation_rule_human; })
                 .map(function(i) { return i.id + ': ' + i.presentation_rule_human; });

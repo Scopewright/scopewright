@@ -269,7 +269,9 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
   const matStr = (context.expenseCategories || [])
     .map((c: any) => {
       let line = `${c.name}: markup ${c.markup}%, perte ${c.waste}%`;
-      if (c.rules_template) line += `\n  Règles de base: ${c.rules_template}`;
+      if (c.calc_template) line += `\n  Template calcul: ${c.calc_template}`;
+      if (c.pres_template) line += `\n  Template présentation: ${c.pres_template}`;
+      if (!c.calc_template && !c.pres_template && c.rules_template) line += `\n  Règles de base: ${c.rules_template}`;
       return line;
     })
     .join("\n");

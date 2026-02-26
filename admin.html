@@ -1869,13 +1869,14 @@
         var html = '';
         for (var i = 0; i < expenseCategories.length; i++) {
             var c = expenseCategories[i];
-            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.rules_template || '');
+            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '');
         }
         body.innerHTML = html;
     }
 
-    function buildExpenseRowHtml(name, markup, waste, rulesTemplate) {
-        var hasTemplate = rulesTemplate ? ' open' : '';
+    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate) {
+        var hasTemplate = (calcTemplate || presTemplate) ? ' open' : '';
+        var showRow = (calcTemplate || presTemplate) ? 'table-row' : 'none';
         return '<tr class="expense-main-row">' +
             '<td><button class="btn-expand-template' + hasTemplate + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
@@ -1883,10 +1884,12 @@
             '<td><input type="number" class="input-number input-waste" value="' + (waste || 0) + '" placeholder="0" step="1" min="0"></td>' +
             '<td><button class="btn-remove" onclick="removeExpenseRow(this)" title="Retirer">&times;</button></td>' +
             '</tr>' +
-            '<tr class="expense-template-row" style="display:' + (rulesTemplate ? 'table-row' : 'none') + ';">' +
+            '<tr class="expense-template-row" style="display:' + showRow + ';">' +
             '<td colspan="5">' +
-            '<div class="template-label">Template r\u00e8gles AI</div>' +
-            '<textarea class="input-template" placeholder="Instructions pour l\u2019AI lors de la g\u00e9n\u00e9ration des r\u00e8gles de calcul et pr\u00e9sentation pour cette cat\u00e9gorie\u2026">' + escapeHtml(rulesTemplate) + '</textarea>' +
+            '<div class="template-label">Template calcul</div>' +
+            '<textarea class="input-template input-template-calc" placeholder="Instructions AI pour les r\u00e8gles de calcul (cascade, quantit\u00e9s, mat\u00e9riaux)\u2026">' + escapeHtml(calcTemplate) + '</textarea>' +
+            '<div class="template-label" style="margin-top:8px;">Template pr\u00e9sentation</div>' +
+            '<textarea class="input-template input-template-pres" placeholder="Instructions AI pour la pr\u00e9sentation client (sections, format, texte)\u2026">' + escapeHtml(presTemplate) + '</textarea>' +
             '</td>' +
             '</tr>';
     }
@@ -1902,7 +1905,7 @@
 
     function addExpenseRow() {
         var body = document.getElementById('expensesBody');
-        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0, ''));
+        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0, '', ''));
         var mainRows = body.querySelectorAll('.expense-main-row');
         if (mainRows.length) {
             var lastMain = mainRows[mainRows.length - 1];
@@ -1930,13 +1933,16 @@
             var wasteInput = mainRows[i].querySelector('.input-waste');
             var wasteVal = parseFloat(wasteInput ? wasteInput.value : 0) || 0;
             var templateRow = mainRows[i].nextElementSibling;
-            var templateVal = '';
+            var calcTpl = '', presTpl = '';
             if (templateRow && templateRow.classList.contains('expense-template-row')) {
-                var ta = templateRow.querySelector('.input-template');
-                templateVal = ta ? ta.value.trim() : '';
+                var taCalc = templateRow.querySelector('.input-template-calc');
+                var taPres = templateRow.querySelector('.input-template-pres');
+                calcTpl = taCalc ? taCalc.value.trim() : '';
+                presTpl = taPres ? taPres.value.trim() : '';
             }
             var cat = { name: nameVal, markup: markupVal, waste: wasteVal };
-            if (templateVal) cat.rules_template = templateVal;
+            if (calcTpl) cat.calc_template = calcTpl;
+            if (presTpl) cat.pres_template = presTpl;
             newCats.push(cat);
         }
         expenseCategories = newCats;

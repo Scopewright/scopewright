@@ -291,7 +291,7 @@
             padding: 32px;
             display: grid;
             grid-template-columns: 42% 1fr;
-            grid-template-rows: 1fr auto;
+            grid-template-rows: 1fr;
             overflow: hidden;
             position: relative;
         }
@@ -303,6 +303,8 @@
             grid-column: 1;
             overflow: hidden;
             border-radius: 8px;
+            min-height: 0;
+            background: #f0f0f0;
         }
         .pv-intro-image img {
             width: 100%;
@@ -372,12 +374,13 @@
             margin-bottom: 0;
         }
         .pv-intro-footer {
-            grid-column: 1 / -1;
-            grid-row: 2;
+            position: absolute;
+            bottom: 24px;
+            left: 32px;
+            right: 56px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            padding: 16px 24px 12px 0;
         }
         .pv-intro-footer-addresses {
             display: flex;
@@ -456,6 +459,8 @@
             grid-column: 1;
             overflow: hidden;
             border-radius: 8px;
+            min-height: 0;
+            background: #f0f0f0;
         }
         .pv-why-image img {
             width: 100%;
@@ -795,13 +800,13 @@
             /* Intro page mobile */
             .pv-page-intro {
                 grid-template-columns: 1fr;
-                grid-template-rows: 50vh auto auto;
+                grid-template-rows: 50vh auto;
                 height: auto; max-height: none;
             }
             .pv-intro-image { grid-row: 1; grid-column: 1; }
             .pv-intro-content { grid-column: 1; grid-row: 2; padding: 32px 24px; }
             .pv-intro-footer {
-                grid-column: 1; grid-row: 3;
+                position: static;
                 flex-direction: column; gap: 16px;
                 padding: 16px 24px 48px;
             }

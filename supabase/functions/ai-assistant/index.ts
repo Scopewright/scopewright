@@ -289,7 +289,18 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
   }
 
   if (context.defaultMaterials) {
-    dynamicParts += `\n\n## Matériaux par défaut de la soumission\n${JSON.stringify(context.defaultMaterials, null, 2)}`;
+    dynamicParts += `\n\n## Matériaux par défaut — Soumission (modèle)\nAppliqué aux pièces sans matériaux spécifiques.\n${JSON.stringify(context.defaultMaterials, null, 2)}`;
+  }
+
+  // Per-room default materials
+  if (context.rooms && Array.isArray(context.rooms)) {
+    const roomsWithDM = context.rooms.filter((r: any) => r.defaultMaterials && r.defaultMaterials.length > 0);
+    if (roomsWithDM.length > 0) {
+      dynamicParts += `\n\n## Matériaux par défaut — Par pièce`;
+      roomsWithDM.forEach((r: any) => {
+        dynamicParts += `\n### ${r.name}\n${JSON.stringify(r.defaultMaterials, null, 2)}`;
+      });
+    }
   }
 
   if (context.clientFile) {

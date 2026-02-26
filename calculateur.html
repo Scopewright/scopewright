@@ -161,6 +161,7 @@
     let itemMap = {};               // { rowDomId: supabaseItemUUID }
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
+    let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
 
@@ -977,7 +978,8 @@
                 globalModifierPct: globalPct,
                 effectiveTotal: effectiveTotal,
                 hasDescription: !!(descEl && descEl.value.trim()),
-                installationIncluded: installCb ? installCb.checked : true
+                installationIncluded: installCb ? installCb.checked : true,
+                defaultMaterials: roomDM[gid] || []
             });
         });
         return rooms;
@@ -1052,6 +1054,7 @@
             name: name,
             installationIncluded: includeInstall,
             clientDescription: descEl ? descEl.value.trim() : '',
+            defaultMaterials: roomDM[groupId] || [],
             items: items,
             subtotal: Math.round(subtotal * 100) / 100,
             rentability: rentab
@@ -1784,6 +1787,16 @@
         return raw || [];
     }
 
+    /**
+     * Get default materials for a specific room (furniture group).
+     * Fallback chain: room-level DM → submission-level DM → empty array.
+     */
+    function getDefaultMaterialsForGroup(groupId) {
+        var rdm = roomDM[groupId];
+        if (rdm && rdm.length > 0) return rdm;
+        return getDefaultMaterials();
+    }
+
     function renderDefaultMaterials() {
         var dm = getDefaultMaterials();
         var body = document.getElementById('dmBody');
@@ -2013,6 +2026,336 @@
     });
 
     // ═══════════════════════════════════════════════════════════════════════
+    // MATÉRIAUX PAR DÉFAUT — PAR PIÈCE (ROOM-LEVEL DM)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var roomDmActiveAC = null; // currently open room-level DM autocomplete key
+
+    function toggleRoomDm(groupId) {
+        var body = document.getElementById(groupId + '-dmBody');
+        var arrow = document.getElementById(groupId + '-dmArrow');
+        if (!body) return;
+        var wasCollapsed = body.classList.contains('collapsed');
+        body.classList.toggle('collapsed', !wasCollapsed);
+        if (arrow) arrow.classList.toggle('open', wasCollapsed);
+        if (wasCollapsed) renderRoomDm(groupId);
+    }
+
+    function updateRoomDmBadge(groupId) {
+        var badge = document.getElementById(groupId + '-dmBadge');
+        if (!badge) return;
+        var rdm = roomDM[groupId];
+        if (rdm && rdm.length > 0) {
+            badge.textContent = rdm.length + ' mat\u00e9riau' + (rdm.length > 1 ? 'x' : '');
+            badge.style.display = '';
+        } else {
+            badge.textContent = '';
+            badge.style.display = 'none';
+        }
+    }
+
+    function renderRoomDm(groupId) {
+        var rdm = roomDM[groupId] || [];
+        var body = document.getElementById(groupId + '-dmBody');
+        if (!body) return;
+        var html = '<div class="rdm-rows" id="' + groupId + '-dmRows">';
+        rdm.forEach(function(entry, idx) {
+            html += renderRoomDmRow(groupId, idx, entry);
+        });
+        html += '</div>';
+        html += '<div class="rdm-actions">';
+        html += '<button class="dm-add-btn" onclick="addRoomDmEntry(\'' + groupId + '\')">+ Ajouter</button>';
+        html += '<button class="rdm-copy-btn" onclick="openRoomDmCopyMenu(\'' + groupId + '\', this)">Copier de\u2026</button>';
+        if (rdm.length > 0) {
+            html += '<button class="rdm-clear-btn" onclick="clearRoomDm(\'' + groupId + '\')">Effacer tout</button>';
+        }
+        html += '</div>';
+        if (rdm.length === 0) {
+            html += '<div class="rdm-fallback-hint">Utilise les mat\u00e9riaux de la soumission (mod\u00e8le)</div>';
+        }
+        body.innerHTML = html;
+        updateRoomDmBadge(groupId);
+    }
+
+    function renderRoomDmRow(groupId, idx, entry) {
+        var typeOptions = getDmTypes().map(function(t) {
+            return '<option value="' + escapeAttr(t) + '"' + (entry.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+        }).join('');
+        var displayLabel = entry.description || '';
+        if (entry.catalogue_item_id) {
+            var catItem = (CATALOGUE_DATA || []).find(function(i) { return i.id === entry.catalogue_item_id; });
+            if (catItem && catItem.client_text) displayLabel = catItem.client_text;
+        }
+        var acId = 'rdmAC-' + groupId + '-' + idx;
+        return '<div class="dm-row rdm-row" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +
+            '<select onchange="updateRoomDmType(\'' + groupId + '\',' + idx + ',this.value)">' + typeOptions + '</select>' +
+            '<div class="dm-search-wrap">' +
+                '<input type="text" value="' + escapeAttr(displayLabel) + '" placeholder="Rechercher dans le catalogue..." ' +
+                    'oninput="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)" ' +
+                    'onfocus="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)" ' +
+                    'onkeydown="rdmSearchKeydown(event,\'' + groupId + '\',' + idx + ')" ' +
+                    (entry.catalogue_item_id ? 'class="dm-resolved"' : '') + '>' +
+                '<div class="dm-autocomplete" id="' + acId + '"></div>' +
+            '</div>' +
+            '<button class="dm-remove" onclick="removeRoomDmEntry(\'' + groupId + '\',' + idx + ')" title="Supprimer">&times;</button>' +
+            '</div>';
+    }
+
+    function addRoomDmEntry(groupId) {
+        if (!roomDM[groupId]) roomDM[groupId] = [];
+        roomDM[groupId].push({ type: getDmTypes()[0], catalogue_item_id: null, description: '' });
+        saveRoomDm(groupId);
+        renderRoomDm(groupId);
+        var rows = document.querySelectorAll('#' + groupId + '-dmRows .rdm-row');
+        if (rows.length > 0) {
+            var lastInput = rows[rows.length - 1].querySelector('.dm-search-wrap input');
+            if (lastInput) lastInput.focus();
+        }
+    }
+
+    function updateRoomDmType(groupId, idx, newType) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        var oldType = rdm[idx].type;
+        rdm[idx].type = newType;
+        saveRoomDm(groupId);
+        reprocessDefaultCascades(oldType, groupId);
+        reprocessDefaultCascades(newType, groupId);
+    }
+
+    function removeRoomDmEntry(groupId, idx) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        var label = rdm[idx].description || rdm[idx].type;
+        var changedGroup = rdm[idx].type;
+        steleConfirm('Supprimer \u00ab ' + label + ' \u00bb ?').then(function(ok) {
+            if (!ok) return;
+            var rdm2 = roomDM[groupId];
+            rdm2.splice(idx, 1);
+            saveRoomDm(groupId);
+            renderRoomDm(groupId);
+            reprocessDefaultCascades(changedGroup, groupId);
+        });
+    }
+
+    function clearRoomDm(groupId) {
+        steleConfirm('Effacer tous les mat\u00e9riaux par d\u00e9faut de cette pi\u00e8ce ?\nLes mat\u00e9riaux de la soumission seront utilis\u00e9s.').then(function(ok) {
+            if (!ok) return;
+            var oldTypes = (roomDM[groupId] || []).map(function(e) { return e.type; });
+            roomDM[groupId] = [];
+            saveRoomDm(groupId);
+            renderRoomDm(groupId);
+            // Reprocess cascades for all previously set types
+            oldTypes.forEach(function(t) { reprocessDefaultCascades(t, groupId); });
+        });
+    }
+
+    function rdmSearchCatalogue(groupId, idx, input) {
+        var query = input.value.trim().toLowerCase();
+        var acId = 'rdmAC-' + groupId + '-' + idx;
+        var acDiv = document.getElementById(acId);
+        if (!acDiv) return;
+        input.classList.remove('dm-resolved');
+
+        var rdm = roomDM[groupId] || [];
+        var selectedGroup = rdm[idx] ? rdm[idx].type : null;
+        var allowedCats = getAllowedCategoriesForGroup(selectedGroup);
+
+        var items = CATALOGUE_DATA || [];
+        if (allowedCats) {
+            items = items.filter(function(item) { return allowedCats.indexOf(item.category) !== -1; });
+        }
+
+        var results;
+        if (query.length < 2) {
+            results = items.slice(0, 50);
+        } else {
+            results = items.filter(function(item) {
+                var desc = (item.description || '').toLowerCase();
+                var ct = (item.client_text || '').toLowerCase();
+                var cat = (item.category || '').toLowerCase();
+                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
+            }).slice(0, 30);
+        }
+
+        if (results.length === 0) {
+            acDiv.innerHTML = '<div class="dm-ac-item" style="color:#999;cursor:default;">Aucun r\u00e9sultat</div>';
+            acDiv.classList.add('open');
+            roomDmActiveAC = acId;
+            return;
+        }
+
+        var grouped = {};
+        results.forEach(function(item) {
+            var cat = item.category || 'Autre';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(item);
+        });
+
+        var html = '';
+        var globalIdx = 0;
+        Object.keys(grouped).forEach(function(cat) {
+            html += '<div style="padding:4px 10px;font-size:10px;font-weight:700;color:#888;background:#f9f9f9;text-transform:uppercase;letter-spacing:0.3px;position:sticky;top:0;">' + escapeHtml(cat) + '</div>';
+            grouped[cat].forEach(function(item) {
+                var displayName = item.client_text || item.description;
+                var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
+                html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
+                    'onmousedown="rdmSelectItem(\'' + groupId + '\',' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
+                    '<span>' + escapeHtml(displayName) + '</span>' +
+                    (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
+                    '</div>';
+                globalIdx++;
+            });
+        });
+        acDiv.innerHTML = html;
+        acDiv.classList.add('open');
+        roomDmActiveAC = acId;
+    }
+
+    function rdmSearchKeydown(e, groupId, idx) {
+        var acId = 'rdmAC-' + groupId + '-' + idx;
+        var acDiv = document.getElementById(acId);
+        if (!acDiv || !acDiv.classList.contains('open')) return;
+        var items = acDiv.querySelectorAll('.dm-ac-item[data-idx]');
+        var activeIdx = -1;
+        items.forEach(function(el, i) { if (el.classList.contains('active')) activeIdx = i; });
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, items.length - 1);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].dispatchEvent(new Event('mousedown'));
+        } else if (e.key === 'Escape') {
+            acDiv.classList.remove('open');
+            roomDmActiveAC = null;
+        }
+    }
+
+    function rdmSelectItem(groupId, idx, itemId, itemDesc) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        var changedGroup = rdm[idx].type;
+        rdm[idx].catalogue_item_id = itemId;
+        rdm[idx].description = itemDesc;
+        saveRoomDm(groupId);
+        // Update input visually
+        var row = document.querySelector('.rdm-row[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+        if (row) {
+            var input = row.querySelector('.dm-search-wrap input');
+            if (input) { input.value = itemDesc; input.classList.add('dm-resolved'); }
+            var acId = 'rdmAC-' + groupId + '-' + idx;
+            var ac = document.getElementById(acId);
+            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
+        }
+        roomDmActiveAC = null;
+        // Re-trigger cascades for this room
+        reprocessDefaultCascades(changedGroup, groupId);
+    }
+
+    var roomDmSaveTimers = {};
+    function saveRoomDm(groupId) {
+        clearTimeout(roomDmSaveTimers[groupId]);
+        roomDmSaveTimers[groupId] = setTimeout(function() {
+            var roomId = roomMap[groupId];
+            if (!roomId) return;
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ default_materials: roomDM[groupId] || [] })
+            }).then(function() { showSaveIndicator(); }).catch(function(e) { console.warn('[RoomDM] Save failed:', e); });
+        }, 500);
+    }
+
+    // "Copier de..." dropdown (Linear/Notion style)
+    function openRoomDmCopyMenu(groupId, btnEl) {
+        // Close any existing dropdown
+        var old = document.querySelector('.rdm-copy-dropdown');
+        if (old) old.remove();
+
+        var rect = btnEl.getBoundingClientRect();
+        var dd = document.createElement('div');
+        dd.className = 'rdm-copy-dropdown';
+        dd.style.position = 'fixed';
+        dd.style.left = rect.left + 'px';
+        dd.style.zIndex = '99999';
+
+        var options = [];
+        // Submission template
+        var subDM = getDefaultMaterials();
+        if (subDM.length > 0) {
+            options.push({ label: 'Soumission (mod\u00e8le)', dm: JSON.parse(JSON.stringify(subDM)) });
+        }
+        // Other rooms
+        document.querySelectorAll('.furniture-group').forEach(function(g) {
+            if (g.id === groupId) return;
+            var otherDM = roomDM[g.id];
+            if (!otherDM || otherDM.length === 0) return;
+            var nameEl = g.querySelector('.furniture-name-input');
+            var name = nameEl ? (nameEl.value.trim() || 'Sans nom') : 'Sans nom';
+            options.push({ label: name, dm: JSON.parse(JSON.stringify(otherDM)) });
+        });
+
+        if (options.length === 0) {
+            dd.innerHTML = '<div class="rdm-copy-item" style="color:#999;cursor:default;">Aucune source disponible</div>';
+        } else {
+            options.forEach(function(opt) {
+                var item = document.createElement('div');
+                item.className = 'rdm-copy-item';
+                item.textContent = opt.label;
+                item.addEventListener('click', function() {
+                    roomDM[groupId] = opt.dm;
+                    saveRoomDm(groupId);
+                    renderRoomDm(groupId);
+                    dd.remove();
+                    // Reprocess all groups for changed types
+                    var types = {};
+                    opt.dm.forEach(function(e) { types[e.type] = true; });
+                    Object.keys(types).forEach(function(t) { reprocessDefaultCascades(t, groupId); });
+                });
+                dd.appendChild(item);
+            });
+        }
+
+        // Flip up if near bottom
+        var spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < 200) {
+            dd.style.bottom = (window.innerHeight - rect.top) + 'px';
+        } else {
+            dd.style.top = rect.bottom + 'px';
+        }
+
+        document.body.appendChild(dd);
+
+        // Close on outside click
+        setTimeout(function() {
+            function closeDD(e) {
+                if (!dd.contains(e.target)) {
+                    dd.remove();
+                    document.removeEventListener('click', closeDD, true);
+                }
+            }
+            document.addEventListener('click', closeDD, true);
+        }, 0);
+    }
+
+    // Close room-level DM autocomplete when clicking outside
+    document.addEventListener('click', function(e) {
+        if (roomDmActiveAC && !e.target.closest('.dm-search-wrap')) {
+            var ac = document.getElementById(roomDmActiveAC);
+            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
+            roomDmActiveAC = null;
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // PIÈCES & ARTICLES — CRUD SUPABASE
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -2156,11 +2499,11 @@
      * the matching default material from the current submission.
      * Otherwise return the target as-is.
      */
-    function resolveCascadeTarget(target) {
+    function resolveCascadeTarget(target, groupId) {
         if (!target) return null;
         if (!target.startsWith('$default:')) return target;
         var groupName = target.substring(9);
-        var dm = getDefaultMaterials();
+        var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
         for (var i = 0; i < dm.length; i++) {
             if (dm[i].type === groupName && dm[i].catalogue_item_id) {
                 return dm[i].catalogue_item_id;
@@ -2173,12 +2516,22 @@
      * Re-trigger cascades on all parent rows that use $default: for the given group.
      * Called when a default material changes (dmSelectItem, removeDmEntry, updateDmType).
      */
-    async function reprocessDefaultCascades(changedGroup) {
+    async function reprocessDefaultCascades(changedGroup, scopeGroupId) {
         if (!changedGroup) return;
         var token = '$default:' + changedGroup;
-        // Find all non-cascade rows whose catalogue item has a $default: cascade for this group
+        // Scope: if scopeGroupId provided, only reprocess rows in that room;
+        // if submission-level change, reprocess rooms that use fallback (no room-level DM)
+        var selector = scopeGroupId
+            ? '#' + scopeGroupId + ' .calc-row:not(.cascade-child)'
+            : '.calc-row:not(.cascade-child)';
         var rowIds = [];
-        document.querySelectorAll('.calc-row:not(.cascade-child)').forEach(function(row) {
+        document.querySelectorAll(selector).forEach(function(row) {
+            // For submission-level changes, skip rooms that have their own DM
+            if (!scopeGroupId) {
+                var rowGroupId = row.dataset.group;
+                var rdm = roomDM[rowGroupId];
+                if (rdm && rdm.length > 0) return; // room has its own DM, not affected
+            }
             var select = row.querySelector('.item-select');
             if (!select || !select.value) return;
             var catItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
@@ -2250,8 +2603,8 @@
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
 
-            // Résoudre $default: targets
-            var resolvedTarget = resolveCascadeTarget(rule.target);
+            // Résoudre $default: targets (room-level DM avec fallback soumission)
+            var resolvedTarget = resolveCascadeTarget(rule.target, groupId);
             if (!resolvedTarget) {
                 if (rule.target.startsWith('$default:'))
                     showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));
@@ -3593,7 +3946,8 @@
         .furniture-group.collapsed .calc-header,
         .furniture-group.collapsed .calc-rows,
         .furniture-group.collapsed .group-images-section,
-        .furniture-group.collapsed .client-description-section {
+        .furniture-group.collapsed .client-description-section,
+        .furniture-group.collapsed .room-dm-section {
             display: none;
         }
 
@@ -5722,6 +6076,56 @@
             cursor: pointer; padding: 6px 12px; border-radius: 4px; width: 100%;
         }
         .dm-add-btn:hover { border-color: var(--sw-navy); background: #edf1f7; }
+        .dm-sub-hint {
+            font-size: 10px; color: #aaa; margin: -4px 0 6px 16px; font-style: italic;
+        }
+
+        /* ── Room-level default materials ── */
+        .room-dm-section {
+            padding: 6px 14px; border-bottom: 1px solid #eee; overflow: visible; position: relative;
+        }
+        .room-dm-label {
+            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+            letter-spacing: 0.5px; cursor: pointer; user-select: none;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .room-dm-label:hover { color: #555; }
+        .room-dm-arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+        .room-dm-arrow.open { transform: rotate(90deg); }
+        .room-dm-badge {
+            font-size: 10px; font-weight: 500; color: var(--sw-navy); background: #edf1f7;
+            padding: 1px 8px; border-radius: 10px; margin-left: 4px;
+        }
+        .room-dm-body {
+            overflow: visible; transition: max-height 0.3s ease, opacity 0.2s ease;
+            max-height: 500px; opacity: 1; padding-top: 8px;
+        }
+        .room-dm-body.collapsed { max-height: 0; opacity: 0; padding-top: 0; overflow: hidden; }
+        .rdm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .rdm-actions { display: flex; gap: 6px; align-items: center; }
+        .rdm-actions .dm-add-btn { flex: 1; width: auto; }
+        .rdm-copy-btn {
+            font-size: 12px; color: #666; background: none; border: 1px solid #ddd;
+            cursor: pointer; padding: 6px 12px; border-radius: 4px; white-space: nowrap;
+        }
+        .rdm-copy-btn:hover { border-color: var(--sw-navy); color: var(--sw-navy); background: #edf1f7; }
+        .rdm-clear-btn {
+            font-size: 12px; color: #c62828; background: none; border: 1px solid #f5c6cb;
+            cursor: pointer; padding: 6px 12px; border-radius: 4px; white-space: nowrap; margin-left: auto;
+        }
+        .rdm-clear-btn:hover { border-color: #c62828; background: #fdecea; }
+        .rdm-fallback-hint {
+            font-size: 11px; color: #aaa; font-style: italic; padding: 4px 0;
+        }
+        .rdm-copy-dropdown {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 180px; padding: 4px 0;
+            animation: sdFadeIn 0.12s ease;
+        }
+        .rdm-copy-item {
+            padding: 8px 14px; font-size: 13px; cursor: pointer; color: #333;
+        }
+        .rdm-copy-item:hover { background: #f1f5f9; }
 
         /* ── Main action buttons ── */
         .ph-actions { display: none; /* replaced by timeline CTA */ }
@@ -6850,7 +7254,8 @@
             </div>
 
             <div class="default-materials-panel" id="defaultMaterialsPanel">
-                <div class="dm-label" onclick="toggleDefaultMaterials()"><span class="dm-arrow" id="dmArrow">&#9654;</span> Mat&eacute;riaux par d&eacute;faut</div>
+                <div class="dm-label" onclick="toggleDefaultMaterials()"><span class="dm-arrow" id="dmArrow">&#9654;</span> Mat&eacute;riaux par d&eacute;faut &mdash; Soumission (mod&egrave;le)</div>
+                <div class="dm-sub-hint">Appliqu&eacute; aux pi&egrave;ces sans mat&eacute;riaux sp&eacute;cifiques</div>
                 <div class="default-materials-body collapsed" id="dmBody"></div>
             </div>
 
@@ -8350,6 +8755,14 @@
                             <span class="ai-dot"></span>
                         </button>
                     </div>
+                </div>
+                <div class="room-dm-section" id="${groupId}-dmSection">
+                    <div class="room-dm-label" onclick="toggleRoomDm('${groupId}')">
+                        <span class="room-dm-arrow" id="${groupId}-dmArrow">&#9654;</span>
+                        Mat&eacute;riaux par d&eacute;faut
+                        <span class="room-dm-badge" id="${groupId}-dmBadge"></span>
+                    </div>
+                    <div class="room-dm-body collapsed" id="${groupId}-dmBody"></div>
                 </div>
                 <div class="calc-header">
                     <span></span>
@@ -12980,6 +13393,7 @@
             itemMap = {};
             groupImages = {};
             roomModifiers = {};
+            roomDM = {};
             roomDescEN = {};
             roomDescHTML = {};
             renderProjectList();
@@ -14412,6 +14826,7 @@
             itemMap = {};
             groupImages = {};
             roomModifiers = {};
+            roomDM = {};
             roomDescEN = {};
             roomDescHTML = {};
             resetAiChat();
@@ -14463,6 +14878,10 @@
                     if (room.price_modifier_pct != null) {
                         roomModifiers[groupId] = parseFloat(room.price_modifier_pct);
                     }
+
+                    // Load room-level default materials
+                    roomDM[groupId] = room.default_materials || [];
+                    updateRoomDmBadge(groupId);
 
                     // Load legacy images from JSONB
                     if (room.images && Array.isArray(room.images) && room.images.length > 0) {

@@ -371,6 +371,54 @@
         .stele-dialog-btn-cancel:hover { background: #e8e8e8; }
         .stele-dialog-btn-ok { background: var(--sw-navy); color: #fff; border-color: var(--sw-navy); }
         .stele-dialog-btn-ok:hover { opacity: 0.9; }
+
+        /* Batch regen */
+        .btn-regen {
+            background: none; border: 1px solid #cbd5e1; color: #475569;
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+            cursor: pointer; border-radius: 4px; font-family: inherit;
+            transition: all 0.15s; position: relative;
+        }
+        .btn-regen:hover { border-color: #94a3b8; color: #1e293b; }
+        .btn-regen:disabled { opacity: 0.5; cursor: default; }
+        .regen-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: #e67e22; color: #fff; font-size: 11px; font-weight: 700;
+            min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px;
+            margin-left: 6px; vertical-align: middle;
+        }
+        .regen-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            z-index: 10000; justify-content: center; align-items: center;
+        }
+        .regen-overlay.active { display: flex; }
+        .regen-modal {
+            background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            max-width: 560px; width: 92%; max-height: 80vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .regen-header { padding: 18px 24px 0; }
+        .regen-header h3 { font-size: 15px; font-weight: 700; margin: 0; }
+        .regen-body { padding: 12px 24px 20px; overflow-y: auto; flex: 1; font-size: 13px; }
+        .regen-body .regen-item-list {
+            max-height: 200px; overflow-y: auto; margin: 10px 0;
+            border: 1px solid #f0f0f0; border-radius: 6px; padding: 8px;
+            font-size: 12px; color: #666;
+        }
+        .regen-progress { margin: 12px 0; }
+        .regen-progress-bar {
+            height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden;
+        }
+        .regen-progress-fill {
+            height: 100%; background: var(--sw-navy); border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .regen-progress-text { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+        .regen-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 18px; }
+        .regen-footer button {
+            padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid #ccc; transition: background 0.15s;
+        }
     </style>
 </head>
 <body>
@@ -639,6 +687,7 @@
                     <button class="btn-add" onclick="addExpenseRow()">+ Ajouter une cat&eacute;gorie de d&eacute;pense</button>
                     <div class="save-bar">
                         <button class="btn-save" onclick="saveExpenseCategories()">Sauvegarder les d&eacute;penses</button>
+                        <button class="btn-regen" id="btnBatchRegen" onclick="batchRegenerateRules()">Reg&eacute;n&eacute;rer les r&egrave;gles catalogue<span class="regen-badge" id="regenBadge" style="display:none;">0</span></button>
                         <span class="save-feedback" id="expensesFeedback"></span>
                     </div>
                 </div>
@@ -2920,6 +2969,343 @@
         }
     }
 
+    // ═══ Batch regeneration of catalogue rules ═══
+
+    var _regenCatalogueData = null;
+    var _regenAbort = false;
+
+    function hasLegacySyntax(item) {
+        if (!item.calculation_rule_ai) return false;
+        var json = typeof item.calculation_rule_ai === 'string'
+            ? item.calculation_rule_ai
+            : JSON.stringify(item.calculation_rule_ai);
+        return json.indexOf('$default:') >= 0;
+    }
+
+    function needsRegen(item) {
+        if (item.status === 'rejected') return false;
+        var noRules = !item.calculation_rule_ai ||
+            JSON.stringify(item.calculation_rule_ai) === '{}' ||
+            item.calculation_rule_ai === 'null';
+        return noRules || hasLegacySyntax(item);
+    }
+
+    async function loadCatalogueForRegen() {
+        if (_regenCatalogueData) return _regenCatalogueData;
+        var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,client_text,calculation_rule_ai,calculation_rule_human,presentation_rule,presentation_rule_human,status,item_type,material_costs,labor_minutes&or=(status.eq.approved,status.is.null)&order=sort_order', {});
+        if (!resp.ok) throw new Error('Erreur chargement catalogue: ' + resp.status);
+        _regenCatalogueData = await resp.json();
+        return _regenCatalogueData;
+    }
+
+    async function updateRegenBadge() {
+        try {
+            var data = await loadCatalogueForRegen();
+            var count = data.filter(needsRegen).length;
+            var badge = document.getElementById('regenBadge');
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = '';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) {
+            console.warn('updateRegenBadge error:', e);
+        }
+    }
+
+    // Edge Function call (same as catalogue callEdgeFunction)
+    async function regenCallEdge(texts, action) {
+        var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texts: texts, action: action })
+        });
+        if (!resp.ok) {
+            var errText = await resp.text().catch(function() { return ''; });
+            throw new Error('Edge Function ' + resp.status + ': ' + errText.substring(0, 200));
+        }
+        var data = await resp.json();
+        if (!data.translations || Object.keys(data.translations).length === 0) {
+            throw new Error('Aucun r\u00e9sultat retourn\u00e9 par l\'AI');
+        }
+        return data.translations;
+    }
+
+    function regenParseEnvelope(raw, fallbackField) {
+        if (!raw || typeof raw !== 'string') return { status: 'error' };
+        var cleaned = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+        try {
+            var parsed = JSON.parse(cleaned);
+            if (parsed && typeof parsed === 'object') { parsed.status = parsed.status || 'ok'; return parsed; }
+        } catch (e) {}
+        var firstBrace = cleaned.indexOf('{');
+        if (firstBrace >= 0) {
+            var depth = 0, lastBrace = -1;
+            for (var i = firstBrace; i < cleaned.length; i++) {
+                if (cleaned[i] === '{') depth++;
+                else if (cleaned[i] === '}') { depth--; if (depth === 0) { lastBrace = i; break; } }
+            }
+            if (lastBrace > firstBrace) {
+                try {
+                    var extracted = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+                    if (extracted && typeof extracted === 'object') { extracted.status = 'ok'; return extracted; }
+                } catch (e2) {}
+            }
+        }
+        var result = { status: 'ok' };
+        result[fallbackField || 'text'] = raw.trim();
+        return result;
+    }
+
+    function regenFixJsonSplit(envelope, jsonKeys) {
+        if (!envelope) return;
+        if (envelope.json && typeof envelope.json === 'string') {
+            try { envelope.json = JSON.parse(envelope.json); } catch (e) {}
+        }
+        if (!envelope.json && envelope.explication && typeof envelope.explication === 'string') {
+            var exp = envelope.explication;
+            function hasKey(obj) { return jsonKeys.some(function(k) { return obj[k] !== undefined; }); }
+            var cbm = exp.match(/```json?\s*(\{[\s\S]*?\})\s*```/);
+            if (cbm) {
+                try { var p = JSON.parse(cbm[1]); if (p && hasKey(p)) { envelope.json = p; envelope.explication = exp.replace(cbm[0], '').trim(); return; } } catch (e) {}
+            }
+            for (var i = 0; i < exp.length; i++) {
+                if (exp[i] === '{') {
+                    var d = 0, e2 = -1;
+                    for (var j = i; j < exp.length; j++) { if (exp[j] === '{') d++; else if (exp[j] === '}') { d--; if (d === 0) { e2 = j; break; } } }
+                    if (e2 > i) {
+                        try { var pc = JSON.parse(exp.substring(i, e2 + 1)); if (pc && hasKey(pc)) { envelope.json = pc; envelope.explication = (exp.substring(0, i) + exp.substring(e2 + 1)).trim(); return; } } catch (e) {}
+                    }
+                }
+            }
+        }
+        if (envelope.explication && typeof envelope.explication === 'object') {
+            if (jsonKeys.some(function(k) { return envelope.explication[k] !== undefined; })) {
+                envelope.json = envelope.explication; envelope.explication = '';
+            }
+        }
+    }
+
+    function regenBuildCalcTemplates() {
+        return expenseCategories
+            .filter(function(c) { return c.calc_template; })
+            .map(function(c) { return c.name + ' : ' + c.calc_template; })
+            .join('\n');
+    }
+
+    function regenBuildPresTemplates() {
+        return expenseCategories
+            .filter(function(c) { return c.pres_template; })
+            .map(function(c) { return c.name + ' : ' + c.pres_template; })
+            .join('\n');
+    }
+
+    async function regenOneItem(item, allData) {
+        var calcTemplates = regenBuildCalcTemplates();
+        var presTemplates = regenBuildPresTemplates();
+
+        var categories = {};
+        allData.forEach(function(i) { if (i.category) categories[i.category] = true; });
+        var categoryList = Object.keys(categories).join(', ');
+
+        var matCatInfo = expenseCategories.map(function(c) {
+            var defaultItem = allData.find(function(i) { return i.category === c.name; });
+            return c.name;
+        }).join(', ');
+
+        var context = '=== ARTICLE ===\nCode: ' + (item.id || '') +
+            '\nDescription: ' + (item.description || '') +
+            '\nCat\u00e9gorie: ' + (item.category || '') +
+            '\nType: ' + (item.type || '');
+
+        var baseContext = context +
+            '\nCat\u00e9gories existantes: ' + categoryList +
+            '\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
+
+        // Calc rule prompt
+        var calcPrompt = baseContext;
+        if (calcTemplates) calcPrompt += '\n\n=== R\u00c8GLES DE CALCUL PAR CAT\u00c9GORIE ===\n' + calcTemplates;
+        calcPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+        calcPrompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+        // Add examples from same category
+        var examples = allData.filter(function(i) {
+            return i.category === item.category && i.calculation_rule_ai && i.id !== item.id && !hasLegacySyntax(i);
+        }).slice(0, 3);
+        if (examples.length === 0) {
+            examples = allData.filter(function(i) { return i.calculation_rule_ai && i.id !== item.id && !hasLegacySyntax(i); }).slice(0, 3);
+        }
+        if (examples.length > 0) {
+            calcPrompt += '\n\n=== EXEMPLES JSON (articles similaires) ===\n' + examples.map(function(ex) {
+                return ex.id + ': ' + JSON.stringify(ex.calculation_rule_ai);
+            }).join('\n');
+        }
+
+        // Pres rule prompt
+        var presPrompt = baseContext;
+        if (presTemplates) presPrompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE ===\n' + presTemplates;
+        presPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus.';
+        presPrompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
+
+        var results = await Promise.all([
+            regenCallEdge([{ key: 'cr', text: calcPrompt }], 'catalogue_calc_rule'),
+            regenCallEdge([{ key: 'pr', text: presPrompt }], 'catalogue_pres_rule')
+        ]);
+
+        var calcEnv = regenParseEnvelope(results['cr'], 'explication');
+        regenFixJsonSplit(calcEnv, ['cascade', 'ask']);
+        var presEnv = regenParseEnvelope(results['pr'], 'explication');
+        regenFixJsonSplit(presEnv, ['sections', 'exclude', 'notes']);
+
+        var patch = {};
+        if (calcEnv.json) patch.calculation_rule_ai = calcEnv.json;
+        if (calcEnv.explication) patch.calculation_rule_human = calcEnv.explication;
+        if (presEnv.json) patch.presentation_rule = presEnv.json;
+        if (presEnv.explication) patch.presentation_rule_human = presEnv.explication;
+
+        if (Object.keys(patch).length === 0) throw new Error('AI n\'a retourn\u00e9 aucune r\u00e8gle');
+
+        var patchResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(item.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(patch)
+        });
+        if (!patchResp.ok) throw new Error('PATCH ' + patchResp.status);
+
+        // Update local cache
+        var local = _regenCatalogueData.find(function(i) { return i.id === item.id; });
+        if (local) Object.assign(local, patch);
+
+        return patch;
+    }
+
+    async function batchRegenerateRules() {
+        var data;
+        try {
+            data = await loadCatalogueForRegen();
+        } catch (e) {
+            alert('Erreur chargement catalogue: ' + e.message);
+            return;
+        }
+
+        var noRulesItems = data.filter(function(i) {
+            if (i.status === 'rejected') return false;
+            var noRules = !i.calculation_rule_ai || JSON.stringify(i.calculation_rule_ai) === '{}' || i.calculation_rule_ai === 'null';
+            return noRules;
+        });
+        var legacyItems = data.filter(function(i) {
+            if (i.status === 'rejected') return false;
+            return hasLegacySyntax(i);
+        });
+        var allItems = noRulesItems.concat(legacyItems);
+
+        if (allItems.length === 0) {
+            alert('Aucun article \u00e0 reg\u00e9n\u00e9rer.');
+            return;
+        }
+
+        // Build confirmation modal
+        var modal = document.getElementById('regenOverlay');
+        var body = document.getElementById('regenBody');
+        var footer = document.getElementById('regenFooter');
+
+        var html = '<p>R\u00e8gles \u00e0 reg\u00e9n\u00e9rer :</p>';
+        html += '<p>\u2022 <strong>' + noRulesItems.length + '</strong> article(s) sans r\u00e8gles</p>';
+        html += '<p>\u2022 <strong>' + legacyItems.length + '</strong> article(s) avec ancienne syntaxe $default:</p>';
+        html += '<p style="margin-top:8px;">Total : <strong>' + allItems.length + '</strong> article(s) \u00e0 traiter</p>';
+        if (legacyItems.length > 0) {
+            html += '<p style="color:#e67e22;font-size:12px;margin-top:8px;">\u26A0 Les r\u00e8gles existantes des articles $default: seront \u00e9cras\u00e9es par les nouvelles r\u00e8gles $match:.</p>';
+        }
+        html += '<div class="regen-item-list">';
+        allItems.forEach(function(item) {
+            var tag = hasLegacySyntax(item) ? '<span style="color:#e67e22;">$default:</span>' : '<span style="color:#94a3b8;">sans r\u00e8gles</span>';
+            html += '<div>' + escapeHtml(item.id) + ' \u2014 ' + escapeHtml(item.description || '?') + ' ' + tag + '</div>';
+        });
+        html += '</div>';
+
+        body.innerHTML = html;
+        footer.innerHTML = '<button style="background:#f5f5f5;color:#333;" onclick="closeRegenModal()">Annuler</button>' +
+            '<button id="regenGoBtn" style="background:var(--sw-navy);color:#fff;border-color:var(--sw-navy);" onclick="executeRegenBatch()">Reg\u00e9n\u00e9rer</button>';
+        modal.classList.add('active');
+        _regenAbort = false;
+    }
+
+    function closeRegenModal() {
+        _regenAbort = true;
+        document.getElementById('regenOverlay').classList.remove('active');
+    }
+
+    async function executeRegenBatch() {
+        var data = _regenCatalogueData;
+        var allItems = data.filter(needsRegen);
+        var total = allItems.length;
+        if (total === 0) return;
+
+        var body = document.getElementById('regenBody');
+        var footer = document.getElementById('regenFooter');
+        var successes = [];
+        var failures = [];
+
+        footer.innerHTML = '<button style="background:#f5f5f5;color:#333;" onclick="closeRegenModal()">Annuler</button>';
+
+        for (var i = 0; i < total; i++) {
+            if (_regenAbort) break;
+            var item = allItems[i];
+
+            body.innerHTML = '<div class="regen-progress">' +
+                '<div class="regen-progress-bar"><div class="regen-progress-fill" style="width:' + Math.round(((i + 1) / total) * 100) + '%;"></div></div>' +
+                '<div class="regen-progress-text">Article ' + (i + 1) + ' / ' + total + ' \u2014 ' + escapeHtml(item.id) + ' ' + escapeHtml(item.description || '') + '</div>' +
+                '</div>' +
+                '<div style="font-size:12px;color:#666;margin-top:8px;">' +
+                '<span style="color:#27ae60;">' + successes.length + ' succ\u00e8s</span>' +
+                (failures.length > 0 ? ' \u2022 <span style="color:#e74c3c;">' + failures.length + ' \u00e9chec(s)</span>' : '') +
+                '</div>';
+
+            try {
+                await regenOneItem(item, data);
+                successes.push(item.id);
+            } catch (e) {
+                failures.push({ id: item.id, error: e.message });
+                console.warn('Regen failed for ' + item.id + ':', e);
+            }
+
+            // Rate limiting: 1.5s pause between calls (Edge Function rate limit)
+            if (i < total - 1 && !_regenAbort) {
+                await new Promise(function(r) { setTimeout(r, 1500); });
+            }
+        }
+
+        // Final report
+        var html = '<h4 style="margin:0 0 12px;">Reg\u00e9n\u00e9ration termin\u00e9e</h4>';
+        html += '<p><span style="color:#27ae60;">\u2713 ' + successes.length + ' article(s) mis \u00e0 jour</span></p>';
+        if (failures.length > 0) {
+            html += '<p><span style="color:#e74c3c;">\u2717 ' + failures.length + ' \u00e9chec(s) :</span></p>';
+            html += '<div class="regen-item-list">';
+            failures.forEach(function(f) {
+                html += '<div>' + escapeHtml(f.id) + ' \u2014 ' + escapeHtml(f.error) + '</div>';
+            });
+            html += '</div>';
+        }
+        body.innerHTML = html;
+        footer.innerHTML = '<button style="background:var(--sw-navy);color:#fff;border-color:var(--sw-navy);" onclick="closeRegenModal(); location.reload();">Fermer</button>';
+
+        // Update badge
+        _regenCatalogueData = null; // Force reload next time
+        updateRegenBadge();
+    }
+
+    // Load badge count on page load
+    setTimeout(updateRegenBadge, 2000);
+
     </script>
+
+    <!-- Batch regeneration modal -->
+    <div class="regen-overlay" id="regenOverlay">
+        <div class="regen-modal">
+            <div class="regen-header"><h3>Reg&eacute;n&eacute;ration des r&egrave;gles catalogue</h3></div>
+            <div class="regen-body" id="regenBody"></div>
+            <div class="regen-footer" id="regenFooter"></div>
+        </div>
+    </div>
 </body>
 </html>

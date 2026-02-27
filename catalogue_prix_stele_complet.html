@@ -6406,6 +6406,41 @@
                     }
                 });
 
+                // ── Check 9: Legacy $default: syntax in calculation rules ──
+                var legacyDefault = items.filter(function(i) {
+                    if (!i.calculation_rule_ai) return false;
+                    var json = typeof i.calculation_rule_ai === 'string'
+                        ? i.calculation_rule_ai : JSON.stringify(i.calculation_rule_ai);
+                    return json.indexOf('$default:') >= 0;
+                });
+                if (legacyDefault.length > 0) {
+                    findings.warning.push({
+                        title: 'R\u00e8gles de calcul obsol\u00e8tes — $default: (' + legacyDefault.length + ')',
+                        items: legacyDefault.map(function(i) {
+                            return { id: i.id, desc: i.description, detail: 'Reg\u00e9n\u00e9rer pour migrer vers $match:' };
+                        })
+                    });
+                }
+
+                // ── Check 10: Missing calculation rules ──
+                var hasTemplates = expenseCategories && expenseCategories.some(function(c) { return c.calc_template; });
+                if (hasTemplates) {
+                    var noCalcRules = items.filter(function(i) {
+                        if (i.status === 'rejected') return false;
+                        return !i.calculation_rule_ai ||
+                            JSON.stringify(i.calculation_rule_ai) === '{}' ||
+                            i.calculation_rule_ai === 'null';
+                    });
+                    if (noCalcRules.length > 0) {
+                        findings.warning.push({
+                            title: 'R\u00e8gles de calcul manquantes (' + noCalcRules.length + ')',
+                            items: noCalcRules.map(function(i) {
+                                return { id: i.id, desc: i.description, detail: 'Cliquer \u00abR\u00e8gles de base\u00bb ou lancer le batch' };
+                            })
+                        });
+                    }
+                }
+
                 renderAuditReport(body, findings, items.length);
             }, 50);
         }

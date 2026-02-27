@@ -2600,6 +2600,19 @@
      * - "$match:EXPENSE_CATEGORY" → keyword-match parent's client_text against catalogue
      * - Otherwise return the target as-is (direct catalogue code).
      */
+    /** Check if item has material_costs in a given expense category (case-insensitive). */
+    function itemHasMaterialCost(item, expenseCategoryUpper) {
+        if (!item.material_costs || typeof item.material_costs !== 'object') return false;
+        var keys = Object.keys(item.material_costs);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].toUpperCase() === expenseCategoryUpper) {
+                var val = item.material_costs[keys[i]];
+                return typeof val === 'number' ? val > 0 : (val && val.cost > 0);
+            }
+        }
+        return false;
+    }
+
     async function resolveCascadeTarget(target, groupId) {
         if (!target) return null;
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
@@ -2613,7 +2626,7 @@
             }
             return null;
         }
-        // $match: resolution
+        // $match: resolution (case-insensitive)
         var expenseCategory = target.substring(7);
         return await resolveMatchTarget(expenseCategory, groupId);
     }
@@ -2631,8 +2644,9 @@
         var keywords = extractMatchKeywords(parentItem.client_text);
         if (keywords.length === 0) return null;
 
-        // Check cache
-        var cacheKey = expenseCategory + ':' + keywords.join('+');
+        // Normalize cache key to uppercase for consistency
+        var expCatUpper = expenseCategory.toUpperCase();
+        var cacheKey = expCatUpper + ':' + keywords.join('+');
         if (matchDefaults[cacheKey]) {
             if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
                 return matchDefaults[cacheKey];
@@ -2641,10 +2655,7 @@
 
         // Filter catalogue: items with material_costs in this expense category
         var candidates = CATALOGUE_DATA.filter(function(item) {
-            if (!item.material_costs) return false;
-            return item.material_costs.some(function(mc) {
-                return mc.expense_category === expenseCategory && mc.cost > 0;
-            });
+            return itemHasMaterialCost(item, expCatUpper);
         });
 
         // Score by keyword matches in client_text/description

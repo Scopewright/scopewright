@@ -4933,6 +4933,19 @@
                 .filter(function(w) { return w.length > 2 && SB_MATCH_STOP_WORDS.indexOf(w) === -1; });
         }
 
+        /** Check if item has material_costs in a given expense category (case-insensitive). */
+        function sbItemHasMaterialCost(item, expCatUpper) {
+            if (!item.material_costs || typeof item.material_costs !== 'object') return false;
+            var keys = Object.keys(item.material_costs);
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i].toUpperCase() === expCatUpper) {
+                    var val = item.material_costs[keys[i]];
+                    return typeof val === 'number' ? val > 0 : (val && val.cost > 0);
+                }
+            }
+            return false;
+        }
+
         function sbResolveCascadeTarget(target) {
             if (!target) return null;
             if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
@@ -4944,6 +4957,7 @@
             }
             // $match: — keyword-match parent's client_text (take first result, no popup)
             var expCat = target.substring(7);
+            var expCatUpper = expCat.toUpperCase();
             var parentRow = sbRows.find(function(r) { return !r.cascadeOf; });
             if (!parentRow) return null;
             var parentItem = sbGetItem(parentRow.catalogueItemId);
@@ -4951,10 +4965,7 @@
 
             var keywords = sbExtractMatchKeywords(parentItem.client_text);
             var candidates = CATALOGUE_DATA.filter(function(item) {
-                if (!item.material_costs) return false;
-                return item.material_costs.some(function(mc) {
-                    return mc.expense_category === expCat && mc.cost > 0;
-                });
+                return sbItemHasMaterialCost(item, expCatUpper);
             });
             var scored = candidates.map(function(item) {
                 var text = (item.client_text || item.description || '').toLowerCase();

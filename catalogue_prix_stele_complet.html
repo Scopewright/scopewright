@@ -6069,6 +6069,21 @@
             return hasLabor || hasMat;
         }
 
+        /** Get the effective price of an item (fixed price or composed). */
+        function getEffectivePrice(item) {
+            if (item.price != null && item.price > 0) return item.price;
+            return computeCatItemPrice(item) || 0;
+        }
+
+        /** Compute percentile from a sorted array (linear interpolation). */
+        function percentile(sortedArr, p) {
+            var idx = (p / 100) * (sortedArr.length - 1);
+            var lo = Math.floor(idx);
+            var hi = Math.ceil(idx);
+            if (lo === hi) return sortedArr[lo];
+            return sortedArr[lo] + (sortedArr[hi] - sortedArr[lo]) * (idx - lo);
+        }
+
         var _saveValidationBypass = false;
 
         /**
@@ -6322,6 +6337,45 @@
                         })
                     });
                 }
+
+                // ── Check 8: Price outliers per category (IQR method) ──
+                var pricesByCat = {};
+                items.forEach(function(item) {
+                    if (!item.category) return;
+                    var ep = getEffectivePrice(item);
+                    if (ep <= 0) return;
+                    if (!pricesByCat[item.category]) pricesByCat[item.category] = [];
+                    pricesByCat[item.category].push({ item: item, price: ep });
+                });
+                Object.keys(pricesByCat).forEach(function(cat) {
+                    var entries = pricesByCat[cat];
+                    if (entries.length < 4) return; // IQR needs sufficient data
+                    entries.sort(function(a, b) { return a.price - b.price; });
+                    var prices = entries.map(function(e) { return e.price; });
+                    var q1 = percentile(prices, 25);
+                    var q3 = percentile(prices, 75);
+                    var iqr = q3 - q1;
+                    if (iqr === 0) return; // All prices identical — no outliers possible
+                    var lowerFence = q1 - 1.5 * iqr;
+                    var upperFence = q3 + 1.5 * iqr;
+                    var median = percentile(prices, 50);
+                    var outliers = entries.filter(function(e) {
+                        return e.price < lowerFence || e.price > upperFence;
+                    });
+                    if (outliers.length > 0) {
+                        findings.warning.push({
+                            title: 'Prix aberrants — ' + cat + ' (' + outliers.length + ')',
+                            items: outliers.map(function(o) {
+                                var dir = o.price < lowerFence ? '▼ bas' : '▲ haut';
+                                return {
+                                    id: o.item.id,
+                                    desc: o.item.description,
+                                    detail: dir + ' : ' + o.price.toFixed(2) + ' $ (médiane : ' + median.toFixed(2) + ' $)'
+                                };
+                            })
+                        });
+                    }
+                });
 
                 renderAuditReport(body, findings, items.length);
             }, 50);

@@ -5402,7 +5402,25 @@
                 return;
             }
 
-            var ok = await steleConfirm('Supprimer l\u2019article <strong>' + escapeHtml(itemId) + '</strong> ?<br>Cette action est irr\u00e9versible.', 'Supprimer l\u2019article', 'Supprimer');
+            // Check dependencies before confirming
+            var deps = await checkItemDependencies([itemId]);
+            var itemDeps = [];
+            if (deps.fichesCounts[itemId]) itemDeps.push(deps.fichesCounts[itemId] + ' fiche(s) de vente (seront supprim\u00e9es)');
+            if (deps.roomsCounts[itemId]) itemDeps.push(deps.roomsCounts[itemId] + ' ligne(s) de soumission (perdront le lien catalogue)');
+            if (deps.cascadeRefs[itemId]) itemDeps.push('R\u00e9f\u00e9renc\u00e9 dans cascade par : ' + deps.cascadeRefs[itemId].join(', '));
+
+            var body = 'Supprimer l\u2019article <strong>' + escapeHtml(itemId) + '</strong> ?';
+            if (itemDeps.length > 0) {
+                body += '<div style="margin:10px 0;font-size:12px;padding:8px;background:#fef3cd;border-radius:6px;">';
+                body += '<strong>D\u00e9pendances trouv\u00e9es :</strong>';
+                itemDeps.forEach(function(d) {
+                    body += '<br>\u26A0 ' + escapeHtml(d);
+                });
+                body += '</div>';
+            }
+            body += '<div style="font-size:12px;color:#94a3b8;">Cette action est irr\u00e9versible.</div>';
+
+            var ok = await steleConfirm(body, 'Supprimer l\u2019article', 'Supprimer');
             if (!ok) return;
 
             try {
@@ -8622,37 +8640,113 @@
             setTimeout(function() { t.remove(); }, 3000);
         }
 
+        /** Check dependencies for a list of catalogue item IDs.
+         *  Returns { fichesCounts, roomsCounts, cascadeRefs } */
+        async function checkItemDependencies(ids) {
+            var idsParam = ids.map(encodeURIComponent).join(',');
+            var results = await Promise.all([
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/fiches_vente?catalogue_item_id=in.(' + idsParam + ')&select=catalogue_item_id', {})
+                    .then(function(r) { return r.ok ? r.json() : []; }).catch(function() { return []; }),
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/room_items?catalogue_item_id=in.(' + idsParam + ')&select=catalogue_item_id', {})
+                    .then(function(r) { return r.ok ? r.json() : []; }).catch(function() { return []; })
+            ]);
+            var fichesCounts = {};
+            results[0].forEach(function(f) {
+                fichesCounts[f.catalogue_item_id] = (fichesCounts[f.catalogue_item_id] || 0) + 1;
+            });
+            var roomsCounts = {};
+            results[1].forEach(function(r) {
+                roomsCounts[r.catalogue_item_id] = (roomsCounts[r.catalogue_item_id] || 0) + 1;
+            });
+            var cascadeRefs = {};
+            ids.forEach(function(id) {
+                CATALOGUE_DATA.forEach(function(item) {
+                    if (item.id === id) return;
+                    if (item.calculation_rule_ai && item.calculation_rule_ai.cascade) {
+                        item.calculation_rule_ai.cascade.forEach(function(c) {
+                            if (c.target === id) {
+                                if (!cascadeRefs[id]) cascadeRefs[id] = [];
+                                cascadeRefs[id].push(item.id);
+                            }
+                        });
+                    }
+                });
+            });
+            return { fichesCounts: fichesCounts, roomsCounts: roomsCounts, cascadeRefs: cascadeRefs };
+        }
+
         async function batchDelete() {
             var ids = Array.from(selectedItems);
             if (ids.length === 0) return;
-            var referencedIds = ids.filter(function(id) {
-                return CATALOGUE_DATA.some(function(item) {
-                    if (item.calculation_rule_ai && item.calculation_rule_ai.cascade) {
-                        return item.calculation_rule_ai.cascade.some(function(c) { return c.target === id; });
-                    }
-                    return false;
-                });
+
+            // Check all dependencies
+            var deps = await checkItemDependencies(ids);
+
+            // Categorize: items with hard deps (fiches/room_items) vs safe
+            var safeIds = [];
+            var blockedIds = [];
+            ids.forEach(function(id) {
+                if (deps.fichesCounts[id] || deps.roomsCounts[id]) {
+                    blockedIds.push(id);
+                } else {
+                    safeIds.push(id);
+                }
             });
-            var body = 'Supprimer <strong>' + ids.length + ' article(s)</strong> ? Cette action est irr\u00e9versible.';
-            body += '<div style="max-height:150px;overflow-y:auto;margin:10px 0;font-size:12px;color:#666;">';
+
+            // Build confirmation body with dependency report
+            var body = '<div style="max-height:220px;overflow-y:auto;margin:0 0 10px;font-size:12px;">';
             ids.forEach(function(id) {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === id; });
-                body += '<div>' + escapeHtml(id) + ' \u2014 ' + escapeHtml(item ? item.description : '?') + '</div>';
+                var itemDeps = [];
+                if (deps.fichesCounts[id]) itemDeps.push(deps.fichesCounts[id] + ' fiche(s) de vente');
+                if (deps.roomsCounts[id]) itemDeps.push(deps.roomsCounts[id] + ' ligne(s) de soumission');
+                if (deps.cascadeRefs[id]) itemDeps.push('cascade : ' + deps.cascadeRefs[id].join(', '));
+
+                if (itemDeps.length > 0) {
+                    body += '<div style="margin-bottom:6px;padding:4px 0;border-bottom:1px solid #eee;">';
+                    body += '<strong style="color:#e74c3c;">' + escapeHtml(id) + '</strong> \u2014 ' + escapeHtml(item ? item.description : '?');
+                    itemDeps.forEach(function(d) {
+                        body += '<br><span style="margin-left:12px;color:#e67e22;">\u26A0 ' + escapeHtml(d) + '</span>';
+                    });
+                    body += '</div>';
+                } else {
+                    body += '<div style="margin-bottom:2px;color:#666;">' + escapeHtml(id) + ' \u2014 ' + escapeHtml(item ? item.description : '?') + ' <span style="color:#27ae60;">\u2713</span></div>';
+                }
             });
             body += '</div>';
-            if (referencedIds.length > 0) {
-                body += '<div style="color:#e67e22;font-size:12px;margin-top:8px;">\u26A0 ' + referencedIds.length + ' article(s) r\u00e9f\u00e9renc\u00e9(s) dans des cascades. Les supprimer pourrait casser des r\u00e8gles existantes.</div>';
+
+            var toDelete;
+
+            if (blockedIds.length === 0) {
+                // No hard deps — standard confirm
+                var ok = await steleConfirm(body, 'Supprimer ' + ids.length + ' article(s)', 'Supprimer');
+                if (!ok) return;
+                toDelete = ids;
+            } else if (safeIds.length > 0) {
+                // Mixed: some safe, some blocked
+                body += '<div style="font-size:12px;margin-top:6px;">';
+                body += '<span style="color:#27ae60;">' + safeIds.length + '</span> article(s) sans d\u00e9pendances \u2192 supprimable(s)<br>';
+                body += '<span style="color:#e74c3c;">' + blockedIds.length + '</span> article(s) avec d\u00e9pendances \u2192 conserv\u00e9(s)';
+                body += '</div>';
+                var ok = await steleConfirm(body, 'Suppression partielle', 'Supprimer ' + safeIds.length + ' article(s)');
+                if (!ok) return;
+                toDelete = safeIds;
+            } else {
+                // All blocked
+                body += '<div style="font-size:12px;color:#e74c3c;margin-top:6px;">Tous les articles ont des d\u00e9pendances. Aucune suppression possible en lot.</div>';
+                body += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Supprimez d\u2019abord les fiches de vente et retirez les articles des soumissions.</div>';
+                await steleConfirm(body, 'Suppression impossible', 'OK');
+                return;
             }
-            var ok = await steleConfirm(body, 'Supprimer ' + ids.length + ' article(s)', 'Supprimer');
-            if (!ok) return;
+
             try {
-                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=in.(' + ids.map(encodeURIComponent).join(',') + ')', { method: 'DELETE' });
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=in.(' + toDelete.map(encodeURIComponent).join(',') + ')', { method: 'DELETE' });
                 if (!resp.ok) throw new Error(await resp.text());
-                CATALOGUE_DATA = CATALOGUE_DATA.filter(function(i) { return ids.indexOf(i.id) === -1; });
+                CATALOGUE_DATA = CATALOGUE_DATA.filter(function(i) { return toDelete.indexOf(i.id) === -1; });
                 exitBatchMode();
                 generatePriceTables();
                 updatePendingBadge();
-                showBatchToast(ids.length + ' article(s) supprim\u00e9(s)');
+                showBatchToast(toDelete.length + ' article(s) supprim\u00e9(s)');
             } catch (e) {
                 alert('Erreur suppression : ' + e.message);
             }

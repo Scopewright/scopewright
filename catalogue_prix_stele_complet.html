@@ -4549,11 +4549,21 @@
                 // Find allowed categories for this group
                 var allowedCats = sbGetAllowedCategories(group);
 
-                // Filter catalogue items by those categories
+                // Filter catalogue items by those categories (dedup by ID)
+                var seen = {};
                 var items = CATALOGUE_DATA.filter(function(item) {
                     if (!item.category) return false;
                     if (item.status === 'pending' || item.status === 'rejected') return false;
+                    if (seen[item.id]) return false;
+                    seen[item.id] = true;
                     return allowedCats.length === 0 || allowedCats.indexOf(item.category) !== -1;
+                });
+
+                // Detect label collisions for disambiguation
+                var labelCount = {};
+                items.forEach(function(item) {
+                    var lbl = item.client_text || item.description || item.id;
+                    labelCount[lbl] = (labelCount[lbl] || 0) + 1;
                 });
 
                 // Build options
@@ -4568,6 +4578,7 @@
                     opts += '<optgroup label="' + escapeAttr(cat) + '">';
                     byCategory[cat].forEach(function(item) {
                         var label = item.client_text || item.description || item.id;
+                        if (labelCount[label] > 1) label += ' (' + item.id + ')';
                         var key = sbMatKey(group);
                         var sel = (sbMaterials[key] && sbMaterials[key].id === item.id) ? ' selected' : '';
                         opts += '<option value="' + escapeAttr(item.id) + '"' + sel + '>' + escapeHtml(label) + '</option>';

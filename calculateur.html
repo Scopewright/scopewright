@@ -1912,9 +1912,20 @@
         var allowedCats = getAllowedCategoriesForGroup(selectedGroup);
 
         var items = CATALOGUE_DATA || [];
-        // Pre-filter by allowed categories if mapping exists
+        // Pre-filter by allowed categories if mapping exists (dedup by ID)
+        var seen = {};
         if (allowedCats) {
-            items = items.filter(function(item) { return allowedCats.indexOf(item.category) !== -1; });
+            items = items.filter(function(item) {
+                if (seen[item.id]) return false;
+                seen[item.id] = true;
+                return allowedCats.indexOf(item.category) !== -1;
+            });
+        } else {
+            items = items.filter(function(item) {
+                if (seen[item.id]) return false;
+                seen[item.id] = true;
+                return true;
+            });
         }
 
         var results;
@@ -1938,6 +1949,13 @@
             return;
         }
 
+        // Detect label collisions for disambiguation
+        var labelCount = {};
+        results.forEach(function(item) {
+            var lbl = item.client_text || item.description || item.id;
+            labelCount[lbl] = (labelCount[lbl] || 0) + 1;
+        });
+
         // Group by category for display
         var grouped = {};
         results.forEach(function(item) {
@@ -1953,6 +1971,7 @@
             grouped[cat].forEach(function(item) {
                 var displayName = item.client_text || item.description;
                 var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
+                if (!secondary && labelCount[displayName] > 1) secondary = item.id;
                 html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
                     'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
                     '<span>' + escapeHtml(displayName) + '</span>' +
@@ -2188,8 +2207,20 @@
         var allowedCats = getAllowedCategoriesForGroup(selectedGroup);
 
         var items = CATALOGUE_DATA || [];
+        // Pre-filter by allowed categories if mapping exists (dedup by ID)
+        var seen = {};
         if (allowedCats) {
-            items = items.filter(function(item) { return allowedCats.indexOf(item.category) !== -1; });
+            items = items.filter(function(item) {
+                if (seen[item.id]) return false;
+                seen[item.id] = true;
+                return allowedCats.indexOf(item.category) !== -1;
+            });
+        } else {
+            items = items.filter(function(item) {
+                if (seen[item.id]) return false;
+                seen[item.id] = true;
+                return true;
+            });
         }
 
         var results;
@@ -2211,6 +2242,13 @@
             return;
         }
 
+        // Detect label collisions for disambiguation
+        var labelCount = {};
+        results.forEach(function(item) {
+            var lbl = item.client_text || item.description || item.id;
+            labelCount[lbl] = (labelCount[lbl] || 0) + 1;
+        });
+
         var grouped = {};
         results.forEach(function(item) {
             var cat = item.category || 'Autre';
@@ -2225,6 +2263,7 @@
             grouped[cat].forEach(function(item) {
                 var displayName = item.client_text || item.description;
                 var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
+                if (!secondary && labelCount[displayName] > 1) secondary = item.id;
                 html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
                     'onmousedown="rdmSelectItem(\'' + groupId + '\',' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
                     '<span>' + escapeHtml(displayName) + '</span>' +

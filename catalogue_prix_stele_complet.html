@@ -7766,7 +7766,7 @@
                 prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
             }
 
-            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"formula":"L * H / 144","cascade":[{"target":"CODE ou $match:CATÉGORIE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}\n"formula" = formule auto-quantité de cet article (pi² → L*H/144, linéaire → L/12). Obligatoire pour pi² et linéaire.';
 
             var examples = getCalcRuleExamples(category, 3);
             if (examples) {

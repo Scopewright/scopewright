@@ -3129,7 +3129,7 @@
         var calcPrompt = baseContext;
         if (calcTemplates) calcPrompt += '\n\n=== RÈGLES DE CALCUL PAR CATÉGORIE ===\n' + calcTemplates;
         calcPrompt += '\nGénère les règles de BASE à partir des templates ci-dessus. Pas d\'explication humaine fournie — déduis le comportement depuis la description.';
-        calcPrompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+        calcPrompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"formula":"L * H / 144","cascade":[{"target":"CODE ou $match:CATÉGORIE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}\n"formula" = formule auto-quantité de cet article (pi² → L*H/144, linéaire → L/12). Obligatoire pour pi² et linéaire.';
         // Add examples from same category
         var examples = allData.filter(function(i) {
             return i.category === item.category && i.calculation_rule_ai && i.id !== item.id && !hasLegacySyntax(i);

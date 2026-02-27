@@ -228,6 +228,7 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
   "warnings": [],
   "explication": "Le texte d'explication reformulé et corrigé",
   "json": {
+    "formula": "L * H / 144",
     "cascade": [
       { "target": "CODE-XXX", "qty": "formula or number", "condition": "optional" }
     ],
@@ -237,11 +238,12 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 }
 
 RÈGLES :
-- "cascade" : articles auto-ajoutés quand cet article est sélectionné
+- "formula" : formule de calcul automatique de la quantité de CET article à partir de ses dimensions. Variables: L (longueur po), H (hauteur po), P (profondeur po). Exemples: "L * H / 144" (pi²), "L / 12" (pi.lin.), "(L * 2 + H * 2) / 12" (périmètre en pi.lin.). Obligatoire pour les articles de type pi² ou linéaire.
+- "cascade" : articles auto-ajoutés quand cet article est sélectionné. "target" peut être un code article (ex: "ST-0042") ou "$match:NOM_CATÉGORIE_DE_DÉPENSE" pour résolution dynamique par client_text.
 - "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)")
 - "condition" : condition optionnelle (ex: "H > 24")
 - Les codes articles doivent correspondre à des codes existants du catalogue
-- Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
+- Si l'explication mentionne des articles sans code, utilise "$match:CATÉGORIE" pour résolution dynamique
 - Le texte d'explication doit être clair, concis et technique
 - Le JSON doit refléter fidèlement les instructions de l'explication
 - "status" : "ok" si résultat fiable, "needs_review" si doutes (données ambiguës, codes inconnus, infos manquantes), "error" si impossible

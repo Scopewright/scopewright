@@ -2637,12 +2637,16 @@
      */
     async function resolveMatchTarget(expenseCategory, groupId) {
         var parentRow = findParentFabRow(groupId);
-        if (!parentRow) return null;
+        if (!parentRow) { console.warn('[CASCADE] $match: no parent fab row in group', groupId); return null; }
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
-        if (!parentItem || !parentItem.client_text) return null;
+        if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
 
-        var keywords = extractMatchKeywords(parentItem.client_text);
-        if (keywords.length === 0) return null;
+        // Use client_text, fallback to description
+        var sourceText = parentItem.client_text || parentItem.description || '';
+        if (!sourceText) { console.warn('[CASCADE] $match: parent has no client_text nor description', parentRow.catalogueId); return null; }
+
+        var keywords = extractMatchKeywords(sourceText);
+        if (keywords.length === 0) { console.warn('[CASCADE] $match: no keywords from text:', sourceText.substring(0, 80)); return null; }
 
         // Normalize cache key to uppercase for consistency
         var expCatUpper = expenseCategory.toUpperCase();
@@ -2779,8 +2783,8 @@
      */
     async function executeCascade(parentRowId, depth) {
         depth = depth || 0;
-        if (depth >= 3) return;
-        if (!itemMap[parentRowId]) return;
+        if (depth >= 3) { console.log('[CASCADE] max depth reached for', parentRowId); return; }
+        if (!itemMap[parentRowId]) { console.log('[CASCADE] no itemMap for', parentRowId); return; }
 
         var row = document.getElementById(parentRowId);
         if (!row) return;
@@ -2791,6 +2795,7 @@
         var selectedId = select.value;
         var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
         var rules = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade;
+        console.log('[CASCADE] executeCascade:', selectedId, 'rules:', rules ? rules.length : 0, 'depth:', depth);
         if (!rules || !Array.isArray(rules) || rules.length === 0) {
             // Pas de règles cascade → supprimer les enfants existants
             var orphans = findCascadeChildren(parentRowId);
@@ -2811,9 +2816,13 @@
         }
         var parentQty = parseFloat(qtyInput.value) || 0;
         var vars = { L: dims.L, H: dims.H, P: dims.P, QTY: parentQty };
+        console.log('[CASCADE] vars:', JSON.stringify(vars));
 
         // Au moins une dimension doit exister pour exécuter la cascade
-        if (dims.L === 0 && dims.H === 0 && dims.P === 0 && parentQty === 0) return;
+        if (dims.L === 0 && dims.H === 0 && dims.P === 0 && parentQty === 0) {
+            console.log('[CASCADE] skipped: all dims+qty = 0');
+            return;
+        }
 
         var groupId = row.dataset.group;
         var parentItemId = itemMap[parentRowId];
@@ -2833,6 +2842,8 @@
             if (!resolvedTarget) {
                 if (rule.target.startsWith('$default:'))
                     showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));
+                else if (rule.target.startsWith('$match:'))
+                    showConstraintToast('Aucun article trouvé pour cascade : ' + rule.target.substring(7));
                 continue;
             }
 
@@ -9712,6 +9723,45 @@
                     }
                     dimsEl.classList.add('dims-hidden');
                     dimsEl.innerHTML = '\u2014';
+                }
+            }
+
+            // Auto-quantité : si l'article a calculation_rule_ai.formula ou type pi²/linéaire
+            if (selectedId && selectedId !== '__AJOUT__' && selectedId !== '__PROPOSER__') {
+                var formulaItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                if (formulaItem && formulaItem.item_type === 'fabrication') {
+                    var formula = formulaItem.calculation_rule_ai && formulaItem.calculation_rule_ai.formula;
+                    // Fallback par type d'unité si pas de formule explicite
+                    if (!formula && formulaItem.type === 'pi\u00b2') formula = 'L * H / 144';
+                    if (!formula && formulaItem.type === 'lin\u00e9aire') formula = 'L / 12';
+                    if (formula) {
+                        var fL = document.getElementById(rowId + '-dim-l');
+                        var fH = document.getElementById(rowId + '-dim-h');
+                        var fP = document.getElementById(rowId + '-dim-p');
+                        var fVars = {
+                            L: fL ? (parseFloat(fL.value) || 0) : 0,
+                            H: fH ? (parseFloat(fH.value) || 0) : 0,
+                            P: fP ? (parseFloat(fP.value) || 0) : 0,
+                            QTY: 1
+                        };
+                        if (fVars.L > 0 || fVars.H > 0 || fVars.P > 0) {
+                            var autoQty = evalFormula(formula, fVars);
+                            if (autoQty !== null && autoQty > 0) {
+                                autoQty = Math.round(autoQty * 100) / 100;
+                                if (parseFloat(qtyInput.value) !== autoQty) {
+                                    qtyInput.value = autoQty;
+                                    // Recalculate total with new qty
+                                    var installCb2 = document.getElementById(rowId + '-install');
+                                    var includeInstall2 = installCb2 ? installCb2.checked : true;
+                                    var cp2 = computeComposedPrice(formulaItem, includeInstall2);
+                                    var ep2 = cp2 !== null ? cp2 : (formulaItem.price || 0);
+                                    var rg2 = row.closest('.furniture-group');
+                                    var m2 = rg2 ? getModifierMultiplier(rg2.id) : 1;
+                                    totalEl.textContent = formatPrice(ep2 * autoQty * m2);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

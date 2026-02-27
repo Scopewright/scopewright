@@ -3102,31 +3102,33 @@
     }
 
     async function regenOneItem(item, allData) {
+        console.log('[REGEN] === Start: ' + item.id + ' — ' + (item.description || '').substring(0, 60));
         var calcTemplates = regenBuildCalcTemplates();
         var presTemplates = regenBuildPresTemplates();
+        console.log('[REGEN] calcTemplates length:', calcTemplates ? calcTemplates.length : 0);
+        console.log('[REGEN] presTemplates length:', presTemplates ? presTemplates.length : 0);
 
         var categories = {};
         allData.forEach(function(i) { if (i.category) categories[i.category] = true; });
         var categoryList = Object.keys(categories).join(', ');
 
         var matCatInfo = expenseCategories.map(function(c) {
-            var defaultItem = allData.find(function(i) { return i.category === c.name; });
             return c.name;
         }).join(', ');
 
         var context = '=== ARTICLE ===\nCode: ' + (item.id || '') +
             '\nDescription: ' + (item.description || '') +
-            '\nCat\u00e9gorie: ' + (item.category || '') +
+            '\nCatégorie: ' + (item.category || '') +
             '\nType: ' + (item.type || '');
 
         var baseContext = context +
-            '\nCat\u00e9gories existantes: ' + categoryList +
-            '\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
+            '\nCatégories existantes: ' + categoryList +
+            '\nCatégories matériaux: ' + matCatInfo;
 
         // Calc rule prompt
         var calcPrompt = baseContext;
-        if (calcTemplates) calcPrompt += '\n\n=== R\u00c8GLES DE CALCUL PAR CAT\u00c9GORIE ===\n' + calcTemplates;
-        calcPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus. Pas d\'explication humaine fournie \u2014 d\u00e9duis le comportement depuis la description.';
+        if (calcTemplates) calcPrompt += '\n\n=== RÈGLES DE CALCUL PAR CATÉGORIE ===\n' + calcTemplates;
+        calcPrompt += '\nGénère les règles de BASE à partir des templates ci-dessus. Pas d\'explication humaine fournie — déduis le comportement depuis la description.';
         calcPrompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"cascade":[{"target":"CODE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
         // Add examples from same category
         var examples = allData.filter(function(i) {
@@ -3143,19 +3145,31 @@
 
         // Pres rule prompt
         var presPrompt = baseContext;
-        if (presTemplates) presPrompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE ===\n' + presTemplates;
-        presPrompt += '\nG\u00e9n\u00e8re les r\u00e8gles de BASE \u00e0 partir des templates ci-dessus.';
-        presPrompt += '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
+        if (presTemplates) presPrompt += '\n\n=== RÈGLES DE PRÉSENTATION PAR CATÉGORIE ===\n' + presTemplates;
+        presPrompt += '\nGénère les règles de BASE à partir des templates ci-dessus.';
+        presPrompt += '\n\nSections de description connues: Caisson, Façades, Tiroirs, Poignées, Détails, Exclusions';
 
+        console.log('[REGEN] Calling Edge Function for ' + item.id + '...');
         var results = await Promise.all([
             regenCallEdge([{ key: 'cr', text: calcPrompt }], 'catalogue_calc_rule'),
             regenCallEdge([{ key: 'pr', text: presPrompt }], 'catalogue_pres_rule')
         ]);
 
-        var calcEnv = regenParseEnvelope(results['cr'], 'explication');
+        console.log('[REGEN] Raw results type:', typeof results, 'isArray:', Array.isArray(results));
+        console.log('[REGEN] results[0]:', JSON.stringify(results[0]).substring(0, 300));
+        console.log('[REGEN] results[1]:', JSON.stringify(results[1]).substring(0, 300));
+        console.log('[REGEN] results[0]["cr"] type:', typeof (results[0] && results[0]['cr']));
+        console.log('[REGEN] results[0]["cr"] (first 300):', results[0] && results[0]['cr'] ? results[0]['cr'].substring(0, 300) : 'UNDEFINED/NULL');
+        console.log('[REGEN] results[1]["pr"] type:', typeof (results[1] && results[1]['pr']));
+        console.log('[REGEN] results[1]["pr"] (first 300):', results[1] && results[1]['pr'] ? results[1]['pr'].substring(0, 300) : 'UNDEFINED/NULL');
+
+        var calcEnv = regenParseEnvelope(results[0]['cr'], 'explication');
         regenFixJsonSplit(calcEnv, ['cascade', 'ask']);
-        var presEnv = regenParseEnvelope(results['pr'], 'explication');
+        console.log('[REGEN] calcEnv after parse+fix:', JSON.stringify(calcEnv).substring(0, 500));
+
+        var presEnv = regenParseEnvelope(results[1]['pr'], 'explication');
         regenFixJsonSplit(presEnv, ['sections', 'exclude', 'notes']);
+        console.log('[REGEN] presEnv after parse+fix:', JSON.stringify(presEnv).substring(0, 500));
 
         var patch = {};
         if (calcEnv.json) patch.calculation_rule_ai = calcEnv.json;
@@ -3163,7 +3177,12 @@
         if (presEnv.json) patch.presentation_rule = presEnv.json;
         if (presEnv.explication) patch.presentation_rule_human = presEnv.explication;
 
-        if (Object.keys(patch).length === 0) throw new Error('AI n\'a retourn\u00e9 aucune r\u00e8gle');
+        console.log('[REGEN] patch keys:', Object.keys(patch));
+        if (Object.keys(patch).length === 0) {
+            console.error('[REGEN] EMPTY PATCH — calcEnv:', JSON.stringify(calcEnv));
+            console.error('[REGEN] EMPTY PATCH — presEnv:', JSON.stringify(presEnv));
+            throw new Error('AI n\'a retourné aucune règle');
+        }
 
         var patchResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(item.id), {
             method: 'PATCH',
@@ -3176,6 +3195,7 @@
         var local = _regenCatalogueData.find(function(i) { return i.id === item.id; });
         if (local) Object.assign(local, patch);
 
+        console.log('[REGEN] SUCCESS: ' + item.id + ' — patched: ' + Object.keys(patch).join(', '));
         return patch;
     }
 

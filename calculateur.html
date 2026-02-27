@@ -2505,6 +2505,41 @@
 
     var cascadeParentMap = {};   // cascadeParentMap[childRowId] = parentRowId
     var _cascadeRunning = false; // guard against re-entrancy
+    var matchDefaults = {};      // cache $match: resolutions (loaded from submission.match_defaults)
+
+    var MATCH_STOP_WORDS = ['de', 'du', 'des', 'le', 'la', 'les', 'en', 'avec', 'pour', 'et',
+        'un', 'une', 'sur', 'par', 'au', 'aux',
+        'caisson', 'meuble', 'panneau', 'panneaux', 'façade', 'façades',
+        'mm', 'po', 'pce', 'pcs'];
+
+    function extractMatchKeywords(clientText) {
+        return clientText.toLowerCase()
+            .replace(/[^a-zàâäéèêëïîôùûüÿç0-9\s-]/g, '')
+            .split(/\s+/)
+            .filter(function(w) { return w.length > 2 && MATCH_STOP_WORDS.indexOf(w) === -1; });
+    }
+
+    function findParentFabRow(groupId) {
+        var rows = document.querySelectorAll('#' + groupId + ' .calc-row:not(.cascade-child)');
+        for (var i = 0; i < rows.length; i++) {
+            var sel = rows[i].querySelector('.item-select');
+            if (sel && sel.value && sel.value !== '__AJOUT__' && sel.value !== '__PROPOSER__') {
+                return { rowId: rows[i].id, catalogueId: sel.value };
+            }
+        }
+        return null;
+    }
+
+    function saveMatchDefault(cacheKey, itemId) {
+        matchDefaults[cacheKey] = itemId;
+        if (currentSubmission && currentSubmission.id) {
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ match_defaults: matchDefaults })
+            });
+        }
+    }
 
     /**
      * Évaluateur de formules sécurisé.
@@ -2560,21 +2595,135 @@
     }
 
     /**
-     * Resolve a cascade target. If target starts with "$default:", look up
-     * the matching default material from the current submission.
-     * Otherwise return the target as-is.
+     * Resolve a cascade target.
+     * - "$default:GROUP" → look up default material for the group
+     * - "$match:EXPENSE_CATEGORY" → keyword-match parent's client_text against catalogue
+     * - Otherwise return the target as-is (direct catalogue code).
      */
-    function resolveCascadeTarget(target, groupId) {
+    async function resolveCascadeTarget(target, groupId) {
         if (!target) return null;
-        if (!target.startsWith('$default:')) return target;
-        var groupName = target.substring(9);
-        var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
-        for (var i = 0; i < dm.length; i++) {
-            if (dm[i].type === groupName && dm[i].catalogue_item_id) {
-                return dm[i].catalogue_item_id;
+        if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
+        if (target.startsWith('$default:')) {
+            var groupName = target.substring(9);
+            var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
+            for (var i = 0; i < dm.length; i++) {
+                if (dm[i].type === groupName && dm[i].catalogue_item_id) {
+                    return dm[i].catalogue_item_id;
+                }
+            }
+            return null;
+        }
+        // $match: resolution
+        var expenseCategory = target.substring(7);
+        return await resolveMatchTarget(expenseCategory, groupId);
+    }
+
+    /**
+     * Resolve a $match:EXPENSE_CATEGORY target by keyword-matching the parent
+     * fabrication item's client_text against catalogue items with costs in that category.
+     */
+    async function resolveMatchTarget(expenseCategory, groupId) {
+        var parentRow = findParentFabRow(groupId);
+        if (!parentRow) return null;
+        var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
+        if (!parentItem || !parentItem.client_text) return null;
+
+        var keywords = extractMatchKeywords(parentItem.client_text);
+        if (keywords.length === 0) return null;
+
+        // Check cache
+        var cacheKey = expenseCategory + ':' + keywords.join('+');
+        if (matchDefaults[cacheKey]) {
+            if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
+                return matchDefaults[cacheKey];
             }
         }
-        return null;
+
+        // Filter catalogue: items with material_costs in this expense category
+        var candidates = CATALOGUE_DATA.filter(function(item) {
+            if (!item.material_costs) return false;
+            return item.material_costs.some(function(mc) {
+                return mc.expense_category === expenseCategory && mc.cost > 0;
+            });
+        });
+
+        // Score by keyword matches in client_text/description
+        var scored = candidates.map(function(item) {
+            var itemText = (item.client_text || item.description || '').toLowerCase();
+            var hits = keywords.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
+            return { item: item, score: hits.length };
+        }).filter(function(s) { return s.score > 0; });
+        scored.sort(function(a, b) { return b.score - a.score; });
+
+        // Relax to top 2 keywords if no results
+        if (scored.length === 0 && keywords.length > 2) {
+            var topKw = keywords.slice(0, 2);
+            scored = candidates.map(function(item) {
+                var itemText = (item.client_text || item.description || '').toLowerCase();
+                var hits = topKw.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
+                return { item: item, score: hits.length };
+            }).filter(function(s) { return s.score > 0; });
+            scored.sort(function(a, b) { return b.score - a.score; });
+        }
+
+        if (scored.length === 0) {
+            showConstraintToast('Aucun article trouvé pour $match:' + expenseCategory);
+            return null;
+        }
+        if (scored.length === 1) {
+            saveMatchDefault(cacheKey, scored[0].item.id);
+            return scored[0].item.id;
+        }
+        // Multiple matches → popup choice
+        var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
+        if (chosen) saveMatchDefault(cacheKey, chosen);
+        return chosen;
+    }
+
+    /**
+     * Show a modal for the user to choose among multiple $match: candidates.
+     */
+    async function showMatchChoiceModal(expenseCategory, scored, keywords) {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'constraint-modal-overlay';
+            var modal = document.createElement('div');
+            modal.className = 'constraint-modal';
+            modal.style.maxWidth = '440px';
+
+            var title = 'Choisir le matériau — ' + expenseCategory;
+            var subtitle = 'Mots-clés : ' + keywords.join(', ');
+            modal.innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
+                + '<p style="font-size:12px;color:#666;">' + escapeHtml(subtitle) + '</p>';
+
+            var list = document.createElement('div');
+            list.style.cssText = 'max-height:240px; overflow-y:auto; margin:12px 0;';
+
+            scored.slice(0, 8).forEach(function(s) {
+                var btn = document.createElement('button');
+                btn.style.cssText = 'display:block; width:100%; text-align:left; padding:8px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:6px; background:#fff; cursor:pointer; font-size:13px;';
+                btn.innerHTML = '<strong>' + escapeHtml(s.item.id) + '</strong> — '
+                    + escapeHtml(s.item.client_text || s.item.description)
+                    + '<br><span style="font-size:11px;color:#888;">Score: ' + s.score + '/' + keywords.length + '</span>';
+                btn.onmouseover = function() { btn.style.background = '#f1f5f9'; };
+                btn.onmouseout = function() { btn.style.background = '#fff'; };
+                btn.onclick = function() { overlay.remove(); resolve(s.item.id); };
+                list.appendChild(btn);
+            });
+            modal.appendChild(list);
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cm-btn-secondary';
+            cancelBtn.textContent = 'Ignorer';
+            cancelBtn.onclick = function() { overlay.remove(); resolve(null); };
+            modal.appendChild(cancelBtn);
+
+            overlay.appendChild(modal);
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) { overlay.remove(); resolve(null); }
+            });
+            document.body.appendChild(overlay);
+        });
     }
 
     /**
@@ -2669,7 +2818,7 @@
             if (!rule.target) continue; // target null = AI (pas JS)
 
             // Résoudre $default: targets (room-level DM avec fallback soumission)
-            var resolvedTarget = resolveCascadeTarget(rule.target, groupId);
+            var resolvedTarget = await resolveCascadeTarget(rule.target, groupId);
             if (!resolvedTarget) {
                 if (rule.target.startsWith('$default:'))
                     showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));
@@ -4277,6 +4426,15 @@
             0%,100% { opacity:0.45; transform:scale(1); }
             50% { opacity:1; transform:scale(1.15); }
         }
+
+        .btn-assemble-desc {
+            position: absolute; top: 6px; right: 30px; z-index: 2;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: transparent; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; flex-shrink: 0; font-size: 13px; opacity: 0.4;
+        }
+        .btn-assemble-desc:hover { opacity: 1; transform: scale(1.2); }
 
         /* Toggle showInQuote sur images */
         .image-quote-toggle {
@@ -8836,6 +8994,7 @@
                         <button class="btn-ai-dot" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
+                        <button class="btn-assemble-desc" id="${groupId}-assembleDesc" onclick="onAssembleDescription('${groupId}')" title="Assembler la description &agrave; partir des articles">&#9889;</button>
                     </div>
                 </div>
                 <div class="room-dm-section" id="${groupId}-dmSection">
@@ -10805,6 +10964,116 @@
                 updateRoom(roomMap[groupId], { client_description: html, client_description_en: '' });
             } else {
                 updateRoom(roomMap[groupId], { client_description: html });
+            }
+            showSaveIndicator();
+        }
+
+        /**
+         * Assemble a structured room description from presentation_rule of catalogue items.
+         * Deterministic: no AI call, uses sections from each item's presentation_rule.
+         */
+        function assembleRoomDescription(groupId) {
+            var group = document.getElementById(groupId);
+            if (!group) return '';
+
+            // Default materials (room-level, fallback submission-level)
+            var dm = (roomDM[groupId] && roomDM[groupId].length > 0) ? roomDM[groupId] : getDefaultMaterials();
+
+            // Collect articles with their presentation_rule
+            var articlesBySection = {};
+            var detailTexts = [];
+
+            group.querySelectorAll('.calc-row').forEach(function(row) {
+                var sel = row.querySelector('.item-select');
+                if (!sel || !sel.value || sel.value === '__AJOUT__' || sel.value === '__PROPOSER__') return;
+                var item = CATALOGUE_DATA.find(function(i) { return i.id === sel.value; });
+                if (!item) return;
+
+                if (item.presentation_rule && item.presentation_rule.sections) {
+                    item.presentation_rule.sections.forEach(function(sec) {
+                        if (!articlesBySection[sec.key]) articlesBySection[sec.key] = [];
+                        var text = (sec.template || '{client_text}').replace('{client_text}', item.client_text || item.description);
+                        // Avoid duplicates
+                        var exists = articlesBySection[sec.key].some(function(a) { return a.text === text; });
+                        if (!exists) articlesBySection[sec.key].push({ text: text, label: sec.label });
+                    });
+                } else if (item.client_text) {
+                    if (detailTexts.indexOf(item.client_text) === -1) detailTexts.push(item.client_text);
+                }
+            });
+
+            var SECTION_ORDER = ['CAISSON', 'FAÇADES', 'PANNEAUX', 'COMPTOIR', 'TIROIRS', 'POIGNÉES',
+                'QUINCAILLERIE', 'ÉCLAIRAGE', 'FINITION', 'RANGEMENT', 'DÉTAILS',
+                'EXCLUSIONS', 'NOTES', 'PARTICULARITÉS'];
+            var lines = [];
+
+            // Default materials first
+            dm.forEach(function(d) {
+                if (d.catalogue_item_id && d.description) {
+                    var sectionKey = (d.type || '').toUpperCase();
+                    if (!articlesBySection[sectionKey]) {
+                        lines.push(toSentenceCase(d.type || '') + ' : ' + d.description);
+                    }
+                }
+            });
+
+            // Sections from presentation_rule
+            SECTION_ORDER.forEach(function(key) {
+                if (articlesBySection[key] && articlesBySection[key].length > 0) {
+                    var label = articlesBySection[key][0].label || key;
+                    var texts = articlesBySection[key].map(function(a) { return a.text; });
+                    if (texts.length === 1) {
+                        lines.push(toSentenceCase(label) + ' : ' + texts[0]);
+                    } else {
+                        lines.push(toSentenceCase(label) + ' :');
+                        texts.forEach(function(t) { lines.push('- ' + t); });
+                    }
+                }
+            });
+
+            // Fallback details for items without presentation_rule
+            if (detailTexts.length > 0 && !articlesBySection['DÉTAILS']) {
+                lines.push('Détails :');
+                detailTexts.forEach(function(d) { lines.push('- ' + d); });
+            }
+
+            return lines.join('\n');
+        }
+
+        function onAssembleDescription(groupId) {
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+
+            var assembled = assembleRoomDescription(groupId);
+            if (!assembled) {
+                showConstraintToast('Aucun article avec texte client dans cette pièce');
+                return;
+            }
+
+            var existing = textarea.value.trim();
+            if (existing) {
+                showConstraintModal('Remplacer la description ?',
+                    'La description actuelle sera remplacée par la version assemblée.',
+                    [{ key: 'replace', label: 'Remplacer', primary: true },
+                     { key: 'cancel', label: 'Annuler', primary: false }]
+                ).then(function(choice) {
+                    if (choice === 'replace') applyAssembledDescription(groupId, assembled);
+                });
+            } else {
+                applyAssembledDescription(groupId, assembled);
+            }
+        }
+
+        function applyAssembledDescription(groupId, text) {
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+            textarea.value = text;
+            var html = textToHtml(text);
+            roomDescHTML[groupId] = html;
+            refreshDescriptionDisplay(groupId);
+            roomDescEN[groupId] = '';
+            if (roomMap[groupId]) {
+                updateRoom(roomMap[groupId], { client_description: html, client_description_en: '' });
             }
             showSaveIndicator();
         }
@@ -14931,6 +15200,7 @@
             document.getElementById('furnitureGroups').innerHTML = '';
             cascadeParentMap = {};
             _cascadeRunning = false;
+            matchDefaults = currentSubmission.match_defaults || {};
 
             // Charger les pièces et items via submission_id
             const rooms = await loadSubmissionRooms(submissionId);

@@ -3114,7 +3114,7 @@
                 var statusFilter = canEditCatalogue
                     ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
                     : '&or=(status.eq.approved,status.is.null)';
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,client_text_en,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config,loss_override_pct' + statusFilter + '&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config,loss_override_pct' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -4865,15 +4865,50 @@
             }
         }
 
-        // ── Resolve $default: targets in sandbox ──
+        // ── Resolve $default: and $match: targets in sandbox ──
+
+        var SB_MATCH_STOP_WORDS = ['de', 'du', 'des', 'le', 'la', 'les', 'en', 'avec', 'pour', 'et',
+            'un', 'une', 'sur', 'par', 'au', 'aux',
+            'caisson', 'meuble', 'panneau', 'panneaux', 'façade', 'façades',
+            'mm', 'po', 'pce', 'pcs'];
+
+        function sbExtractMatchKeywords(clientText) {
+            return clientText.toLowerCase()
+                .replace(/[^a-zàâäéèêëïîôùûüÿç0-9\s-]/g, '')
+                .split(/\s+/)
+                .filter(function(w) { return w.length > 2 && SB_MATCH_STOP_WORDS.indexOf(w) === -1; });
+        }
 
         function sbResolveCascadeTarget(target) {
             if (!target) return null;
-            if (!target.startsWith('$default:')) return target;
-            var groupName = target.substring(9);
-            var key = sbMatKey(groupName);
-            if (sbMaterials[key] && sbMaterials[key].id) return sbMaterials[key].id;
-            return null;
+            if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
+            if (target.startsWith('$default:')) {
+                var groupName = target.substring(9);
+                var key = sbMatKey(groupName);
+                if (sbMaterials[key] && sbMaterials[key].id) return sbMaterials[key].id;
+                return null;
+            }
+            // $match: — keyword-match parent's client_text (take first result, no popup)
+            var expCat = target.substring(7);
+            var parentRow = sbRows.find(function(r) { return !r.cascadeOf; });
+            if (!parentRow) return null;
+            var parentItem = sbGetItem(parentRow.catalogueItemId);
+            if (!parentItem || !parentItem.client_text) return null;
+
+            var keywords = sbExtractMatchKeywords(parentItem.client_text);
+            var candidates = CATALOGUE_DATA.filter(function(item) {
+                if (!item.material_costs) return false;
+                return item.material_costs.some(function(mc) {
+                    return mc.expense_category === expCat && mc.cost > 0;
+                });
+            });
+            var scored = candidates.map(function(item) {
+                var text = (item.client_text || item.description || '').toLowerCase();
+                var hits = keywords.filter(function(kw) { return text.indexOf(kw) !== -1; });
+                return { item: item, score: hits.length };
+            }).filter(function(s) { return s.score > 0; });
+            scored.sort(function(a, b) { return b.score - a.score; });
+            return scored.length > 0 ? scored[0].item.id : null;
         }
 
         // ── Constraint engine (simplified) ──
@@ -4944,34 +4979,53 @@
         function sbBuildDescription() {
             var lines = [];
 
-            // Material defaults → section headers
-            if (sbMaterials[sbMatKey('Caisson')]) {
-                lines.push('CAISSON : ' + sbMaterials[sbMatKey('Caisson')].description);
-            }
-            if (sbMaterials[sbMatKey('Façades')]) {
-                lines.push('FAÇADES : ' + sbMaterials[sbMatKey('Façades')].description);
-            }
-            if (sbMaterials[sbMatKey('Panneaux')]) {
-                lines.push('PANNEAUX : ' + sbMaterials[sbMatKey('Panneaux')].description);
-            }
-            if (sbMaterials[sbMatKey('Poignées')]) {
-                lines.push('POIGNÉES : ' + sbMaterials[sbMatKey('Poignées')].description);
-            }
-
-            // Articles with client_text → Détails section
-            var details = [];
-            sbRows.forEach(function(r) {
-                var item = sbGetItem(r.catalogueItemId);
-                if (item && item.client_text) {
-                    // Avoid duplicates
-                    if (details.indexOf(item.client_text) === -1) {
-                        details.push(item.client_text);
-                    }
+            // 1. Default materials → section headers (dynamic, not hardcoded)
+            var coveredSections = {};
+            Object.keys(sbMaterials).forEach(function(key) {
+                var mat = sbMaterials[key];
+                if (mat && mat.id && mat.description) {
+                    var groupName = key.replace('material_', '').replace(/_/g, ' ');
+                    var sectionKey = groupName.toUpperCase();
+                    lines.push(sectionKey + ' : ' + mat.description);
+                    coveredSections[sectionKey] = true;
                 }
             });
-            if (details.length > 0) {
+
+            // 2. Articles with presentation_rule → structured sections
+            var sectionTexts = {};
+            var detailTexts = [];
+            sbRows.forEach(function(r) {
+                var item = sbGetItem(r.catalogueItemId);
+                if (!item) return;
+                if (item.presentation_rule && item.presentation_rule.sections) {
+                    item.presentation_rule.sections.forEach(function(sec) {
+                        if (!sectionTexts[sec.key]) sectionTexts[sec.key] = [];
+                        var text = (sec.template || '{client_text}').replace('{client_text}', item.client_text || item.description);
+                        if (sectionTexts[sec.key].indexOf(text) === -1) sectionTexts[sec.key].push(text);
+                    });
+                } else if (item.client_text && detailTexts.indexOf(item.client_text) === -1) {
+                    detailTexts.push(item.client_text);
+                }
+            });
+
+            // 3. Add sections not already covered by default materials
+            var SECTION_ORDER = ['CAISSON', 'FAÇADES', 'PANNEAUX', 'COMPTOIR', 'TIROIRS', 'POIGNÉES',
+                'QUINCAILLERIE', 'ÉCLAIRAGE', 'FINITION', 'RANGEMENT', 'DÉTAILS',
+                'EXCLUSIONS', 'NOTES', 'PARTICULARITÉS'];
+            SECTION_ORDER.forEach(function(key) {
+                if (!sectionTexts[key] || coveredSections[key]) return;
+                if (sectionTexts[key].length === 1) {
+                    lines.push(key + ' : ' + sectionTexts[key][0]);
+                } else {
+                    lines.push(key + ' :');
+                    sectionTexts[key].forEach(function(t) { lines.push('- ' + t); });
+                }
+            });
+
+            // 4. Fallback details for items without presentation_rule
+            if (detailTexts.length > 0 && !sectionTexts['DÉTAILS']) {
                 lines.push('DÉTAILS :');
-                details.forEach(function(d) { lines.push('- ' + d); });
+                detailTexts.forEach(function(d) { lines.push('- ' + d); });
             }
 
             return lines.join('\n');
@@ -7477,7 +7531,7 @@
             try {
                 var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
                 var envelope = parseAiEnvelope(results['pr'], 'explication');
-                fixEnvelopeJsonSplit(envelope, ['sections', 'order', 'prefix']);
+                fixEnvelopeJsonSplit(envelope, ['sections', 'exclude', 'notes']);
 
                 var applyData = function() {
                     if (envelope.explication) humanTextarea.value = envelope.explication;

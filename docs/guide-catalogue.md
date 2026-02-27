@@ -1,7 +1,7 @@
 # Guide du catalogue Stele
 
 > Documentation fonctionnelle et technique du systeme de catalogue de prix.
-> Derniere mise a jour : 2026-02-26
+> Derniere mise a jour : 2026-02-27
 
 ---
 
@@ -487,7 +487,7 @@ Dans `calculation_rule_ai.cascade` :
 
 | Champ | Type | Description |
 |-------|------|-------------|
-| `target` | String | Code article (`ST-0015`) ou reference dynamique (`$default:NomGroupe`). **Obligatoire.** |
+| `target` | String | Code article (`ST-0015`), reference dynamique (`$default:NomGroupe`), ou correspondance auto (`$match:CatégorieDépense`). **Obligatoire.** |
 | `qty` | String/Number | Quantite ou formule. Par defaut `1`. |
 | `condition` | String/null | Formule booleenne. Si presente, la cascade ne s'execute que si la condition est vraie. |
 
@@ -503,13 +503,31 @@ La syntaxe `$default:NomDuGroupe` reference le materiau par defaut de la soumiss
 
 **Avantage** : L'article de fabrication n'est pas lie a un materiau specifique. Chaque soumission peut utiliser des materiaux differents, et les cascades s'adaptent automatiquement.
 
+### Le target dynamique `$match:`
+
+La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par correspondance de mots-cles. Contrairement a `$default:`, il ne depend pas des materiaux par defaut predefinis.
+
+**Resolution** :
+1. Identifie l'article parent de fabrication dans le groupe (premier row non-cascade)
+2. Extrait les mots-cles du `client_text` du parent (filtrage des stop words : de, du, les, caisson, panneau, etc.)
+3. Consulte le cache `match_defaults` de la soumission (cle = `"CATÉGORIE:mot1+mot2"`)
+4. Si pas en cache : filtre `CATALOGUE_DATA` pour les articles avec `material_costs[categorie] > 0`
+5. Score chaque candidat par nombre de mots-cles correspondants dans son `client_text`
+6. Si 0 resultat et >2 mots-cles : relaxe avec les 2 premiers mots-cles seulement
+7. 1 resultat → utilise directement. Plusieurs → popup de choix. 0 → toast d'erreur.
+8. Le choix est persiste dans `submissions.match_defaults` (JSONB)
+
+**Exemple** : `$match:PANNEAU BOIS` sur un parent dont le `client_text` contient "placage chene blanc" → cherche un article avec des couts en PANNEAU BOIS dont le texte client contient "chene" et/ou "blanc".
+
+**Sandbox** : dans le sandbox catalogue, `$match:` prend silencieusement le premier resultat (pas de popup interactive).
+
 ### Execution dans le calculateur
 
 `executeCascade(parentRowId, depth)` :
 
 1. Lit les regles `cascade` de l'article
 2. Pour chaque regle :
-   - Resout le target (`$default:` ou code direct)
+   - Resout le target (`$default:`, `$match:`, ou code direct) — async pour `$match:`
    - Evalue la condition (si presente)
    - Evalue la quantite (formule avec L/H/P/QTY)
    - Si l'enfant existe deja → met a jour la quantite
@@ -713,28 +731,44 @@ Nom court visible au client dans la soumission. C'est un **fragment** qui appara
 
 Exemples : "Placage de chene blanc FC", "Tiroir tandem box 500mm".
 
-`client_text_en` : version anglaise.
-
 ### Le champ `presentation_rule`
 
-Instructions structurees (JSON) pour assembler la description client d'une piece.
+Instructions structurees (JSON) pour assembler la description client d'une piece. Chaque article definit dans quelles sections de la description il apparait et comment son `client_text` est formate.
 
 **Forme humaine** (`presentation_rule_human`) : description en langage naturel.
 
-**Forme AI** (`presentation_rule`) : JSON structure :
+**Forme AI** (`presentation_rule`) : JSON structure avec `sections` :
 ```json
 {
-  "sections": ["Caisson", "Facades", "Tiroirs", "Poignees", "Details"],
-  "order": ["material_first", "dimensions_after"],
-  "prefix": "Inclut :"
+  "sections": [
+    { "key": "CAISSON", "label": "Caisson", "template": "{client_text}" },
+    { "key": "FAÇADES", "label": "Facades et panneaux apparents", "template": "en {client_text}" }
+  ],
+  "exclude": ["elements a ne jamais mentionner"],
+  "notes": "instructions supplementaires"
 }
 ```
 
+| Champ | Type | Description |
+|-------|------|-------------|
+| `sections[].key` | String | Groupe materiau en MAJUSCULES (CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS) |
+| `sections[].label` | String | Nom affiche dans la description |
+| `sections[].template` | String | Template avec `{client_text}` comme placeholder |
+| `exclude` | String[] | Elements a ne jamais mentionner au client |
+| `notes` | String | Instructions supplementaires pour l'AI |
+
 ### Assemblage de la description
 
-L'AI du calculateur et la sandbox assemblent les textes client de chaque article de la piece selon les regles de presentation, avec :
-- En-tetes de materiaux par defaut (ex: "CAISSON : Melamine blanche")
-- Section "DETAILS" avec les `client_text` des articles (dedupliques)
+Deux mecanismes d'assemblage :
+
+**1. Bouton assembler (⚡)** : `assembleRoomDescription()` dans le calculateur. Assemblage deterministe sans appel AI :
+- Materiaux par defaut en premier (ex: "Caisson : Melamine blanche")
+- Sections des `presentation_rule` dans l'ordre standard
+- Fallback "Details" pour les articles sans `presentation_rule`
+
+**2. Bouton AI (●)** : `aiGenerateDescription()` dans le calculateur. Appel a l'edge function `translate` pour generer/reviser la description avec contexte complet.
+
+**Sandbox** : `sbBuildDescription()` assemble automatiquement la description a chaque changement — materiaux par defaut dynamiques + sections `presentation_rule` + fallback details.
 
 ### Formatage dans la soumission client
 

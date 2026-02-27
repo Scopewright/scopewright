@@ -183,7 +183,7 @@ const CATALOGUE_PRES_RULE_SYSTEM = `Tu es un spécialiste en documentation pour 
 Tu reçois l'explication de présentation client d'un article du catalogue.
 Tu dois faire DEUX choses :
 1. Reformuler/corriger le texte d'explication (phrases claires, impératives, concises)
-2. Générer la règle JSON structurée correspondante pour que l'AI sache comment présenter cet article
+2. Générer la règle JSON structurée correspondante pour l'assemblage automatique de la description de pièce
 
 ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 {
@@ -191,21 +191,27 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
   "warnings": [],
   "explication": "Le texte d'explication reformulé et corrigé",
   "json": {
-    "order": ["matériau", "finition"],
-    "prefix": "en",
-    "include": ["éléments à toujours mentionner"],
-    "exclude": ["éléments à ne jamais mentionner"],
+    "sections": [
+      { "key": "CAISSON", "label": "Caisson", "template": "{client_text}" },
+      { "key": "FAÇADES", "label": "Façades et panneaux apparents", "template": "en {client_text}" }
+    ],
+    "exclude": ["éléments à ne jamais mentionner au client"],
     "notes": "instructions supplémentaires optionnelles"
   }
 }
 
+MÉCANIQUE :
+- "sections" : liste des sections de description où cet article apparaît
+- Chaque section a une "key" (groupe matériau en MAJUSCULES), un "label" (nom affiché), et un "template"
+- Le "template" utilise {client_text} comme placeholder pour le texte client de l'article
+- Keys standards : CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS, NOTES, PARTICULARITÉS
+- Si l'article est un matériau de base (panneau, placage), une seule section suffit
+- Si l'article est complexe (meuble complet), il peut apparaître dans plusieurs sections
+
 RÈGLES :
-- "order" : ordre d'apparition des éléments dans la description client
-- "prefix" : mot introductif si applicable (ex: "en", "avec", "de")
-- "include" : éléments à toujours mentionner au client
-- "exclude" : éléments à ne jamais mentionner au client
 - Le texte d'explication doit être en phrases courtes et impératives
 - Le JSON doit refléter fidèlement les instructions de l'explication
+- Le template doit produire un texte client naturel quand {client_text} est remplacé
 - "status" : "ok" si résultat fiable, "needs_review" si doutes (données ambiguës, infos manquantes), "error" si impossible
 - "warnings" : max 3 messages courts en français expliquant les doutes
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
@@ -258,7 +264,7 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
   "calc_rule_human": "Explication en français simple de comment calculer/ajuster le prix (conditions, majorations, articles liés)",
   "pres_rule_human": "Explication en français simple de comment présenter cet article au client (ordre des éléments, préfixes)",
   "calc_rule": { "cascade": [], "ask": [], "notes": "" },
-  "pres_rule": { "order": [], "prefix": "", "include": [], "exclude": [], "notes": "" }
+  "pres_rule": { "sections": [{ "key": "SECTION", "label": "Label", "template": "{client_text}" }], "exclude": [], "notes": "" }
 }
 
 RÈGLES :
@@ -266,6 +272,7 @@ RÈGLES :
 - Le "client_text" doit être court, professionnel, en français — c'est un fragment qui apparaîtra dans la soumission client
 - Les règles humaines doivent être compréhensibles par un non-développeur
 - Les règles JSON doivent être cohérentes avec les explications humaines
+- pres_rule.sections : chaque section a key (MAJUSCULES, ex: CAISSON, FAÇADES, DÉTAILS), label (nom affiché), template (avec {client_text} placeholder)
 - Si les données sont insuffisantes, mets "status": "needs_review" et ajoute des warnings
 - Si tu ne peux pas déterminer de règle de calcul, retourne un objet vide pour calc_rule
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;

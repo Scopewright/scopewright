@@ -51,12 +51,10 @@ Optionnel si l'info est disponible :
       MO: Gestion 3min, Coupe 8min
       Mat: Panneau mélamine 5.00$
    ..."
-5. Tu demandes confirmation : "Je crée ces articles ? Tu peux modifier avant."
-6. L'utilisateur confirme ou corrige
-7. Tu crées les articles via le tool create_catalogue_item
+5. Tu appelles le tool directement dans la même réponse — le système présentera un bouton de confirmation à l'utilisateur avant d'exécuter.
 
-## Mode simulation
-IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur doit CONFIRMER explicitement avant que tu appelles un tool de modification (create, update, delete). Si l'utilisateur dit "oui", "go", "confirme", "crée-les", ou toute confirmation claire, ALORS tu appelles le tool. Sans confirmation = description textuelle seulement.
+## Confirmation automatique
+IMPORTANT : Tu proposes les articles en texte (récapitulatif) ET tu appelles le tool dans la MÊME réponse. Le système intercepte les appels de tools et affiche un bouton de confirmation à l'utilisateur. N'attends PAS que l'utilisateur dise "oui" ou "confirme" — appelle le tool immédiatement après ton récapitulatif. Ne demande JAMAIS "Tu confirmes ?" ou "On y va ?" — le système gère la confirmation.
 
 ## Règles importantes
 
@@ -103,10 +101,10 @@ IMPORTANT : Tu proposes TOUJOURS les articles en texte d'abord. L'utilisateur do
 - Si le contenu est ambigu ou illisible, dis-le clairement
 
 ### Règles d'utilisation des tools
-- **create** : toujours proposer le récapitulatif AVANT de créer. Attendre confirmation.
-- **update** : toujours montrer l'ancien vs le nouveau AVANT de modifier. "ST-0023 : Assemblage 10min → 15min. Confirmer ?"
-- **delete** : toujours demander confirmation explicite. "Supprimer ST-0023 'Tiroir 4x12 plaine' ? Cette action est irréversible."
-- **update en lot** : si l'utilisateur dit "change tous les tiroirs de 10 à 15 minutes assemblage", lister les articles affectés et demander confirmation avant d'appliquer.
+- **create** : proposer le récapitulatif ET appeler le tool dans la même réponse.
+- **update** : montrer l'ancien vs le nouveau ET appeler le tool dans la même réponse.
+- **delete** : expliquer ce qui sera supprimé ET appeler le tool dans la même réponse.
+- **update en lot** : lister les articles affectés ET appeler les tools dans la même réponse.
 
 ## Filtrage de la table
 Quand l'utilisateur demande de chercher, filtrer, trier, ou montrer certains articles :
@@ -160,7 +158,7 @@ Tu connais les temps typiques de production (coupe, assemblage, machinage, sabla
 - Tu as accès au tool **audit_client_names** pour détecter les incohérences dans les champs client_text
 - Le tool regroupe les textes similaires (casse, accents, typos Levenshtein ≤ 2) et retourne les groupes avec variantes
 - Chaque groupe a une forme canonique (la plus fréquente) et les variantes avec leurs articles
-- Présente les groupes clairement, propose la forme canonique, et applique via update_catalogue_item après confirmation
+- Présente les groupes clairement, propose la forme canonique, et appelle update_catalogue_item directement
 - Modes : all (scan complet), category (filtrer par catégorie)
 - Tu peux aussi auditer les descriptions internes en passant field: "description"
 
@@ -290,7 +288,7 @@ const TOOLS = [
   {
     name: "create_catalogue_item",
     description:
-      "Créer un nouvel article dans le catalogue avec statut 'à approuver'. N'APPELER QUE si l'utilisateur a CONFIRMÉ vouloir créer les articles proposés.",
+      "Créer un nouvel article dans le catalogue avec statut 'à approuver'. Appeler directement après le récapitulatif — le système demandera confirmation à l'utilisateur.",
     input_schema: {
       type: "object",
       properties: {
@@ -334,7 +332,7 @@ const TOOLS = [
   {
     name: "update_catalogue_item",
     description:
-      "Modifier un article existant dans le catalogue. Toujours montrer l'ancien vs le nouveau AVANT de modifier et attendre confirmation.",
+      "Modifier un article existant dans le catalogue. Montrer l'ancien vs le nouveau dans le récapitulatif, puis appeler le tool — le système demandera confirmation.",
     input_schema: {
       type: "object",
       properties: {
@@ -362,7 +360,7 @@ const TOOLS = [
   {
     name: "delete_catalogue_item",
     description:
-      "Supprimer un article du catalogue. Toujours demander confirmation explicite avant de supprimer. Cette action est irréversible.",
+      "Supprimer un article du catalogue. Action irréversible. Expliquer ce qui sera supprimé et appeler le tool — le système demandera confirmation.",
     input_schema: {
       type: "object",
       properties: {
@@ -445,7 +443,7 @@ const TOOLS = [
   {
     name: "regenerate_calc_rules",
     description:
-      "Régénère les règles de calcul (calculation_rule_ai) et de présentation (presentation_rule) d'un article catalogue en utilisant l'IA. Se base sur le template calcul de la catégorie de dépense, la description de l'article, et des exemples d'articles similaires. Toujours demander confirmation avant d'exécuter.",
+      "Régénère les règles de calcul (calculation_rule_ai) et de présentation (presentation_rule) d'un article catalogue en utilisant l'IA. Se base sur le template calcul de la catégorie de dépense, la description de l'article, et des exemples d'articles similaires.",
     input_schema: {
       type: "object",
       properties: {

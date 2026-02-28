@@ -243,20 +243,21 @@
         /* Left column */
         .pv-final-left { display: flex; flex-direction: column; justify-content: center; padding-right: 64px; }
         .pv-final-title {
-            font-family: 'Cormorant Garamond', Georgia, serif; font-size: 46px;
-            font-weight: 300; font-style: italic; line-height: 1.2; color: #1A1A1A;
-            letter-spacing: -0.01em; margin-bottom: 80px;
+            font-family: 'Inter', -apple-system, sans-serif; font-size: 38px;
+            font-weight: 300; font-style: normal; line-height: 1.25; color: #1A1A1A;
+            letter-spacing: -0.02em; margin-bottom: 64px;
         }
+        .pv-final-text { max-width: 440px; }
         .pv-final-text p {
             font-size: 15px; font-weight: 400; line-height: 1.75; color: #6F6F6F; margin: 0 0 20px 0;
         }
         .pv-final-text p:last-child { margin-bottom: 0; }
 
         /* Vertical separator */
-        .pv-final-separator { width: 1px; background: #EAEAEA; align-self: stretch; }
+        .pv-final-separator { width: 1px; background: #F0F0F0; align-self: stretch; }
 
         /* Right column */
-        .pv-final-right { display: flex; flex-direction: column; justify-content: center; padding-left: 48px; gap: 40px; }
+        .pv-final-right { display: flex; flex-direction: column; justify-content: center; padding-left: 48px; gap: 32px; }
 
         /* Total block */
         .pv-final-total-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: #9A9A9A; margin-bottom: 8px; }
@@ -292,21 +293,63 @@
 
         /* Accept button */
         .pv-final-accept-btn {
-            width: 100%; padding: 12px; font-size: 14px; font-weight: 500; font-family: inherit;
-            background: #5e7462; color: #fff; border: none; border-radius: 4px; cursor: pointer;
-            transition: background 0.2s; margin-top: 4px;
+            width: 100%; padding: 14px; font-size: 14px; font-weight: 500; font-family: inherit;
+            background: var(--stele-green); color: #fff; border: none; border-radius: 4px; cursor: pointer;
+            transition: background 0.2s, opacity 0.2s; margin-top: 4px;
+            letter-spacing: 0.02em;
         }
-        .pv-final-accept-btn:hover { background: #4b6050; }
+        .pv-final-accept-btn:hover { background: #3d4f41; }
         .pv-final-accept-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pv-final-accept-btn.loading {
+            pointer-events: none; opacity: 0.8;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .pv-final-accept-btn.loading::before {
+            content: ''; display: block; width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+            border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0;
+        }
 
         /* Micro-text */
         .pv-final-micro { font-size: 10px; color: #B0B0B0; line-height: 1.5; margin-top: 2px; }
 
+        /* Preview mode indicator */
+        .pv-final-preview { text-align: center; padding: 40px 0; }
+        .pv-final-preview-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: #B0B0B0; }
+
         /* Accepted state */
         .pv-final-accepted { text-align: center; padding: 40px 0; }
-        .pv-final-accepted-icon { width: 48px; height: 48px; border-radius: 50%; background: #4b6050; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 12px; }
+        .pv-final-accepted-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--stele-green); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 12px; }
         .pv-final-accepted-title { font-size: 16px; font-weight: 500; color: #1A1A1A; margin-bottom: 4px; }
         .pv-final-accepted-info { font-size: 13px; color: #6F6F6F; }
+
+        /* Acceptance animation */
+        @keyframes pvFadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-8px); }
+        }
+        @keyframes pvFadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pvCheckScale {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.06); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pv-final-leaving {
+            animation: pvFadeOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            pointer-events: none;
+        }
+        .pv-final-entering .pv-final-accepted-icon {
+            animation: pvCheckScale 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.15s both;
+        }
+        .pv-final-entering .pv-final-accepted-title {
+            animation: pvFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.35s both;
+        }
+        .pv-final-entering .pv-final-accepted-info {
+            animation: pvFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+        }
 
         /* Steps page */
         .pv-page-steps { padding: 32px 32px; }
@@ -688,7 +731,7 @@
             .pv-final-separator { display: none; }
             .pv-final-left { padding-right: 0; }
             .pv-final-right { padding-left: 0; }
-            .pv-final-title { font-size: 28px; margin-bottom: 40px; }
+            .pv-final-title { font-size: 26px; margin-bottom: 32px; }
             .pv-final-total-amount { font-size: 32px; }
             .lightbox-nav { display: none; }
             .lightbox-img { max-width: 96vw; max-height: 90vh; }
@@ -864,7 +907,8 @@ var QUOTE_TEXTS = {
         acceptedDatePrefix: 'Accept\u00e9e le ',
         acceptedByPrefix: ' par ',
         processing: 'Traitement en cours...',
-        sigRequired: 'Veuillez dessiner votre signature.'
+        sigRequired: 'Veuillez dessiner votre signature.',
+        previewLabel: 'Prévisualisation'
     },
     en: {
         finalTitle: 'Your project is ready.',
@@ -888,7 +932,8 @@ var QUOTE_TEXTS = {
         acceptedDatePrefix: 'Accepted on ',
         acceptedByPrefix: ' by ',
         processing: 'Processing...',
-        sigRequired: 'Please draw your signature.'
+        sigRequired: 'Please draw your signature.',
+        previewLabel: 'Preview'
     }
 };
 
@@ -906,6 +951,7 @@ var coverImageUrl = '';
 var introConfig = {};
 var projectManagerName = '';
 var projectManagerEmail = '';
+var isPreviewMode = (window.self !== window.top);
 var designerArchitectName = '';
 
 (async function init() {
@@ -1383,7 +1429,7 @@ async function renderQuote() {
     html += '<div class="pv-final-total-taxes">' + escapeHtml(t('taxesNote')) + '</div>';
     html += '</div>'; // end total
 
-    // Acceptance form OR Accepted banner
+    // Acceptance form OR Accepted banner OR Preview indicator
     if (isAccepted) {
         html += '<div class="pv-final-accepted" id="finalAccepted">';
         html += '<div class="pv-final-accepted-icon">&#10003;</div>';
@@ -1393,6 +1439,10 @@ async function renderQuote() {
         var info = t('acceptedDatePrefix') + formatDate(acceptedDate);
         if (acceptedName) info += t('acceptedByPrefix') + acceptedName;
         html += '<div class="pv-final-accepted-info">' + escapeHtml(info) + '</div>';
+        html += '</div>';
+    } else if (isPreviewMode) {
+        html += '<div class="pv-final-preview">';
+        html += '<div class="pv-final-preview-label">' + escapeHtml(t('previewLabel')) + '</div>';
         html += '</div>';
     } else {
         html += '<div id="finalAcceptanceForm">';
@@ -1439,6 +1489,8 @@ function renderAcceptanceSection(sub, token) {
         if (acceptedName) info += t('acceptedByPrefix') + acceptedName;
         sHtml += '<div class="pv-final-accepted-title">' + escapeHtml(t('acceptedTitle')) + '</div>';
         sHtml += '<div class="pv-final-accepted-info">' + escapeHtml(info) + '</div>';
+    } else if (isPreviewMode) {
+        sHtml += '<div class="pv-final-preview-label">' + escapeHtml(t('previewLabel')) + '</div>';
     } else {
         var pn = proj.client_name ? escapeAttr(proj.client_name) : '';
         var pe = proj.client_email ? escapeAttr(proj.client_email) : '';
@@ -1486,6 +1538,7 @@ async function acceptQuote() {
 
     var btn = document.getElementById('btnAccept');
     btn.disabled = true;
+    btn.classList.add('loading');
     btn.textContent = t('processing');
 
     try {
@@ -1509,6 +1562,7 @@ async function acceptQuote() {
 
         if (!resp.ok) {
             btn.disabled = false;
+            btn.classList.remove('loading');
             btn.textContent = t('acceptBtn');
             alert('Erreur ' + resp.status + ' : ' + respText);
             return;
@@ -1522,15 +1576,22 @@ async function acceptQuote() {
 
         if (result && result.error) {
             btn.disabled = false;
+            btn.classList.remove('loading');
             btn.textContent = t('acceptBtn');
             alert(result.error);
             return;
         }
 
-        // Success — replace form with accepted banner inline
+        // Success — animated transition to confirmed state
         var formContainer = document.getElementById('finalAcceptanceForm');
         if (formContainer) {
-            var bHtml = '<div class="pv-final-accepted">';
+            // Step 1: fade out the form (0.4s)
+            formContainer.classList.add('pv-final-leaving');
+
+            await new Promise(function(resolve) { setTimeout(resolve, 420); });
+
+            // Step 2: replace with accepted banner (staggered entrance)
+            var bHtml = '<div class="pv-final-accepted pv-final-entering">';
             bHtml += '<div class="pv-final-accepted-icon">&#10003;</div>';
             bHtml += '<div class="pv-final-accepted-title">' + escapeHtml(t('acceptedTitle')) + '</div>';
             bHtml += '<div class="pv-final-accepted-info">' + escapeHtml(t('acceptedDatePrefix') + formatDate(new Date().toISOString()) + t('acceptedByPrefix') + name) + '</div>';
@@ -1541,6 +1602,7 @@ async function acceptQuote() {
     } catch (err) {
         console.error('Accept fetch error:', err);
         btn.disabled = false;
+        btn.classList.remove('loading');
         btn.textContent = t('acceptBtn');
         alert('Erreur de connexion : ' + err.message);
     }

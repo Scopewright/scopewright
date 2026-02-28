@@ -7126,9 +7126,10 @@
                 div.className = 'ci-msg ci-msg-confirm';
                 var confirmId = 'ci-confirm-' + Date.now();
                 div.id = confirmId;
+                var applyLabel = (opts && opts.buttonLabel) || 'Confirmer';
                 div.innerHTML = '<div class="ci-confirm-text">' + renderCiMarkdown(content) + '</div>' +
                     '<div class="ci-confirm-actions">' +
-                    '<button class="btn-ci-apply" onclick="ciApplyPending(\'' + confirmId + '\')">Cr\u00e9er les articles</button>' +
+                    '<button class="btn-ci-apply" onclick="ciApplyPending(\'' + confirmId + '\')">' + escapeHtml(applyLabel) + '</button>' +
                     '<button class="btn-ci-dismiss" onclick="ciDismissPending(\'' + confirmId + '\')">Ignorer</button>' +
                     '</div>';
                 container.appendChild(div);
@@ -7876,7 +7877,8 @@
             }).join(', ');
             if (matCatInfo) prompt += '\n\nCat\u00e9gories mat\u00e9riaux: ' + matCatInfo;
 
-            var calcTemplates = getCalcTemplates();
+            var editItemType = document.getElementById('editItemType') ? document.getElementById('editItemType').value : '';
+            var calcTemplates = editItemType === 'fabrication' ? '' : getCalcTemplates();
             if (calcTemplates) {
                 prompt += '\n\n=== R\u00c8GLES DE CALCUL PAR CAT\u00c9GORIE ===\n' + calcTemplates;
                 prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
@@ -7932,7 +7934,8 @@
         // ── Auto-generate base rules from templates on item creation ──
 
         async function autoGenerateBaseRules(item) {
-            var calcTemplates = getCalcTemplates();
+            var isFabrication = item.item_type === 'fabrication';
+            var calcTemplates = isFabrication ? '' : getCalcTemplates();
             var presTemplates = getPresTemplates();
             if (!calcTemplates && !presTemplates) return;
 
@@ -8468,7 +8471,17 @@
 
                 ciPendingToolCalls = { tools: actionTools };
                 var summary = formatCiPendingActions(actionTools);
-                appendCiMessage('confirm', summary);
+                var types = {};
+                actionTools.forEach(function(tc) { types[tc.name] = true; });
+                var typeKeys = Object.keys(types);
+                var btnLabel = 'Confirmer';
+                if (typeKeys.length === 1) {
+                    if (types.create_catalogue_item) btnLabel = 'Créer les articles';
+                    else if (types.update_catalogue_item) btnLabel = 'Modifier';
+                    else if (types.delete_catalogue_item) btnLabel = 'Supprimer';
+                    else if (types.regenerate_calc_rules) btnLabel = 'Régénérer';
+                }
+                appendCiMessage('confirm', summary, { buttonLabel: btnLabel });
                 saveCiChatMessage('assistant', fullText + '\n[Actions proposées]');
             } else {
                 var fullText = textParts.join('\n');

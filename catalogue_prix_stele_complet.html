@@ -838,6 +838,8 @@
         }
         .sb-dim-input:focus { border-color: var(--sw-navy); outline: none; }
         .sb-dim-unit { font-size: 11px; color: #888; margin-left: -2px; }
+        .sb-caisson-sep { width: 1px; height: 18px; background: #ddd; margin: 0 4px; flex-shrink: 0; }
+        .sb-caisson-group { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--sw-navy); }
         .sb-actions { display: flex; gap: 8px; margin-top: 8px; }
         .sb-btn {
             padding: 5px 14px; border: 1px solid #ddd; border-radius: 4px;
@@ -4331,7 +4333,11 @@
 
         function sbEvalFormula(expr, vars) {
             if (!expr) return null;
-            var safe = String(expr).replace(/\b(L|H|P|QTY)\b/g, function(m) {
+            // Substitute n_tablettes/n_partitions first (underscores must be resolved before security check)
+            var safe = String(expr)
+                .replace(/\bn_tablettes\b/g, (vars.n_tablettes != null) ? Number(vars.n_tablettes) : 0)
+                .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0);
+            safe = safe.replace(/\b(L|H|P|QTY)\b/g, function(m) {
                 return (vars[m] != null) ? Number(vars[m]) : 0;
             });
             safe = safe.replace(/\bceil\b/g, 'Math.ceil')
@@ -4557,6 +4563,9 @@
                 + '<label id="sbDimLGroup" style="display:none;">L <input type="number" class="sb-dim-input" id="sbDimL" min="0" step="0.1" value="' + (sbDims.L || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
                 + '<label id="sbDimHGroup" style="display:none;">H <input type="number" class="sb-dim-input" id="sbDimH" min="0" step="0.1" value="' + (sbDims.H || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
                 + '<label id="sbDimPGroup" style="display:none;">P <input type="number" class="sb-dim-input" id="sbDimP" min="0" step="0.1" value="' + (sbDims.P || '') + '" oninput="sbOnDimChange()" placeholder="0"> <span class="sb-dim-unit">po</span></label>'
+                + '<div class="sb-caisson-sep" id="sbCaissonSep" style="display:none;"></div>'
+                + '<div class="sb-caisson-group" id="sbCaissonTabGroup" style="display:none;">Tab. <input type="number" class="sb-dim-input" id="sbDimTab" min="0" step="1" value="" oninput="sbOnDimChange()" placeholder="0"></div>'
+                + '<div class="sb-caisson-group" id="sbCaissonPartGroup" style="display:none;">Part. <input type="number" class="sb-dim-input" id="sbDimPart" min="0" step="1" value="" oninput="sbOnDimChange()" placeholder="0"></div>'
                 + '</div>';
             html += '</div>';
 
@@ -4750,6 +4759,14 @@
             if (lG) lG.style.display = (dc.l !== false) ? '' : 'none';
             if (hG) hG.style.display = (dc.h !== false) ? '' : 'none';
             if (pG) pG.style.display = (dc.p !== false) ? '' : 'none';
+            // Caisson fields: show Tab./Part. only for category "Caisson" + fabrication
+            var isCaisson = isFab && item && item.category && item.category.toLowerCase() === 'caisson';
+            var sepEl = document.getElementById('sbCaissonSep');
+            var tabG = document.getElementById('sbCaissonTabGroup');
+            var partG = document.getElementById('sbCaissonPartGroup');
+            if (sepEl) sepEl.style.display = isCaisson ? '' : 'none';
+            if (tabG) tabG.style.display = isCaisson ? '' : 'none';
+            if (partG) partG.style.display = isCaisson ? '' : 'none';
         }
 
         function sbOnDimChange() {
@@ -4795,7 +4812,13 @@
         }
 
         function sbGetDimVars(qty) {
-            return { L: sbDims.L, H: sbDims.H, P: sbDims.P, QTY: qty || 1 };
+            var tabEl = document.getElementById('sbDimTab');
+            var partEl = document.getElementById('sbDimPart');
+            return {
+                L: sbDims.L, H: sbDims.H, P: sbDims.P, QTY: qty || 1,
+                n_tablettes: tabEl ? (parseInt(tabEl.value) || 0) : 0,
+                n_partitions: partEl ? (parseInt(partEl.value) || 0) : 0
+            };
         }
 
         // ── Combobox ──

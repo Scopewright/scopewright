@@ -6246,26 +6246,27 @@
             border-color: var(--sw-navy); background: #edf1f7; color: var(--sw-navy);
         }
 
-        /* Fullscreen presentation mode */
-        .pv-fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-        .pv-fullscreen .pv-toolbar { display: none; }
-        .pv-fullscreen .pv-right { display: none; }
-        .pv-fullscreen .pv-left { padding: 0; background: #fff; scroll-snap-type: y mandatory; }
-        .pv-fullscreen .pv-content { gap: 0; }
-        .pv-fullscreen .pv-page {
-            scroll-snap-align: start;
-            height: 100vh; max-height: 100vh;
-            width: calc(100vh * 11 / 8.5); max-width: 100vw;
-            margin: 0 auto; box-sizing: border-box;
-            aspect-ratio: auto;
+        /* Iframe presentation overlay */
+        .pres-iframe-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10000; background: #fff;
+            display: flex; flex-direction: column;
         }
-        .pv-fullscreen .pv-page-room-desc { border-color: transparent; background: transparent; padding: 0; flex: initial; min-height: auto; }
-        .pv-fullscreen .pv-page-clause { background: transparent; border: 1px solid #e0e0e0; border-left: 3px solid #4b6050; }
-        .pv-fullscreen .pv-page-clause-text { border-color: transparent; background: transparent; padding: 0; height: auto !important; overflow: visible; }
-        .pv-fullscreen .pv-page-clause-actions,
-        .pv-fullscreen .pv-clause-dropzone,
-        .pv-fullscreen .pv-img-delete,
-        .pv-fullscreen .pv-img-badge-client { display: none !important; }
+        .pres-iframe-toolbar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 16px; background: #fafafa; border-bottom: 1px solid #e5e5e5;
+            flex-shrink: 0;
+        }
+        .pres-iframe-toolbar button {
+            background: none; border: 1px solid #333; color: #333;
+            padding: 6px 14px; border-radius: 4px; font-size: 12px;
+            cursor: pointer; font-weight: 500; font-family: inherit;
+        }
+        .pres-iframe-toolbar button:hover { background: #333; color: #fff; }
+        .pres-iframe-toolbar span { font-size: 13px; color: #666; }
+        .pres-iframe-overlay iframe {
+            flex: 1; border: none; width: 100%;
+        }
 
         /* Tools panel — clause library items */
         .pv-lib-actions { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -14289,96 +14290,50 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // MODE PRÉSENTATION (PLEIN ÉCRAN + NAVIGATION PAR PAGE)
+        // MODE PRÉSENTATION (IFRAME quote.html)
         // ═══════════════════════════════════════════════════════════════════════
 
-        var presActive = false;
+        async function openPresentation() {
+            if (!currentSubmission) return;
 
-        function openPresentation() {
-            presActive = true;
-            // Force client view + render
-            clientViewMode = true;
-            var pv = document.getElementById('previewView');
-            pv.classList.add('pv-client-mode');
-            pv.classList.add('pv-fullscreen');
-            renderPreview();
+            // Fetch the latest token for this submission
+            var r = await authenticatedFetch(
+                SUPABASE_URL + '/rest/v1/public_quote_tokens?submission_id=eq.' + currentSubmission.id + '&order=created_at.desc&limit=1', {}
+            );
+            if (!r.ok) { steleAlert('Erreur chargement du token.'); return; }
+            var tokens = await r.json();
+            if (tokens.length === 0) {
+                steleAlert('Aucun lien client pour cette soumission. Envoyez-la d\u2019abord au client.');
+                return;
+            }
 
-            // Scroll to top in fullscreen mode (pv-left is the scrolling element)
-            var scrollEl = document.querySelector('#previewView .pv-left');
-            if (scrollEl) scrollEl.scrollTop = 0;
+            var url = window.location.origin + '/quote.html?token=' + tokens[0].token;
 
-            // Request fullscreen on the preview view
-            if (pv.requestFullscreen) pv.requestFullscreen();
-            else if (pv.webkitRequestFullscreen) pv.webkitRequestFullscreen();
-            else if (pv.msRequestFullscreen) pv.msRequestFullscreen();
+            // Build overlay
+            var overlay = document.createElement('div');
+            overlay.className = 'pres-iframe-overlay';
+            overlay.id = 'presIframeOverlay';
+            overlay.innerHTML =
+                '<div class="pres-iframe-toolbar">' +
+                    '<button onclick="closePresentation()">&larr; Fermer</button>' +
+                    '<span>Pr\u00e9sentation client</span>' +
+                '</div>' +
+                '<iframe src="' + escapeAttr(url) + '"></iframe>';
+            document.body.appendChild(overlay);
 
-            document.addEventListener('keydown', presPageNav);
-            document.getElementById('pvContent').addEventListener('click', presClickNav);
+            // Escape to close
+            document.addEventListener('keydown', presEscHandler);
         }
 
         function closePresentation() {
-            presActive = false;
-            var pv = document.getElementById('previewView');
-            pv.classList.remove('pv-fullscreen');
-            pv.classList.remove('pv-client-mode');
-            clientViewMode = false;
-            if (document.fullscreenElement) document.exitFullscreen();
-            else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
-            document.removeEventListener('keydown', presPageNav);
-            var pvContent = document.getElementById('pvContent');
-            if (pvContent) pvContent.removeEventListener('click', presClickNav);
-            renderPreview();
+            var overlay = document.getElementById('presIframeOverlay');
+            if (overlay) overlay.remove();
+            document.removeEventListener('keydown', presEscHandler);
         }
 
-        function presPageNav(e) {
-            if (e.key === 'Escape') { closePresentation(); return; }
-            var scrollEl = document.querySelector('#previewView .pv-left');
-            if (!scrollEl) return;
-            var pages = scrollEl.querySelectorAll('.pv-page');
-            if (pages.length === 0) return;
-
-            if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                presScrollToNext(scrollEl, pages, 1);
-            }
-            if (e.key === 'ArrowUp' || e.key === 'Backspace' || e.key === 'ArrowLeft') {
-                e.preventDefault();
-                presScrollToNext(scrollEl, pages, -1);
-            }
+        function presEscHandler(e) {
+            if (e.key === 'Escape') closePresentation();
         }
-
-        function presClickNav(e) {
-            // Don't navigate if clicking on interactive elements
-            if (e.target.closest('textarea, button, a, input, .pv-img-wrap')) return;
-            var scrollEl = document.querySelector('#previewView .pv-left');
-            var pages = scrollEl ? scrollEl.querySelectorAll('.pv-page') : [];
-            if (pages.length > 0) presScrollToNext(scrollEl, pages, 1);
-        }
-
-        function presScrollToNext(scrollEl, pages, direction) {
-            var scrollTop = scrollEl.scrollTop;
-            var threshold = 20;
-            for (var i = 0; i < pages.length; i++) {
-                var top = pages[i].offsetTop - scrollEl.offsetTop;
-                if (direction > 0 && top > scrollTop + threshold) {
-                    pages[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    return;
-                }
-                if (direction < 0 && i > 0 && top >= scrollTop - threshold) {
-                    pages[i - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    return;
-                }
-            }
-            // Edge cases: last page forward or first page backward
-            if (direction < 0) pages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        // Exit presentation when leaving fullscreen
-        document.addEventListener('fullscreenchange', function() {
-            if (!document.fullscreenElement && presActive) {
-                closePresentation();
-            }
-        });
 
         // ═══════════════════════════════════════════════════════════════════════
         // NAVIGATION ENTRE VUES

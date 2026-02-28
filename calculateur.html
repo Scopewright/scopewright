@@ -14296,18 +14296,29 @@
         async function openPresentation() {
             if (!currentSubmission) return;
 
-            // Fetch the latest token for this submission
+            // Fetch existing token, or create one on-the-fly for preview
             var r = await authenticatedFetch(
                 SUPABASE_URL + '/rest/v1/public_quote_tokens?submission_id=eq.' + currentSubmission.id + '&order=created_at.desc&limit=1', {}
             );
             if (!r.ok) { steleAlert('Erreur chargement du token.'); return; }
             var tokens = await r.json();
-            if (tokens.length === 0) {
-                steleAlert('Aucun lien client pour cette soumission. Envoyez-la d\u2019abord au client.');
-                return;
+            var token;
+
+            if (tokens.length > 0) {
+                token = tokens[0].token;
+            } else {
+                // No token yet — create a preview token (no status change, no notification)
+                var cr = await authenticatedFetch(SUPABASE_URL + '/rest/v1/public_quote_tokens', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ submission_id: currentSubmission.id })
+                });
+                if (!cr.ok) { steleAlert('Erreur cr\u00e9ation du lien de pr\u00e9visualisation.'); return; }
+                var created = await cr.json();
+                token = created[0].token;
             }
 
-            var url = window.location.origin + '/quote.html?token=' + tokens[0].token;
+            var url = window.location.origin + '/quote.html?token=' + token;
 
             // Build overlay
             var overlay = document.createElement('div');

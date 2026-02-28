@@ -2993,14 +2993,28 @@
         var groupId = row.dataset.group;
         var parentItemId = itemMap[parentRowId];
         var existingChildren = findCascadeChildren(parentRowId);
+
+        // Separate locked children — invisible to the cascade engine
+        var activeChildren = [];
+        existingChildren.forEach(function(c) {
+            var childEl = document.getElementById(c.rowId);
+            if (childEl && childEl.classList.contains('cascade-locked')) {
+                // Locked: skip entirely (no update, no delete, no duplicate)
+            } else {
+                activeChildren.push(c);
+            }
+        });
         var matchedChildRowIds = [];
 
         // Tag du parent à hériter
         var parentTagEl = document.getElementById(parentRowId + '-tag');
         var parentTag = parentTagEl ? parentTagEl.value : '';
 
-        // Track insertion point: start after parent, advance after each child
+        // Track insertion point: start after last existing child (locked or active)
         var lastInsertedRowId = parentRowId;
+        existingChildren.forEach(function(c) {
+            if (document.getElementById(c.rowId)) lastInsertedRowId = c.rowId;
+        });
 
         for (var ri = 0; ri < rules.length; ri++) {
             var rule = rules[ri];
@@ -3027,11 +3041,11 @@
             if (qty === null || qty <= 0) continue;
             qty = Math.round(qty * 100) / 100; // arrondir à 2 décimales
 
-            // Chercher un enfant existant avec le même target
+            // Chercher un enfant ACTIF existant avec le même target (skip locked)
             var existing = null;
-            for (var ei = 0; ei < existingChildren.length; ei++) {
-                if (existingChildren[ei].catalogueId === resolvedTarget) {
-                    existing = existingChildren[ei];
+            for (var ei = 0; ei < activeChildren.length; ei++) {
+                if (activeChildren[ei].catalogueId === resolvedTarget) {
+                    existing = activeChildren[ei];
                     break;
                 }
             }
@@ -3086,8 +3100,8 @@
             }
         }
 
-        // Supprimer les enfants orphelins (plus dans les règles actuelles)
-        existingChildren.forEach(function(c) {
+        // Supprimer les enfants orphelins (seulement actifs, pas les locked)
+        activeChildren.forEach(function(c) {
             if (matchedChildRowIds.indexOf(c.rowId) === -1) {
                 removeRow(c.rowId);
             }
@@ -3099,6 +3113,27 @@
         // Récursion : chaque enfant peut avoir ses propres règles cascade
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
             await executeCascade(matchedChildRowIds[ci], depth + 1);
+        }
+    }
+
+    /** Revert a cascade-locked child back to auto-managed mode. */
+    async function revertCascadeLock(rowId) {
+        var row = document.getElementById(rowId);
+        if (!row) return;
+
+        // Unlock in DB
+        if (itemMap[rowId]) {
+            await updateItem(itemMap[rowId], { cascade_locked: false });
+        }
+
+        // Remove locked state
+        row.classList.remove('cascade-locked');
+        delete row.dataset.cascadeOriginalTarget;
+
+        // Re-execute parent cascade — this row won't match → orphan → deleted → correct one recreated
+        var parentRowId = cascadeParentMap[rowId];
+        if (parentRowId) {
+            await executeCascade(parentRowId, 0);
         }
     }
 
@@ -3881,6 +3916,22 @@
             background: #f8faf9;
         }
         .calc-row.cascade-child .cell-add .btn-add { visibility: hidden; }
+        /* ── Cascade locked (manual override) ── */
+        .calc-row.cascade-locked {
+            border-left: 3px solid #E8A84C !important;
+            background: rgba(232, 168, 76, 0.06) !important;
+        }
+        .btn-revert-cascade {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 22px; height: 22px;
+            border: none; background: rgba(232, 168, 76, 0.15);
+            color: #b87a2a; border-radius: 4px;
+            cursor: pointer; font-size: 13px;
+            transition: background 0.15s;
+        }
+        .btn-revert-cascade:hover { background: rgba(232, 168, 76, 0.3); }
+        .cascade-locked .btn-revert-cascade { display: inline-flex !important; }
         .cascade-badge {
             font-size: 9px; background: #e2e8f0; color: #475569;
             padding: 1px 5px; border-radius: 3px; margin-left: 4px;
@@ -9314,6 +9365,7 @@
             row.innerHTML = `
                 <div class="cell-add">
                     <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                    <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
                 </div>
                 <div class="cell-tag">
                     <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
@@ -9810,6 +9862,17 @@
                 findCascadeChildren(rowId).forEach(function(c) { removeRow(c.rowId); });
             }
             row.dataset.lastCatalogueId = selectedId;
+
+            // Cascade lock: detect manual change on a cascade child
+            if (cascadeParentMap[rowId] && prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
+                if (!row.classList.contains('cascade-locked')) {
+                    row.dataset.cascadeOriginalTarget = prevCatId;
+                }
+                row.classList.add('cascade-locked');
+                if (itemMap[rowId]) {
+                    updateItem(itemMap[rowId], { cascade_locked: true });
+                }
+            }
 
             if (selectedId === '__PROPOSER__') {
                 if (currentMode === 'ajout') transformToNormalMode(row, rowId);
@@ -15524,6 +15587,11 @@
                             const row = document.getElementById(rowId);
                             const select = row.querySelector('.item-select');
                             const qtyInput = row.querySelector('.qty-input');
+
+                            // Restore cascade_locked state
+                            if (isCascade && item.cascade_locked) {
+                                row.classList.add('cascade-locked');
+                            }
 
                             qtyInput.value = item.quantity || 1;
 

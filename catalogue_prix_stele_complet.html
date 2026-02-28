@@ -4760,6 +4760,11 @@
             sbDims.H = hEl ? (parseFloat(hEl.value) || 0) : 0;
             sbDims.P = pEl ? (parseFloat(pEl.value) || 0) : 0;
 
+            // Auto-calculate parent row quantities (pi², linéaire, or formula)
+            sbRows.forEach(function(r) {
+                if (!r.cascadeOf) sbAutoCalcParentQty(r);
+            });
+
             // Recalculate all cascade quantities with new dimensions
             sbRows.forEach(function(r) {
                 if (r.cascadeOf) {
@@ -4768,6 +4773,25 @@
                 }
             });
             sbRefreshAll();
+        }
+
+        /**
+         * Auto-calculate a parent row's quantity from dimensions based on its formula or type.
+         * formula field in calculation_rule_ai takes priority, then type fallback (pi² → L*H/144, linéaire → L/12).
+         */
+        function sbAutoCalcParentQty(rowData) {
+            var item = sbGetItem(rowData.catalogueItemId);
+            if (!item || item.item_type !== 'fabrication') return;
+
+            var formula = item.calculation_rule_ai && item.calculation_rule_ai.formula;
+            if (!formula && item.type === 'pi²') formula = 'L * H / 144';
+            if (!formula && item.type === 'linéaire') formula = 'L / 12';
+            if (!formula) return;
+
+            var result = sbEvalFormula(formula, sbGetDimVars(1));
+            if (result != null && result > 0) {
+                rowData.qty = Math.max(1, Math.round(result * 100) / 100);
+            }
         }
 
         function sbGetDimVars(qty) {
@@ -4862,6 +4886,9 @@
                 warn: null
             };
             sbRows.push(rowData);
+
+            // Auto-calculate parent quantity if dims already set
+            if (!cascadeOf) sbAutoCalcParentQty(rowData);
 
             // Process constraints for this item
             _sbAddDepth++;

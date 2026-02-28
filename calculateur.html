@@ -2679,6 +2679,7 @@
         var cacheKey = expCatUpper + ':' + keywords.join('+');
         if (matchDefaults[cacheKey]) {
             if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
+                console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
                 return matchDefaults[cacheKey];
             }
         }
@@ -2687,16 +2688,23 @@
         var candidates = CATALOGUE_DATA.filter(function(item) {
             return itemHasMaterialCost(item, expCatUpper);
         });
+        console.log('[CASCADE] $match: ' + candidates.length + ' candidates with material_costs in "' + expCatUpper + '"',
+            candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
 
         // Score by keyword matches in client_text/description
         var scored = scoreMatchCandidates(candidates, keywords);
+        console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (keywords: ' + keywords.join(', ') + ')',
+            scored.slice(0, 3).map(function(s) { return s.item.id + ' score=' + s.score; }));
 
         // Relax to top 2 keywords if no results
         if (scored.length === 0 && keywords.length > 2) {
-            scored = scoreMatchCandidates(candidates, keywords.slice(0, 2));
+            var relaxedKw = keywords.slice(0, 2);
+            scored = scoreMatchCandidates(candidates, relaxedKw);
+            console.log('[CASCADE] $match: relaxed to top-2 keywords (' + relaxedKw.join(', ') + ') → ' + scored.length + ' results');
         }
 
         if (scored.length === 0) {
+            console.warn('[CASCADE] $match: 0 scored results — no candidate has any keyword in client_text/description');
             showConstraintToast('Aucun article trouvé pour $match:' + expenseCategory);
             return null;
         }
@@ -2725,24 +2733,23 @@
 
     /**
      * Fallback: get keywords from the default material assigned to the parent's material group.
-     * Uses categoryGroupMapping to find which material group the parent category belongs to,
-     * then reads the default material's client_text for keyword extraction.
+     * Matches parent catalogue category name → DM type name (case-insensitive).
      */
     function getDefaultMaterialKeywords(groupId, parentCategory) {
         var dm = getDefaultMaterialsForGroup(groupId);
-        if (!dm || dm.length === 0) return null;
+        if (!dm || dm.length === 0) {
+            console.log('[CASCADE] DM fallback: no default materials for group', groupId);
+            return null;
+        }
+        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '→' + (d.catalogue_item_id || 'null'); }).join(', '));
 
         var dmEntry = null;
+        var matchMethod = '';
 
-        // 1. Use categoryGroupMapping: parent category → material group names
-        if (categoryGroupMapping && parentCategory) {
-            var targetGroups = categoryGroupMapping[parentCategory];
-            if (targetGroups && targetGroups.length > 0) {
-                for (var g = 0; g < targetGroups.length; g++) {
-                    dmEntry = findDmEntryByType(dm, targetGroups[g]);
-                    if (dmEntry) break;
-                }
-            }
+        // 1. Direct match: catalogue category name === DM type name (case-insensitive)
+        if (parentCategory) {
+            dmEntry = findDmEntryByType(dm, parentCategory);
+            if (dmEntry) matchMethod = 'direct';
         }
 
         // 2. Fuzzy match: parent category name contains group name or vice versa
@@ -2753,6 +2760,7 @@
                 var typeLower = dm[di].type.toLowerCase();
                 if (catLower.indexOf(typeLower) !== -1 || typeLower.indexOf(catLower) !== -1) {
                     dmEntry = dm[di];
+                    matchMethod = 'fuzzy(' + dm[di].type + ')';
                     break;
                 }
             }
@@ -2761,9 +2769,14 @@
         // 3. Last resort: first default material with a catalogue_item_id
         if (!dmEntry) {
             dmEntry = dm.find(function(d) { return d.catalogue_item_id; }) || null;
+            if (dmEntry) matchMethod = 'first-available(' + dmEntry.type + ')';
         }
 
-        if (!dmEntry || !dmEntry.catalogue_item_id) return null;
+        if (!dmEntry || !dmEntry.catalogue_item_id) {
+            console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);
+            return null;
+        }
+        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' → ' + dmEntry.catalogue_item_id);
 
         var dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
         if (!dmItem) return null;
@@ -2775,9 +2788,11 @@
         return { keywords: kw, dmItemId: dmItem.id };
     }
 
+    /** Find DM entry by type name (case-insensitive). */
     function findDmEntryByType(dm, typeName) {
+        var targetLower = typeName.toLowerCase();
         for (var i = 0; i < dm.length; i++) {
-            if (dm[i].type === typeName && dm[i].catalogue_item_id) return dm[i];
+            if (dm[i].type && dm[i].type.toLowerCase() === targetLower && dm[i].catalogue_item_id) return dm[i];
         }
         return null;
     }

@@ -2584,7 +2584,11 @@
      */
     function evalFormula(expr, vars) {
         if (!expr) return null;
-        var safe = String(expr).replace(/\b(L|H|P|QTY)\b/g, function(m) {
+        // Substitute n_tablettes/n_partitions first (underscores must be resolved before security check)
+        var safe = String(expr)
+            .replace(/\bn_tablettes\b/g, (vars.n_tablettes != null) ? Number(vars.n_tablettes) : 0)
+            .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0);
+        safe = safe.replace(/\b(L|H|P|QTY)\b/g, function(m) {
             return (vars[m] != null) ? Number(vars[m]) : 0;
         });
         safe = safe.replace(/\bceil\b/g, 'Math.ceil')
@@ -2623,10 +2627,14 @@
         var dimL = document.getElementById(current + '-dim-l');
         var dimH = document.getElementById(current + '-dim-h');
         var dimP = document.getElementById(current + '-dim-p');
+        var nTab = document.getElementById(current + '-n-tab');
+        var nPart = document.getElementById(current + '-n-part');
         return {
             L: dimL ? (parseFloat(dimL.value) || 0) : 0,
             H: dimH ? (parseFloat(dimH.value) || 0) : 0,
-            P: dimP ? (parseFloat(dimP.value) || 0) : 0
+            P: dimP ? (parseFloat(dimP.value) || 0) : 0,
+            n_tablettes: nTab ? (parseInt(nTab.value) || 0) : 0,
+            n_partitions: nPart ? (parseInt(nPart.value) || 0) : 0
         };
     }
 
@@ -3150,7 +3158,14 @@
             dims.P = ownP ? (parseFloat(ownP.value) || 0) : dims.P;
         }
         var parentQty = parseFloat(qtyInput.value) || 0;
-        var vars = { L: dims.L, H: dims.H, P: dims.P, QTY: parentQty };
+        // Caisson fields: read from parent row (override root dims if present)
+        var parentNTab = document.getElementById(parentRowId + '-n-tab');
+        var parentNPart = document.getElementById(parentRowId + '-n-part');
+        var vars = {
+            L: dims.L, H: dims.H, P: dims.P, QTY: parentQty,
+            n_tablettes: parentNTab ? (parseInt(parentNTab.value) || 0) : (dims.n_tablettes || 0),
+            n_partitions: parentNPart ? (parseInt(parentNPart.value) || 0) : (dims.n_partitions || 0)
+        };
         console.log('[CASCADE] vars:', JSON.stringify(vars));
 
         // Au moins une dimension doit exister pour exécuter la cascade
@@ -4043,7 +4058,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 140px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 230px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 8px 10px;
             background: transparent;
@@ -4075,7 +4090,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 140px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 230px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             align-items: center;
@@ -4351,6 +4366,14 @@
         .cell-dims input:focus { border-color: var(--sw-navy); outline: none; }
         .cell-dims input::placeholder { color: #d4d4d4; }
         .cell-dims .dim-sep { color: #cbd5e1; font-size: 9px; }
+        .cell-dims .caisson-sep { width: 1px; height: 16px; background: #ddd; margin: 0 4px; flex-shrink: 0; }
+        .cell-dims .caisson-input {
+            width: 40px; padding: 3px 2px; font-size: 10px; text-align: center;
+            border: 1px solid #e0e0e0; border-radius: 3px; background: #fff;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        }
+        .cell-dims .caisson-input:focus { border-color: var(--sw-navy); outline: none; }
+        .cell-dims .caisson-input::placeholder { color: #d4d4d4; }
         .cell-dims.dims-hidden { justify-content: center; }
 
         /* Tooltip styles */
@@ -7170,7 +7193,7 @@
             .main-content { padding: 24px 16px; }
             .project-list-view { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 45px 1fr 70px 70px 110px 90px 80px 24px 100px 24px;
+                grid-template-columns: 24px 45px 1fr 70px 70px 170px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -10137,6 +10160,15 @@
                         if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
 
                         dimsEl.innerHTML = parts.join('');
+
+                        // Caisson fields: Tab. + Part. — only for category "Caisson"
+                        if (dimItem && dimItem.category && dimItem.category.toLowerCase() === 'caisson') {
+                            var curTab = dimsEl.dataset.tab || '';
+                            var curPart = dimsEl.dataset.part || '';
+                            dimsEl.innerHTML += '<div class="caisson-sep"></div>'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">';
+                        }
                     }
                 } else {
                     // Sauvegarder les valeurs dans dataset avant de détruire les inputs
@@ -10152,6 +10184,10 @@
                     if (pInput) {
                         dimsEl.dataset.p = pInput.value;
                     }
+                    var tabInput = document.getElementById(rowId + '-n-tab');
+                    if (tabInput) dimsEl.dataset.tab = tabInput.value;
+                    var partInput = document.getElementById(rowId + '-n-part');
+                    if (partInput) dimsEl.dataset.part = partInput.value;
                     dimsEl.classList.add('dims-hidden');
                     dimsEl.innerHTML = '\u2014';
                 }
@@ -10169,11 +10205,15 @@
                         var fL = document.getElementById(rowId + '-dim-l');
                         var fH = document.getElementById(rowId + '-dim-h');
                         var fP = document.getElementById(rowId + '-dim-p');
+                        var fNTab = document.getElementById(rowId + '-n-tab');
+                        var fNPart = document.getElementById(rowId + '-n-part');
                         var fVars = {
                             L: fL ? (parseFloat(fL.value) || 0) : 0,
                             H: fH ? (parseFloat(fH.value) || 0) : 0,
                             P: fP ? (parseFloat(fP.value) || 0) : 0,
-                            QTY: 1
+                            QTY: 1,
+                            n_tablettes: fNTab ? (parseInt(fNTab.value) || 0) : 0,
+                            n_partitions: fNPart ? (parseInt(fNPart.value) || 0) : 0
                         };
                         if (fVars.L > 0 || fVars.H > 0 || fVars.P > 0) {
                             var autoQty = evalFormula(formula, fVars);
@@ -10280,6 +10320,12 @@
             fields.length_in = dimL ? (parseFloat(dimL.value) || null) : null;
             fields.height_in = dimH ? (parseFloat(dimH.value) || null) : null;
             fields.depth_in = dimP ? (parseFloat(dimP.value) || null) : null;
+
+            // Caisson fields
+            var nTab = document.getElementById(rowId + '-n-tab');
+            var nPart = document.getElementById(rowId + '-n-part');
+            fields.n_tablettes = nTab ? (parseInt(nTab.value) || 0) : 0;
+            fields.n_partitions = nPart ? (parseInt(nPart.value) || 0) : 0;
 
             updateItem(itemMap[rowId], fields);
             showSaveIndicator();
@@ -15817,13 +15863,20 @@
                                 if (tagInput) tagInput.value = item.tag;
                             }
 
-                            // Restore dimensions L/H/P
+                            // Restore dimensions L/H/P + caisson fields
                             if (item.length_in || item.height_in || item.depth_in) {
                                 var dimsEl = document.getElementById(rowId + '-dims');
                                 if (dimsEl) {
                                     dimsEl.dataset.l = item.length_in || '';
                                     dimsEl.dataset.h = item.height_in || '';
                                     dimsEl.dataset.p = item.depth_in || '';
+                                }
+                            }
+                            if (item.n_tablettes || item.n_partitions) {
+                                var dimsEl2 = document.getElementById(rowId + '-dims');
+                                if (dimsEl2) {
+                                    dimsEl2.dataset.tab = item.n_tablettes || '';
+                                    dimsEl2.dataset.part = item.n_partitions || '';
                                 }
                             }
 

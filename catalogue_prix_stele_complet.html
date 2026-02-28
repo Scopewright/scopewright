@@ -6537,7 +6537,7 @@
             status.style.display = 'none';
 
             try {
-                const itemId = document.getElementById('editItemId').value;
+                let itemId = document.getElementById('editItemId').value;
                 const priceVal = document.getElementById('editPrice').value;
 
                 const payload = {
@@ -6612,6 +6612,11 @@
                     CATALOGUE_DATA.push(serverItem);
                     // Mettre a jour itemId avec le code genere par le serveur
                     itemId = serverItem.id;
+                    document.getElementById('editItemId').value = itemId;
+
+                    // Passer en mode édition (PATCH) pour éviter les doublons
+                    isNewItem = false;
+                    newItemData = null;
 
                     // Auto-fill calc/pres rules from templates (non-blocking)
                     if (!serverItem.calculation_rule_ai && !serverItem.presentation_rule && getAllRulesTemplates()) {

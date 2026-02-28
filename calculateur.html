@@ -3228,6 +3228,12 @@
                         childQty.value = qty;
                         updateRow(existing.rowId);
                     }
+                    // Sync tag from parent
+                    var childTagSync = document.getElementById(existing.rowId + '-tag');
+                    if (childTagSync && childTagSync.value !== parentTag) {
+                        childTagSync.value = parentTag;
+                        if (itemMap[existing.rowId]) updateItem(itemMap[existing.rowId], { tag: parentTag || null });
+                    }
                 }
                 matchedChildRowIds.push(existing.rowId);
                 lastInsertedRowId = existing.rowId;
@@ -3257,11 +3263,9 @@
                 var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
                 if (childQtyInput) childQtyInput.value = qty;
 
-                // Hériter le tag du parent
-                if (parentTag) {
-                    var childTagInput = document.getElementById(newRowId + '-tag');
-                    if (childTagInput) childTagInput.value = parentTag;
-                }
+                // Hériter le tag du parent (toujours, même si vide)
+                var childTagInput = document.getElementById(newRowId + '-tag');
+                if (childTagInput) childTagInput.value = parentTag;
 
                 updateRow(newRowId);
                 matchedChildRowIds.push(newRowId);
@@ -4164,6 +4168,10 @@
         }
         .cell-tag input:focus { border-color: var(--sw-navy); outline: none; }
         .cell-tag input::placeholder { color: #ccc; font-weight: 400; }
+        .cascade-child .cell-tag input,
+        .cascade-locked .cell-tag input {
+            opacity: 0.55; cursor: default; background: #f8f8f8;
+        }
 
         /* ── Combobox autocomplete ── */
         .combobox { position: relative; display: flex; align-items: center; gap: 3px; }
@@ -9566,6 +9574,12 @@
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
 
+            // Cascade children: tag is inherited from parent (readonly)
+            if (opts.cascade) {
+                var tagEl = document.getElementById(rowId + '-tag');
+                if (tagEl) tagEl.readOnly = true;
+            }
+
             // Position cascade children directly after their parent (or after last sibling)
             if (opts.afterRowId) {
                 var afterEl = document.getElementById(opts.afterRowId);
@@ -10278,6 +10292,14 @@
             updateItem(itemMap[rowId], { tag: tag || null });
             showSaveIndicator();
             refreshTagFilterBar();
+            // Propagate tag to all cascade children (including locked)
+            findCascadeChildren(rowId).forEach(function(c) {
+                var childTagEl = document.getElementById(c.rowId + '-tag');
+                if (childTagEl) {
+                    childTagEl.value = tag || '';
+                    if (itemMap[c.rowId]) updateItem(itemMap[c.rowId], { tag: tag || null });
+                }
+            });
         }
 
         function removeRow(rowId) {

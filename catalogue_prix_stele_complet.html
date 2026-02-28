@@ -8522,6 +8522,13 @@
                     }
                 });
             }
+            var regenTools = toolCalls.filter(function(tc) { return tc.name === 'regenerate_calc_rules'; });
+            if (regenTools.length > 0) {
+                lines.push('**R\u00e9g\u00e9n\u00e9rer les r\u00e8gles de calcul :**');
+                regenTools.forEach(function(tc) {
+                    lines.push('- **' + (tc.input.code || '?') + '** \u2192 calculation_rule_ai + presentation_rule');
+                });
+            }
             return lines.join('\n') || 'Action propos\u00e9e';
         }
 
@@ -8551,6 +8558,7 @@
                 if (r.action === 'created') parts.push(r.code + ' cr\u00e9\u00e9');
                 else if (r.action === 'updated') parts.push(r.code + ' modifi\u00e9');
                 else if (r.action === 'deleted') parts.push(r.code + ' supprim\u00e9');
+                else if (r.action === 'regenerated') parts.push(r.code + ' r\u00e8gles r\u00e9g\u00e9n\u00e9r\u00e9es');
             });
 
             if (actionsDiv) {
@@ -8707,6 +8715,30 @@
                     return { success: true, action: 'deleted', code: input.code, errors: [], message: input.code + ' supprim\u00e9' };
                 } catch (e) {
                     return { success: false, action: 'deleted', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
+                }
+            }
+
+            // ── REGENERATE CALC RULES ──
+            if (name === 'regenerate_calc_rules') {
+                try {
+                    var item = CATALOGUE_DATA.find(function(i) { return i.id === input.code; });
+                    if (!item) return { success: false, action: 'regenerated', code: input.code, errors: [{ id: input.code, error: 'Article non trouv\u00e9' }], message: 'Article ' + input.code + ' non trouv\u00e9' };
+
+                    await autoGenerateBaseRules(item);
+
+                    // Reload the item from local data (autoGenerateBaseRules patches it)
+                    var updated = CATALOGUE_DATA.find(function(i) { return i.id === input.code; });
+                    return {
+                        success: true,
+                        action: 'regenerated',
+                        code: input.code,
+                        errors: [],
+                        message: input.code + ' r\u00e8gles r\u00e9g\u00e9n\u00e9r\u00e9es',
+                        calculation_rule_ai: updated ? updated.calculation_rule_ai : null,
+                        presentation_rule: updated ? updated.presentation_rule : null
+                    };
+                } catch (e) {
+                    return { success: false, action: 'regenerated', code: input.code, errors: [{ id: input.code, error: e.message }], message: 'Erreur: ' + e.message };
                 }
             }
 

@@ -204,8 +204,12 @@ function buildSystemPrompt(context: any, staticOverride: string | null): string 
   const unitTypesStr = (context.unitTypes || []).join(", ");
 
   const expStr = (context.expenseCategories || [])
-    .map((c: any) => `${c.name}: markup ${c.markup}%, perte ${c.waste}%`)
-    .join(", ");
+    .map((c: any) => {
+      let line = `${c.name}: markup ${c.markup}%, perte ${c.waste}%`;
+      if (c.calc_template) line += `\n  Template calcul: ${c.calc_template}`;
+      return line;
+    })
+    .join("\n");
 
   const tauxStr = (context.tauxHoraires || [])
     .map((t: any) => `${t.department}: ${t.taux_horaire}$/h`)
@@ -436,6 +440,21 @@ const TOOLS = [
           description: "Filtrer par catégorie (optionnel)",
         },
       },
+    },
+  },
+  {
+    name: "regenerate_calc_rules",
+    description:
+      "Régénère les règles de calcul (calculation_rule_ai) et de présentation (presentation_rule) d'un article catalogue en utilisant l'IA. Se base sur le template calcul de la catégorie de dépense, la description de l'article, et des exemples d'articles similaires. Toujours demander confirmation avant d'exécuter.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: {
+          type: "string",
+          description: "Code de l'article catalogue (ex: ST-0042)",
+        },
+      },
+      required: ["code"],
     },
   },
 ];

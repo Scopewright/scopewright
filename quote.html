@@ -243,12 +243,12 @@
         /* Left column */
         .pv-final-left { display: flex; flex-direction: column; justify-content: center; padding-right: 64px; }
         .pv-final-title {
-            font-family: 'Cormorant Garamond', Georgia, serif; font-size: 38px;
-            font-weight: 400; font-style: italic; line-height: 1.2; color: #1A1A1A;
+            font-family: 'Cormorant Garamond', Georgia, serif; font-size: 46px;
+            font-weight: 300; font-style: italic; line-height: 1.2; color: #1A1A1A;
             letter-spacing: -0.01em; margin-bottom: 80px;
         }
         .pv-final-text p {
-            font-size: 14px; font-weight: 400; line-height: 1.8; color: #6F6F6F; margin: 0 0 20px 0;
+            font-size: 15px; font-weight: 400; line-height: 1.75; color: #6F6F6F; margin: 0 0 20px 0;
         }
         .pv-final-text p:last-child { margin-bottom: 0; }
 
@@ -256,12 +256,12 @@
         .pv-final-separator { width: 1px; background: #EAEAEA; align-self: stretch; }
 
         /* Right column */
-        .pv-final-right { display: flex; flex-direction: column; justify-content: center; padding-left: 64px; gap: 40px; }
+        .pv-final-right { display: flex; flex-direction: column; justify-content: center; padding-left: 48px; gap: 40px; }
 
         /* Total block */
-        .pv-final-total-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2.5px; color: #9A9A9A; margin-bottom: 8px; }
-        .pv-final-total-amount { font-size: 38px; font-weight: 500; letter-spacing: -0.02em; color: #1A1A1A; line-height: 1.1; }
-        .pv-final-total-taxes { font-size: 12px; color: #9A9A9A; margin-top: 6px; }
+        .pv-final-total-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: #9A9A9A; margin-bottom: 8px; }
+        .pv-final-total-amount { font-size: 48px; font-weight: 300; letter-spacing: -0.02em; color: #111; line-height: 1.1; }
+        .pv-final-total-taxes { font-size: 12.5px; color: #9A9A9A; margin-top: 6px; }
         .pv-final-install-note { font-size: 11px; color: #9A9A9A; letter-spacing: 0.3px; margin-bottom: 8px; }
 
         /* Discount breakdown */
@@ -271,10 +271,10 @@
         .pv-final-breakdown-divider { height: 1px; background: #E5E5E5; margin: 6px 0; }
 
         /* Acceptance form */
-        .pv-final-accept-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2.5px; color: #9A9A9A; margin-bottom: 16px; }
+        .pv-final-accept-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: #9A9A9A; margin-bottom: 16px; }
         .pv-final-form { display: flex; flex-direction: column; gap: 10px; }
         .pv-final-form input {
-            width: 100%; padding: 10px 12px; font-size: 14px; font-family: inherit;
+            width: 100%; height: 40px; padding: 0 12px; font-size: 14px; font-family: inherit;
             border: 1px solid #E5E5E5; border-radius: 4px; background: #fff; color: #1A1A1A;
             transition: border-color 0.2s;
         }
@@ -284,7 +284,7 @@
         /* Signature */
         .pv-final-sig-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: #9A9A9A; margin-bottom: 6px; margin-top: 4px; }
         .pv-final-sig-wrap { position: relative; width: 100%; border: 1px solid #E5E5E5; border-radius: 4px; background: #fff; }
-        .pv-final-sig-canvas { display: block; width: 100%; height: 100px; cursor: crosshair; touch-action: none; }
+        .pv-final-sig-canvas { display: block; width: 100%; height: 120px; cursor: crosshair; touch-action: none; }
         .pv-final-sig-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; color: #C8C8C8; pointer-events: none; transition: opacity 0.2s; }
         .pv-final-sig-actions { display: flex; justify-content: flex-end; margin-top: 3px; }
         .pv-final-sig-clear { background: none; border: none; font-size: 11px; color: #B0B0B0; cursor: pointer; padding: 2px 0; font-family: inherit; transition: color 0.2s; }
@@ -689,7 +689,7 @@
             .pv-final-left { padding-right: 0; }
             .pv-final-right { padding-left: 0; }
             .pv-final-title { font-size: 28px; margin-bottom: 40px; }
-            .pv-final-total-amount { font-size: 28px; }
+            .pv-final-total-amount { font-size: 32px; }
             .lightbox-nav { display: none; }
             .lightbox-img { max-width: 96vw; max-height: 90vh; }
             /* Intro page mobile */
@@ -1032,7 +1032,8 @@ async function renderQuote() {
             if (snapResp.ok) {
                 var snapHtml = await snapResp.text();
                 var bodyMatch = snapHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-                if (bodyMatch) {
+                // Skip old-format snapshots that use removed CSS classes (pre-combined-page layout)
+                if (bodyMatch && bodyMatch[1].indexOf('pv-page-total') === -1) {
                     document.getElementById('quotePages').innerHTML = bodyMatch[1];
                     applySmartLayouts();
                     document.getElementById('loadingState').style.display = 'none';
@@ -1040,6 +1041,7 @@ async function renderQuote() {
                     renderAcceptanceSection(sub, token);
                     return;
                 }
+                // Old-format snapshot detected → fall through to live rendering
             }
         } catch (e) { /* snapshot not available, render live */ }
     }
@@ -1118,15 +1120,15 @@ async function renderQuote() {
     html += '<div class="pv-cover-brand">stele</div>';
     html += '</div>';
 
-    // ── Introduction page (skip for locked submissions — those are frozen like a PDF) ──
-    var introImageUrl = !isLocked ? (introConfig.intro_image || '') : '';
-    var introText1 = !isLocked ? (introConfig.presentation_intro_text_1 || '') : '';
-    var introText2 = !isLocked ? (introConfig.presentation_intro_text_2 || '') : '';
-    var introText3 = !isLocked ? (introConfig.presentation_intro_text_3 || '') : '';
-    var introAtelier = !isLocked ? (introConfig.presentation_intro_atelier || '') : '';
-    var introBureau = !isLocked ? (introConfig.presentation_intro_bureau || '') : '';
-    var introPhone = !isLocked ? (introConfig.presentation_intro_phone || '') : '';
-    var introUrl = !isLocked ? (introConfig.presentation_intro_url || '') : '';
+    // ── Introduction page ──
+    var introImageUrl = introConfig.intro_image || '';
+    var introText1 = introConfig.presentation_intro_text_1 || '';
+    var introText2 = introConfig.presentation_intro_text_2 || '';
+    var introText3 = introConfig.presentation_intro_text_3 || '';
+    var introAtelier = introConfig.presentation_intro_atelier || '';
+    var introBureau = introConfig.presentation_intro_bureau || '';
+    var introPhone = introConfig.presentation_intro_phone || '';
+    var introUrl = introConfig.presentation_intro_url || '';
 
     if (introImageUrl || introText1 || introText2 || introText3) {
         html += '<div class="pv-page pv-page-intro">';

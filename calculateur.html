@@ -2745,76 +2745,103 @@
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
         if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
 
-        // Step 1-2: Extract keywords from client_text, then description
-        var keywords = [];
-        var keywordSource = '';
-        if (parentItem.client_text) {
-            keywords = extractMatchKeywords(parentItem.client_text);
-            keywordSource = 'client_text';
-        }
-        if (keywords.length === 0 && parentItem.description) {
-            keywords = extractMatchKeywords(parentItem.description);
-            keywordSource = 'description';
-        }
-
-        // Step 3: Fallback to default material for the parent's material group
-        if (keywords.length === 0) {
-            var dmKeywords = await getDefaultMaterialKeywords(groupId, parentItem.category);
-            if (dmKeywords) {
-                keywords = dmKeywords.keywords;
-                keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
-            }
-        }
-
-        if (keywords.length === 0) {
-            console.warn('[CASCADE] $match: no keywords after full fallback chain for', parentRow.catalogueId);
-            showConstraintToast('Aucun matériau par défaut trouvé pour $match:' + expenseCategory);
-            return null;
-        }
-        console.log('[CASCADE] $match: keywords from ' + keywordSource + ':', keywords.join(', '));
-
-        // Normalize cache key to uppercase for consistency
         var expCatUpper = expenseCategory.toUpperCase();
-        var cacheKey = expCatUpper + ':' + keywords.join('+');
-        if (matchDefaults[cacheKey]) {
-            if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
-                console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
-                return matchDefaults[cacheKey];
-            }
-        }
 
-        // Filter catalogue: items with material_costs in this expense category
+        // Filter catalogue once: items with material_costs in this expense category
         var candidates = CATALOGUE_DATA.filter(function(item) {
             return itemHasMaterialCost(item, expCatUpper);
         });
         console.log('[CASCADE] $match: ' + candidates.length + ' candidates with material_costs in "' + expCatUpper + '"',
             candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
 
-        // Score by keyword matches in client_text/description
-        var scored = scoreMatchCandidates(candidates, keywords);
-        console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (keywords: ' + keywords.join(', ') + ')',
-            scored.slice(0, 3).map(function(s) { return s.item.id + ' score=' + s.score; }));
-
-        // Relax to top 2 keywords if no results
-        if (scored.length === 0 && keywords.length > 2) {
-            var relaxedKw = keywords.slice(0, 2);
-            scored = scoreMatchCandidates(candidates, relaxedKw);
-            console.log('[CASCADE] $match: relaxed to top-2 keywords (' + relaxedKw.join(', ') + ') → ' + scored.length + ' results');
+        // ── Fallback chain: client_text → description → default material ──
+        // Each step extracts keywords and scores independently.
+        // If a step scores 0, continue to the next step (not just when no keywords).
+        var steps = [];
+        if (parentItem.client_text) {
+            var kw1 = extractMatchKeywords(parentItem.client_text);
+            if (kw1.length > 0) steps.push({ keywords: kw1, source: 'client_text' });
+        }
+        if (parentItem.description) {
+            var kw2 = extractMatchKeywords(parentItem.description);
+            if (kw2.length > 0) steps.push({ keywords: kw2, source: 'description' });
         }
 
-        if (scored.length === 0) {
-            console.warn('[CASCADE] $match: 0 scored results — no candidate has any keyword in client_text/description');
-            showConstraintToast('Aucun article trouvé pour $match:' + expenseCategory);
-            return null;
+        for (var si = 0; si < steps.length; si++) {
+            var keywords = steps[si].keywords;
+            var keywordSource = steps[si].source;
+            console.log('[CASCADE] $match: step ' + (si + 1) + ' — keywords from ' + keywordSource + ':', keywords.join(', '));
+
+            var cacheKey = expCatUpper + ':' + keywords.join('+');
+            if (matchDefaults[cacheKey]) {
+                if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
+                    console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
+                    return matchDefaults[cacheKey];
+                }
+            }
+
+            var scored = scoreMatchCandidates(candidates, keywords);
+            console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (' + keywordSource + ')',
+                scored.slice(0, 3).map(function(s) { return s.item.id + ' score=' + s.score; }));
+
+            if (scored.length === 0 && keywords.length > 2) {
+                var relaxedKw = keywords.slice(0, 2);
+                scored = scoreMatchCandidates(candidates, relaxedKw);
+                console.log('[CASCADE] $match: relaxed to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length + ' results');
+            }
+
+            if (scored.length === 1) {
+                saveMatchDefault(cacheKey, scored[0].item.id);
+                return scored[0].item.id;
+            }
+            if (scored.length > 1) {
+                var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
+                if (chosen) saveMatchDefault(cacheKey, chosen);
+                return chosen;
+            }
+            // scored === 0 → continue to next keyword source
+            console.log('[CASCADE] $match: 0 results from ' + keywordSource + ', continuing fallback...');
         }
-        if (scored.length === 1) {
-            saveMatchDefault(cacheKey, scored[0].item.id);
-            return scored[0].item.id;
+
+        // Step 3: Fallback to default material keywords
+        var dmKeywords = await getDefaultMaterialKeywords(groupId, parentItem.category);
+        if (dmKeywords) {
+            var keywords = dmKeywords.keywords;
+            var keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
+            console.log('[CASCADE] $match: DM fallback — keywords from ' + keywordSource + ':', keywords.join(', '));
+
+            var cacheKey = expCatUpper + ':' + keywords.join('+');
+            if (matchDefaults[cacheKey]) {
+                if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
+                    console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
+                    return matchDefaults[cacheKey];
+                }
+            }
+
+            var scored = scoreMatchCandidates(candidates, keywords);
+            console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (DM keywords)');
+
+            if (scored.length === 0 && keywords.length > 2) {
+                var relaxedKw = keywords.slice(0, 2);
+                scored = scoreMatchCandidates(candidates, relaxedKw);
+                console.log('[CASCADE] $match: relaxed DM to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length);
+            }
+
+            if (scored.length === 1) {
+                saveMatchDefault(cacheKey, scored[0].item.id);
+                return scored[0].item.id;
+            }
+            if (scored.length > 1) {
+                var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
+                if (chosen) saveMatchDefault(cacheKey, chosen);
+                return chosen;
+            }
         }
-        // Multiple matches → popup choice
-        var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
-        if (chosen) saveMatchDefault(cacheKey, chosen);
-        return chosen;
+
+        // All fallback sources exhausted
+        console.warn('[CASCADE] $match: 0 scored results after full fallback chain for', parentRow.catalogueId);
+        showConstraintToast('Aucun article trouvé pour $match:' + expenseCategory);
+        return null;
     }
 
     /**
@@ -3385,14 +3412,45 @@
         });
     }
 
-    var debouncedCascade = debounce(function(rowId) {
-        if (_cascadeRunning) {
-            // Queue this cascade to run after the current one finishes
-            _pendingCascadeRowId = rowId;
-            return;
+    var _cascadePendingTimer = null;
+
+    /**
+     * Schedule a cascade execution.
+     * @param {string} rowId — parent row to cascade
+     * @param {boolean} [immediate=false] — if true, run immediately (bypass debounce)
+     */
+    function scheduleCascade(rowId, immediate) {
+        // Check eligibility: row must have cascade rules or existing children
+        var row = document.getElementById(rowId);
+        if (!row) return;
+        var sel = row.querySelector('.item-select');
+        var selVal = sel ? sel.value : '';
+        if (!selVal || selVal === '__PROPOSER__' || selVal === '__AJOUT__') return;
+        var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selVal; });
+        var hasRules = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade;
+        if (!hasRules && findCascadeChildren(rowId).length === 0) return;
+
+        if (_cascadePendingTimer) {
+            clearTimeout(_cascadePendingTimer);
+            _cascadePendingTimer = null;
         }
-        runCascadeNow(rowId);
-    }, 400);
+        if (immediate) {
+            if (_cascadeRunning) {
+                _pendingCascadeRowId = rowId;
+                return;
+            }
+            runCascadeNow(rowId);
+        } else {
+            _cascadePendingTimer = setTimeout(function() {
+                _cascadePendingTimer = null;
+                if (_cascadeRunning) {
+                    _pendingCascadeRowId = rowId;
+                    return;
+                }
+                runCascadeNow(rowId);
+            }, 400);
+        }
+    }
 
     // ═══════════════════════════════════════════
     // ── Constraint engine (auto_add, requires_swap, requires_choice) ──
@@ -9628,7 +9686,7 @@
                 <div class="cell-dims dims-hidden" id="${rowId}-dims">&mdash;</div>
                 <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
                 <div class="cell-qty">
-                    <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" onchange="updateRow('${rowId}')" oninput="updateRow('${rowId}')">
+                    <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" oninput="updateRow('${rowId}')" onchange="updateRow('${rowId}'); scheduleCascade('${rowId}', true)">
                 </div>
                 <div class="install-toggle-row">
                     <input type="checkbox" id="${rowId}-install" checked onchange="toggleRowInstallation('${rowId}')" title="Installation incluse">
@@ -10198,11 +10256,11 @@
                         var dc = (dimItem && dimItem.dims_config) ? dimItem.dims_config : { l: true, h: true, p: true };
 
                         var parts = [];
-                        if (dc.l) parts.push('<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.l) parts.push('<input type="number" id="' + rowId + '-dim-l" placeholder="L" step="0.125" min="0" value="' + curL + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">');
                         if (dc.l && (dc.h || dc.p)) parts.push('<span class="dim-sep">\u00d7</span>');
-                        if (dc.h) parts.push('<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.h) parts.push('<input type="number" id="' + rowId + '-dim-h" placeholder="H" step="0.125" min="0" value="' + curH + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">');
                         if (dc.h && dc.p) parts.push('<span class="dim-sep">\u00d7</span>');
-                        if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">');
+                        if (dc.p) parts.push('<input type="number" id="' + rowId + '-dim-p" placeholder="P" step="0.125" min="0" value="' + curP + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">');
 
                         dimsEl.innerHTML = parts.join('');
 
@@ -10211,8 +10269,8 @@
                             var curTab = dimsEl.dataset.tab || '';
                             var curPart = dimsEl.dataset.part || '';
                             dimsEl.innerHTML += '<div class="caisson-sep"></div>'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\')">';
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">';
                         }
                     }
                 } else {
@@ -10290,7 +10348,7 @@
                 debouncedSaveItem(rowId, row);
             }
 
-            // Cascade : déclencher quand dimensions changent ou article sélectionné
+            // Cascade : déclencher quand dimensions/qty changent ou article sélectionné
             if (!_cascadeRunning && selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
                 var hasCascadeRules = false;
                 var cascadeCatItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -10299,7 +10357,7 @@
                 }
                 // Déclencher aussi pour les parents qui ont déjà des enfants
                 if (hasCascadeRules || findCascadeChildren(rowId).length > 0) {
-                    debouncedCascade(rowId);
+                    scheduleCascade(rowId);
                 }
             }
 

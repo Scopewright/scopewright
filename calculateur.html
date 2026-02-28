@@ -3193,6 +3193,7 @@
     async function executeCascade(parentRowId, depth) {
         depth = depth || 0;
         if (depth >= 3) { console.log('[CASCADE] max depth reached for', parentRowId); return; }
+        console.log('[CASCADE] itemMap check:', parentRowId, '→', itemMap[parentRowId] || 'MISSING');
         if (!itemMap[parentRowId]) { console.log('[CASCADE] no itemMap for', parentRowId); return; }
 
         var row = document.getElementById(parentRowId);
@@ -3402,7 +3403,9 @@
     function runCascadeNow(rowId) {
         _cascadeRunning = true;
         _pendingCascadeRowId = null;
-        executeCascade(rowId, 0).finally(function() {
+        executeCascade(rowId, 0).catch(function(err) {
+            console.error('[CASCADE] ERROR:', err);
+        }).finally(function() {
             _cascadeRunning = false;
             // If a cascade was queued while we were running, execute it now
             if (_pendingCascadeRowId) {
@@ -3420,6 +3423,11 @@
      * @param {boolean} [immediate=false] — if true, run immediately (bypass debounce)
      */
     function scheduleCascade(rowId, immediate) {
+        // During active cascade, drop all external triggers — the cascade engine
+        // handles its own recursion via executeCascade(child, depth+1) at L3375.
+        // This prevents infinite loops where updateRow(child) → scheduleCascade → parent.
+        if (_cascadeRunning) return;
+
         // Check eligibility: row must have cascade rules or existing children
         var row = document.getElementById(rowId);
         if (!row) return;
@@ -3435,18 +3443,11 @@
             _cascadePendingTimer = null;
         }
         if (immediate) {
-            if (_cascadeRunning) {
-                _pendingCascadeRowId = rowId;
-                return;
-            }
             runCascadeNow(rowId);
         } else {
             _cascadePendingTimer = setTimeout(function() {
                 _cascadePendingTimer = null;
-                if (_cascadeRunning) {
-                    _pendingCascadeRowId = rowId;
-                    return;
-                }
+                if (_cascadeRunning) return;
                 runCascadeNow(rowId);
             }, 400);
         }
@@ -10104,9 +10105,9 @@
                 var dept = tauxHoraires[i].department;
                 var minutes = laborMinutes[dept] || 0;
                 if (minutes > 0) {
+                    hasComposed = true;
                     if (!includeInstallation && dept === 'Installation') continue;
                     laborTotal += (minutes / 60) * (tauxHoraires[i].taux_horaire || 0);
-                    hasComposed = true;
                 }
             }
 

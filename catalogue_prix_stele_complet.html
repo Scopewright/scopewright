@@ -4982,25 +4982,86 @@
                 if (sbMaterials[key] && sbMaterials[key].id) return sbMaterials[key].id;
                 return null;
             }
-            // $match: — keyword-match parent's client_text (take first result, no popup)
+            // $match: — keyword-match with fallback chain, take first result (no popup)
             var expCat = target.substring(7);
             var expCatUpper = expCat.toUpperCase();
             var parentRow = sbRows.find(function(r) { return !r.cascadeOf; });
             if (!parentRow) return null;
             var parentItem = sbGetItem(parentRow.catalogueItemId);
-            if (!parentItem || !parentItem.client_text) return null;
+            if (!parentItem) return null;
 
-            var keywords = sbExtractMatchKeywords(parentItem.client_text);
+            // Fallback chain: 1. client_text → 2. description → 3. sandbox default material
+            var keywords = [];
+            if (parentItem.client_text) {
+                keywords = sbExtractMatchKeywords(parentItem.client_text);
+            }
+            if (keywords.length === 0 && parentItem.description) {
+                keywords = sbExtractMatchKeywords(parentItem.description);
+            }
+            if (keywords.length === 0) {
+                keywords = sbGetDefaultMaterialKeywords(parentItem.category);
+            }
+            if (keywords.length === 0) return null;
+
+            // Score candidates
             var candidates = CATALOGUE_DATA.filter(function(item) {
                 return sbItemHasMaterialCost(item, expCatUpper);
             });
+            var scored = sbScoreMatchCandidates(candidates, keywords);
+            // Relax to top 2 keywords if no results
+            if (scored.length === 0 && keywords.length > 2) {
+                scored = sbScoreMatchCandidates(candidates, keywords.slice(0, 2));
+            }
+            return scored.length > 0 ? scored[0].item.id : null;
+        }
+
+        /** Score candidates by keyword hits in client_text/description. */
+        function sbScoreMatchCandidates(candidates, keywords) {
             var scored = candidates.map(function(item) {
                 var text = (item.client_text || item.description || '').toLowerCase();
                 var hits = keywords.filter(function(kw) { return text.indexOf(kw) !== -1; });
                 return { item: item, score: hits.length };
             }).filter(function(s) { return s.score > 0; });
             scored.sort(function(a, b) { return b.score - a.score; });
-            return scored.length > 0 ? scored[0].item.id : null;
+            return scored;
+        }
+
+        /**
+         * Fallback: extract keywords from the sandbox default material matching
+         * the parent's catalogue category (case-insensitive name match on DM type).
+         */
+        function sbGetDefaultMaterialKeywords(parentCategory) {
+            if (!parentCategory) return [];
+            var catLower = parentCategory.toLowerCase();
+
+            // 1. Direct match: category name === material group name
+            var dmItemId = null;
+            var matKeys = Object.keys(sbMaterials);
+            for (var i = 0; i < matKeys.length; i++) {
+                var mat = sbMaterials[matKeys[i]];
+                if (!mat || !mat.id) continue;
+                // Reconstruct the group name from key for comparison
+                var groupLower = matKeys[i].replace(/_/g, ' ');
+                if (groupLower === catLower || catLower.indexOf(groupLower) !== -1 || groupLower.indexOf(catLower) !== -1) {
+                    dmItemId = mat.id;
+                    break;
+                }
+            }
+
+            // 2. Last resort: first material with an id
+            if (!dmItemId) {
+                for (var j = 0; j < matKeys.length; j++) {
+                    if (sbMaterials[matKeys[j]] && sbMaterials[matKeys[j]].id) {
+                        dmItemId = sbMaterials[matKeys[j]].id;
+                        break;
+                    }
+                }
+            }
+
+            if (!dmItemId) return [];
+            var dmItem = CATALOGUE_DATA.find(function(c) { return c.id === dmItemId; });
+            if (!dmItem) return [];
+            return sbExtractMatchKeywords(dmItem.client_text || dmItem.description || '');
         }
 
         // ── Constraint engine (simplified) ──

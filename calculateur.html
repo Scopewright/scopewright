@@ -2602,6 +2602,45 @@
         catch (e) { console.error('[Cascade] Erreur formule:', expr, e); return null; }
     }
 
+    /**
+     * For dynamic cascade rules ($default: / $match:), check if an existing active child
+     * already satisfies the rule — so we can skip resolution (and avoid popup).
+     * Returns the child's catalogueId if found, or null.
+     */
+    function findExistingChildForDynamicRule(ruleTarget, groupId, activeChildren, alreadyMatched) {
+        if (ruleTarget.startsWith('$default:')) {
+            var groupName = ruleTarget.substring(9);
+            var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
+            var validIds = {};
+            for (var i = 0; i < dm.length; i++) {
+                if (dm[i].type === groupName && dm[i].catalogue_item_id) {
+                    validIds[dm[i].catalogue_item_id] = true;
+                }
+            }
+            for (var j = 0; j < activeChildren.length; j++) {
+                var c = activeChildren[j];
+                if (alreadyMatched.indexOf(c.rowId) === -1 && c.catalogueId && validIds[c.catalogueId]) {
+                    return c.catalogueId;
+                }
+            }
+            return null;
+        }
+        if (ruleTarget.startsWith('$match:')) {
+            var expCat = ruleTarget.substring(7).toUpperCase();
+            for (var k = 0; k < activeChildren.length; k++) {
+                var ch = activeChildren[k];
+                if (alreadyMatched.indexOf(ch.rowId) === -1 && ch.catalogueId) {
+                    var catItem = CATALOGUE_DATA.find(function(it) { return it.id === ch.catalogueId; });
+                    if (catItem && itemHasMaterialCost(catItem, expCat)) {
+                        return ch.catalogueId;
+                    }
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
     /** Trouver les enfants cascade d'un parent (lookup dans cascadeParentMap) */
     function findCascadeChildren(parentRowId) {
         var children = [];
@@ -3204,8 +3243,14 @@
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
 
-            // Résoudre $default: targets (room-level DM avec fallback soumission)
-            var resolvedTarget = await resolveCascadeTarget(rule.target, groupId);
+            // For dynamic targets, reuse existing child if it already satisfies the rule (skip popup)
+            var resolvedTarget = null;
+            if (rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) {
+                resolvedTarget = findExistingChildForDynamicRule(rule.target, groupId, activeChildren, matchedChildRowIds);
+            }
+            if (!resolvedTarget) {
+                resolvedTarget = await resolveCascadeTarget(rule.target, groupId);
+            }
             if (!resolvedTarget) {
                 if (rule.target.startsWith('$default:'))
                     showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));

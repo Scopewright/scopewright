@@ -2634,6 +2634,11 @@
     /**
      * Resolve a $match:EXPENSE_CATEGORY target by keyword-matching the parent
      * fabrication item's client_text against catalogue items with costs in that category.
+     *
+     * Fallback chain for keywords:
+     * 1. Parent item's client_text
+     * 2. Parent item's description
+     * 3. Default material for the parent's material group (via categoryGroupMapping or name match)
      */
     async function resolveMatchTarget(expenseCategory, groupId) {
         var parentRow = findParentFabRow(groupId);
@@ -2641,12 +2646,33 @@
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
         if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
 
-        // Use client_text, fallback to description
-        var sourceText = parentItem.client_text || parentItem.description || '';
-        if (!sourceText) { console.warn('[CASCADE] $match: parent has no client_text nor description', parentRow.catalogueId); return null; }
+        // Step 1-2: Extract keywords from client_text, then description
+        var keywords = [];
+        var keywordSource = '';
+        if (parentItem.client_text) {
+            keywords = extractMatchKeywords(parentItem.client_text);
+            keywordSource = 'client_text';
+        }
+        if (keywords.length === 0 && parentItem.description) {
+            keywords = extractMatchKeywords(parentItem.description);
+            keywordSource = 'description';
+        }
 
-        var keywords = extractMatchKeywords(sourceText);
-        if (keywords.length === 0) { console.warn('[CASCADE] $match: no keywords from text:', sourceText.substring(0, 80)); return null; }
+        // Step 3: Fallback to default material for the parent's material group
+        if (keywords.length === 0) {
+            var dmKeywords = getDefaultMaterialKeywords(groupId, parentItem.category);
+            if (dmKeywords) {
+                keywords = dmKeywords.keywords;
+                keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
+            }
+        }
+
+        if (keywords.length === 0) {
+            console.warn('[CASCADE] $match: no keywords after full fallback chain for', parentRow.catalogueId);
+            showConstraintToast('Aucun matériau par défaut trouvé pour $match:' + expenseCategory);
+            return null;
+        }
+        console.log('[CASCADE] $match: keywords from ' + keywordSource + ':', keywords.join(', '));
 
         // Normalize cache key to uppercase for consistency
         var expCatUpper = expenseCategory.toUpperCase();
@@ -2663,22 +2689,11 @@
         });
 
         // Score by keyword matches in client_text/description
-        var scored = candidates.map(function(item) {
-            var itemText = (item.client_text || item.description || '').toLowerCase();
-            var hits = keywords.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
-            return { item: item, score: hits.length };
-        }).filter(function(s) { return s.score > 0; });
-        scored.sort(function(a, b) { return b.score - a.score; });
+        var scored = scoreMatchCandidates(candidates, keywords);
 
         // Relax to top 2 keywords if no results
         if (scored.length === 0 && keywords.length > 2) {
-            var topKw = keywords.slice(0, 2);
-            scored = candidates.map(function(item) {
-                var itemText = (item.client_text || item.description || '').toLowerCase();
-                var hits = topKw.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
-                return { item: item, score: hits.length };
-            }).filter(function(s) { return s.score > 0; });
-            scored.sort(function(a, b) { return b.score - a.score; });
+            scored = scoreMatchCandidates(candidates, keywords.slice(0, 2));
         }
 
         if (scored.length === 0) {
@@ -2696,6 +2711,78 @@
     }
 
     /**
+     * Score catalogue candidates against keywords by matching client_text/description.
+     */
+    function scoreMatchCandidates(candidates, keywords) {
+        var scored = candidates.map(function(item) {
+            var itemText = (item.client_text || item.description || '').toLowerCase();
+            var hits = keywords.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
+            return { item: item, score: hits.length };
+        }).filter(function(s) { return s.score > 0; });
+        scored.sort(function(a, b) { return b.score - a.score; });
+        return scored;
+    }
+
+    /**
+     * Fallback: get keywords from the default material assigned to the parent's material group.
+     * Uses categoryGroupMapping to find which material group the parent category belongs to,
+     * then reads the default material's client_text for keyword extraction.
+     */
+    function getDefaultMaterialKeywords(groupId, parentCategory) {
+        var dm = getDefaultMaterialsForGroup(groupId);
+        if (!dm || dm.length === 0) return null;
+
+        var dmEntry = null;
+
+        // 1. Use categoryGroupMapping: parent category → material group names
+        if (categoryGroupMapping && parentCategory) {
+            var targetGroups = categoryGroupMapping[parentCategory];
+            if (targetGroups && targetGroups.length > 0) {
+                for (var g = 0; g < targetGroups.length; g++) {
+                    dmEntry = findDmEntryByType(dm, targetGroups[g]);
+                    if (dmEntry) break;
+                }
+            }
+        }
+
+        // 2. Fuzzy match: parent category name contains group name or vice versa
+        if (!dmEntry && parentCategory) {
+            var catLower = parentCategory.toLowerCase();
+            for (var di = 0; di < dm.length; di++) {
+                if (!dm[di].catalogue_item_id || !dm[di].type) continue;
+                var typeLower = dm[di].type.toLowerCase();
+                if (catLower.indexOf(typeLower) !== -1 || typeLower.indexOf(catLower) !== -1) {
+                    dmEntry = dm[di];
+                    break;
+                }
+            }
+        }
+
+        // 3. Last resort: first default material with a catalogue_item_id
+        if (!dmEntry) {
+            dmEntry = dm.find(function(d) { return d.catalogue_item_id; }) || null;
+        }
+
+        if (!dmEntry || !dmEntry.catalogue_item_id) return null;
+
+        var dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
+        if (!dmItem) return null;
+
+        var text = dmItem.client_text || dmItem.description || '';
+        var kw = extractMatchKeywords(text);
+        if (kw.length === 0) return null;
+
+        return { keywords: kw, dmItemId: dmItem.id };
+    }
+
+    function findDmEntryByType(dm, typeName) {
+        for (var i = 0; i < dm.length; i++) {
+            if (dm[i].type === typeName && dm[i].catalogue_item_id) return dm[i];
+        }
+        return null;
+    }
+
+    /**
      * Show a modal for the user to choose among multiple $match: candidates.
      */
     async function showMatchChoiceModal(expenseCategory, scored, keywords) {
@@ -2704,34 +2791,82 @@
             overlay.className = 'constraint-modal-overlay';
             var modal = document.createElement('div');
             modal.className = 'constraint-modal';
-            modal.style.maxWidth = '440px';
+            modal.style.maxWidth = '480px';
 
-            var title = 'Choisir le matériau — ' + expenseCategory;
+            var title = 'Sélectionner : ' + expenseCategory;
             var subtitle = 'Mots-clés : ' + keywords.join(', ');
-            modal.innerHTML = '<h3>' + escapeHtml(title) + '</h3>'
-                + '<p style="font-size:12px;color:#666;">' + escapeHtml(subtitle) + '</p>';
+            modal.innerHTML = '<h3 style="margin:0 0 4px;">' + escapeHtml(title) + '</h3>'
+                + '<p style="font-size:12px;color:#666;margin:0 0 12px;">' + escapeHtml(subtitle) + '</p>';
 
+            var selectedId = null;
             var list = document.createElement('div');
-            list.style.cssText = 'max-height:240px; overflow-y:auto; margin:12px 0;';
+            list.style.cssText = 'max-height:260px; overflow-y:auto; margin:0 0 12px;';
 
-            scored.slice(0, 8).forEach(function(s) {
-                var btn = document.createElement('button');
-                btn.style.cssText = 'display:block; width:100%; text-align:left; padding:8px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:6px; background:#fff; cursor:pointer; font-size:13px;';
-                btn.innerHTML = '<strong>' + escapeHtml(s.item.id) + '</strong> — '
-                    + escapeHtml(s.item.client_text || s.item.description)
-                    + '<br><span style="font-size:11px;color:#888;">Score: ' + s.score + '/' + keywords.length + '</span>';
-                btn.onmouseover = function() { btn.style.background = '#f1f5f9'; };
-                btn.onmouseout = function() { btn.style.background = '#fff'; };
-                btn.onclick = function() { overlay.remove(); resolve(s.item.id); };
+            scored.slice(0, 8).forEach(function(s, idx) {
+                var priceText = s.item.price != null ? formatPrice(s.item.price) : '';
+                var btn = document.createElement('div');
+                btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
+                var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="match-radio"></div>';
+                btn.innerHTML = radio
+                    + '<div style="flex:1;min-width:0;">'
+                    + '<div><strong>' + escapeHtml(s.item.id) + '</strong> — ' + escapeHtml(s.item.client_text || s.item.description || '') + '</div>'
+                    + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(s.item.type || 'unité') + '</div>' : '')
+                    + '</div>';
+                btn.onmouseover = function() { if (selectedId !== s.item.id) btn.style.background = '#f8fafc'; };
+                btn.onmouseout = function() { if (selectedId !== s.item.id) btn.style.background = '#fff'; };
+                btn.onclick = function() {
+                    selectedId = s.item.id;
+                    list.querySelectorAll('.match-radio').forEach(function(r) {
+                        r.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;';
+                    });
+                    list.querySelectorAll('[data-match-row]').forEach(function(r) { r.style.background = '#fff'; r.style.borderColor = '#e0e0e0'; });
+                    btn.querySelector('.match-radio').style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid var(--sw-navy, #0B1220);background:var(--sw-navy, #0B1220);flex-shrink:0;box-shadow:inset 0 0 0 3px #fff;';
+                    btn.style.background = '#f0f4ff';
+                    btn.style.borderColor = 'var(--sw-navy, #0B1220)';
+                    confirmBtn.disabled = false;
+                    confirmBtn.style.opacity = '1';
+                };
+                btn.setAttribute('data-match-row', '1');
                 list.appendChild(btn);
             });
             modal.appendChild(list);
 
+            // Remember checkbox
+            var rememberDiv = document.createElement('div');
+            rememberDiv.style.cssText = 'display:flex;align-items:center;gap:6px;margin:0 0 14px;font-size:12px;color:#666;';
+            var rememberCb = document.createElement('input');
+            rememberCb.type = 'checkbox';
+            rememberCb.checked = true;
+            rememberCb.style.cssText = 'width:14px;height:14px;accent-color:var(--sw-navy, #0B1220);';
+            rememberDiv.appendChild(rememberCb);
+            var rememberLabel = document.createElement('span');
+            rememberLabel.textContent = 'Mémoriser ce choix pour cette soumission';
+            rememberDiv.appendChild(rememberLabel);
+            modal.appendChild(rememberDiv);
+
+            var actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+
             var cancelBtn = document.createElement('button');
             cancelBtn.className = 'cm-btn-secondary';
-            cancelBtn.textContent = 'Ignorer';
+            cancelBtn.textContent = 'Annuler';
             cancelBtn.onclick = function() { overlay.remove(); resolve(null); };
-            modal.appendChild(cancelBtn);
+            actions.appendChild(cancelBtn);
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.style.cssText = 'padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--sw-navy, #0B1220);color:#fff;opacity:0.4;';
+            confirmBtn.textContent = 'Confirmer';
+            confirmBtn.disabled = true;
+            confirmBtn.onclick = function() {
+                overlay.remove();
+                if (selectedId && rememberCb.checked) {
+                    var ck = expenseCategory.toUpperCase() + ':' + keywords.join('+');
+                    saveMatchDefault(ck, selectedId);
+                }
+                resolve(selectedId);
+            };
+            actions.appendChild(confirmBtn);
+            modal.appendChild(actions);
 
             overlay.appendChild(modal);
             overlay.addEventListener('click', function(e) {

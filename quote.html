@@ -232,28 +232,81 @@
             font-size: 12px; line-height: 1.3; color: #555555;
         }
 
-        /* Total page */
-        .pv-page-total { justify-content: center; align-items: center; text-align: center; }
-        .pv-total-box {
-            padding: 36px 56px; background: #1A1A1A; color: #fff; border-radius: 0;
+        /* ── Combined Total + Acceptance page ── */
+        .pv-page-final { padding: 0; display: flex; flex-direction: column; }
+        .pv-final-topline { height: 1px; background: rgba(0,0,0,0.14); margin: 0 80px; flex-shrink: 0; }
+        .pv-final-body {
+            flex: 1; display: grid; grid-template-columns: 55% 1px 1fr;
+            padding: 80px; gap: 0; min-height: 0;
         }
-        .pv-total-box .total-label {
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 12px; font-weight: 400; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; opacity: 0.8;
+
+        /* Left column */
+        .pv-final-left { display: flex; flex-direction: column; justify-content: center; padding-right: 64px; }
+        .pv-final-title {
+            font-family: 'Cormorant Garamond', Georgia, serif; font-size: 38px;
+            font-weight: 400; font-style: italic; line-height: 1.2; color: #1A1A1A;
+            letter-spacing: -0.01em; margin-bottom: 80px;
         }
-        .pv-total-box .total-amount {
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 42px; font-weight: 400; letter-spacing: -0.02em;
+        .pv-final-text p {
+            font-size: 14px; font-weight: 400; line-height: 1.8; color: #6F6F6F; margin: 0 0 20px 0;
         }
-        .pv-total-box .total-taxes { font-size: 13px; opacity: 0.6; margin-top: 6px; }
-        .pv-page-footer-text {
-            margin-top: 32px; font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 12px; font-weight: 400; color: #888888; letter-spacing: 0.02em; text-transform: uppercase;
+        .pv-final-text p:last-child { margin-bottom: 0; }
+
+        /* Vertical separator */
+        .pv-final-separator { width: 1px; background: #EAEAEA; align-self: stretch; }
+
+        /* Right column */
+        .pv-final-right { display: flex; flex-direction: column; justify-content: center; padding-left: 64px; gap: 40px; }
+
+        /* Total block */
+        .pv-final-total-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2.5px; color: #9A9A9A; margin-bottom: 8px; }
+        .pv-final-total-amount { font-size: 38px; font-weight: 500; letter-spacing: -0.02em; color: #1A1A1A; line-height: 1.1; }
+        .pv-final-total-taxes { font-size: 12px; color: #9A9A9A; margin-top: 6px; }
+        .pv-final-install-note { font-size: 11px; color: #9A9A9A; letter-spacing: 0.3px; margin-bottom: 8px; }
+
+        /* Discount breakdown */
+        .pv-final-breakdown { margin-bottom: 8px; }
+        .pv-final-breakdown-line { display: flex; justify-content: space-between; font-size: 13px; color: #6F6F6F; padding: 3px 0; }
+        .pv-final-breakdown-discount { color: #ef5350; }
+        .pv-final-breakdown-divider { height: 1px; background: #E5E5E5; margin: 6px 0; }
+
+        /* Acceptance form */
+        .pv-final-accept-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2.5px; color: #9A9A9A; margin-bottom: 16px; }
+        .pv-final-form { display: flex; flex-direction: column; gap: 10px; }
+        .pv-final-form input {
+            width: 100%; padding: 10px 12px; font-size: 14px; font-family: inherit;
+            border: 1px solid #E5E5E5; border-radius: 4px; background: #fff; color: #1A1A1A;
+            transition: border-color 0.2s;
         }
-        .pv-total-breakdown { margin-bottom: 12px; }
-        .pv-total-subtotal-line, .pv-total-discount-line { display: flex; justify-content: space-between; font-size: 16px; padding: 4px 0; opacity: 0.8; }
-        .pv-total-discount-line { color: #ef5350; }
-        .pv-total-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0; }
+        .pv-final-form input:focus { outline: none; border-color: #9A9A9A; }
+        .pv-final-form input::placeholder { color: #B0B0B0; }
+
+        /* Signature */
+        .pv-final-sig-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: #9A9A9A; margin-bottom: 6px; margin-top: 4px; }
+        .pv-final-sig-wrap { position: relative; width: 100%; border: 1px solid #E5E5E5; border-radius: 4px; background: #fff; }
+        .pv-final-sig-canvas { display: block; width: 100%; height: 100px; cursor: crosshair; touch-action: none; }
+        .pv-final-sig-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; color: #C8C8C8; pointer-events: none; transition: opacity 0.2s; }
+        .pv-final-sig-actions { display: flex; justify-content: flex-end; margin-top: 3px; }
+        .pv-final-sig-clear { background: none; border: none; font-size: 11px; color: #B0B0B0; cursor: pointer; padding: 2px 0; font-family: inherit; transition: color 0.2s; }
+        .pv-final-sig-clear:hover { color: #1A1A1A; }
+
+        /* Accept button */
+        .pv-final-accept-btn {
+            width: 100%; padding: 12px; font-size: 14px; font-weight: 500; font-family: inherit;
+            background: #5e7462; color: #fff; border: none; border-radius: 4px; cursor: pointer;
+            transition: background 0.2s; margin-top: 4px;
+        }
+        .pv-final-accept-btn:hover { background: #4b6050; }
+        .pv-final-accept-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Micro-text */
+        .pv-final-micro { font-size: 10px; color: #B0B0B0; line-height: 1.5; margin-top: 2px; }
+
+        /* Accepted state */
+        .pv-final-accepted { text-align: center; padding: 40px 0; }
+        .pv-final-accepted-icon { width: 48px; height: 48px; border-radius: 50%; background: #4b6050; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 12px; }
+        .pv-final-accepted-title { font-size: 16px; font-weight: 500; color: #1A1A1A; margin-bottom: 4px; }
+        .pv-final-accepted-info { font-size: 13px; color: #6F6F6F; }
 
         /* Steps page */
         .pv-page-steps { padding: 32px 32px; }
@@ -535,173 +588,9 @@
             color: #888;
         }
 
-        /* ── Acceptance section ── */
-        .acceptance-section {
-            scroll-snap-align: start;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 28px;
-            background: var(--stele-white);
-            text-align: center;
-        }
+        /* (Old acceptance/signature/btn-accept CSS removed — replaced by .pv-final-* above) */
 
-        .acceptance-section h2 {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--stele-black);
-        }
-
-        .acceptance-subtitle {
-            font-size: 14px;
-            opacity: 0.6;
-            margin-bottom: 24px;
-        }
-
-        .acceptance-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 14px;
-            max-width: 380px;
-            margin: 0 auto;
-        }
-
-        .acceptance-form input {
-            width: 100%;
-            padding: 12px 14px;
-            font-size: 15px;
-            font-family: inherit;
-            border: 1px solid rgba(0,0,0,0.15);
-            border-radius: 3px;
-            background: var(--stele-light-gray);
-        }
-
-        .acceptance-form input:focus {
-            outline: none;
-            border-color: var(--stele-green);
-            box-shadow: 0 0 0 2px rgba(75, 96, 80, 0.15);
-        }
-
-        .btn-accept {
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: 600;
-            font-family: inherit;
-            background: var(--stele-green);
-            color: var(--stele-white);
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 4px;
-        }
-
-        .btn-accept:hover { background: #3d5043; }
-        .btn-accept:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* ── Signature pad ── */
-        .signature-block {
-            width: 100%;
-            margin-top: 4px;
-        }
-
-        .signature-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: var(--stele-green);
-            font-weight: 600;
-            margin-bottom: 6px;
-            text-align: left;
-        }
-
-        .signature-canvas-wrap {
-            position: relative;
-            width: 100%;
-            border: 1px solid rgba(0,0,0,0.15);
-            border-radius: 3px;
-            background: #fff;
-        }
-
-        .signature-canvas {
-            display: block;
-            width: 100%;
-            height: 140px;
-            cursor: crosshair;
-            touch-action: none;
-        }
-
-        .signature-placeholder {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 14px;
-            color: #bbb;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-
-        .signature-actions {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 4px;
-        }
-
-        .btn-clear-sig {
-            background: none;
-            border: none;
-            font-size: 12px;
-            color: #999;
-            cursor: pointer;
-            font-family: inherit;
-            padding: 2px 0;
-        }
-
-        .btn-clear-sig:hover { color: var(--stele-black); }
-
-        /* ── Accepted confirmation ── */
-        .accepted-banner {
-            scroll-snap-align: start;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 28px;
-            background: var(--stele-white);
-            text-align: center;
-        }
-
-        .accepted-banner .check-icon {
-            width: 56px; height: 56px;
-            border-radius: 50%;
-            background: #4CAF50;
-            color: #fff;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: 28px;
-            margin-bottom: 12px;
-        }
-
-        .accepted-banner h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #2E7D32;
-            margin-bottom: 4px;
-        }
-
-        .accepted-banner p {
-            font-size: 14px;
-            color: #555;
-        }
+        /* (Old accepted-banner CSS removed — replaced by .pv-final-accepted-* above) */
 
         /* ── Lightbox ── */
         .lightbox-overlay {
@@ -794,7 +683,13 @@
             .pv-step-circle { width: 48px; height: 48px; min-width: 48px; font-size: 18px; }
             .pv-page-title .pv-client-name { font-size: 22px; }
             .pv-page-title .pv-sub-number { font-size: 18px; }
-            .pv-total-box .total-amount { font-size: 28px; }
+            /* Combined page mobile */
+            .pv-final-body { grid-template-columns: 1fr; padding: 40px 24px; gap: 32px; }
+            .pv-final-separator { display: none; }
+            .pv-final-left { padding-right: 0; }
+            .pv-final-right { padding-left: 0; }
+            .pv-final-title { font-size: 28px; margin-bottom: 40px; }
+            .pv-final-total-amount { font-size: 28px; }
             .lightbox-nav { display: none; }
             .lightbox-img { max-width: 96vw; max-height: 90vh; }
             /* Intro page mobile */
@@ -834,6 +729,7 @@
             .pv-page-room-media { gap: 8px !important; }
             .pv-intro-content { padding: 24px 16px; }
             .pv-why-content { padding: 24px 16px; }
+            .pv-final-body { padding: 32px 16px; }
         }
 
         /* ── Print ── */
@@ -846,11 +742,11 @@
                 border: 1px solid #eee;
                 page-break-after: always;
             }
-            .acceptance-section,
-            .accepted-banner,
+            .pv-final-form, .pv-final-accept-btn, .pv-final-sig-wrap,
+            .pv-final-sig-actions, .pv-final-micro, .pv-final-accept-label,
             .quote-footer,
             .btn-fullscreen { display: none; }
-            .pv-page-room-header, .pv-total-box, .pv-step-circle {
+            .pv-page-room-header, .pv-step-circle, .pv-final-topline {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -895,33 +791,7 @@
         <!-- Pages container (landscape pages) -->
         <div class="quote-pages" id="quotePages"></div>
 
-        <!-- Acceptance form (hidden when already accepted) -->
-        <div class="acceptance-section" id="acceptanceSection">
-            <h2>Accepter cette soumission</h2>
-            <p class="acceptance-subtitle">Veuillez entrer vos informations pour confirmer votre acceptation.</p>
-            <div class="acceptance-form">
-                <input type="text" id="acceptName" placeholder="Votre nom complet" required>
-                <input type="email" id="acceptEmail" placeholder="Votre courriel" required>
-                <div class="signature-block">
-                    <div class="signature-label">Signature</div>
-                    <div class="signature-canvas-wrap">
-                        <canvas class="signature-canvas" id="signatureCanvas"></canvas>
-                        <span class="signature-placeholder" id="sigPlaceholder">Dessinez votre signature ici</span>
-                    </div>
-                    <div class="signature-actions">
-                        <button type="button" class="btn-clear-sig" onclick="clearSignature()">Effacer</button>
-                    </div>
-                </div>
-                <button class="btn-accept" id="btnAccept" onclick="acceptQuote()">Accepter la soumission</button>
-            </div>
-        </div>
-
-        <!-- Already accepted banner -->
-        <div class="accepted-banner" id="acceptedBanner" style="display:none;">
-            <div class="check-icon">&#10003;</div>
-            <h2>Soumission acceptée</h2>
-            <p id="acceptedInfo"></p>
-        </div>
+        <!-- Acceptance form + accepted banner are now generated dynamically inside the combined final page -->
 
         <!-- Footer -->
         <div class="quote-footer">
@@ -966,6 +836,67 @@ var STEPS = [
 var STEP_COLORS = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','#849c86','#97b098'];
 
 // ═══════════════════════════════════════════════════════════════════════
+// TRANSLATION (FR/EN)
+// ═══════════════════════════════════════════════════════════════════════
+
+var QUOTE_LANG = 'fr';
+
+var QUOTE_TEXTS = {
+    fr: {
+        finalTitle: 'Votre projet est pr\u00eat.',
+        para1: 'Cette proposition refl\u00e8te la vision que nous avons construite ensemble.',
+        para2: 'Chaque \u00e9l\u00e9ment a \u00e9t\u00e9 con\u00e7u avec pr\u00e9cision, dans le respect des standards Stele.',
+        para3: 'En confirmant, nous lan\u00e7ons les prochaines \u00e9tapes de r\u00e9alisation.',
+        totalLabel: 'Total',
+        taxesNote: '+ taxes applicables',
+        subtotalLabel: 'Sous-total',
+        discountLabel: 'Rabais',
+        installNote: 'Installation non incluse',
+        acceptLabel: 'Acceptation',
+        namePlaceholder: 'Votre nom complet',
+        emailPlaceholder: 'Votre courriel',
+        signatureLabel: 'Signature',
+        signaturePlaceholder: 'Dessinez votre signature ici',
+        clearBtn: 'Effacer',
+        acceptBtn: 'Accepter la soumission',
+        microText: 'En confirmant, vous acceptez cette proposition et ses conditions.',
+        acceptedTitle: 'Soumission accept\u00e9e',
+        acceptedDatePrefix: 'Accept\u00e9e le ',
+        acceptedByPrefix: ' par ',
+        processing: 'Traitement en cours...',
+        sigRequired: 'Veuillez dessiner votre signature.'
+    },
+    en: {
+        finalTitle: 'Your project is ready.',
+        para1: 'This proposal reflects the vision we built together.',
+        para2: 'Every element was designed with precision, meeting Stele standards.',
+        para3: 'By confirming, we begin the next steps toward completion.',
+        totalLabel: 'Total',
+        taxesNote: '+ applicable taxes',
+        subtotalLabel: 'Subtotal',
+        discountLabel: 'Discount',
+        installNote: 'Installation not included',
+        acceptLabel: 'Acceptance',
+        namePlaceholder: 'Your full name',
+        emailPlaceholder: 'Your email',
+        signatureLabel: 'Signature',
+        signaturePlaceholder: 'Draw your signature here',
+        clearBtn: 'Clear',
+        acceptBtn: 'Accept proposal',
+        microText: 'By confirming, you accept this proposal and its conditions.',
+        acceptedTitle: 'Proposal accepted',
+        acceptedDatePrefix: 'Accepted on ',
+        acceptedByPrefix: ' by ',
+        processing: 'Processing...',
+        sigRequired: 'Please draw your signature.'
+    }
+};
+
+function t(key) {
+    return (QUOTE_TEXTS[QUOTE_LANG] || QUOTE_TEXTS.fr)[key] || QUOTE_TEXTS.fr[key] || key;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -981,6 +912,8 @@ var designerArchitectName = '';
     // Extract token from URL
     const params = new URLSearchParams(window.location.search);
     currentToken = params.get('token');
+    QUOTE_LANG = (params.get('lang') || 'fr').toLowerCase();
+    if (QUOTE_LANG !== 'en') QUOTE_LANG = 'fr';
 
     if (!currentToken) {
         showError('Lien invalide', 'Aucun jeton de soumission trouvé dans le lien.');
@@ -1381,36 +1314,7 @@ async function renderQuote() {
         html += '</div></div>';
     }
 
-    // ── Total page ──
-    var discountType = sub.discount_type || null;
-    var discountValue = sub.discount_value ? parseFloat(sub.discount_value) : 0;
-    var discountAmt = 0;
-    if (discountType && discountValue > 0) {
-        discountAmt = discountType === 'percentage' ? grandTotal * discountValue / 100 : discountValue;
-    }
-    var finalTotal = grandTotal - discountAmt;
-    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : finalTotal;
-    html += '<div class="pv-page pv-page-total">';
-    if (allInstallExcluded) {
-        html += '<div class="pv-install-total-note">Installation non incluse</div>';
-    }
-    html += '<div class="pv-total-box">';
-    if (discountType && discountValue > 0) {
-        var discountLabel = discountType === 'percentage' ? 'Rabais (' + discountValue + '%)' : 'Rabais';
-        html += '<div class="pv-total-breakdown">';
-        html += '<div class="pv-total-subtotal-line"><span>Sous-total</span><span>' + formatMoney(grandTotal) + '</span></div>';
-        html += '<div class="pv-total-discount-line"><span>' + escapeHtml(discountLabel) + '</span><span>- ' + formatMoney(discountAmt) + '</span></div>';
-        html += '<div class="pv-total-divider"></div>';
-        html += '</div>';
-    }
-    html += '<div class="total-label">Total</div>';
-    html += '<div class="total-amount">' + formatMoney(totalToShow) + '</div>';
-    html += '<div class="total-taxes">+ taxes applicables</div>';
-    html += '</div>';
-    // footer text removed
-    html += '</div>';
-
-    // ── Steps page ──
+    // ── Steps page ── (before combined final page)
     html += '<div class="pv-page pv-page-steps">';
     html += '<div class="pv-steps-title">\u00c9tapes d\u2019un projet type</div>';
     html += '<div class="pv-steps-grid">';
@@ -1424,35 +1328,134 @@ async function renderQuote() {
     });
     html += '</div></div>';
 
+    // ── Combined Total + Acceptance page (last page) ──
+    var discountType = sub.discount_type || null;
+    var discountValue = sub.discount_value ? parseFloat(sub.discount_value) : 0;
+    var discountAmt = 0;
+    if (discountType && discountValue > 0) {
+        discountAmt = discountType === 'percentage' ? grandTotal * discountValue / 100 : discountValue;
+    }
+    var finalTotal = grandTotal - discountAmt;
+    var totalToShow = sub.approved_total ? parseFloat(sub.approved_total) : finalTotal;
+    var isAccepted = !!(token.accepted_at || sub.accepted_at);
+    var prefillName = proj.client_name ? escapeAttr(proj.client_name) : '';
+    var prefillEmail = proj.client_email ? escapeAttr(proj.client_email) : '';
+
+    html += '<div class="pv-page pv-page-final">';
+    html += '<div class="pv-final-topline"></div>';
+    html += '<div class="pv-final-body">';
+
+    // Left column — emotional content
+    html += '<div class="pv-final-left">';
+    html += '<div class="pv-final-title">' + escapeHtml(t('finalTitle')) + '</div>';
+    html += '<div class="pv-final-text">';
+    html += '<p>' + escapeHtml(t('para1')) + '</p>';
+    html += '<p>' + escapeHtml(t('para2')) + '</p>';
+    html += '<p>' + escapeHtml(t('para3')) + '</p>';
+    html += '</div>';
+    html += '</div>'; // end left
+
+    // Vertical separator
+    html += '<div class="pv-final-separator"></div>';
+
+    // Right column — total + acceptance
+    html += '<div class="pv-final-right">';
+
+    // Total block
+    html += '<div class="pv-final-total">';
+    if (allInstallExcluded) {
+        html += '<div class="pv-final-install-note">' + escapeHtml(t('installNote')) + '</div>';
+    }
+    if (discountType && discountValue > 0) {
+        var discountLabel = discountType === 'percentage'
+            ? t('discountLabel') + ' (' + discountValue + '%)'
+            : t('discountLabel');
+        html += '<div class="pv-final-breakdown">';
+        html += '<div class="pv-final-breakdown-line"><span>' + escapeHtml(t('subtotalLabel')) + '</span><span>' + formatMoney(grandTotal) + '</span></div>';
+        html += '<div class="pv-final-breakdown-line pv-final-breakdown-discount"><span>' + escapeHtml(discountLabel) + '</span><span>- ' + formatMoney(discountAmt) + '</span></div>';
+        html += '<div class="pv-final-breakdown-divider"></div>';
+        html += '</div>';
+    }
+    html += '<div class="pv-final-total-label">' + escapeHtml(t('totalLabel')) + '</div>';
+    html += '<div class="pv-final-total-amount">' + formatMoney(totalToShow) + '</div>';
+    html += '<div class="pv-final-total-taxes">' + escapeHtml(t('taxesNote')) + '</div>';
+    html += '</div>'; // end total
+
+    // Acceptance form OR Accepted banner
+    if (isAccepted) {
+        html += '<div class="pv-final-accepted" id="finalAccepted">';
+        html += '<div class="pv-final-accepted-icon">&#10003;</div>';
+        html += '<div class="pv-final-accepted-title">' + escapeHtml(t('acceptedTitle')) + '</div>';
+        var acceptedDate = token.accepted_at || sub.accepted_at;
+        var acceptedName = token.client_name || '';
+        var info = t('acceptedDatePrefix') + formatDate(acceptedDate);
+        if (acceptedName) info += t('acceptedByPrefix') + acceptedName;
+        html += '<div class="pv-final-accepted-info">' + escapeHtml(info) + '</div>';
+        html += '</div>';
+    } else {
+        html += '<div id="finalAcceptanceForm">';
+        html += '<div class="pv-final-accept-label">' + escapeHtml(t('acceptLabel')) + '</div>';
+        html += '<div class="pv-final-form">';
+        html += '<input type="text" id="acceptName" placeholder="' + escapeAttr(t('namePlaceholder')) + '" value="' + prefillName + '" required>';
+        html += '<input type="email" id="acceptEmail" placeholder="' + escapeAttr(t('emailPlaceholder')) + '" value="' + prefillEmail + '" required>';
+        html += '<div class="pv-final-sig-label">' + escapeHtml(t('signatureLabel')) + '</div>';
+        html += '<div class="pv-final-sig-wrap">';
+        html += '<canvas class="pv-final-sig-canvas" id="signatureCanvas"></canvas>';
+        html += '<span class="pv-final-sig-placeholder" id="sigPlaceholder">' + escapeHtml(t('signaturePlaceholder')) + '</span>';
+        html += '</div>';
+        html += '<div class="pv-final-sig-actions">';
+        html += '<button type="button" class="pv-final-sig-clear" onclick="clearSignature()">' + escapeHtml(t('clearBtn')) + '</button>';
+        html += '</div>';
+        html += '<button class="pv-final-accept-btn" id="btnAccept" onclick="acceptQuote()">' + escapeHtml(t('acceptBtn')) + '</button>';
+        html += '</div>'; // end form
+        html += '<div class="pv-final-micro">' + escapeHtml(t('microText')) + '</div>';
+        html += '</div>'; // end finalAcceptanceForm
+    }
+
+    html += '</div>'; // end right
+    html += '</div>'; // end final-body
+    html += '</div>'; // end pv-page-final
+
     // ── Inject all pages ──
     document.getElementById('quotePages').innerHTML = html;
     applySmartLayouts();
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('quoteContent').style.display = 'block';
-
-    // ── Acceptance UI ──
-    renderAcceptanceSection(sub, token);
 }
 
+/** Render acceptance section — used ONLY for snapshot path (frozen HTML without the combined page). */
 function renderAcceptanceSection(sub, token) {
     var proj = quoteData ? quoteData.project : {};
-    if (token.accepted_at || sub.accepted_at) {
-        document.getElementById('acceptanceSection').style.display = 'none';
-        document.getElementById('acceptedBanner').style.display = 'block';
+    var isAccepted = !!(token.accepted_at || sub.accepted_at);
+    var container = document.getElementById('quotePages');
+    var sHtml = '<div style="scroll-snap-align:start;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:28px;background:#fff;text-align:center;">';
+    if (isAccepted) {
+        sHtml += '<div class="pv-final-accepted-icon">&#10003;</div>';
         var acceptedDate = token.accepted_at || sub.accepted_at;
         var acceptedName = token.client_name || '';
-        var info = 'Acceptée le ' + formatDate(acceptedDate);
-        if (acceptedName) info += ' par ' + acceptedName;
-        document.getElementById('acceptedInfo').textContent = info;
+        var info = t('acceptedDatePrefix') + formatDate(acceptedDate);
+        if (acceptedName) info += t('acceptedByPrefix') + acceptedName;
+        sHtml += '<div class="pv-final-accepted-title">' + escapeHtml(t('acceptedTitle')) + '</div>';
+        sHtml += '<div class="pv-final-accepted-info">' + escapeHtml(info) + '</div>';
+    } else {
+        var pn = proj.client_name ? escapeAttr(proj.client_name) : '';
+        var pe = proj.client_email ? escapeAttr(proj.client_email) : '';
+        sHtml += '<div id="finalAcceptanceForm" style="max-width:380px;width:100%;">';
+        sHtml += '<div class="pv-final-accept-label">' + escapeHtml(t('acceptLabel')) + '</div>';
+        sHtml += '<div class="pv-final-form">';
+        sHtml += '<input type="text" id="acceptName" placeholder="' + escapeAttr(t('namePlaceholder')) + '" value="' + pn + '" required>';
+        sHtml += '<input type="email" id="acceptEmail" placeholder="' + escapeAttr(t('emailPlaceholder')) + '" value="' + pe + '" required>';
+        sHtml += '<div class="pv-final-sig-label">' + escapeHtml(t('signatureLabel')) + '</div>';
+        sHtml += '<div class="pv-final-sig-wrap"><canvas class="pv-final-sig-canvas" id="signatureCanvas"></canvas>';
+        sHtml += '<span class="pv-final-sig-placeholder" id="sigPlaceholder">' + escapeHtml(t('signaturePlaceholder')) + '</span></div>';
+        sHtml += '<div class="pv-final-sig-actions"><button type="button" class="pv-final-sig-clear" onclick="clearSignature()">' + escapeHtml(t('clearBtn')) + '</button></div>';
+        sHtml += '<button class="pv-final-accept-btn" id="btnAccept" onclick="acceptQuote()">' + escapeHtml(t('acceptBtn')) + '</button>';
+        sHtml += '</div>';
+        sHtml += '<div class="pv-final-micro">' + escapeHtml(t('microText')) + '</div>';
+        sHtml += '</div>';
     }
-
-    // Pre-fill acceptance form with project client info
-    if (proj.client_name) {
-        document.getElementById('acceptName').value = proj.client_name;
-    }
-    if (proj.client_email) {
-        document.getElementById('acceptEmail').value = proj.client_email;
-    }
+    sHtml += '</div>';
+    container.insertAdjacentHTML('afterend', sHtml);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1473,7 +1476,7 @@ async function acceptQuote() {
     }
 
     if (!sigHasDrawn) {
-        alert('Veuillez dessiner votre signature.');
+        alert(t('sigRequired'));
         return;
     }
 
@@ -1481,7 +1484,7 @@ async function acceptQuote() {
 
     var btn = document.getElementById('btnAccept');
     btn.disabled = true;
-    btn.textContent = 'Traitement en cours...';
+    btn.textContent = t('processing');
 
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/accept_quote', {
@@ -1504,7 +1507,7 @@ async function acceptQuote() {
 
         if (!resp.ok) {
             btn.disabled = false;
-            btn.textContent = 'Accepter la soumission';
+            btn.textContent = t('acceptBtn');
             alert('Erreur ' + resp.status + ' : ' + respText);
             return;
         }
@@ -1517,21 +1520,26 @@ async function acceptQuote() {
 
         if (result && result.error) {
             btn.disabled = false;
-            btn.textContent = 'Accepter la soumission';
+            btn.textContent = t('acceptBtn');
             alert(result.error);
             return;
         }
 
-        // Success — show accepted banner
-        document.getElementById('acceptanceSection').style.display = 'none';
-        document.getElementById('acceptedBanner').style.display = 'block';
-        document.getElementById('acceptedInfo').textContent =
-            'Acceptée le ' + formatDate(new Date().toISOString()) + ' par ' + name;
+        // Success — replace form with accepted banner inline
+        var formContainer = document.getElementById('finalAcceptanceForm');
+        if (formContainer) {
+            var bHtml = '<div class="pv-final-accepted">';
+            bHtml += '<div class="pv-final-accepted-icon">&#10003;</div>';
+            bHtml += '<div class="pv-final-accepted-title">' + escapeHtml(t('acceptedTitle')) + '</div>';
+            bHtml += '<div class="pv-final-accepted-info">' + escapeHtml(t('acceptedDatePrefix') + formatDate(new Date().toISOString()) + t('acceptedByPrefix') + name) + '</div>';
+            bHtml += '</div>';
+            formContainer.outerHTML = bHtml;
+        }
 
     } catch (err) {
         console.error('Accept fetch error:', err);
         btn.disabled = false;
-        btn.textContent = 'Accepter la soumission';
+        btn.textContent = t('acceptBtn');
         alert('Erreur de connexion : ' + err.message);
     }
 }
@@ -1826,7 +1834,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('click', function(e) {
-    if (e.target.closest('button, a, input, canvas, .pv-img-wrap, .acceptance-form, .lightbox-overlay')) return;
+    if (e.target.closest('button, a, input, canvas, .pv-img-wrap, .pv-final-form, .lightbox-overlay')) return;
     var pages = document.querySelectorAll('.pv-page');
     if (pages.length > 0) presScrollToNext(pages, 1);
 });
@@ -1845,15 +1853,7 @@ function presScrollToNext(pages, direction) {
             return;
         }
     }
-    // Edge: at last page going forward, try acceptance section
-    if (direction > 0) {
-        var acceptance = document.getElementById('acceptanceSection');
-        var accepted = document.getElementById('acceptedBanner');
-        var target = (acceptance && acceptance.style.display !== 'none') ? acceptance : accepted;
-        if (target && target.style.display !== 'none') {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }
+    // Edge: at last page, no special case needed — combined page is a .pv-page
     if (direction < 0) pages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -1893,13 +1893,20 @@ function showError(title, message) {
 }
 
 function formatMoney(val) {
-    return parseFloat(val).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
+    var locale = QUOTE_LANG === 'en' ? 'en-CA' : 'fr-CA';
+    return parseFloat(val).toLocaleString(locale, { style: 'currency', currency: 'CAD' });
 }
 
 function formatDate(isoStr) {
     if (!isoStr) return '';
     var d = new Date(isoStr);
-    return d.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+    var locale = QUOTE_LANG === 'en' ? 'en-CA' : 'fr-CA';
+    return d.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function escapeAttr(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function escapeHtml(str) {

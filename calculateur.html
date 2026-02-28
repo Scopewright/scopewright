@@ -2712,7 +2712,7 @@
 
         // Step 3: Fallback to default material for the parent's material group
         if (keywords.length === 0) {
-            var dmKeywords = getDefaultMaterialKeywords(groupId, parentItem.category);
+            var dmKeywords = await getDefaultMaterialKeywords(groupId, parentItem.category);
             if (dmKeywords) {
                 keywords = dmKeywords.keywords;
                 keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
@@ -2786,33 +2786,68 @@
     /**
      * Fallback: get keywords from the default material assigned to the parent's material group.
      * Matches parent catalogue category name → DM type name (case-insensitive).
+     * Supports multiple DM entries of same type via dmChoiceCache/popup.
      */
-    function getDefaultMaterialKeywords(groupId, parentCategory) {
-        var dm = getDefaultMaterialsForGroup(groupId);
+    async function getDefaultMaterialKeywords(groupId, parentCategory) {
+        // Determine DM source: room-level or submission-level
+        var rdm = roomDM[groupId];
+        var dmSource = (rdm && rdm.length > 0) ? 'room' : 'submission';
+        var dm = (rdm && rdm.length > 0) ? rdm : getDefaultMaterials();
         if (!dm || dm.length === 0) {
-            console.log('[CASCADE] DM fallback: no default materials for group', groupId);
+            console.log('[CASCADE] DM fallback: no default materials for group', groupId, '(source: ' + dmSource + ')');
             return null;
         }
-        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '→' + (d.catalogue_item_id || 'null'); }).join(', '));
+        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', source=' + dmSource + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
+
+        // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
+        var directMatches = [];
+        if (parentCategory) {
+            var targetLower = parentCategory.toLowerCase();
+            for (var di = 0; di < dm.length; di++) {
+                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && dm[di].catalogue_item_id) {
+                    directMatches.push(dm[di]);
+                }
+            }
+        }
 
         var dmEntry = null;
         var matchMethod = '';
 
-        // 1. Direct match: catalogue category name === DM type name (case-insensitive)
-        if (parentCategory) {
-            dmEntry = findDmEntryByType(dm, parentCategory);
-            if (dmEntry) matchMethod = 'direct';
+        if (directMatches.length === 1) {
+            dmEntry = directMatches[0];
+            matchMethod = 'direct';
+        } else if (directMatches.length > 1) {
+            // Multiple DM entries for same type → use cache or popup
+            var cacheKey = groupId + ':' + parentCategory;
+            if (dmChoiceCache[cacheKey]) {
+                var cached = directMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
+                if (cached) {
+                    dmEntry = cached;
+                    matchMethod = 'direct(cached)';
+                }
+            }
+            if (!dmEntry) {
+                var result = await showDmChoiceModal(parentCategory, directMatches);
+                if (result) {
+                    dmEntry = directMatches.find(function(m) { return m.catalogue_item_id === result.itemId; });
+                    matchMethod = 'direct(chosen)';
+                    if (result.remember) dmChoiceCache[cacheKey] = result.itemId;
+                } else {
+                    dmEntry = directMatches[0]; // cancelled → fallback to first
+                    matchMethod = 'direct(first)';
+                }
+            }
         }
 
         // 2. Fuzzy match: parent category name contains group name or vice versa
         if (!dmEntry && parentCategory) {
             var catLower = parentCategory.toLowerCase();
-            for (var di = 0; di < dm.length; di++) {
-                if (!dm[di].catalogue_item_id || !dm[di].type) continue;
-                var typeLower = dm[di].type.toLowerCase();
+            for (var fi = 0; fi < dm.length; fi++) {
+                if (!dm[fi].catalogue_item_id || !dm[fi].type) continue;
+                var typeLower = dm[fi].type.toLowerCase();
                 if (catLower.indexOf(typeLower) !== -1 || typeLower.indexOf(catLower) !== -1) {
-                    dmEntry = dm[di];
-                    matchMethod = 'fuzzy(' + dm[di].type + ')';
+                    dmEntry = dm[fi];
+                    matchMethod = 'fuzzy(' + dm[fi].type + ')';
                     break;
                 }
             }
@@ -2828,7 +2863,7 @@
             console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);
             return null;
         }
-        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' → ' + dmEntry.catalogue_item_id);
+        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' \u2192 ' + dmEntry.catalogue_item_id);
 
         var dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
         if (!dmItem) return null;

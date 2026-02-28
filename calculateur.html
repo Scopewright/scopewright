@@ -2499,6 +2499,22 @@
         });
     }
 
+    /**
+     * Sync sort_order in DB to match current DOM order for all rows in a group.
+     * Called after cascade insertion to persist the correct ordering.
+     */
+    function syncSortOrderForGroup(groupId) {
+        var container = document.getElementById(groupId + '-rows');
+        if (!container) return;
+        var rows = container.querySelectorAll('.calc-row');
+        rows.forEach(function(row, idx) {
+            var dbId = itemMap[row.id];
+            if (dbId) {
+                updateItem(dbId, { sort_order: idx + 1 });
+            }
+        });
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // MOTEUR CASCADE — Phase 3
     // ═══════════════════════════════════════════════════════════════════════
@@ -2983,6 +2999,9 @@
         var parentTagEl = document.getElementById(parentRowId + '-tag');
         var parentTag = parentTagEl ? parentTagEl.value : '';
 
+        // Track insertion point: start after parent, advance after each child
+        var lastInsertedRowId = parentRowId;
+
         for (var ri = 0; ri < rules.length; ri++) {
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
@@ -3028,9 +3047,10 @@
                     }
                 }
                 matchedChildRowIds.push(existing.rowId);
+                lastInsertedRowId = existing.rowId;
             } else {
-                // Créer une nouvelle ligne enfant
-                var newRowId = addRow(groupId, { skipFocus: true, cascade: true });
+                // Créer une nouvelle ligne enfant — insert after parent/last sibling
+                var newRowId = addRow(groupId, { skipFocus: true, cascade: true, afterRowId: lastInsertedRowId });
 
                 // Attendre que itemMap soit peuplé (async createItem)
                 var waitAttempts = 0;
@@ -3062,6 +3082,7 @@
 
                 updateRow(newRowId);
                 matchedChildRowIds.push(newRowId);
+                lastInsertedRowId = newRowId;
             }
         }
 
@@ -3071,6 +3092,9 @@
                 removeRow(c.rowId);
             }
         });
+
+        // Persist sort_order to match DOM order
+        syncSortOrderForGroup(groupId);
 
         // Récursion : chaque enfant peut avoir ses propres règles cascade
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
@@ -9320,7 +9344,18 @@
 
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
-            container.insertBefore(row, addContainer);
+
+            // Position cascade children directly after their parent (or after last sibling)
+            if (opts.afterRowId) {
+                var afterEl = document.getElementById(opts.afterRowId);
+                if (afterEl && afterEl.parentNode === container) {
+                    container.insertBefore(row, afterEl.nextSibling);
+                } else {
+                    container.insertBefore(row, addContainer);
+                }
+            } else {
+                container.insertBefore(row, addContainer);
+            }
 
             // ── Insertion animation (skip when loading existing data) ──
             if (!opts.existingId) {

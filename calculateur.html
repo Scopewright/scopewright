@@ -2540,6 +2540,7 @@
 
     var cascadeParentMap = {};   // cascadeParentMap[childRowId] = parentRowId
     var _cascadeRunning = false; // guard against re-entrancy
+    var _isLoadingSubmission = false; // guard against cascades during submission load
     var matchDefaults = {};      // cache $match: resolutions (loaded from submission.match_defaults)
     var dmChoiceCache = {};      // { "groupId:TypeName": catalogue_item_id } — per-room $default: choice cache
 
@@ -3426,7 +3427,7 @@
         // During active cascade, drop all external triggers — the cascade engine
         // handles its own recursion via executeCascade(child, depth+1) at L3375.
         // This prevents infinite loops where updateRow(child) → scheduleCascade → parent.
-        if (_cascadeRunning) return;
+        if (_cascadeRunning || _isLoadingSubmission) return;
 
         // Check eligibility: row must have cascade rules or existing children
         var row = document.getElementById(rowId);
@@ -15818,6 +15819,7 @@
             document.getElementById('furnitureGroups').innerHTML = '';
             cascadeParentMap = {};
             _cascadeRunning = false;
+            _isLoadingSubmission = true;
             matchDefaults = currentSubmission.match_defaults || {};
 
             // Charger les pièces et items via submission_id
@@ -15964,6 +15966,8 @@
                     }
                 }
             }
+
+            _isLoadingSubmission = false;
 
             updateWorkflowButtons();
             populateSubAssignment();

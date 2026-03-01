@@ -9686,7 +9686,7 @@
                     <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
                 </div>
                 <div class="cell-tag">
-                    <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
+                    <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" autocomplete="off" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
                 </div>
                 <div class="cell-select">
                     <div class="combobox">

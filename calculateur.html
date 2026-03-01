@@ -1430,8 +1430,18 @@
                     return 'Écrire la description de **' + (tc.input.room_name || '?') + '**';
                 case 'add_catalogue_item':
                     return 'Ajouter **' + (tc.input.catalogue_item_id || '?') + '** × ' + (tc.input.quantity || 1) + ' à **' + (tc.input.room_name || '?') + '**';
-                case 'update_item_quantity':
-                    return 'Modifier quantité ligne ' + tc.input.item_index + ' → ' + tc.input.new_quantity + ' dans **' + (tc.input.room_name || '?') + '**';
+                case 'modify_item':
+                    var modParts = [];
+                    if (tc.input.changes) {
+                        if (tc.input.changes.quantity != null) modParts.push('qté → ' + tc.input.changes.quantity);
+                        if (tc.input.changes.unit_price != null) modParts.push('prix → ' + tc.input.changes.unit_price + '$');
+                        if (tc.input.changes.markup != null) modParts.push('markup → ' + tc.input.changes.markup + '%');
+                        if (tc.input.changes.description != null) modParts.push('desc → ' + tc.input.changes.description);
+                        if (tc.input.changes.length != null) modParts.push('L → ' + tc.input.changes.length);
+                        if (tc.input.changes.height != null) modParts.push('H → ' + tc.input.changes.height);
+                        if (tc.input.changes.depth != null) modParts.push('P → ' + tc.input.changes.depth);
+                    }
+                    return 'Modifier ligne ' + tc.input.item_index + ' dans **' + (tc.input.room_name || '?') + '** : ' + (modParts.join(', ') || '?');
                 case 'analyze_rentability':
                     return 'Analyser la rentabilité (' + (tc.input.scope || 'projet') + ')';
                 case 'suggest_items':
@@ -1502,7 +1512,7 @@
         switch (name) {
             case 'write_description': return 'Description mise à jour : ' + (input.room_name || '');
             case 'add_catalogue_item': return 'Article ajouté : ' + (input.catalogue_item_id || '') + ' × ' + (input.quantity || 1);
-            case 'update_item_quantity': return 'Quantité modifiée : ligne ' + input.item_index + ' → ' + input.new_quantity;
+            case 'modify_item': return 'Ligne ' + input.item_index + ' modifiée dans ' + (input.room_name || '');
             case 'analyze_rentability': return 'Analyse de rentabilité effectuée';
             case 'suggest_items': return 'Recherche catalogue effectuée';
             case 'compare_versions': return 'Comparaison de versions effectuée';
@@ -1595,19 +1605,45 @@
                 updateGrandTotal();
                 return { success: true, rowId: rowId, room: input.room_name, tag: input.tag || null };
             }
-            case 'update_item_quantity': {
+            case 'modify_item': {
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
                 var rows = document.querySelectorAll('#' + gid + '-rows .calc-row');
                 var targetRow = rows[input.item_index];
                 if (!targetRow) return { error: 'Ligne ' + input.item_index + ' introuvable' };
-                var qtyInput = targetRow.querySelector('.qty-input');
-                if (qtyInput) {
-                    qtyInput.value = input.new_quantity;
-                    updateRow(targetRow.id);
+                var changes = input.changes || {};
+                var applied = [];
+                if (changes.quantity != null) {
+                    var qtyInput = targetRow.querySelector('.qty-input');
+                    if (qtyInput) { qtyInput.value = changes.quantity; applied.push('quantity'); }
                 }
+                if (changes.unit_price != null && itemMap[targetRow.id]) {
+                    updateItem(itemMap[targetRow.id], { unit_price: changes.unit_price });
+                    applied.push('unit_price');
+                }
+                if (changes.description != null && itemMap[targetRow.id]) {
+                    updateItem(itemMap[targetRow.id], { description: changes.description });
+                    applied.push('description');
+                }
+                if (changes.markup != null && itemMap[targetRow.id]) {
+                    updateItem(itemMap[targetRow.id], { markup: changes.markup });
+                    applied.push('markup');
+                }
+                if (changes.length != null) {
+                    var dimL = document.getElementById(targetRow.id + '-dim-l');
+                    if (dimL) { dimL.value = changes.length; applied.push('length'); }
+                }
+                if (changes.height != null) {
+                    var dimH = document.getElementById(targetRow.id + '-dim-h');
+                    if (dimH) { dimH.value = changes.height; applied.push('height'); }
+                }
+                if (changes.depth != null) {
+                    var dimP = document.getElementById(targetRow.id + '-dim-p');
+                    if (dimP) { dimP.value = changes.depth; applied.push('depth'); }
+                }
+                updateRow(targetRow.id);
                 updateGrandTotal();
-                return { success: true, room: input.room_name, index: input.item_index, newQty: input.new_quantity };
+                return { success: true, room: input.room_name, index: input.item_index, applied: applied };
             }
             case 'suggest_items': {
                 var q = (input.query || '').toLowerCase();

@@ -7704,12 +7704,15 @@
 
         function getCalcRuleExamples(category, limit) {
             var currentCode = (document.getElementById('editCode').value || '').trim();
+            var editItemType = (document.getElementById('editItemType') ? document.getElementById('editItemType').value : '') || '';
             var examples = CATALOGUE_DATA.filter(function(i) {
-                return i.category === category && i.calculation_rule_ai && i.id !== currentCode;
+                return i.category === category && i.calculation_rule_ai && i.id !== currentCode
+                    && (i.item_type || '') === editItemType;
             }).slice(0, limit || 3);
             if (examples.length === 0) {
                 examples = CATALOGUE_DATA.filter(function(i) {
-                    return i.calculation_rule_ai && i.id !== currentCode;
+                    return i.calculation_rule_ai && i.id !== currentCode
+                        && (i.item_type || '') === editItemType;
                 }).slice(0, limit || 3);
             }
             return examples.map(function(ex) {

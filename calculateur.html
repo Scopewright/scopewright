@@ -2914,13 +2914,13 @@
             }
         }
 
-        // 2. Fuzzy match: parent category name contains group name or vice versa
+        // 2. Fuzzy match: expense category contains DM type or vice versa (with plural normalization)
         if (!dmEntry && parentCategory) {
-            var catLower = parentCategory.toLowerCase();
+            var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
             for (var fi = 0; fi < dm.length; fi++) {
                 if (!dm[fi].catalogue_item_id || !dm[fi].type) continue;
-                var typeLower = dm[fi].type.toLowerCase();
-                if (catLower.indexOf(typeLower) !== -1 || typeLower.indexOf(catLower) !== -1) {
+                var typeNorm = dm[fi].type.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+                if (catNorm.indexOf(typeNorm) !== -1 || typeNorm.indexOf(catNorm) !== -1) {
                     dmEntry = dm[fi];
                     matchMethod = 'fuzzy(' + dm[fi].type + ')';
                     break;

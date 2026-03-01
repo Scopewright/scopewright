@@ -2714,6 +2714,19 @@
         };
     }
 
+    /** Remonter la chaîne parent pour trouver la QTY de la racine fabrication */
+    function getRootQtyForCascade(rowId) {
+        var visited = {};
+        var current = rowId;
+        while (cascadeParentMap[current] && !visited[current]) {
+            visited[current] = true;
+            current = cascadeParentMap[current];
+        }
+        var rootRow = document.getElementById(current);
+        var rootQtyInput = rootRow ? rootRow.querySelector('.qty-input') : null;
+        return rootQtyInput ? (parseFloat(rootQtyInput.value) || 0) : 0;
+    }
+
     /**
      * Resolve a cascade target.
      * - "$default:GROUP" → look up default material for the group
@@ -3265,18 +3278,21 @@
             dims.P = ownP ? (parseFloat(ownP.value) || 0) : dims.P;
         }
         var parentQty = parseFloat(qtyInput.value) || 0;
+        // Root QTY = quantité du FAB racine (nombre d'unités physiques)
+        // À profondeur 0 c'est parentQty, à profondeur 1+ on remonte la chaîne
+        var rootQty = (depth === 0) ? parentQty : getRootQtyForCascade(parentRowId);
         // Caisson fields: read from parent row (override root dims if present)
         var parentNTab = document.getElementById(parentRowId + '-n-tab');
         var parentNPart = document.getElementById(parentRowId + '-n-part');
         var vars = {
-            L: dims.L, H: dims.H, P: dims.P, QTY: parentQty,
+            L: dims.L, H: dims.H, P: dims.P, QTY: rootQty,
             n_tablettes: parentNTab ? (parseInt(parentNTab.value) || 0) : (dims.n_tablettes || 0),
             n_partitions: parentNPart ? (parseInt(parentNPart.value) || 0) : (dims.n_partitions || 0)
         };
-        console.log('[CASCADE] vars:', JSON.stringify(vars));
+        console.log('[CASCADE] vars:', JSON.stringify(vars), 'rootQty:', rootQty);
 
         // Au moins une dimension doit exister pour exécuter la cascade
-        if (dims.L === 0 && dims.H === 0 && dims.P === 0 && parentQty === 0) {
+        if (dims.L === 0 && dims.H === 0 && dims.P === 0 && rootQty === 0) {
             console.log('[CASCADE] skipped: all dims+qty = 0');
             return;
         }
@@ -3342,10 +3358,10 @@
                 if (!condResult) continue;
             }
 
-            // Calculer la quantité
-            var qty = evalFormula(rule.qty, vars);
-            if (qty === null || qty <= 0) continue;
-            qty = Math.round(qty * 100) / 100; // arrondir à 2 décimales
+            // Calculer la quantité (formule = par unité) × rootQty (nombre d'unités FAB)
+            var qtyPerUnit = evalFormula(rule.qty, vars);
+            if (qtyPerUnit === null || qtyPerUnit <= 0) continue;
+            var qty = Math.round(qtyPerUnit * rootQty * 100) / 100;
 
             // Chercher un enfant ACTIF existant avec le même target (skip locked)
             var existing = null;

@@ -120,7 +120,7 @@ FORMAT JSON ATTENDU :
 
 RÈGLES :
 - "cascade" : articles auto-ajoutés quand cet article est sélectionné
-- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)")
+- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)"). La quantité est automatiquement multipliée par la QTY du parent — ne PAS inclure "* QTY" dans les formules cascade
 - "condition" : condition optionnelle (ex: "H > 24")
 - Les codes articles doivent correspondre à des codes existants du catalogue
 - Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
@@ -240,7 +240,7 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
 RÈGLES :
 - "formula" : formule de calcul automatique de la quantité de CET article à partir de ses dimensions. Variables: L (longueur po), H (hauteur po), P (profondeur po). Exemples: "L * H / 144" (pi²), "L / 12" (pi.lin.), "(L * 2 + H * 2) / 12" (périmètre en pi.lin.). Obligatoire pour les articles de type pi² ou linéaire.
 - "cascade" : articles auto-ajoutés quand cet article est sélectionné. "target" peut être un code article (ex: "ST-0042") ou "$match:NOM_CATÉGORIE_DE_DÉPENSE" pour résolution dynamique par client_text.
-- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)")
+- "qty" peut être un nombre fixe (ex: 4) ou une formule (ex: "ceil(L/24)"). La quantité est automatiquement multipliée par la QTY du parent — ne PAS inclure "* QTY" dans les formules cascade
 - "condition" : condition optionnelle (ex: "H > 24")
 - Les codes articles doivent correspondre à des codes existants du catalogue
 - Si l'explication mentionne des articles sans code, utilise "$match:CATÉGORIE" pour résolution dynamique

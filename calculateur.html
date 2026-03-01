@@ -2805,7 +2805,7 @@
         }
 
         // Step 3: Fallback to default material keywords
-        var dmKeywords = await getDefaultMaterialKeywords(groupId, parentItem.category);
+        var dmKeywords = await getDefaultMaterialKeywords(groupId, expenseCategory);
         if (dmKeywords) {
             var keywords = dmKeywords.keywords;
             var keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';

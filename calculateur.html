@@ -3191,7 +3191,7 @@
      * Exécute les règles `cascade` du calculation_rule_ai de l'article sélectionné.
      * Crée/met à jour/supprime les lignes enfants automatiquement.
      */
-    async function executeCascade(parentRowId, depth) {
+    async function executeCascade(parentRowId, depth, parentOverrides) {
         depth = depth || 0;
         if (depth >= 3) { console.log('[CASCADE] max depth reached for', parentRowId); return; }
         console.log('[CASCADE] itemMap check:', parentRowId, '→', itemMap[parentRowId] || 'MISSING');
@@ -3206,7 +3206,10 @@
         var selectedId = select.value;
         var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
         var rules = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade;
-        console.log('[CASCADE] executeCascade:', selectedId, 'rules:', rules ? rules.length : 0, 'depth:', depth);
+        var ownOverrides = (catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.override_children) || [];
+        var mergedOverrides = (parentOverrides || []).concat(ownOverrides.map(function(o) { return o.toUpperCase(); }));
+        console.log('[CASCADE] executeCascade:', selectedId, 'rules:', rules ? rules.length : 0, 'depth:', depth,
+            mergedOverrides.length > 0 ? 'overrides:' + mergedOverrides.join(',') : '');
         if (!rules || !Array.isArray(rules) || rules.length === 0) {
             // Pas de règles cascade → supprimer les enfants existants
             var orphans = findCascadeChildren(parentRowId);
@@ -3271,6 +3274,15 @@
         for (var ri = 0; ri < rules.length; ri++) {
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
+
+            // Skip rules overridden by an ancestor (avoid cascade duplicates)
+            if (mergedOverrides.length > 0 && rule.target.startsWith('$match:')) {
+                var ruleExpCat = rule.target.substring(7).toUpperCase();
+                if (mergedOverrides.indexOf(ruleExpCat) !== -1) {
+                    console.log('[CASCADE] skip rule (overridden by ancestor):', rule.target);
+                    continue;
+                }
+            }
 
             // For dynamic targets, reuse existing child if it already satisfies the rule (skip popup)
             var resolvedTarget = null;
@@ -3374,7 +3386,7 @@
 
         // Récursion : chaque enfant peut avoir ses propres règles cascade
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
-            await executeCascade(matchedChildRowIds[ci], depth + 1);
+            await executeCascade(matchedChildRowIds[ci], depth + 1, mergedOverrides);
         }
     }
 

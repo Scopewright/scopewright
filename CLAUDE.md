@@ -147,13 +147,22 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms
-- Détails complets : `docs/TECHNICAL_MANUAL.md` §3
+
+**Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :
+- **Pas de ligne enfant créée** — la règle est simplement sautée (`continue`)
+- **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer
+- **Console warn** avec détail technique (target, groupId, DM disponibles)
+- `getDefaultMaterialKeywords` n'a **pas de fallback "first-available"** — si aucun DM ne correspond à la catégorie, retourne null (évite de sélectionner un article non pertinent)
+
+Détails complets : `docs/TECHNICAL_MANUAL.md` §3
 
 ### Matériaux par défaut (DM)
 
-Hiérarchie de résolution : pièce (roomDM) > soumission > vide. **Override total, pas merge.**
-- `reprocessDefaultCascades()` — re-cascade quand un DM change (cibles `$default:` uniquement, pas `$match:`)
+**Room-level uniquement** (`roomDM[groupId]`). Le niveau soumission a été retiré.
+- `getDefaultMaterialsForGroup(groupId)` retourne `roomDM[groupId]` ou `[]`
+- `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire)
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`
+- "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
 
 ### Workflow de soumission
 

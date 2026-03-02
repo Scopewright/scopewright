@@ -2357,7 +2357,7 @@
     function findExistingChildForDynamicRule(ruleTarget, groupId, activeChildren, alreadyMatched) {
         if (ruleTarget.startsWith('$default:')) {
             var groupName = ruleTarget.substring(9);
-            var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
+            var dm = getDefaultMaterialsForGroup(groupId);
             var validIds = {};
             for (var i = 0; i < dm.length; i++) {
                 if (dm[i].type === groupName && dm[i].catalogue_item_id) {
@@ -2461,7 +2461,7 @@
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
         if (target.startsWith('$default:')) {
             var groupName = target.substring(9);
-            var dm = groupId ? getDefaultMaterialsForGroup(groupId) : getDefaultMaterials();
+            var dm = getDefaultMaterialsForGroup(groupId);
             // Collect ALL DM entries matching this type name
             var matches = [];
             for (var i = 0; i < dm.length; i++) {
@@ -2598,9 +2598,8 @@
             }
         }
 
-        // All fallback sources exhausted
-        console.warn('[CASCADE] $match: 0 scored results after full fallback chain for', parentRow.catalogueId);
-        showConstraintToast('Aucun article trouvé pour $match:' + expenseCategory);
+        // All fallback sources exhausted — executeCascade will show actionable toast
+        console.warn('[CASCADE] $match: 0 scored results after full fallback chain for', parentRow.catalogueId, 'category:', expenseCategory);
         return null;
     }
 
@@ -2685,11 +2684,8 @@
             }
         }
 
-        // 3. Last resort: first default material with a catalogue_item_id
-        if (!dmEntry) {
-            dmEntry = dm.find(function(d) { return d.catalogue_item_id; }) || null;
-            if (dmEntry) matchMethod = 'first-available(' + dmEntry.type + ')';
-        }
+        // No "first-available" fallback — if no direct or fuzzy match, return null
+        // to avoid selecting an unrelated DM item (e.g. Livraison for Façades)
 
         if (!dmEntry || !dmEntry.catalogue_item_id) {
             console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);
@@ -3045,10 +3041,18 @@
                 resolvedTarget = await resolveCascadeTarget(rule.target, groupId);
             }
             if (!resolvedTarget) {
-                if (rule.target.startsWith('$default:'))
-                    showConstraintToast('Aucun matériau par défaut pour : ' + rule.target.substring(9));
-                else if (rule.target.startsWith('$match:'))
-                    showConstraintToast('Aucun article trouvé pour cascade : ' + rule.target.substring(7));
+                var parentDesc = catItem ? (catItem.client_text || catItem.description || selectedId) : selectedId;
+                var roomNameEl = row.closest('.furniture-group');
+                var roomName = roomNameEl ? (roomNameEl.querySelector('.furniture-name-input') || {}).value || '' : '';
+                if (rule.target.startsWith('$default:')) {
+                    var dmGroup = rule.target.substring(9);
+                    showConstraintToast('Cascade « ' + parentDesc + ' » : aucun DM « ' + dmGroup + ' » configuré' + (roomName ? ' dans ' + roomName : '') + '. Ajoutez-le dans les matériaux par défaut de cette pièce.', 6000);
+                    console.warn('[CASCADE] Resolution failed: $default:' + dmGroup + ' — no DM entry for group "' + dmGroup + '" in room ' + groupId + '. Available DM:', getDefaultMaterialsForGroup(groupId));
+                } else if (rule.target.startsWith('$match:')) {
+                    var expCat = rule.target.substring(7);
+                    showConstraintToast('Cascade « ' + parentDesc + ' » : aucun article trouvé pour ' + expCat + (roomName ? ' dans ' + roomName : '') + '. Ajoutez le DM correspondant dans cette pièce.', 6000);
+                    console.warn('[CASCADE] Resolution failed: $match:' + expCat + ' — no catalogue match for expense category "' + expCat + '" in room ' + groupId);
+                }
                 continue;
             }
 
@@ -3230,8 +3234,9 @@
      * @param {number} [duration=3000] — ms before auto-hide
      */
     function showConstraintToast(msg, duration) {
-        var existing = document.querySelector('.constraint-toast');
-        if (existing) existing.remove();
+        // Allow up to 3 stacked toasts; remove oldest if over limit
+        var all = document.querySelectorAll('.constraint-toast');
+        if (all.length >= 3) all[0].remove();
         var t = document.createElement('div');
         t.className = 'constraint-toast';
         t.textContent = msg;
@@ -3912,8 +3917,10 @@
             position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
             background: #1e293b; color: #fff; font-size: 13px; padding: 10px 20px;
             border-radius: 8px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-            animation: ctToastIn 0.2s ease; max-width: 400px; text-align: center;
+            animation: ctToastIn 0.2s ease; max-width: 600px; text-align: center;
         }
+        .constraint-toast + .constraint-toast { bottom: 68px; }
+        .constraint-toast + .constraint-toast + .constraint-toast { bottom: 112px; }
         @keyframes ctToastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .constraint-toast.ct-out { animation: ctToastOut 0.2s ease forwards; }
         @keyframes ctToastOut { to { opacity: 0; transform: translateX(-50%) translateY(8px); } }
@@ -8903,9 +8910,11 @@
                            (item.client_text || '').toLowerCase().indexOf(q) !== -1;
                 });
             }
-            // Prioritize items matching submission default materials
+            // Prioritize items matching room default materials
             var dmIds = {};
-            var dm = getDefaultMaterials();
+            var rowEl = _cbActiveRowId ? document.getElementById(_cbActiveRowId) : null;
+            var cbGroupId = rowEl ? rowEl.dataset.group : null;
+            var dm = cbGroupId ? getDefaultMaterialsForGroup(cbGroupId) : [];
             dm.forEach(function(entry) {
                 if (entry.catalogue_item_id) dmIds[entry.catalogue_item_id] = true;
             });
@@ -11269,8 +11278,8 @@
             var group = document.getElementById(groupId);
             if (!group) return '';
 
-            // Default materials (room-level, fallback submission-level)
-            var dm = (roomDM[groupId] && roomDM[groupId].length > 0) ? roomDM[groupId] : getDefaultMaterials();
+            // Default materials (room-level only)
+            var dm = getDefaultMaterialsForGroup(groupId);
 
             // Collect articles with their presentation_rule
             var articlesBySection = {};

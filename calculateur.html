@@ -15800,7 +15800,7 @@
                                         tags: m.tags || ['presentation_soumission'],
                                         cropRatio: m.crop_ratio,
                                         isLegacy: false,
-                                        showInQuote: (m.tags || []).includes('presentation_soumission'),
+                                        showInQuote: (m.tags || ['presentation_soumission']).includes('presentation_soumission'),
                                         aiReference: (m.tags || []).includes('ai_reference'),
                                         annotations: m.annotations || []
                                     });

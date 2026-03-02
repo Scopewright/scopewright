@@ -98,6 +98,8 @@ Toutes les pages internes utilisent le système de tokens Scopewright :
 `quote.html` et les pages client conservent le branding Stele original :
 - `--stele-black: #0A0203`, `--stele-green: #4b6050`, `--stele-gray: #C8C8C8`
 - Police secondaire : Cormorant Garamond (titres soumission)
+- **Images** : chargées via `get_public_room_media(p_token)` RPC (SECURITY DEFINER, bypass RLS). Migration : `sql/get_public_room_media.sql`
+- **Clauses** : `sub.clauses` via `get_public_quote` RPC (nécessite `s.clauses` dans le SELECT — migration `sql/fix_get_public_quote_clauses.sql`)
 
 ### Classes utilitaires
 

@@ -1093,21 +1093,24 @@ async function renderQuote() {
         } catch (e) { /* snapshot not available, render live */ }
     }
 
-    // Load room_media for all rooms (new Storage-based images)
+    // Load room_media via SECURITY DEFINER RPC (direct REST blocked by RLS for anon)
     var roomMediaMap = {};
     try {
-        var roomIds = rooms.map(function(r) { return r.id; }).filter(Boolean);
-        if (roomIds.length > 0) {
-            var mediaResp = await fetch(SUPABASE_URL + '/rest/v1/room_media?room_id=in.(' + roomIds.join(',') + ')&order=sort_order.asc', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        var mediaResp = await fetch(SUPABASE_URL + '/rest/v1/rpc/get_public_room_media', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            },
+            body: JSON.stringify({ p_token: currentToken })
+        });
+        if (mediaResp.ok) {
+            var allMedia = await mediaResp.json();
+            allMedia.forEach(function(m) {
+                if (!roomMediaMap[m.room_id]) roomMediaMap[m.room_id] = [];
+                roomMediaMap[m.room_id].push(m);
             });
-            if (mediaResp.ok) {
-                var allMedia = await mediaResp.json();
-                allMedia.forEach(function(m) {
-                    if (!roomMediaMap[m.room_id]) roomMediaMap[m.room_id] = [];
-                    roomMediaMap[m.room_id].push(m);
-                });
-            }
         }
     } catch (e) { console.error('Load room_media error:', e); }
 

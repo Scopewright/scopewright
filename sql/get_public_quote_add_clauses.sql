@@ -1,2 +1,2 @@
--- OBSOLÈTE — Ce fix est maintenant inclus dans sql/fix_accept_quote.sql
--- Voir fix_accept_quote.sql pour le correctif automatisé (DO block + regexp_replace)
+-- OBSOLÈTE — Remplacé par sql/fix_get_public_quote_clauses.sql
+-- Voir fix_get_public_quote_clauses.sql pour le correctif dédié et idempotent

@@ -179,6 +179,27 @@ Machine à états : `draft → pending_internal ↔ returned → approved_intern
 Ou via tables DB `roles` + `user_roles`.
 **IMPORTANT** : Toutes les vérifications sont **côté client uniquement** (`checkPageAccess()`). La sécurité réelle repose sur les RLS policies Supabase.
 
+### Clauses du contrat
+
+Clauses personnalisables affichées en fin de soumission (conditions, garanties, etc.).
+
+**Stockage** :
+- `submissions.clauses` — JSONB array `[{title, content}]` directement sur la soumission
+- `quote_clauses` — table bibliothèque (title, content_fr, content_en, sort_order) pour les clauses réutilisables
+
+**3 chemins d'affichage** :
+| Contexte | Source des données | Fonctionne |
+|----------|-------------------|------------|
+| Aperçu interne (`renderPreview`) | `currentSubmission.clauses` (chargé via `select=*`) | Oui |
+| Mode présentation (iframe → quote.html) | `get_public_quote` RPC → `sub.clauses` | Oui (après migration `fix_get_public_quote_clauses.sql`) |
+| quote.html (lien client) | `get_public_quote` RPC → `sub.clauses` | Oui (après migration) |
+
+**Sauvegarde immédiate** : `addClauseToSubmission()` → `saveSubmissionClauses()` → `updateSubmission()` fait un PATCH instantané en DB. Pas de sauvegarde différée.
+
+**Snapshot** : `uploadSnapshot()` inclut les clauses comme HTML statique (converti depuis textarea). Les snapshots envoyés par email contiennent donc toujours les clauses.
+
+**Migration requise** : Si `get_public_quote` ne retourne pas `clauses`, exécuter `sql/fix_get_public_quote_clauses.sql` dans Supabase SQL Editor.
+
 ### Pipeline commercial
 
 3 vues : Table, Cartes, Soumissions. `project_code` auto-généré par trigger DB.

@@ -7,6 +7,11 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="scopewright-tokens.css">
 
+    <!-- Shared modules -->
+    <script src="shared/auth.js"></script>
+    <script src="shared/utils.js"></script>
+    <script src="shared/pricing.js"></script>
+
     <!-- Auth guard — vérifie le token localStorage avant d'afficher la page -->
     <script>
         if (!localStorage.getItem('sb_access_token')) {
@@ -41,9 +46,6 @@
     ║                                                                              ║
     ╚══════════════════════════════════════════════════════════════════════════════╝
     */
-
-    const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
     // Clé pour le localStorage
     const STORAGE_KEY = 'stele_catalogue_data';
@@ -92,82 +94,12 @@
     ╚══════════════════════════════════════════════════════════════════════════════╝
     */
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // AUTH — refresh proactif + lock anti-race + 401/403
-    // ═══════════════════════════════════════════════════════════════════════
-
-    var _refreshPromise = null;
-
-    function isTokenExpiringSoon(token, bufferSec) {
-        if (!token) return true;
-        try { var p = JSON.parse(atob(token.split('.')[1])); return p.exp < (Date.now() / 1000 + (bufferSec || 300)); }
-        catch(e) { return true; }
-    }
-
-    function _tokenDebug(token) {
-        if (!token) return 'null';
-        try { var p = JSON.parse(atob(token.split('.')[1])); var ttl = Math.round(p.exp - Date.now() / 1000); return 'exp in ' + ttl + 's'; }
-        catch(e) { return 'invalid'; }
-    }
-
-    async function refreshAccessToken() {
-        if (_refreshPromise) { console.log('[auth] Refresh already in progress, reusing promise'); return _refreshPromise; }
-        _refreshPromise = (async function() {
-            var rt = localStorage.getItem('sb_refresh_token');
-            if (!rt) { console.warn('[auth] No refresh token in localStorage'); return false; }
-            try {
-                var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-                    body: JSON.stringify({ refresh_token: rt })
-                });
-                if (!r.ok) { var errBody = await r.text().catch(function() { return ''; }); console.warn('[auth] Refresh failed:', r.status, errBody.substring(0, 200)); return false; }
-                var d = await r.json();
-                if (d.access_token) {
-                    localStorage.setItem('sb_access_token', d.access_token);
-                    localStorage.setItem('sb_refresh_token', d.refresh_token);
-                    console.log('[auth] Token refreshed OK —', _tokenDebug(d.access_token));
-                    return true;
-                }
-                console.warn('[auth] Refresh response missing access_token');
-                return false;
-            } catch(e) { console.warn('[auth] Refresh exception:', e.message); return false; }
-        })();
-        var result = await _refreshPromise;
-        _refreshPromise = null;
-        return result;
-    }
-
-    async function authenticatedFetch(url, options) {
-        options = options || {};
-        var token = localStorage.getItem('sb_access_token');
-        var endpoint = url.split('/').pop().split('?')[0];
-        if (isTokenExpiringSoon(token, 300)) {
-            console.log('[auth]', endpoint, '— token expiring soon (' + _tokenDebug(token) + '), refreshing...');
-            if (await refreshAccessToken()) token = localStorage.getItem('sb_access_token');
-        }
-        var headers = Object.assign({}, options.headers || {}, {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + token
-        });
-        var resp = await fetch(url, Object.assign({}, options, { headers: headers }));
-        if (resp.status === 401 || resp.status === 403) {
-            console.warn('[auth]', endpoint, '— got', resp.status, '(token:', _tokenDebug(token) + '). Refreshing...');
-            for (var attempt = 1; attempt <= 2; attempt++) {
-                if (attempt === 2) { console.warn('[auth]', endpoint, '— attempt 2: waiting 1s before retry...'); await new Promise(function(r) { setTimeout(r, 1000); }); _refreshPromise = null; }
-                if (await refreshAccessToken()) {
-                    token = localStorage.getItem('sb_access_token'); headers['Authorization'] = 'Bearer ' + token;
-                    resp = await fetch(url, Object.assign({}, options, { headers: headers }));
-                    if (resp.status !== 401 && resp.status !== 403) { console.log('[auth]', endpoint, '— retry', attempt, 'succeeded:', resp.status); return resp; }
-                    console.warn('[auth]', endpoint, '— retry', attempt, 'still', resp.status);
-                } else { console.warn('[auth]', endpoint, '— refresh failed on attempt', attempt); localStorage.removeItem('sb_access_token'); localStorage.removeItem('sb_refresh_token'); window.location.href = 'login.html'; return resp; }
-            }
-        }
-        return resp;
-    }
     </script>
 
     <style>
+        /* ═══════════════════════════════════════════════════════════════
+           STYLES — RESET, LAYOUT, COMPOSANTS
+           ═══════════════════════════════════════════════════════════════ */
         /* Reset et base */
         * {
             margin: 0;
@@ -2163,6 +2095,9 @@
 
     </style>
 </head>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     HTML BODY — DOM STRUCTURE
+     ═══════════════════════════════════════════════════════════════════════ -->
 <body>
 
     <!-- Navigation (web only) -->
@@ -2545,7 +2480,7 @@
 
     <script>
         // ═══════════════════════════════════════════════════════════════════════
-        // GÉNÉRATION AUTOMATIQUE DES TABLEAUX À PARTIR DE CATALOGUE_DATA
+        // GLOBALES — PERMISSIONS, ÉTAT, DIALOGUES
         // ═══════════════════════════════════════════════════════════════════════
 
         // Permissions (chargées depuis Supabase)
@@ -2705,15 +2640,9 @@
             cropState = {};
         }
 
-        // Utilitaires d'échappement HTML
-        function escapeHtml(str) {
-            var div = document.createElement('div');
-            div.textContent = str || '';
-            return div.innerHTML;
-        }
-        function escapeAttr(str) {
-            return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
-        }
+        // ═══════════════════════════════════════════════════════════════════════
+        // UTILITAIRES AFFICHAGE & FILTRAGE
+        // ═══════════════════════════════════════════════════════════════════════
 
         // Catégories à exclure des tableaux (affichées uniquement dans le calculateur)
         // Comparaison insensible à la casse
@@ -2858,7 +2787,10 @@
             if (itemId2) openEditModal(itemId2);
         });
 
-        // Générer la table de prix unique
+        // ═══════════════════════════════════════════════════════════════════════
+        // GÉNÉRATION DU TABLEAU PRINCIPAL
+        // ═══════════════════════════════════════════════════════════════════════
+
         function generatePriceTables() {
             // Grouper par catégorie (en conservant l'ordre d'apparition)
             const grouped = {};
@@ -3554,7 +3486,9 @@
             openEditModal(newCode);
         }
 
-        // ── Navigation entre articles ──
+        // ═══════════════════════════════════════════════════════════════════════
+        // NAVIGATION, APPROBATION & MODAL D'ÉDITION
+        // ═══════════════════════════════════════════════════════════════════════
         let navItemList = [];  // liste ordonnée des IDs navigables
         var _navScopedList = null; // temporary scoped list from audit drawer
 
@@ -3743,30 +3677,6 @@
         function closeCatAiReviewChat() {
             var overlay = document.getElementById('catAiReviewOverlay');
             if (overlay) overlay.style.display = 'none';
-        }
-
-        function computeCatItemPrice(item) {
-            var total = 0;
-            if (item.labor_minutes && tauxHoraires) {
-                for (var dept in item.labor_minutes) {
-                    var mins = item.labor_minutes[dept] || 0;
-                    var th = tauxHoraires.find(function(t) { return t.department === dept; });
-                    var rate = th ? th.taux_horaire : 0;
-                    total += (mins / 60) * rate;
-                }
-            }
-            if (item.material_costs) {
-                for (var cat in item.material_costs) {
-                    var mc = item.material_costs[cat];
-                    if (!mc || !mc.cost) continue;
-                    var cost = mc.cost * (mc.qty || 1);
-                    var ec = (expenseCategories || []).find(function(e) { return e.name === cat; });
-                    var markup = ec ? (ec.markup || 0) : 0;
-                    var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
-                    total += cost * (1 + markup / 100 + waste / 100);
-                }
-            }
-            return total;
         }
 
         async function sendCatAiReviewInitialContext(item) {
@@ -4002,6 +3912,10 @@
                 this.style.height = Math.min(this.scrollHeight, 120) + 'px';
             });
         })();
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MODAL D'ÉDITION — OUVERTURE & FERMETURE
+        // ═══════════════════════════════════════════════════════════════════════
 
         async function openEditModal(itemId) {
             // Pour un nouvel item, utiliser newItemData au lieu de chercher dans CATALOGUE_DATA
@@ -5515,6 +5429,10 @@
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // SUPPRESSION, MÉDIAS, PRIX COMPOSÉ, COMPOSANTES
+        // ═══════════════════════════════════════════════════════════════════════
+
         async function deleteItem() {
             const itemId = document.getElementById('editItemId').value;
 
@@ -6611,6 +6529,10 @@
             container.innerHTML = html;
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // SAUVEGARDE ARTICLE & HANDLERS MODAL
+        // ═══════════════════════════════════════════════════════════════════════
+
         async function saveEditModal(silent) {
             // Validate: components must have a supplier name
             for (var v = 0; v < editComponents.length; v++) {
@@ -7425,7 +7347,9 @@
             return { content: contentBlocks, stop_reason: stopReason, usage: usage };
         }
 
-        // ── Edge Function helper (translate/optimize/AI buttons) ──
+        // ═══════════════════════════════════════════════════════════════════════
+        // AI — EDGE FUNCTIONS, FEEDBACK, BOUTONS GÉNÉRATION
+        // ═══════════════════════════════════════════════════════════════════════
         async function callEdgeFunction(texts, action) {
             var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
                 method: 'POST',
@@ -8268,6 +8192,10 @@
                 if (!hadError) flashAiDotDone(btn);
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // AI CHAT — FILTRE, ENVOI, EXÉCUTION D'OUTILS
+        // ═══════════════════════════════════════════════════════════════════════
 
         function ciSearchCatalogue(query) {
             var q = (query || '').toLowerCase();

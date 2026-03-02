@@ -6,6 +6,7 @@
     <title>Soumission — Stele</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="shared/utils.js"></script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -1966,18 +1967,6 @@ function formatDate(isoStr) {
     var d = new Date(isoStr);
     var locale = QUOTE_LANG === 'en' ? 'en-CA' : 'fr-CA';
     return d.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function escapeAttr(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }
 
 function textToHtml(str) {

@@ -14,6 +14,8 @@
 !quote.html
 !clients.html
 !google_apps_script.gs
+!shared/
+!shared/*
 !ARCHITECTURE.md
 !CLAUDE.md
 !CHANGELOG.md

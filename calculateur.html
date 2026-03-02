@@ -2713,8 +2713,29 @@
             }
         }
 
-        // No "first-available" fallback — if no direct, fuzzy, or category match, return null
-        // to avoid selecting an unrelated DM item (e.g. Livraison for Façades)
+        // 4. Cross-DM: collect keywords from ALL DM entries in the room.
+        // Materials in the same room share characteristics (wood species, finish),
+        // so DM keywords like "placage chêne blanc" help score unrelated categories
+        // like BANDE DE CHANT that share the same material palette.
+        if (!dmEntry) {
+            var allKw = [];
+            var firstDmId = null;
+            for (var xi = 0; xi < dm.length; xi++) {
+                if (!dm[xi].catalogue_item_id) continue;
+                var xItem = CATALOGUE_DATA.find(function(it) { return it.id === dm[xi].catalogue_item_id; });
+                if (!xItem) continue;
+                if (!firstDmId) firstDmId = xItem.id;
+                var xText = xItem.client_text || xItem.description || '';
+                var xKw = extractMatchKeywords(xText);
+                for (var xk = 0; xk < xKw.length; xk++) {
+                    if (allKw.indexOf(xKw[xk]) === -1) allKw.push(xKw[xk]);
+                }
+            }
+            if (allKw.length > 0) {
+                console.log('[CASCADE] DM fallback: cross-DM keywords from all room DMs:', allKw.join(', '));
+                return { keywords: allKw, dmItemId: firstDmId };
+            }
+        }
 
         if (!dmEntry || !dmEntry.catalogue_item_id) {
             console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);

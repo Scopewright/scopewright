@@ -145,7 +145,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - 3 types de cibles : code direct (`"ST-0042"`), matériau par défaut (`"$default:Facades"`), correspondance fuzzy (`"$match:BANDE DE CHANT"`)
 - `override_children` : empêche la duplication de matériaux cascade entre niveaux. L'item qui **déclare** l'override traite toujours ses propres règles — seuls ses **descendants** sont bloqués (check contre `parentOverrides`, pas `mergedOverrides`)
 - `$match:` candidates : filtre par `material_costs[category]`, sinon fallback par catégorie catalogue (fuzzy, plural-normalisé)
-- `getDefaultMaterialKeywords` : 3 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM
+- `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM (keywords de tous les DM de la pièce — palette matériau partagée)
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms

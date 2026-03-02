@@ -148,6 +148,8 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM (keywords de tous les DM de la pièce — palette matériau partagée)
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
+- Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
+- Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms
 
 **Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :

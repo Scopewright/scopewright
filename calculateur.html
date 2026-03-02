@@ -10141,13 +10141,19 @@
             updateItem(itemMap[rowId], { tag: tag || null });
             showSaveIndicator();
             refreshTagFilterBar();
-            // Propagate tag to all cascade children (including locked)
-            findCascadeChildren(rowId).forEach(function(c) {
+            // Propagate tag recursively to ALL descendants (children, grandchildren, etc.)
+            propagateTagToDescendants(rowId, tag);
+        }
+
+        /** Recursively propagate tag to all cascade descendants */
+        function propagateTagToDescendants(parentRowId, tag) {
+            findCascadeChildren(parentRowId).forEach(function(c) {
                 var childTagEl = document.getElementById(c.rowId + '-tag');
                 if (childTagEl) {
                     childTagEl.value = tag || '';
                     if (itemMap[c.rowId]) updateItem(itemMap[c.rowId], { tag: tag || null });
                 }
+                propagateTagToDescendants(c.rowId, tag);
             });
         }
 
@@ -10699,19 +10705,12 @@
                     row.classList.toggle('tag-hidden', !tag || rowPrefix !== value);
                 }
             });
-            // Auto-sort visible rows by tag within each group
+            // Auto-sort visible rows by tag within each group (preserving cascade groups)
             if (value !== null) {
                 document.querySelectorAll('.furniture-group').forEach(function(group) {
                     var container = group.querySelector('.calc-rows');
                     if (!container) return;
-                    var rows = Array.from(container.querySelectorAll('.calc-row'));
-                    var addRowBtn = container.querySelector('.add-row-container');
-                    rows.sort(function(a, b) {
-                        var ta = getRowSortValue(a, 'tag');
-                        var tb = getRowSortValue(b, 'tag');
-                        return String(ta).localeCompare(String(tb), 'fr', { numeric: true });
-                    });
-                    rows.forEach(function(row) { container.insertBefore(row, addRowBtn); });
+                    sortRowsPreservingCascade(container, 'tag', 'asc');
                 });
             }
             refreshTagFilterBar();
@@ -10723,17 +10722,29 @@
 
         var sortState = {}; // { groupId: { col: 'tag', dir: 'asc' } }
 
-        function sortGroupRows(groupId, col) {
-            var prev = sortState[groupId] || {};
-            var dir = (prev.col === col && prev.dir === 'asc') ? 'desc' : 'asc';
-            sortState[groupId] = { col: col, dir: dir };
-
-            var container = document.getElementById(groupId + '-rows');
-            if (!container) return;
+        /**
+         * Sort rows in a container while keeping cascade children grouped under their parent.
+         * Only root rows (non-cascade) are sorted; children follow their parent in DOM order.
+         */
+        function sortRowsPreservingCascade(container, col, dir) {
             var rows = Array.from(container.querySelectorAll('.calc-row'));
             var addRowBtn = container.querySelector('.add-row-container');
 
-            rows.sort(function(a, b) {
+            // Partition: roots vs children grouped by parent
+            var roots = [];
+            var childMap = {}; // parentRowId → [child rows in current DOM order]
+            rows.forEach(function(row) {
+                var parentId = cascadeParentMap[row.id];
+                if (parentId) {
+                    if (!childMap[parentId]) childMap[parentId] = [];
+                    childMap[parentId].push(row);
+                } else {
+                    roots.push(row);
+                }
+            });
+
+            // Sort only roots
+            roots.sort(function(a, b) {
                 var va = getRowSortValue(a, col);
                 var vb = getRowSortValue(b, col);
                 var cmp;
@@ -10745,8 +10756,32 @@
                 return dir === 'desc' ? -cmp : cmp;
             });
 
-            // Re-append in sorted order
-            rows.forEach(function(row) { container.insertBefore(row, addRowBtn); });
+            // Rebuild: each root followed by its descendants (recursive)
+            var sorted = [];
+            function addWithDescendants(rowId) {
+                var children = childMap[rowId] || [];
+                children.forEach(function(child) {
+                    sorted.push(child);
+                    addWithDescendants(child.id);
+                });
+            }
+            roots.forEach(function(root) {
+                sorted.push(root);
+                addWithDescendants(root.id);
+            });
+
+            sorted.forEach(function(row) { container.insertBefore(row, addRowBtn); });
+        }
+
+        function sortGroupRows(groupId, col) {
+            var prev = sortState[groupId] || {};
+            var dir = (prev.col === col && prev.dir === 'asc') ? 'desc' : 'asc';
+            sortState[groupId] = { col: col, dir: dir };
+
+            var container = document.getElementById(groupId + '-rows');
+            if (!container) return;
+
+            sortRowsPreservingCascade(container, col, dir);
 
             // Update sort arrows in the header
             var header = container.parentElement.querySelector('.calc-header');

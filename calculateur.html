@@ -1252,7 +1252,6 @@
             catalogueSummary: buildCatalogueSummary(),
             clientFile: clientFile,
             benchmarks: benchmarks,
-            defaultMaterials: getDefaultMaterials(),
             tagPrefixes: tagPrefixes,
             aiReferenceImageUrls: collectAiReferenceImageUrls(),
             calculationRules: (CATALOGUE_DATA || [])
@@ -1811,116 +1810,15 @@
     // Structure: [ { type: "Caisson", catalogue_item_id: "uuid", description: "Mélamine blanc ME1" }, ... ]
 
     function getDmTypes() { return materialGroups; }
-    var dmActiveAC = null; // currently open autocomplete index
-
-    function toggleDefaultMaterials() {
-        var body = document.getElementById('dmBody');
-        var arrow = document.getElementById('dmArrow');
-        var isCollapsed = body.classList.toggle('collapsed');
-        arrow.classList.toggle('open', !isCollapsed);
-        localStorage.setItem('dmPanelCollapsed', isCollapsed ? '1' : '0');
-        if (!isCollapsed) renderDefaultMaterials();
-    }
-
-    function restoreDmPanelState() {
-        var saved = localStorage.getItem('dmPanelCollapsed');
-        // Default collapsed (saved is null or '1')
-        var shouldCollapse = saved !== '0';
-        var body = document.getElementById('dmBody');
-        var arrow = document.getElementById('dmArrow');
-        if (body) body.classList.toggle('collapsed', shouldCollapse);
-        if (arrow) arrow.classList.toggle('open', !shouldCollapse);
-        if (!shouldCollapse) renderDefaultMaterials();
-    }
-
-    function getDefaultMaterials() {
-        var raw = (currentSubmission && currentSubmission.default_materials);
-        // Migrate old object format to new array format
-        if (raw && !Array.isArray(raw)) {
-            var arr = [];
-            Object.keys(raw).forEach(function(cat) {
-                (raw[cat] || []).forEach(function(entry) {
-                    if (entry.material) arr.push({ type: cat, catalogue_item_id: null, description: entry.material });
-                });
-            });
-            return arr;
-        }
-        return raw || [];
-    }
+    var dmActiveAC = null; // currently open autocomplete index (room-level DM reuses this pattern)
 
     /**
      * Get default materials for a specific room (furniture group).
-     * Fallback chain: room-level DM → submission-level DM → empty array.
+     * Room-level DM only — submission-level DM has been removed.
      */
     function getDefaultMaterialsForGroup(groupId) {
         var rdm = roomDM[groupId];
-        if (rdm && rdm.length > 0) return rdm;
-        return getDefaultMaterials();
-    }
-
-    function renderDefaultMaterials() {
-        var dm = getDefaultMaterials();
-        var body = document.getElementById('dmBody');
-        var html = '<div class="dm-rows" id="dmRows">';
-        dm.forEach(function(entry, idx) {
-            html += renderDmRow(idx, entry);
-        });
-        html += '</div>';
-        html += '<button class="dm-add-btn" onclick="addDefaultMaterial()">+ Ajouter un mat&eacute;riau par d&eacute;faut</button>';
-        body.innerHTML = html;
-    }
-
-    function renderDmRow(idx, entry) {
-        var typeOptions = getDmTypes().map(function(t) {
-            return '<option value="' + escapeAttr(t) + '"' + (entry.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
-        }).join('');
-        // Show client_text if the catalogue item has one, otherwise fall back to stored description
-        var displayLabel = entry.description || '';
-        if (entry.catalogue_item_id) {
-            var catItem = (CATALOGUE_DATA || []).find(function(i) { return i.id === entry.catalogue_item_id; });
-            if (catItem && catItem.client_text) displayLabel = catItem.client_text;
-        }
-        return '<div class="dm-row" data-dm-idx="' + idx + '">' +
-            '<select onchange="updateDmType(' + idx + ',this.value)">' + typeOptions + '</select>' +
-            '<div class="dm-search-wrap">' +
-                '<input type="text" value="' + escapeAttr(displayLabel) + '" placeholder="Rechercher dans le catalogue..." ' +
-                    'oninput="dmSearchCatalogue(' + idx + ',this)" ' +
-                    'onfocus="dmSearchCatalogue(' + idx + ',this)" ' +
-                    'onkeydown="dmSearchKeydown(event,' + idx + ')" ' +
-                    (entry.catalogue_item_id ? 'class="dm-resolved"' : '') + '>' +
-                '<div class="dm-autocomplete" id="dmAC-' + idx + '"></div>' +
-            '</div>' +
-            '<button class="dm-remove" onclick="removeDmEntry(' + idx + ')" title="Supprimer">&times;</button>' +
-            '</div>';
-    }
-
-    function addDefaultMaterial() {
-        var dm = getDefaultMaterials();
-        dm.push({ type: getDmTypes()[0], catalogue_item_id: null, description: '' });
-        if (currentSubmission) currentSubmission.default_materials = dm;
-        saveDefaultMaterials(dm);
-        renderDefaultMaterials();
-        // Focus the new search input
-        var rows = document.querySelectorAll('.dm-row');
-        if (rows.length > 0) {
-            var lastInput = rows[rows.length - 1].querySelector('.dm-search-wrap input');
-            if (lastInput) lastInput.focus();
-        }
-    }
-
-    function updateDmType(idx, newType) {
-        var dm = getDefaultMaterials();
-        if (!dm[idx]) return;
-        var oldType = dm[idx].type;
-        // Invalidate dmChoiceCache for both old and new type
-        if (oldType) { var sfx1 = ':' + oldType; Object.keys(dmChoiceCache).forEach(function(k) { if (k.endsWith(sfx1)) delete dmChoiceCache[k]; }); }
-        if (newType && newType !== oldType) { var sfx2 = ':' + newType; Object.keys(dmChoiceCache).forEach(function(k) { if (k.endsWith(sfx2)) delete dmChoiceCache[k]; }); }
-        dm[idx].type = newType;
-        if (currentSubmission) currentSubmission.default_materials = dm;
-        saveDefaultMaterials(dm);
-        // Re-trigger cascades for both old and new group
-        if (oldType) reprocessDefaultCascades(oldType);
-        if (newType && newType !== oldType) reprocessDefaultCascades(newType);
+        return (rdm && rdm.length > 0) ? rdm : [];
     }
 
     // Build set of allowed catalogue categories for a given material group
@@ -1935,188 +1833,6 @@
         });
         return allowed.length > 0 ? allowed : null; // null = no filter (show all)
     }
-
-    function dmSearchCatalogue(idx, input) {
-        var query = input.value.trim().toLowerCase();
-        var acDiv = document.getElementById('dmAC-' + idx);
-        if (!acDiv) return;
-
-        // Mark as unresolved when user edits
-        input.classList.remove('dm-resolved');
-
-        // Get the selected group for this row to filter by allowed categories
-        var dm = getDefaultMaterials();
-        var selectedGroup = dm[idx] ? dm[idx].type : null;
-        var allowedCats = getAllowedCategoriesForGroup(selectedGroup);
-
-        var items = CATALOGUE_DATA || [];
-        // Pre-filter by allowed categories if mapping exists (dedup by ID)
-        var seen = {};
-        if (allowedCats) {
-            items = items.filter(function(item) {
-                if (seen[item.id]) return false;
-                seen[item.id] = true;
-                return allowedCats.indexOf(item.category) !== -1;
-            });
-        } else {
-            items = items.filter(function(item) {
-                if (seen[item.id]) return false;
-                seen[item.id] = true;
-                return true;
-            });
-        }
-
-        var results;
-        if (query.length < 2) {
-            // No query: show all items grouped by category (browseable)
-            results = items.slice(0, 50);
-        } else {
-            // Filter by query — search client_text, description, and category
-            results = items.filter(function(item) {
-                var desc = (item.description || '').toLowerCase();
-                var ct = (item.client_text || '').toLowerCase();
-                var cat = (item.category || '').toLowerCase();
-                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1 || cat.indexOf(query) !== -1;
-            }).slice(0, 30);
-        }
-
-        if (results.length === 0) {
-            acDiv.innerHTML = '<div class="dm-ac-item" style="color:#999;cursor:default;">Aucun r&eacute;sultat</div>';
-            acDiv.classList.add('open');
-            dmActiveAC = idx;
-            return;
-        }
-
-        // Detect label collisions for disambiguation
-        var labelCount = {};
-        results.forEach(function(item) {
-            var lbl = item.client_text || item.description || item.id;
-            labelCount[lbl] = (labelCount[lbl] || 0) + 1;
-        });
-
-        // Group by category for display
-        var grouped = {};
-        results.forEach(function(item) {
-            var cat = item.category || 'Autre';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(item);
-        });
-
-        var html = '';
-        var globalIdx = 0;
-        Object.keys(grouped).forEach(function(cat) {
-            html += '<div style="padding:4px 10px;font-size:10px;font-weight:700;color:#888;background:#f9f9f9;text-transform:uppercase;letter-spacing:0.3px;position:sticky;top:0;">' + escapeHtml(cat) + '</div>';
-            grouped[cat].forEach(function(item) {
-                var displayName = item.client_text || item.description;
-                var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
-                if (!secondary && labelCount[displayName] > 1) secondary = item.id;
-                html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
-                    'onmousedown="dmSelectItem(' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
-                    '<span>' + escapeHtml(displayName) + '</span>' +
-                    (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
-                    '</div>';
-                globalIdx++;
-            });
-        });
-        acDiv.innerHTML = html;
-        acDiv.classList.add('open');
-        dmActiveAC = idx;
-    }
-
-    function dmSearchKeydown(e, idx) {
-        var acDiv = document.getElementById('dmAC-' + idx);
-        if (!acDiv || !acDiv.classList.contains('open')) return;
-        var items = acDiv.querySelectorAll('.dm-ac-item[data-idx]');
-        var activeIdx = -1;
-        items.forEach(function(el, i) { if (el.classList.contains('active')) activeIdx = i; });
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            activeIdx = Math.min(activeIdx + 1, items.length - 1);
-            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
-            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            activeIdx = Math.max(activeIdx - 1, 0);
-            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
-            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].dispatchEvent(new Event('mousedown'));
-        } else if (e.key === 'Escape') {
-            acDiv.classList.remove('open');
-            dmActiveAC = null;
-        }
-    }
-
-    function dmSelectItem(idx, itemId, itemDesc) {
-        var dm = getDefaultMaterials();
-        if (!dm[idx]) return;
-        var changedGroup = dm[idx].type;
-        // Invalidate dmChoiceCache for this type (all rooms using submission fallback)
-        if (changedGroup) {
-            var sfx = ':' + changedGroup;
-            Object.keys(dmChoiceCache).forEach(function(k) { if (k.endsWith(sfx)) delete dmChoiceCache[k]; });
-        }
-        dm[idx].catalogue_item_id = itemId;
-        dm[idx].description = itemDesc;
-        if (currentSubmission) currentSubmission.default_materials = dm;
-        saveDefaultMaterials(dm);
-        // Update input visually
-        var row = document.querySelector('.dm-row[data-dm-idx="' + idx + '"]');
-        if (row) {
-            var input = row.querySelector('.dm-search-wrap input');
-            if (input) { input.value = itemDesc; input.classList.add('dm-resolved'); }
-            var ac = document.getElementById('dmAC-' + idx);
-            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
-        }
-        dmActiveAC = null;
-        // Re-trigger cascades that use $default: for this group
-        reprocessDefaultCascades(changedGroup);
-    }
-
-    function removeDmEntry(idx) {
-        var dm = getDefaultMaterials();
-        var label = (dm[idx] && dm[idx].description) ? dm[idx].description : 'ce matériau';
-        var changedGroup = (dm[idx] && dm[idx].type) ? dm[idx].type : null;
-        steleConfirm('Supprimer « ' + label + ' » ?').then(function(ok) {
-            if (!ok) return;
-            // Invalidate dmChoiceCache for this type
-            if (changedGroup) {
-                var sfx = ':' + changedGroup;
-                Object.keys(dmChoiceCache).forEach(function(k) { if (k.endsWith(sfx)) delete dmChoiceCache[k]; });
-            }
-            var dm2 = getDefaultMaterials();
-            dm2.splice(idx, 1);
-            if (currentSubmission) currentSubmission.default_materials = dm2;
-            saveDefaultMaterials(dm2);
-            renderDefaultMaterials();
-            // Re-trigger cascades — material removed, $default: will now resolve to null
-            reprocessDefaultCascades(changedGroup);
-        });
-    }
-
-    var dmSaveTimer = null;
-    function saveDefaultMaterials(dm) {
-        clearTimeout(dmSaveTimer);
-        dmSaveTimer = setTimeout(function() {
-            if (!currentSubmission) return;
-            authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ default_materials: dm })
-            }).then(function() { showSaveIndicator(); }).catch(function(e) { console.warn('[DM] Save failed:', e); });
-        }, 500);
-    }
-
-    // Close autocomplete when clicking outside
-    document.addEventListener('click', function(e) {
-        if (dmActiveAC !== null && !e.target.closest('.dm-search-wrap')) {
-            var ac = document.getElementById('dmAC-' + dmActiveAC);
-            if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
-            dmActiveAC = null;
-        }
-    });
 
     // ═══════════════════════════════════════════════════════════════════════
     // MATÉRIAUX PAR DÉFAUT — PAR PIÈCE (ROOM-LEVEL DM)
@@ -2235,7 +1951,7 @@
     }
 
     function clearRoomDm(groupId) {
-        steleConfirm('Effacer tous les mat\u00e9riaux par d\u00e9faut de cette pi\u00e8ce ?\nLes mat\u00e9riaux de la soumission seront utilis\u00e9s.').then(function(ok) {
+        steleConfirm('Effacer tous les mat\u00e9riaux par d\u00e9faut de cette pi\u00e8ce ?').then(function(ok) {
             if (!ok) return;
             var oldTypes = (roomDM[groupId] || []).map(function(e) { return e.type; });
             // Invalidate all dmChoiceCache entries for this room
@@ -2407,11 +2123,6 @@
         dd.style.zIndex = '99999';
 
         var options = [];
-        // Submission template
-        var subDM = getDefaultMaterials();
-        if (subDM.length > 0) {
-            options.push({ label: 'Soumission (mod\u00e8le)', dm: JSON.parse(JSON.stringify(subDM)) });
-        }
         // Other rooms
         document.querySelectorAll('.furniture-group').forEach(function(g) {
             if (g.id === groupId) return;
@@ -2912,15 +2623,13 @@
      * Supports multiple DM entries of same type via dmChoiceCache/popup.
      */
     async function getDefaultMaterialKeywords(groupId, parentCategory) {
-        // Determine DM source: room-level or submission-level
-        var rdm = roomDM[groupId];
-        var dmSource = (rdm && rdm.length > 0) ? 'room' : 'submission';
-        var dm = (rdm && rdm.length > 0) ? rdm : getDefaultMaterials();
+        // Room-level DM only (submission-level DM removed)
+        var dm = getDefaultMaterialsForGroup(groupId);
         if (!dm || dm.length === 0) {
-            console.log('[CASCADE] DM fallback: no default materials for group', groupId, '(source: ' + dmSource + ')');
+            console.log('[CASCADE] DM fallback: no default materials for group', groupId);
             return null;
         }
-        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', source=' + dmSource + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
+        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
 
         // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
         var directMatches = [];
@@ -3204,23 +2913,13 @@
      * Called when a default material changes (dmSelectItem, removeDmEntry, updateDmType).
      */
     async function reprocessDefaultCascades(changedGroup, scopeGroupId) {
-        if (!changedGroup) return;
+        if (!changedGroup || !scopeGroupId) return;
         // Don't reprocess on locked submissions
         if (typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) return;
         var token = '$default:' + changedGroup;
-        // Scope: if scopeGroupId provided, only reprocess rows in that room;
-        // if submission-level change, reprocess rooms that use fallback (no room-level DM)
-        var selector = scopeGroupId
-            ? '#' + scopeGroupId + ' .calc-row:not(.cascade-child)'
-            : '.calc-row:not(.cascade-child)';
+        var selector = '#' + scopeGroupId + ' .calc-row:not(.cascade-child)';
         var rowIds = [];
         document.querySelectorAll(selector).forEach(function(row) {
-            // For submission-level changes, skip rooms that have their own DM
-            if (!scopeGroupId) {
-                var rowGroupId = row.dataset.group;
-                var rdm = roomDM[rowGroupId];
-                if (rdm && rdm.length > 0) return; // room has its own DM, not affected
-            }
             var select = row.querySelector('.item-select');
             if (!select || !select.value) return;
             var catItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
@@ -6785,24 +6484,7 @@
         }
         .header-sub-body.collapsed { max-height: 0; opacity: 0; }
 
-        /* ── Matériaux par défaut section — same style as header-sub-panel ── */
-        .default-materials-panel {
-            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-            padding: 10px 14px; margin: -8px 0 16px; overflow: visible; position: relative; z-index: 2;
-        }
-        .default-materials-panel .dm-label {
-            font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 6px; cursor: pointer; user-select: none;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .default-materials-panel .dm-label:hover { color: #555; }
-        .dm-label .dm-arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
-        .dm-label .dm-arrow.open { transform: rotate(90deg); }
-        .default-materials-body {
-            overflow: visible; transition: max-height 0.3s ease, opacity 0.2s ease;
-            max-height: 600px; opacity: 1; padding-top: 8px;
-        }
-        .default-materials-body.collapsed { max-height: 0; opacity: hidden; padding-top: 0; overflow: hidden; }
+        /* ── Matériaux par défaut — shared styles (room-level DM) ── */
         .dm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
         .dm-row {
             display: flex; gap: 6px; align-items: center; font-size: 12px;
@@ -6847,9 +6529,6 @@
             cursor: pointer; padding: 6px 12px; border-radius: 4px; width: 100%;
         }
         .dm-add-btn:hover { border-color: var(--sw-navy); background: #edf1f7; }
-        .dm-sub-hint {
-            font-size: 10px; color: #aaa; margin: -4px 0 6px 16px; font-style: italic;
-        }
 
         /* ── Room-level default materials ── */
         .room-dm-section {
@@ -8025,12 +7704,6 @@
                     <div id="headerSubList"></div>
                     <button class="btn-add-sub" id="btnAddSubHeader" onclick="handleAddSubmissionFromCalc()">+ Nouvelle soumission</button>
                 </div>
-            </div>
-
-            <div class="default-materials-panel" id="defaultMaterialsPanel">
-                <div class="dm-label" onclick="toggleDefaultMaterials()"><span class="dm-arrow" id="dmArrow">&#9654;</span> Mat&eacute;riaux par d&eacute;faut &mdash; Soumission (mod&egrave;le)</div>
-                <div class="dm-sub-hint">Appliqu&eacute; aux pi&egrave;ces sans mat&eacute;riaux sp&eacute;cifiques</div>
-                <div class="default-materials-body collapsed" id="dmBody"></div>
             </div>
 
             <h1 class="page-title">Calculateur</h1>
@@ -15940,8 +15613,7 @@
             updateWorkflowButtons();
             populateSubAssignment();
             loadSubmissionReviews(submissionId);
-            // Refresh default materials UI + tag filter
-            restoreDmPanelState();
+            // Refresh tag filter
             activeTagFilter = null;
             refreshTagFilterBar();
             var isEditable = isSubmissionCurrentlyEditable();
@@ -18518,13 +18190,9 @@
             handleAutoAdd, handleAutoAddCalculated,
             addConstraintWarning, removeConstraintWarning, showConstraintModal,
             findRoomItemsByGroup, handleRequiresSwap, handleRequiresChoice, processConstraints,
-            // Matériaux par défaut (submission-level)
-            getDmTypes, toggleDefaultMaterials, restoreDmPanelState,
-            getDefaultMaterials, getDefaultMaterialsForGroup,
-            renderDefaultMaterials, renderDmRow, addDefaultMaterial, updateDmType,
-            getAllowedCategoriesForGroup, dmSearchCatalogue, dmSearchKeydown,
-            dmSelectItem, removeDmEntry, saveDefaultMaterials,
-            // Matériaux par défaut (room-level)
+            // Matériaux par défaut
+            getDmTypes, getDefaultMaterialsForGroup, getAllowedCategoriesForGroup,
+            // Room-level DM
             toggleRoomDm, updateRoomDmBadge, renderRoomDm, renderRoomDmRow,
             addRoomDmEntry, updateRoomDmType, removeRoomDmEntry, clearRoomDm,
             rdmSearchCatalogue, rdmSearchKeydown, rdmSelectItem,

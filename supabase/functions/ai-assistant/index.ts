@@ -295,10 +295,6 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
     dynamicParts += `\n\n## Barèmes de comparaison\n${JSON.stringify(context.benchmarks, null, 2)}`;
   }
 
-  if (context.defaultMaterials) {
-    dynamicParts += `\n\n## Matériaux par défaut — Soumission (modèle)\nAppliqué aux pièces sans matériaux spécifiques.\n${JSON.stringify(context.defaultMaterials, null, 2)}`;
-  }
-
   // Per-room default materials
   if (context.rooms && Array.isArray(context.rooms)) {
     const roomsWithDM = context.rooms.filter((r: any) => r.defaultMaterials && r.defaultMaterials.length > 0);

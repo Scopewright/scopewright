@@ -3052,10 +3052,13 @@
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
 
-            // Skip rules overridden by an ancestor (avoid cascade duplicates)
-            if (mergedOverrides.length > 0 && rule.target.startsWith('$match:')) {
+            // Skip rules overridden by an ANCESTOR (not by self)
+            // The item that declares override_children must still process its own rules;
+            // only its descendants should be blocked.
+            var ancestorOverrides = parentOverrides || [];
+            if (ancestorOverrides.length > 0 && rule.target.startsWith('$match:')) {
                 var ruleExpCat = rule.target.substring(7).toUpperCase();
-                if (mergedOverrides.indexOf(ruleExpCat) !== -1) {
+                if (ancestorOverrides.indexOf(ruleExpCat) !== -1) {
                     console.log('[CASCADE] skip rule (overridden by ancestor):', rule.target);
                     continue;
                 }

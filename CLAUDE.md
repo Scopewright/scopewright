@@ -178,6 +178,7 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 - `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire)
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`
 - "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
+- **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.
 
 ### Workflow de soumission
 

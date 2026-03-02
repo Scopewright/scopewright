@@ -1861,6 +1861,14 @@
             badge.textContent = '';
             badge.style.display = 'none';
         }
+        // Toggle "needs config" indicator: DM empty + at least 1 item row in group
+        var label = badge.closest('.room-dm-label');
+        if (label) {
+            var groupEl = document.getElementById(groupId);
+            var hasItems = groupEl && groupEl.querySelectorAll('.calc-row').length > 0;
+            var dmEmpty = !rdm || rdm.length === 0;
+            label.classList.toggle('dm-needs-config', dmEmpty && hasItems);
+        }
     }
 
     function renderRoomDm(groupId) {
@@ -6751,6 +6759,14 @@
             max-height: 500px; opacity: 1; padding-top: 8px;
         }
         .room-dm-body.collapsed { max-height: 0; opacity: 0; padding-top: 0; overflow: hidden; }
+        /* DM empty indicator — subtle pulse arrow */
+        @keyframes dm-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+        .room-dm-label.dm-needs-config::after {
+            content: '←';
+            font-size: 13px; font-weight: 600; margin-left: 2px;
+            color: var(--sw-navy);
+            animation: dm-pulse 2.2s ease-in-out infinite;
+        }
         .rdm-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
         .rdm-actions { display: flex; gap: 6px; align-items: center; }
         .rdm-actions .dm-add-btn { flex: 1; width: auto; }
@@ -9603,6 +9619,7 @@
             }
 
             if (!opts.skipFocus) { var cbFocus = document.getElementById(rowId + '-cb'); if (cbFocus) cbFocus.focus(); }
+            updateRoomDmBadge(groupId);
             return rowId;
         }
 
@@ -10339,7 +10356,10 @@
                 delete cascadeParentMap[rowId];
                 delete cascadeSuppressed[rowId];
                 delete _customItemDataMap[rowId];
-                if (groupId) updateGroupSubtotal(groupId);
+                if (groupId) {
+                    updateGroupSubtotal(groupId);
+                    updateRoomDmBadge(groupId);
+                }
                 updateGrandTotal();
             }
         }

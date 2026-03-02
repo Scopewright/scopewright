@@ -324,6 +324,13 @@ Chaque fichier partagé documente en commentaire d'en-tête : les fonctions expo
 ### Règle 5 — Signalement proactif
 Si une modification touche plus de 3 fonctions dans un domaine différent de la feature demandée, **proposer une extraction** avant de continuer. Ne pas accumuler la dette technique silencieusement.
 
+## Directives d'exécution
+
+- Proposer un plan d'exécution complet avant de commencer
+- Demander confirmation UNE SEULE FOIS sur le plan
+- Exécuter le plan au complet sans demander d'approbation intermédiaire
+- Après chaque modification, mettre à jour CLAUDE.md pour refléter les changements
+
 ## Ne pas toucher
 
 - `landing-page/` — Projet indépendant, ne pas modifier

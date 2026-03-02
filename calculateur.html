@@ -2511,7 +2511,20 @@
         var candidates = CATALOGUE_DATA.filter(function(item) {
             return itemHasMaterialCost(item, expCatUpper);
         });
-        console.log('[CASCADE] $match: ' + candidates.length + ' candidates with material_costs in "' + expCatUpper + '"',
+        // Fallback: if no items have material_costs for this category,
+        // match by catalogue category name (fuzzy, plural-normalized)
+        if (candidates.length === 0) {
+            var expNorm = expenseCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+            candidates = CATALOGUE_DATA.filter(function(item) {
+                if (!item.category) return false;
+                var catNorm = item.category.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+                return expNorm.indexOf(catNorm) !== -1 || catNorm.indexOf(expNorm) !== -1;
+            });
+            if (candidates.length > 0) {
+                console.log('[CASCADE] $match: category fallback found ' + candidates.length + ' candidates for "' + expCatUpper + '"');
+            }
+        }
+        console.log('[CASCADE] $match: ' + candidates.length + ' candidates for "' + expCatUpper + '"',
             candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
 
         // ── Fallback chain: client_text → description → default material ──
@@ -2684,7 +2697,23 @@
             }
         }
 
-        // No "first-available" fallback — if no direct or fuzzy match, return null
+        // 3. Category match: DM item's catalogue category matches expense category
+        if (!dmEntry && parentCategory) {
+            var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+            for (var ci = 0; ci < dm.length; ci++) {
+                if (!dm[ci].catalogue_item_id) continue;
+                var dmCatItem = CATALOGUE_DATA.find(function(it) { return it.id === dm[ci].catalogue_item_id; });
+                if (!dmCatItem || !dmCatItem.category) continue;
+                var itemCatNorm = dmCatItem.category.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+                if (catNorm.indexOf(itemCatNorm) !== -1 || itemCatNorm.indexOf(catNorm) !== -1) {
+                    dmEntry = dm[ci];
+                    matchMethod = 'category(' + dmCatItem.category + ')';
+                    break;
+                }
+            }
+        }
+
+        // No "first-available" fallback — if no direct, fuzzy, or category match, return null
         // to avoid selecting an unrelated DM item (e.g. Livraison for Façades)
 
         if (!dmEntry || !dmEntry.catalogue_item_id) {

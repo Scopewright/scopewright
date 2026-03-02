@@ -197,26 +197,71 @@ Machine à états : `draft → pending_internal ↔ returned → approved_intern
 Ou via tables DB `roles` + `user_roles`.
 **IMPORTANT** : Toutes les vérifications sont **côté client uniquement** (`checkPageAccess()`). La sécurité réelle repose sur les RLS policies Supabase.
 
-### Clauses du contrat
+### Architecture de rendu soumission
 
-Clauses personnalisables affichées en fin de soumission (conditions, garanties, etc.).
+Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sources de données différentes :
 
-**Stockage** :
-- `submissions.clauses` — JSONB array `[{title, content}]` directement sur la soumission
-- `quote_clauses` — table bibliothèque (title, content_fr, content_en, sort_order) pour les clauses réutilisables
+| Chemin | Fichier | Fonction | Source données | Live/Figé |
+|--------|---------|----------|----------------|-----------|
+| **Aperçu** | calculateur.html | `renderPreview()` | État local (DOM + mémoire JS) | Live |
+| **Présentation** | quote.html (iframe) | `renderQuote()` | RPC `get_public_quote` + `get_public_room_media` | Live ou snapshot |
+| **Lien client** | quote.html (direct) | `renderQuote()` | Même RPC que Présentation | Live ou snapshot |
+| **Snapshot** | calculateur.html | `uploadSnapshot()` | Capture HTML de `renderPreview()` | Figé à l'approbation |
+| **Email** | google_apps_script.gs | `genererHtmlCourriel()` | Paramètres du client (pas de RPC) | Figé à l'envoi |
 
-**3 chemins d'affichage** :
-| Contexte | Source des données | Fonctionne |
-|----------|-------------------|------------|
-| Aperçu interne (`renderPreview`) | `currentSubmission.clauses` (chargé via `select=*`) | Oui |
-| Mode présentation (iframe → quote.html) | `get_public_quote` RPC → `sub.clauses` | Oui (après migration `fix_get_public_quote_clauses.sql`) |
-| quote.html (lien client) | `get_public_quote` RPC → `sub.clauses` | Oui (après migration) |
+#### Matrice données × chemin de rendu
 
-**Sauvegarde immédiate** : `addClauseToSubmission()` → `saveSubmissionClauses()` → `updateSubmission()` fait un PATCH instantané en DB. Pas de sauvegarde différée.
+| Donnée | Aperçu (renderPreview) | quote.html (live) | Snapshot | Email |
+|--------|----------------------|-------------------|----------|-------|
+| **Descriptions FR** | `roomDescHTML[gid]` ✅ | `room.client_description` ✅ | Capturé ✅ | ❌ |
+| **Descriptions EN** | `roomDescEN[gid]` ✅ | ❌ `client_description_en` absent du RPC | Capturé (si lang=en actif) | ❌ |
+| **Images** | `groupImages` filtrées `showInQuote`, max 4 | `get_public_room_media` RPC + legacy, max 6 | URLs capturées ✅ | Base64 en pièce jointe |
+| **Clauses** | `currentSubmission.clauses` ✅ | `sub.clauses` via RPC ✅ | Capturé (textarea→div) ✅ | ❌ |
+| **Clauses EN** | `clause.content_en` ✅ | ❌ seul `clause.content` rendu | Capturé (si lang=en actif) | ❌ |
+| **Prix/totaux** | Calculé live (DOM `getRowTotal`) | `room.subtotal` × modifiers | Capturé ✅ | Tableau par meuble ✅ |
+| **`approved_total`** | Non utilisé explicitement | Priorité sur total calculé ✅ | Capturé (total affiché) | ❌ |
+| **Rabais** | `currentSubmission.discount_*` ✅ | `sub.discount_*` ✅ | Capturé ✅ | ❌ |
+| **Étapes** | Hardcoded i18n (FR+EN) ✅ | Hardcoded `STEPS` (FR seulement) ⚠️ | Capturé ✅ | ❌ |
+| **Intro page** | `introConfig` + EN via `introConfigEN` ✅ | `introConfig` (FR seulement) ⚠️ | Capturé ✅ | ❌ |
+| **Installation** | DOM checkboxes ✅ | `room.installation_included` ✅ | Capturé ✅ | ❌ |
+| **DM (matériaux)** | ❌ non rendu | ❌ non rendu | ❌ | ❌ |
+| **Couverture** | `introConfig.cover_image` ✅ | `introConfig.cover_image` ✅ | Capturé ✅ | ❌ |
+| **Acceptation** | Badge titre page ✅ | Formulaire + badge ✅ | Badge capturé ✅ | ❌ |
 
-**Snapshot** : `uploadSnapshot()` inclut les clauses comme HTML statique (converti depuis textarea). Les snapshots envoyés par email contiennent donc toujours les clauses.
+#### Incohérences identifiées
 
-**Migration requise** : Si `get_public_quote` ne retourne pas `clauses`, exécuter `sql/fix_get_public_quote_clauses.sql` dans Supabase SQL Editor.
+1. **Traduction EN des descriptions** : `renderPreview` utilise `roomDescEN[gid]`, quote.html utilise seulement `room.client_description` (FR). Le RPC `get_public_quote` ne retourne pas `client_description_en`.
+2. **Traduction EN des clauses** : `renderPreview` utilise `clause.content_en`, quote.html n'utilise que `clause.content`.
+3. **Traduction EN des étapes** : `renderPreview` a les 2 langues via i18n, quote.html a `STEPS` hardcodé FR uniquement.
+4. **Traduction EN intro** : `renderPreview` a `introConfigEN`, quote.html n'a que l'intro FR.
+5. **Max images par pièce** : renderPreview = 4, quote.html = 6.
+6. **Source des prix** : renderPreview calcule live depuis le DOM, quote.html utilise `room.subtotal` pré-calculé du RPC.
+7. **Snapshots figés** : si clauses/images/descriptions changent après la génération du snapshot, les modifications ne sont pas reflétées dans le lien client tant qu'un nouveau snapshot n'est pas uploadé.
+
+#### Mécanisme de snapshot
+
+`uploadSnapshot()` est appelé aux transitions de workflow (approbation, envoi client).
+1. Appelle `renderPreview()` → génère le HTML live dans `#pvContent`
+2. Extrait `container.innerHTML`
+3. Nettoie : supprime boutons, `contenteditable`, convertit `textarea→div`
+4. Wraps dans HTML complet via `generateSnapshotHtml()` (inclut `SNAPSHOT_CSS`)
+5. Upload vers Storage bucket `submission-snapshots/{submissionId}.html`
+
+quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}`. Filtre les anciens formats (check `pv-page-total`). Si snapshot absent/invalide → fallback rendu live.
+
+#### Plan de refactor (recommandé)
+
+**Objectif** : une seule source de vérité pour le contenu rendu.
+
+**Approche** : enrichir `get_public_quote` pour retourner toutes les données nécessaires (descriptions EN, clauses avec content_en, room_media inline). Puis aligner quote.html sur renderPreview pour la traduction et le max images. Cela élimine les incohérences 1-5 sans refactorer renderPreview.
+
+**Migrations SQL nécessaires** :
+- `fix_get_public_quote_clauses.sql` — ajouter `s.clauses` au SELECT ✅
+- `get_public_room_media.sql` — RPC pour images publiques ✅
+- À créer : ajouter `client_description_en` au retour des rooms dans `get_public_quote`
+
+**Clauses** : `submissions.clauses` JSONB `[{title, content, content_en}]`. Bibliothèque dans `quote_clauses` table.
+**Sauvegarde immédiate** : `saveSubmissionClauses()` → PATCH instantané en DB.
 
 ### Pipeline commercial
 

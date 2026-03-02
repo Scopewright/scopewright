@@ -5823,6 +5823,9 @@
         /* 3 images: first spans full width, 2 below side by side */
         .pv-page-room-media.imgs-3 { gap: 12px; }
         .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        /* 5-6 images: 3 columns */
+        .pv-page-room-media.imgs-5,
+        .pv-page-room-media.imgs-6 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .pv-page-room-media .pv-img-wrap {
             overflow: hidden; min-height: 0;
             background: transparent; border: none;
@@ -13048,9 +13051,16 @@
                 }
             });
             if (changed) saveSubmissionClauses(updated);
-            // Intro page paragraphs
+            // Intro page paragraphs — save to memory + persist to app_config
             ['presentation_intro_text_1', 'presentation_intro_text_2', 'presentation_intro_text_3'].forEach(function(k) {
-                if (results[k]) introConfigEN[k] = results[k];
+                if (results[k]) {
+                    introConfigEN[k] = results[k];
+                    authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                        body: JSON.stringify({ key: k + '_en', value: JSON.stringify(results[k]) })
+                    }).catch(function(e) { console.warn('[i18n] Failed to persist', k + '_en', e); });
+                }
             });
         }
 
@@ -13568,6 +13578,7 @@
             '.pv-page-room-media.imgs-2{grid-template-columns:1fr;gap:20px}\n' +
             '.pv-page-room-media.imgs-3{gap:12px}\n' +
             '.pv-page-room-media.imgs-3 .pv-img-wrap:first-child{grid-column:1/-1}\n' +
+            '.pv-page-room-media.imgs-5,.pv-page-room-media.imgs-6{grid-template-columns:repeat(3,1fr);gap:8px}\n' +
             '.pv-page-room-media .pv-img-wrap{overflow:hidden;min-height:0;border-radius:0;background:transparent;border:none;padding:0;box-shadow:none}\n' +
             '.pv-page-room-media .pv-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}\n' +
             '.pv-page-room-desc{width:100%;border:none;border-radius:0;padding:0;font-family:Inter,-apple-system,sans-serif;font-size:14px;font-weight:400;line-height:1.6;color:#2B2B2B;flex:initial;min-height:auto;background:transparent}\n' +
@@ -14039,10 +14050,11 @@
                     html += '</div>';
                     html += '</div>';
 
-                    // Right column: images
-                    var imgCount = Math.min(imgs.length, 4);
+                    // Right column: images (max 6, matching quote.html)
+                    var displayImgs = imgs.slice(0, 6);
+                    var imgCount = displayImgs.length;
                     html += '<div class="pv-page-room-media imgs-' + imgCount + '">';
-                    imgs.forEach(function(img) {
+                    displayImgs.forEach(function(img) {
                         var realIdx = allImgs.indexOf(img);
                         var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
                         var ratio = img.cropRatio === '1:1' ? '1/1' : img.cropRatio === '9:16' ? '9/16' : '16/9';

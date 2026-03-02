@@ -867,16 +867,28 @@ const SUPABASE_URL = 'https://rplzbtjfnwahqodrhpny.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwbHpidGpmbndhaHFvZHJocG55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NDU2MDEsImV4cCI6MjA4NjIyMTYwMX0.OQAZhc029PbRDSe1b02NDAuOUE8yn-_h3QqSnUDpLeU';
 
 // Steps data (same as calculateur.html)
-var STEPS = [
-    { label: 'Conception', desc: '\u00c0 cette \u00e9tape, nous veillerons \u00e0 rassembler toutes les informations n\u00e9cessaires au bon d\u00e9roulement du projet. Cela inclut le choix des poign\u00e9es, l\u2019approbation des mat\u00e9riaux, ainsi que l\u2019\u00e9tude des d\u00e9fis sp\u00e9cifiques au projet. Nous rassemblerons \u00e9galement les fiches techniques des \u00e9lectrom\u00e9nagers et validerons l\u2019\u00e9ch\u00e9ancier avec le client et l\u2019entrepreneur.' },
-    { label: 'Prise de mesure initiale', desc: 'Typiquement, cette prise de mesures s\u2019effectue sur les colombages et le plancher non fini. Nous tiendrons compte de l\u2019\u00e9paisseur du rev\u00eatement de sol et des murs pr\u00e9vus afin d\u2019\u00e9laborer nos dessins.' },
-    { label: 'Approbation des dessins d\u2019atelier', desc: 'Suite \u00e0 notre premi\u00e8re prise de mesures, les dessins d\u2019atelier vous seront remis pour approbation. Une fois ces dessins approuv\u00e9s, aucune modification ne pourra y \u00eatre apport\u00e9e.' },
-    { label: 'Commande de mat\u00e9riaux', desc: 'Comme nous prenons en compte les \u00e9paisseurs de rev\u00eatement lors de notre prise de mesures sur l\u2019ossature brute, nous sommes en mesure de commander les mat\u00e9riaux, tels que les placages de bois et la quincaillerie sp\u00e9ciale, afin d\u2019\u00e9viter tout d\u00e9lai lors de la mise en production.' },
-    { label: 'Prise de mesure finale', desc: 'La prise de mesures finale s\u2019effectue une fois le plancher fini et les joints ainsi que les coins de fer pos\u00e9s. Apr\u00e8s cette prise de mesures, un d\u00e9lai de 6 semaines est n\u00e9cessaire avant le d\u00e9but de l\u2019installation.' },
-    { label: 'Dessins d\u2019atelier pour production', desc: 'Comme nous avons pr\u00e9alablement ajust\u00e9 la prise de mesures initiale pour qu\u2019elle soit presque conforme au r\u00e9sultat final, les ajustements \u00e0 ce stade sont mineurs. Sauf en cas de changement majeur, les dessins d\u2019atelier ne vous seront pas renvoy\u00e9s pour approbation \u00e0 cette \u00e9tape.' },
-    { label: 'Installation', desc: 'La dur\u00e9e de cette \u00e9tape varie en fonction de l\u2019ampleur du projet, mais elle marque un moment cl\u00e9\u00a0: celui o\u00f9 votre vision prend forme. Il ne restera plus que notre mobilier, pr\u00eat \u00e0 s\u2019int\u00e9grer dans votre quotidien et \u00e0 accompagner vos plus beaux moments \u00e0 la maison.' },
-    { label: 'Contr\u00f4le de qualit\u00e9', desc: 'Une fois l\u2019installation termin\u00e9e, un repr\u00e9sentant Stele effectuera une visite avec vous pour \u00e9tablir ensemble une liste unique d\u2019ajustements, si n\u00e9cessaire. Stele pr\u00e9parera ensuite tout le n\u00e9cessaire et, lors d\u2019une seule visite suppl\u00e9mentaire, apportera les ajustements n\u00e9cessaires pour garantir un r\u00e9sultat final \u00e0 la hauteur de vos attentes.' }
-];
+var STEPS_I18N = {
+    fr: [
+        { label: 'Conception', desc: '\u00c0 cette \u00e9tape, nous veillerons \u00e0 rassembler toutes les informations n\u00e9cessaires au bon d\u00e9roulement du projet. Cela inclut le choix des poign\u00e9es, l\u2019approbation des mat\u00e9riaux, ainsi que l\u2019\u00e9tude des d\u00e9fis sp\u00e9cifiques au projet. Nous rassemblerons \u00e9galement les fiches techniques des \u00e9lectrom\u00e9nagers et validerons l\u2019\u00e9ch\u00e9ancier avec le client et l\u2019entrepreneur.' },
+        { label: 'Prise de mesure initiale', desc: 'Typiquement, cette prise de mesures s\u2019effectue sur les colombages et le plancher non fini. Nous tiendrons compte de l\u2019\u00e9paisseur du rev\u00eatement de sol et des murs pr\u00e9vus afin d\u2019\u00e9laborer nos dessins.' },
+        { label: 'Approbation des dessins d\u2019atelier', desc: 'Suite \u00e0 notre premi\u00e8re prise de mesures, les dessins d\u2019atelier vous seront remis pour approbation. Une fois ces dessins approuv\u00e9s, aucune modification ne pourra y \u00eatre apport\u00e9e.' },
+        { label: 'Commande de mat\u00e9riaux', desc: 'Comme nous prenons en compte les \u00e9paisseurs de rev\u00eatement lors de notre prise de mesures sur l\u2019ossature brute, nous sommes en mesure de commander les mat\u00e9riaux, tels que les placages de bois et la quincaillerie sp\u00e9ciale, afin d\u2019\u00e9viter tout d\u00e9lai lors de la mise en production.' },
+        { label: 'Prise de mesure finale', desc: 'La prise de mesures finale s\u2019effectue une fois le plancher fini et les joints ainsi que les coins de fer pos\u00e9s. Apr\u00e8s cette prise de mesures, un d\u00e9lai de 6 semaines est n\u00e9cessaire avant le d\u00e9but de l\u2019installation.' },
+        { label: 'Dessins d\u2019atelier pour production', desc: 'Comme nous avons pr\u00e9alablement ajust\u00e9 la prise de mesures initiale pour qu\u2019elle soit presque conforme au r\u00e9sultat final, les ajustements \u00e0 ce stade sont mineurs. Sauf en cas de changement majeur, les dessins d\u2019atelier ne vous seront pas renvoy\u00e9s pour approbation \u00e0 cette \u00e9tape.' },
+        { label: 'Installation', desc: 'La dur\u00e9e de cette \u00e9tape varie en fonction de l\u2019ampleur du projet, mais elle marque un moment cl\u00e9\u00a0: celui o\u00f9 votre vision prend forme. Il ne restera plus que notre mobilier, pr\u00eat \u00e0 s\u2019int\u00e9grer dans votre quotidien et \u00e0 accompagner vos plus beaux moments \u00e0 la maison.' },
+        { label: 'Contr\u00f4le de qualit\u00e9', desc: 'Une fois l\u2019installation termin\u00e9e, un repr\u00e9sentant Stele effectuera une visite avec vous pour \u00e9tablir ensemble une liste unique d\u2019ajustements, si n\u00e9cessaire. Stele pr\u00e9parera ensuite tout le n\u00e9cessaire et, lors d\u2019une seule visite suppl\u00e9mentaire, apportera les ajustements n\u00e9cessaires pour garantir un r\u00e9sultat final \u00e0 la hauteur de vos attentes.' }
+    ],
+    en: [
+        { label: 'Design', desc: 'At this stage, we will gather all the information needed for the smooth progress of the project. This includes handle selection, material approval, and the study of project-specific challenges. We will also collect appliance specification sheets and validate the timeline with the client and contractor.' },
+        { label: 'Initial Measurement', desc: 'Typically, this measurement is taken on the framing and unfinished floor. We will account for the planned floor covering and wall thicknesses to develop our drawings.' },
+        { label: 'Shop Drawing Approval', desc: 'Following our first measurement, shop drawings will be submitted for your approval. Once these drawings are approved, no modifications can be made.' },
+        { label: 'Material Order', desc: 'Since we account for covering thicknesses during our rough framing measurement, we can order materials such as wood veneers and specialty hardware to avoid delays during production.' },
+        { label: 'Final Measurement', desc: 'The final measurement is taken once the floor is finished and joints and corner beads are installed. After this measurement, a 6-week lead time is required before installation begins.' },
+        { label: 'Production Shop Drawings', desc: 'Since we previously adjusted the initial measurement to be nearly aligned with the final result, adjustments at this stage are minor. Unless there is a major change, the shop drawings will not be resubmitted for approval at this step.' },
+        { label: 'Installation', desc: 'The duration of this stage varies depending on the scope of the project, but it marks a key moment: when your vision takes shape. All that remains is our furniture, ready to integrate into your daily life and accompany your finest moments at home.' },
+        { label: 'Quality Control', desc: 'Once installation is complete, a Stele representative will visit with you to establish a single list of adjustments, if necessary. Stele will then prepare everything needed and, in one additional visit, make the necessary adjustments to ensure a final result that meets your expectations.' }
+    ]
+};
 var STEP_COLORS = ['#2f3e34','#3a4b3f','#45584a','#4b6050','#5e7462','#718874','#849c86','#97b098'];
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -909,7 +921,14 @@ var QUOTE_TEXTS = {
         acceptedByPrefix: ' par ',
         processing: 'Traitement en cours...',
         sigRequired: 'Veuillez dessiner votre signature.',
-        previewLabel: 'Prévisualisation'
+        previewLabel: 'Prévisualisation',
+        clausesTitle: 'Clauses du contrat',
+        stepsTitle: '\u00c9tapes d\u2019un projet type',
+        introLabel: 'Introduction',
+        introAttention: '\u00c0 l\u2019attention de :',
+        introTitle: 'Merci de<br>consid\u00e9rer <strong>stele</strong><br>pour votre projet.',
+        introAtelier: 'Atelier',
+        introBureau: 'Bureau'
     },
     en: {
         finalTitle: 'Your project is ready.',
@@ -934,7 +953,14 @@ var QUOTE_TEXTS = {
         acceptedByPrefix: ' by ',
         processing: 'Processing...',
         sigRequired: 'Please draw your signature.',
-        previewLabel: 'Preview'
+        previewLabel: 'Preview',
+        clausesTitle: 'Contract Terms',
+        stepsTitle: 'Typical Project Steps',
+        introLabel: 'Introduction',
+        introAttention: 'To the attention of:',
+        introTitle: 'Thank you for<br>considering <strong>stele</strong><br>for your project.',
+        introAtelier: 'Workshop',
+        introBureau: 'Office'
     }
 };
 
@@ -1000,7 +1026,7 @@ var designerArchitectName = '';
             return val;
         }
         try {
-            var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
+            var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_text_1_en,presentation_intro_text_2_en,presentation_intro_text_3_en,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
             var ciResp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + configKeys + ')&select=key,value', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
@@ -1172,9 +1198,12 @@ async function renderQuote() {
 
     // ── Introduction page ──
     var introImageUrl = introConfig.intro_image || '';
-    var introText1 = introConfig.presentation_intro_text_1 || '';
-    var introText2 = introConfig.presentation_intro_text_2 || '';
-    var introText3 = introConfig.presentation_intro_text_3 || '';
+    var introText1fr = introConfig.presentation_intro_text_1 || '';
+    var introText2fr = introConfig.presentation_intro_text_2 || '';
+    var introText3fr = introConfig.presentation_intro_text_3 || '';
+    var introText1 = QUOTE_LANG === 'en' ? (introConfig.presentation_intro_text_1_en || introText1fr) : introText1fr;
+    var introText2 = QUOTE_LANG === 'en' ? (introConfig.presentation_intro_text_2_en || introText2fr) : introText2fr;
+    var introText3 = QUOTE_LANG === 'en' ? (introConfig.presentation_intro_text_3_en || introText3fr) : introText3fr;
     var introAtelier = introConfig.presentation_intro_atelier || '';
     var introBureau = introConfig.presentation_intro_bureau || '';
     var introPhone = introConfig.presentation_intro_phone || '';
@@ -1184,7 +1213,7 @@ async function renderQuote() {
         html += '<div class="pv-page pv-page-intro">';
 
         // Section label
-        html += '<span class="pv-intro-section-label">Introduction</span>';
+        html += '<span class="pv-intro-section-label">' + escapeHtml(t('introLabel')) + '</span>';
 
         // Left column: image
         html += '<div class="pv-intro-image">';
@@ -1196,7 +1225,7 @@ async function renderQuote() {
         // Right column: content
         html += '<div class="pv-intro-content">';
 
-        html += '<div class="pv-intro-attention-label">\u00c0 l\u2019attention de\u2009:</div>';
+        html += '<div class="pv-intro-attention-label">' + escapeHtml(t('introAttention')) + '</div>';
 
         // Client info (dynamic)
         var introClientParts = [];
@@ -1209,7 +1238,7 @@ async function renderQuote() {
 
         html += '<div class="pv-intro-rule"></div>';
 
-        html += '<h2 class="pv-intro-title">Merci de<br>consid\u00e9rer <strong>stele</strong><br>pour votre projet.</h2>';
+        html += '<h2 class="pv-intro-title">' + t('introTitle') + '</h2>';
 
         html += '<div class="pv-intro-body">';
         if (introText1) html += '<p>' + escapeHtml(introText1) + '</p>';
@@ -1225,13 +1254,13 @@ async function renderQuote() {
         html += '<div class="pv-intro-footer-addresses">';
         if (introAtelier) {
             html += '<div class="pv-intro-footer-block">';
-            html += '<span class="pv-intro-footer-label">Atelier</span>';
+            html += '<span class="pv-intro-footer-label">' + escapeHtml(t('introAtelier')) + '</span>';
             html += '<span class="pv-intro-footer-value">' + escapeHtml(introAtelier) + '</span>';
             html += '</div>';
         }
         if (introBureau) {
             html += '<div class="pv-intro-footer-block">';
-            html += '<span class="pv-intro-footer-label">Bureau</span>';
+            html += '<span class="pv-intro-footer-label">' + escapeHtml(t('introBureau')) + '</span>';
             html += '<span class="pv-intro-footer-value">' + escapeHtml(introBureau) + '</span>';
             html += '</div>';
         }
@@ -1308,7 +1337,7 @@ async function renderQuote() {
         });
 
         var hasImages = allImages.length > 0;
-        var desc = room.client_description || '';
+        var desc = QUOTE_LANG === 'en' ? (room.client_description_en || room.client_description || '') : (room.client_description || '');
 
         html += '<div class="pv-page">';
         html += '<div class="pv-page-room-header">';
@@ -1355,22 +1384,25 @@ async function renderQuote() {
     var clauses = sub.clauses || [];
     if (clauses.length > 0) {
         html += '<div class="pv-page">';
-        html += '<div class="pv-page-clauses-header">Clauses du contrat</div>';
+        html += '<div class="pv-page-clauses-header">' + escapeHtml(t('clausesTitle')) + '</div>';
         html += '<div class="pv-page-clauses-body">';
         clauses.forEach(function(clause) {
+            var clauseTitle = QUOTE_LANG === 'en' ? (clause.title_en || clause.title || '') : (clause.title || '');
+            var clauseContent = QUOTE_LANG === 'en' ? (clause.content_en || clause.content || '') : (clause.content || '');
             html += '<div class="pv-page-clause">';
-            html += '<div class="pv-page-clause-title">' + escapeHtml(clause.title) + '</div>';
-            html += '<div class="pv-page-clause-text">' + escapeHtml(clause.content || '') + '</div>';
+            html += '<div class="pv-page-clause-title">' + escapeHtml(clauseTitle) + '</div>';
+            html += '<div class="pv-page-clause-text">' + escapeHtml(clauseContent) + '</div>';
             html += '</div>';
         });
         html += '</div></div>';
     }
 
     // ── Steps page ── (before combined final page)
+    var steps = STEPS_I18N[QUOTE_LANG] || STEPS_I18N.fr;
     html += '<div class="pv-page pv-page-steps">';
-    html += '<div class="pv-steps-title">\u00c9tapes d\u2019un projet type</div>';
+    html += '<div class="pv-steps-title">' + escapeHtml(t('stepsTitle')) + '</div>';
     html += '<div class="pv-steps-grid">';
-    STEPS.forEach(function(step, i) {
+    steps.forEach(function(step, i) {
         html += '<div class="pv-step">';
         html += '<div class="pv-step-circle" style="background:' + STEP_COLORS[i] + '">' + (i + 1) + '</div>';
         html += '<div class="pv-step-content">';

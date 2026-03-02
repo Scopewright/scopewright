@@ -228,14 +228,14 @@ Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sour
 | **Couverture** | `introConfig.cover_image` ✅ | `introConfig.cover_image` ✅ | Capturé ✅ | ❌ |
 | **Acceptation** | Badge titre page ✅ | Formulaire + badge ✅ | Badge capturé ✅ | ❌ |
 
-#### Incohérences identifiées
+#### Incohérences identifiées (corrigées)
 
-1. **Traduction EN des descriptions** : `renderPreview` utilise `roomDescEN[gid]`, quote.html utilise seulement `room.client_description` (FR). Le RPC `get_public_quote` ne retourne pas `client_description_en`.
-2. **Traduction EN des clauses** : `renderPreview` utilise `clause.content_en`, quote.html n'utilise que `clause.content`.
-3. **Traduction EN des étapes** : `renderPreview` a les 2 langues via i18n, quote.html a `STEPS` hardcodé FR uniquement.
-4. **Traduction EN intro** : `renderPreview` a `introConfigEN`, quote.html n'a que l'intro FR.
-5. **Max images par pièce** : renderPreview = 4, quote.html = 6.
-6. **Source des prix** : renderPreview calcule live depuis le DOM, quote.html utilise `room.subtotal` pré-calculé du RPC.
+1. ~~**Traduction EN des descriptions**~~ ✅ Migration SQL `fix_get_public_quote_desc_en.sql` + quote.html utilise `client_description_en` avec fallback FR.
+2. ~~**Traduction EN des clauses**~~ ✅ quote.html utilise `clause.content_en`/`clause.title_en` quand `QUOTE_LANG==='en'`.
+3. ~~**Traduction EN des étapes**~~ ✅ `STEPS_I18N` bilingue (FR/EN) dans quote.html, `t('stepsTitle')` pour le titre.
+4. ~~**Traduction EN intro**~~ ✅ `applyTranslations()` persiste les EN dans `app_config` (`_en` suffix), quote.html les charge et utilise avec fallback FR.
+5. ~~**Max images par pièce**~~ ✅ renderPreview aligné à 6 (`.slice(0, 6)`), CSS `imgs-5`/`imgs-6` ajoutés.
+6. **Source des prix** : renderPreview calcule live depuis le DOM, quote.html utilise `room.subtotal` pré-calculé du RPC. (Acceptable — pas un bug)
 7. **Snapshots figés** : si clauses/images/descriptions changent après la génération du snapshot, les modifications ne sont pas reflétées dans le lien client tant qu'un nouveau snapshot n'est pas uploadé.
 
 #### Mécanisme de snapshot
@@ -249,18 +249,12 @@ Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sour
 
 quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}`. Filtre les anciens formats (check `pv-page-total`). Si snapshot absent/invalide → fallback rendu live.
 
-#### Plan de refactor (recommandé)
-
-**Objectif** : une seule source de vérité pour le contenu rendu.
-
-**Approche** : enrichir `get_public_quote` pour retourner toutes les données nécessaires (descriptions EN, clauses avec content_en, room_media inline). Puis aligner quote.html sur renderPreview pour la traduction et le max images. Cela élimine les incohérences 1-5 sans refactorer renderPreview.
-
 **Migrations SQL nécessaires** :
 - `fix_get_public_quote_clauses.sql` — ajouter `s.clauses` au SELECT ✅
 - `get_public_room_media.sql` — RPC pour images publiques ✅
-- À créer : ajouter `client_description_en` au retour des rooms dans `get_public_quote`
+- `fix_get_public_quote_desc_en.sql` — ajouter `client_description_en` au retour rooms ✅
 
-**Clauses** : `submissions.clauses` JSONB `[{title, content, content_en}]`. Bibliothèque dans `quote_clauses` table.
+**Clauses** : `submissions.clauses` JSONB `[{title, content, title_en, content_en}]`. Bibliothèque dans `quote_clauses` table.
 **Sauvegarde immédiate** : `saveSubmissionClauses()` → PATCH instantané en DB.
 
 ### Pipeline commercial

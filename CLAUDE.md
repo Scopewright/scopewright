@@ -160,6 +160,17 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 
 Détails complets : `docs/TECHNICAL_MANUAL.md` §3
 
+### Cascade supprimée (`cascade_suppressed`)
+
+Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est mémorisé pour empêcher la regénération.
+- **Stockage** : `cascadeSuppressed[parentRowId] = ['ST-0035', ...]` (mémoire) + `room_items.cascade_suppressed` JSONB (DB)
+- **Détection** : `removeRow()` vérifie `!_cascadeRunning && cascadeParentMap[rowId]` — seules les suppressions manuelles comptent
+- **Filtrage** : `executeCascade()` skip les targets dont l'ID résolu est dans la liste supprimée du parent
+- **Reset** : quand l'utilisateur change l'article parent (`updateRow`), les suppressions sont vidées et la cascade reprend normalement
+- **UI** : bouton `⊘` (`.btn-suppressed-cascade`) visible seulement si suppressions actives, dropdown de restauration (`openSuppressedMenu`)
+- **Restauration** : `restoreSuppressedCascade(parentRowId, catId)` retire l'ID de la liste et re-exécute la cascade
+- **Migration** : `sql/cascade_suppressed.sql` — `ALTER TABLE room_items ADD COLUMN cascade_suppressed JSONB`
+
 ### Matériaux par défaut (DM)
 
 **Room-level uniquement** (`roomDM[groupId]`). Le niveau soumission a été retiré.

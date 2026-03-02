@@ -2285,6 +2285,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     var cascadeParentMap = {};   // cascadeParentMap[childRowId] = parentRowId
+    var cascadeSuppressed = {}; // cascadeSuppressed[parentRowId] = ['ST-0035', ...] — user-deleted cascade children
     var _cascadeRunning = false; // guard against re-entrancy
     var _isLoadingSubmission = false; // guard against cascades during submission load
     var matchDefaults = {};      // cache $match: resolutions (loaded from submission.match_defaults)
@@ -3109,6 +3110,13 @@
                 continue;
             }
 
+            // Check if this target was suppressed by user (manual child deletion)
+            var suppressed = cascadeSuppressed[parentRowId] || [];
+            if (suppressed.indexOf(resolvedTarget) !== -1) {
+                console.log('[CASCADE] skip (suppressed by user):', resolvedTarget);
+                continue;
+            }
+
             // Évaluer la condition
             if (rule.condition) {
                 var condResult = evalFormula(rule.condition, vars);
@@ -3218,6 +3226,101 @@
         if (parentRowId) {
             await executeCascade(parentRowId, 0);
         }
+    }
+
+    // ── Cascade suppressed — UI indicator + restore menu ──
+
+    /** Update the suppressed indicator button visibility */
+    function updateSuppressedIndicator(rowId) {
+        var btn = document.getElementById(rowId + '-suppressed-btn');
+        if (!btn) return;
+        var list = cascadeSuppressed[rowId];
+        if (list && list.length > 0) {
+            btn.classList.add('has-suppressed');
+            btn.title = list.length + ' cascade(s) supprimée(s)';
+        } else {
+            btn.classList.remove('has-suppressed');
+        }
+    }
+
+    /** Open dropdown menu listing suppressed cascade items with restore option */
+    function openSuppressedMenu(rowId, btnEl) {
+        // Close any existing menu
+        var existing = document.querySelector('.suppressed-menu');
+        if (existing) existing.remove();
+
+        var list = cascadeSuppressed[rowId];
+        if (!list || list.length === 0) return;
+
+        var menu = document.createElement('div');
+        menu.className = 'suppressed-menu';
+
+        var title = document.createElement('div');
+        title.className = 'suppressed-menu-title';
+        title.textContent = 'Cascades supprimées';
+        menu.appendChild(title);
+
+        list.forEach(function(catId) {
+            var catItem = CATALOGUE_DATA.find(function(i) { return i.id === catId; });
+            var label = catItem ? (catItem.client_text || catItem.description || catId) : catId;
+
+            var item = document.createElement('div');
+            item.className = 'suppressed-menu-item';
+
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = catId + ' — ' + label;
+            nameSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px';
+            item.appendChild(nameSpan);
+
+            var restoreBtn = document.createElement('button');
+            restoreBtn.className = 'sup-restore';
+            restoreBtn.textContent = 'Restaurer';
+            restoreBtn.onclick = function() {
+                restoreSuppressedCascade(rowId, catId);
+                menu.remove();
+            };
+            item.appendChild(restoreBtn);
+
+            menu.appendChild(item);
+        });
+
+        // Position near the button
+        document.body.appendChild(menu);
+        var rect = btnEl.getBoundingClientRect();
+        var menuH = menu.offsetHeight;
+        var top = rect.bottom + 4;
+        if (top + menuH > window.innerHeight - 10) top = rect.top - menuH - 4;
+        menu.style.top = top + 'px';
+        menu.style.left = Math.min(rect.left, window.innerWidth - menu.offsetWidth - 10) + 'px';
+
+        // Close on outside click
+        setTimeout(function() {
+            function closeMenu(e) {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('mousedown', closeMenu);
+                }
+            }
+            document.addEventListener('mousedown', closeMenu);
+        }, 0);
+    }
+
+    /** Restore a suppressed cascade item — remove from list and re-run cascade */
+    async function restoreSuppressedCascade(parentRowId, catId) {
+        var list = cascadeSuppressed[parentRowId];
+        if (!list) return;
+        var idx = list.indexOf(catId);
+        if (idx !== -1) list.splice(idx, 1);
+        if (list.length === 0) delete cascadeSuppressed[parentRowId];
+
+        // Save to DB
+        if (itemMap[parentRowId]) {
+            updateItem(itemMap[parentRowId], { cascade_suppressed: list.length > 0 ? list : null });
+        }
+        updateSuppressedIndicator(parentRowId);
+
+        // Re-run cascade to regenerate the restored child
+        await executeCascade(parentRowId, 0);
     }
 
     var _pendingCascadeRowId = null;
@@ -3960,6 +4063,43 @@
         }
         .btn-revert-cascade:hover { background: rgba(232, 168, 76, 0.3); }
         .cascade-locked .btn-revert-cascade { display: inline-flex !important; }
+        /* ── Cascade suppressed indicator ── */
+        .btn-suppressed-cascade {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 22px; height: 22px;
+            border: none; background: rgba(239, 68, 68, 0.10);
+            color: #b91c1c; border-radius: 4px;
+            cursor: pointer; font-size: 12px;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .btn-suppressed-cascade:hover { background: rgba(239, 68, 68, 0.20); }
+        .btn-suppressed-cascade.has-suppressed { display: inline-flex !important; }
+        .suppressed-menu {
+            position: fixed; z-index: 10000;
+            background: #fff; border: 1px solid var(--sw-border);
+            border-radius: 10px; padding: 8px 0;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+            min-width: 240px; max-width: 360px;
+            animation: sdFadeIn 0.12s ease;
+        }
+        .suppressed-menu-title {
+            padding: 6px 14px 4px; font-size: 11px; font-weight: 600;
+            color: var(--sw-text-2); text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .suppressed-menu-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 14px; cursor: default; font-size: 13px; color: var(--sw-text);
+        }
+        .suppressed-menu-item:hover { background: #f1f5f9; }
+        .suppressed-menu-item .sup-restore {
+            font-size: 11px; color: var(--sw-navy); cursor: pointer;
+            font-weight: 600; padding: 2px 8px; border-radius: 4px;
+            border: 1px solid var(--sw-border); background: #fff;
+            transition: background 0.12s;
+        }
+        .suppressed-menu-item .sup-restore:hover { background: #f1f5f9; }
         .cascade-badge {
             font-size: 9px; background: #e2e8f0; color: #475569;
             padding: 1px 5px; border-radius: 3px; margin-left: 4px;
@@ -9388,6 +9528,7 @@
                 <div class="cell-add">
                     <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
                     <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
+                    <button class="btn-suppressed-cascade" id="${rowId}-suppressed-btn" onclick="openSuppressedMenu('${rowId}', this)" title="Cascades supprimées">⊘</button>
                 </div>
                 <div class="cell-tag">
                     <input type="text" id="${rowId}-tag" placeholder="—" maxlength="4" autocomplete="off" oninput="this.value=this.value.toUpperCase()" onblur="saveRowTag('${rowId}')">
@@ -9857,10 +9998,16 @@
             const qty = parseFloat(qtyInput.value) || 0;
             const currentMode = row.dataset.mode;
 
-            // Cascade : détecter changement d'article → reset enfants
+            // Cascade : détecter changement d'article → reset enfants + clear suppressions
             var prevCatId = row.dataset.lastCatalogueId || '';
             if (prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
                 findCascadeChildren(rowId).forEach(function(c) { removeRow(c.rowId); });
+                // New article = new rules → clear suppressions
+                if (cascadeSuppressed[rowId]) {
+                    delete cascadeSuppressed[rowId];
+                    if (itemMap[rowId]) updateItem(itemMap[rowId], { cascade_suppressed: null });
+                    updateSuppressedIndicator(rowId);
+                }
             }
             row.dataset.lastCatalogueId = selectedId;
 
@@ -10158,6 +10305,24 @@
         }
 
         function removeRow(rowId) {
+            // If user manually deletes a cascade child, suppress it on parent
+            if (!_cascadeRunning && cascadeParentMap[rowId]) {
+                var parentRowId = cascadeParentMap[rowId];
+                var childRow = document.getElementById(rowId);
+                var childSelect = childRow ? childRow.querySelector('.item-select') : null;
+                var childCatId = childSelect ? childSelect.value : null;
+                if (childCatId && parentRowId) {
+                    if (!cascadeSuppressed[parentRowId]) cascadeSuppressed[parentRowId] = [];
+                    if (cascadeSuppressed[parentRowId].indexOf(childCatId) === -1) {
+                        cascadeSuppressed[parentRowId].push(childCatId);
+                        if (itemMap[parentRowId]) {
+                            updateItem(itemMap[parentRowId], { cascade_suppressed: cascadeSuppressed[parentRowId] });
+                        }
+                        updateSuppressedIndicator(parentRowId);
+                    }
+                }
+            }
+
             // Supprimer d'abord les enfants cascade (récursif)
             var cascadeChildren = findCascadeChildren(rowId);
             cascadeChildren.forEach(function(c) { removeRow(c.rowId); });
@@ -10172,6 +10337,7 @@
                 }
                 row.remove();
                 delete cascadeParentMap[rowId];
+                delete cascadeSuppressed[rowId];
                 delete _customItemDataMap[rowId];
                 if (groupId) updateGroupSubtotal(groupId);
                 updateGrandTotal();
@@ -15640,6 +15806,12 @@
                             // Restore cascade_locked state
                             if (isCascade && item.cascade_locked) {
                                 row.classList.add('cascade-locked');
+                            }
+
+                            // Restore cascade_suppressed state
+                            if (item.cascade_suppressed && Array.isArray(item.cascade_suppressed) && item.cascade_suppressed.length > 0) {
+                                cascadeSuppressed[rowId] = item.cascade_suppressed;
+                                updateSuppressedIndicator(rowId);
                             }
 
                             qtyInput.value = item.quantity || 1;

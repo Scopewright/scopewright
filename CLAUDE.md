@@ -154,6 +154,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
 - Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms
+- **Guard `ask` completeness** : si l'article déclare `calculation_rule_ai.ask` (ex: `["L","H"]`), la cascade ne se déclenche qu'une fois **toutes** les variables listées remplies (> 0). Appliqué uniquement à `depth === 0` (FAB racine). Empêche les cascades partielles quand l'utilisateur saisit les dimensions une par une. Mapping : `L`/`LARGEUR`, `H`/`HAUTEUR`, `P`/`PROFONDEUR`, `QTY`/`QUANTITÉ`, `N_TABLETTES`/`TABLETTES`, `N_PARTITIONS`/`PARTITIONS`
 
 **Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :
 - **Pas de ligne enfant créée** — la règle est simplement sautée (`continue`)

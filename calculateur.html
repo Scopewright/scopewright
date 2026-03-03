@@ -3342,6 +3342,31 @@
         };
         console.log('[CASCADE] vars:', JSON.stringify(vars), 'rootQty:', rootQty);
 
+        // Guard: si l'article déclare un "ask" (dimensions requises), vérifier
+        // que TOUTES sont remplies (> 0) avant de cascader. Évite les cascades
+        // partielles quand l'utilisateur tape les dimensions une par une.
+        // Ne s'applique qu'à depth 0 (le FAB racine) — les enfants héritent.
+        var askFields = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.ask;
+        if (depth === 0 && askFields && Array.isArray(askFields) && askFields.length > 0) {
+            var missingAsk = askFields.filter(function(field) {
+                var key = field.trim();
+                // Map ask field names to vars keys (case-insensitive)
+                var normalized = key.toUpperCase();
+                if (normalized === 'L' || normalized === 'LARGEUR') return !vars.L || vars.L <= 0;
+                if (normalized === 'H' || normalized === 'HAUTEUR') return !vars.H || vars.H <= 0;
+                if (normalized === 'P' || normalized === 'PROFONDEUR') return !vars.P || vars.P <= 0;
+                if (normalized === 'QTY' || normalized === 'QUANTITÉ' || normalized === 'QUANTITE') return !vars.QTY || vars.QTY <= 0;
+                if (normalized === 'N_TABLETTES' || normalized === 'TABLETTES') return !vars.n_tablettes || vars.n_tablettes <= 0;
+                if (normalized === 'N_PARTITIONS' || normalized === 'PARTITIONS') return !vars.n_partitions || vars.n_partitions <= 0;
+                // Unknown ask field — don't block
+                return false;
+            });
+            if (missingAsk.length > 0) {
+                console.log('[CASCADE] skipped: ask fields incomplete —', missingAsk.join(', '), 'missing/zero for', selectedId);
+                return;
+            }
+        }
+
         // Au moins une dimension doit exister pour exécuter la cascade
         if (dims.L === 0 && dims.H === 0 && dims.P === 0 && rootQty === 0) {
             console.log('[CASCADE] skipped: all dims+qty = 0');

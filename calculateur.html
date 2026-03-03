@@ -2335,6 +2335,7 @@
     var _isLoadingSubmission = false; // guard against cascades during submission load
     var matchDefaults = {};      // cache $match: resolutions (loaded from submission.match_defaults)
     var dmChoiceCache = {};      // { "groupId:TypeName": catalogue_item_id } — per-room $default: choice cache
+    var _pendingMaterialCtx = {}; // { parentRowId: { chosenClientText: "..." } } — set by manual child change, consumed by executeCascade
 
     var MATCH_STOP_WORDS = ['de', 'du', 'des', 'le', 'la', 'les', 'en', 'avec', 'pour', 'et',
         'un', 'une', 'sur', 'par', 'au', 'aux',
@@ -2406,9 +2407,12 @@
             var dm = getDefaultMaterialsForGroup(groupId);
             var validIds = {};
             var allowedCats = getAllowedCategoriesForGroup(groupName);
+            // Collect DM client_texts for broader fallback
+            var dmClientTexts = [];
             for (var i = 0; i < dm.length; i++) {
                 if (dm[i].type === groupName) {
                     if (dm[i].client_text) {
+                        dmClientTexts.push(dm[i].client_text);
                         CATALOGUE_DATA.forEach(function(c) {
                             if (c.client_text === dm[i].client_text &&
                                 (!allowedCats || allowedCats.indexOf(c.category) !== -1)) {
@@ -2421,10 +2425,37 @@
                     }
                 }
             }
+            // Exact match: child's catalogueId is in validIds (strict DM + category check)
             for (var j = 0; j < activeChildren.length; j++) {
                 var c = activeChildren[j];
                 if (alreadyMatched.indexOf(c.rowId) === -1 && c.catalogueId && validIds[c.catalogueId]) {
                     return c.catalogueId;
+                }
+            }
+            // Fallback 1: match by DM client_text WITHOUT category filter
+            // Covers cases where getAllowedCategoriesForGroup excludes the child's category
+            for (var j2 = 0; j2 < activeChildren.length; j2++) {
+                var c2 = activeChildren[j2];
+                if (alreadyMatched.indexOf(c2.rowId) === -1 && c2.catalogueId) {
+                    var childItem = CATALOGUE_DATA.find(function(ci) { return ci.id === c2.catalogueId; });
+                    if (childItem && childItem.client_text && dmClientTexts.indexOf(childItem.client_text) !== -1) {
+                        console.log('[CASCADE] findExisting: fallback client_text match for', c2.catalogueId, '→', childItem.client_text);
+                        return c2.catalogueId;
+                    }
+                }
+            }
+            // Fallback 2: match by allowed category (trust existing DB data on reload)
+            // If a cascade child exists with an item in a compatible category, keep it
+            if (allowedCats && allowedCats.length > 0) {
+                for (var j3 = 0; j3 < activeChildren.length; j3++) {
+                    var c3 = activeChildren[j3];
+                    if (alreadyMatched.indexOf(c3.rowId) === -1 && c3.catalogueId) {
+                        var childItem3 = CATALOGUE_DATA.find(function(ci) { return ci.id === c3.catalogueId; });
+                        if (childItem3 && allowedCats.indexOf(childItem3.category) !== -1) {
+                            console.log('[CASCADE] findExisting: fallback category match for', c3.catalogueId, 'cat:', childItem3.category);
+                            return c3.catalogueId;
+                        }
+                    }
                 }
             }
             return null;
@@ -3346,7 +3377,16 @@
         // que TOUTES sont remplies (> 0) avant de cascader. Évite les cascades
         // partielles quand l'utilisateur tape les dimensions une par une.
         // Ne s'applique qu'à depth 0 (le FAB racine) — les enfants héritent.
+        // Fallback: si pas de ask explicite, inférer depuis dims_config pour les FAB avec cascade.
         var askFields = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.ask;
+        if (!askFields && depth === 0 && catItem && catItem.item_type === 'fabrication' && rules) {
+            var dc = catItem.dims_config || { l: true, h: true, p: true };
+            var inferred = [];
+            if (dc.l) inferred.push('L');
+            if (dc.h) inferred.push('H');
+            if (dc.p) inferred.push('P');
+            if (inferred.length > 0) askFields = inferred;
+        }
         if (depth === 0 && askFields && Array.isArray(askFields) && askFields.length > 0) {
             var missingAsk = askFields.filter(function(field) {
                 var key = field.trim();
@@ -3377,12 +3417,13 @@
         var parentItemId = itemMap[parentRowId];
         var existingChildren = findCascadeChildren(parentRowId);
 
-        // Separate locked children — invisible to the cascade engine
+        // Separate locked children — tracked but not updated/deleted by cascade engine
         var activeChildren = [];
+        var lockedChildren = [];
         existingChildren.forEach(function(c) {
             var childEl = document.getElementById(c.rowId);
             if (childEl && childEl.classList.contains('cascade-locked')) {
-                // Locked: skip entirely (no update, no delete, no duplicate)
+                lockedChildren.push(c);
             } else {
                 activeChildren.push(c);
             }
@@ -3400,8 +3441,14 @@
         });
 
         // Cascade material context: inherited from ancestor cascade, or pre-populated from
-        // the parent FAB's DM. Ensures all children/grandchildren use the same material.
+        // the parent FAB's DM. Overridden by _pendingMaterialCtx (manual child change).
         var materialCtx = parentMaterialCtx ? { chosenClientText: parentMaterialCtx.chosenClientText } : {};
+        // Manual child change: consume pending materialCtx (overrides DM-based ctx)
+        if (_pendingMaterialCtx[parentRowId]) {
+            materialCtx.chosenClientText = _pendingMaterialCtx[parentRowId].chosenClientText;
+            delete _pendingMaterialCtx[parentRowId];
+            console.log('[CASCADE] materialCtx: manual child override → "' + materialCtx.chosenClientText + '"');
+        }
         if (!materialCtx.chosenClientText && catItem && catItem.category) {
             var parentDmType = catItem.category;
             var parentDm = getDefaultMaterialsForGroup(groupId);
@@ -3459,6 +3506,11 @@
             if (!resolvedTarget) {
                 resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
             }
+            // Validate resolved target exists in catalogue (prevent empty rows)
+            if (resolvedTarget && !CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; })) {
+                console.warn('[CASCADE] resolved target not in catalogue:', resolvedTarget, '(rule:', rule.target, ')');
+                resolvedTarget = null;
+            }
             if (!resolvedTarget) {
                 var parentDesc = catItem ? (catItem.client_text || catItem.description || selectedId) : selectedId;
                 var roomNameEl = row.closest('.furniture-group');
@@ -3493,22 +3545,60 @@
             if (qtyPerUnit === null || qtyPerUnit <= 0) continue;
             var qty = Math.round(qtyPerUnit * rootQty * 100) / 100;
 
-            // Chercher un enfant ACTIF existant avec le même target (skip locked)
+            // Check if a locked child satisfies this rule (by rule target or catalogueId)
+            // Prevents duplicate creation when a manually-changed child already covers this rule.
+            var lockedMatch = false;
+            for (var li = 0; li < lockedChildren.length; li++) {
+                if (matchedChildRowIds.indexOf(lockedChildren[li].rowId) !== -1) continue;
+                var lockedEl = document.getElementById(lockedChildren[li].rowId);
+                if (lockedEl && (lockedEl.dataset.cascadeRuleTarget === rule.target ||
+                    lockedChildren[li].catalogueId === resolvedTarget)) {
+                    matchedChildRowIds.push(lockedChildren[li].rowId);
+                    lastInsertedRowId = lockedChildren[li].rowId;
+                    lockedMatch = true;
+                    console.log('[CASCADE] locked child matches rule:', rule.target, '→', lockedChildren[li].rowId);
+                    break;
+                }
+            }
+            if (lockedMatch) continue;
+
+            // Chercher un enfant ACTIF existant avec le même target
             var existing = null;
             for (var ei = 0; ei < activeChildren.length; ei++) {
-                if (activeChildren[ei].catalogueId === resolvedTarget) {
+                if (activeChildren[ei].catalogueId === resolvedTarget &&
+                    matchedChildRowIds.indexOf(activeChildren[ei].rowId) === -1) {
                     existing = activeChildren[ei];
                     break;
                 }
             }
+            // Fallback: match by cascadeRuleTarget (child loaded from DB, resolution changed)
+            if (!existing) {
+                for (var ei2 = 0; ei2 < activeChildren.length; ei2++) {
+                    if (matchedChildRowIds.indexOf(activeChildren[ei2].rowId) !== -1) continue;
+                    var childElRt = document.getElementById(activeChildren[ei2].rowId);
+                    if (childElRt && childElRt.dataset.cascadeRuleTarget === rule.target) {
+                        existing = activeChildren[ei2];
+                        console.log('[CASCADE] existing child matched by ruleTarget:', rule.target, '→', existing.rowId);
+                        break;
+                    }
+                }
+            }
 
             if (existing) {
-                // Mettre à jour la quantité de l'enfant existant
+                // Mettre à jour l'enfant existant: item + quantité
                 var childRow = document.getElementById(existing.rowId);
                 if (childRow) {
+                    childRow.dataset.cascadeRuleTarget = rule.target;
+                    // If resolution changed the target item, update the select
+                    if (existing.catalogueId !== resolvedTarget) {
+                        var childSelect2 = childRow.querySelector('.item-select');
+                        if (childSelect2) childSelect2.value = resolvedTarget;
+                    }
                     var childQty = childRow.querySelector('.qty-input');
                     if (childQty && parseFloat(childQty.value) !== qty) {
                         childQty.value = qty;
+                        updateRow(existing.rowId);
+                    } else if (existing.catalogueId !== resolvedTarget) {
                         updateRow(existing.rowId);
                     }
                     // Sync tag from parent
@@ -3541,6 +3631,7 @@
 
                 // Sélectionner l'article cible
                 var childRow2 = document.getElementById(newRowId);
+                if (childRow2) childRow2.dataset.cascadeRuleTarget = rule.target;
                 var childSelect = childRow2 ? childRow2.querySelector('.item-select') : null;
                 if (childSelect) childSelect.value = resolvedTarget;
                 var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
@@ -10406,6 +10497,7 @@
             row.dataset.lastCatalogueId = selectedId;
 
             // Cascade lock: detect manual change on a cascade child
+            // → lock the child, invalidate parent cache, re-cascade siblings with new materialCtx
             if (cascadeParentMap[rowId] && prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
                 if (!row.classList.contains('cascade-locked')) {
                     row.dataset.cascadeOriginalTarget = prevCatId;
@@ -10413,6 +10505,29 @@
                 row.classList.add('cascade-locked');
                 if (itemMap[rowId]) {
                     updateItem(itemMap[rowId], { cascade_locked: true });
+                }
+
+                // Invalidate dmChoiceCache for parent's group (force fresh resolution)
+                var parentRowId = cascadeParentMap[rowId];
+                var parentRow = document.getElementById(parentRowId);
+                if (parentRow) {
+                    var parentGroupId = parentRow.dataset.group;
+                    if (parentGroupId) {
+                        var keysToDelete = Object.keys(dmChoiceCache).filter(function(k) {
+                            return k.startsWith(parentGroupId + ':');
+                        });
+                        keysToDelete.forEach(function(k) { delete dmChoiceCache[k]; });
+                    }
+
+                    // Extract client_text of the new item and set as pending materialCtx
+                    var newItem = selectedId ? CATALOGUE_DATA.find(function(i) { return i.id === selectedId; }) : null;
+                    if (newItem && newItem.client_text) {
+                        _pendingMaterialCtx[parentRowId] = { chosenClientText: newItem.client_text };
+                        console.log('[CASCADE] manual child change: materialCtx → "' + newItem.client_text + '" for parent', parentRowId);
+                    }
+
+                    // Schedule parent re-cascade (siblings will update with new materialCtx)
+                    scheduleCascade(parentRowId, true);
                 }
             }
 
@@ -14673,6 +14788,7 @@
             roomModifiers = {};
             roomDM = {};
             dmChoiceCache = {};
+            _pendingMaterialCtx = {};
             roomDescEN = {};
             roomDescHTML = {};
             renderProjectList();
@@ -16107,6 +16223,7 @@
             roomModifiers = {};
             roomDM = {};
             dmChoiceCache = {};
+            _pendingMaterialCtx = {};
             roomDescEN = {};
             roomDescHTML = {};
             resetAiChat();

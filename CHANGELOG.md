@@ -2,6 +2,28 @@
 
 ---
 
+## 2026-03-03
+
+### Features — Moteur cascade & audit catalogue
+- **Catégorie de dépense dynamique** — `$match:` dérive les catégories effectives depuis les clés `material_costs` du DM choisi via word-similarity (ex: `$match:PANNEAU BOIS` → détecte aussi `PANNEAU MÉLAMINE` via le mot commun "PANNEAU")
+- **materialCtx propagation** — Contexte matériau hérité parent → enfant → petit-enfant dans les cascades. Pré-peuplé depuis le DM de la catégorie du parent FAB racine, utilisé pour disambiguer les choix DM multi-entrées
+- **Persistence immédiate cascade** — `executeCascade` appelle `updateItem()` directement après chaque création/modification d'enfant, contournant le debounce global qui causait une perte de données
+- **Audit catalogue : textes clients similaires** — Check 11 : groupement par `normalizeForGrouping()` (accents, articles FR). Bouton "Uniformiser" pour batch-PATCH les variantes minoritaires
+- **Audit catalogue : clés dépense similaires** — Check 12 : `normalizeExpenseKey()` détecte "PANNEAU BOIS" vs "PANNEAUX BOIS" (pluriel S/X)
+- **Labels modales** — `showMatchChoiceModal` et `showTechnicalItemModal` affichent `description` au lieu de `client_text` pour une meilleure disambiguation
+
+### Bug Fixes
+- **Fix: Perte données cascade (debounce)** — `debouncedSaveItem` utilisait un timer global unique : les créations rapides de 3+ enfants annulaient les saves intermédiaires. Corrigé par persist immédiat
+- **Fix: Guard ask 0 tablettes** — `n_tablettes`/`n_partitions` vérifiaient `> 0` mais 0 est valide pour les caissons. Corrigé : vérifie `!= null` (défini)
+- **Fix: Régression $match** — `findExistingChildForDynamicRule` avait un fallback catégorie qui permettait aux `$default:` de voler les enfants `$match:`. Fallback supprimé
+
+### Code shared/
+- **shared/auth.js** — `authenticatedFetch()` extrait (7 fichiers → 1)
+- **shared/utils.js** — `escapeHtml()` / `escapeAttr()` extrait (8 fichiers → 1)
+- **shared/pricing.js** — `computeComposedPrice()` / `computeCatItemPrice()` extrait (3 fichiers → 1)
+
+---
+
 ## 2026-02-20
 
 ### Features — Rebranding & AI assistants

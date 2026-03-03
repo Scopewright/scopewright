@@ -3,7 +3,7 @@
 > Audit indépendant de sécurité, bugs, risques architecturaux et performance.
 > Analyse en lecture seule de l'ensemble du codebase.
 >
-> **Date** : 2026-03-01
+> **Date** : 2026-03-03
 > **Périmètre** : Tous les fichiers HTML, Edge Functions, SQL migrations, Google Apps Script
 
 ---
@@ -256,6 +256,26 @@ Dans `quote.html`, `resizeCanvas()` reset le canvas HiDPI, effaçant tout dessin
 
 Le bouton fullscreen de `quote.html` reste visible en mode preview (iframe). L'API Fullscreen peut ne pas fonctionner sans l'attribut `allowfullscreen` sur l'iframe parent.
 
+### 3.6 Bugs corrigés (2026-03-03)
+
+**[BUG-16] CORRIGÉ — Perte de données cascade via debounce global**
+
+`debouncedSaveItem` utilisait un timer global unique (500ms). Quand `executeCascade` créait 3+ enfants rapidement, chaque appel `updateRow` → `debouncedSaveItem` annulait le timer précédent. Seul le dernier enfant avait son `catalogue_item_id` persisté. Les autres redevenaient des lignes vides au rechargement.
+
+**Fix** : `executeCascade` appelle `updateItem()` immédiatement après chaque création/modification d'enfant (nouveau ou existant), contournant le debounce global. Les flags `itemChanged`/`qtyChanged` sont capturés AVANT modification du DOM.
+
+**[BUG-17] CORRIGÉ — Ask guard bloquait caissons avec 0 tablettes/partitions**
+
+Le guard `ask` dans `executeCascade` vérifiait `> 0` pour toutes les variables, mais `n_tablettes` et `n_partitions` peuvent légitimement être 0 (caisson sans tablettes ni partitions).
+
+**Fix** : `n_tablettes`/`n_partitions` vérifient `== null` (défini, pas > 0). `L`/`H`/`P`/`QTY` gardent la vérification `> 0`.
+
+**[BUG-18] CORRIGÉ — `findExistingChildForDynamicRule` fallback catégorie volait enfants $match**
+
+Le fallback par catégorie catalogue dans `findExistingChildForDynamicRule` permettait aux règles `$default:` exécutées en premier de "voler" les enfants `$match:` existants (ex: panneau assigné à `$default:Panneaux` au lieu de rester avec `$match:PANNEAU BOIS`).
+
+**Fix** : Fallback catégorie supprimé. Matching uniquement par `catalogueId` in `validIds` ou `client_text` DM.
+
 ---
 
 ## 4. Risques architecturaux
@@ -283,20 +303,17 @@ Même problème à moindre échelle.
 
 ### 4.2 Duplication de code
 
-**[ARCH-03] IMPORTANT — `authenticatedFetch()` dupliqué dans 7 fichiers**
+**[ARCH-03] ~~IMPORTANT~~ CORRIGÉ 2026-03-02 — `authenticatedFetch()` dupliqué dans 7 fichiers**
 
-La même fonction (~30 lignes) est copiée dans : `calculateur.html`, `catalogue.html`, `admin.html`, `approbation.html`, `clients.html`, `fiche.html`, `app.html`. Toute correction doit être appliquée 7 fois.
+~~La même fonction (~30 lignes) est copiée dans 7 fichiers.~~ **Extrait dans `shared/auth.js`**. Les 7 fichiers utilisent maintenant le fichier partagé.
 
-**[ARCH-04] MOYEN — `escapeHtml()` / `escapeAttr()` dupliqués**
+**[ARCH-04] ~~MOYEN~~ CORRIGÉ 2026-03-02 — `escapeHtml()` / `escapeAttr()` dupliqués**
 
-Deux implémentations différentes existent :
-- `calculateur.html` : `escapeHtml` via `textContent → innerHTML` (DOM)
-- `quote.html` : `escapeAttr` via regex, `escapeHtml` via DOM
-- `catalogue.html` : `escapeHtml` et `escapeAttr` via regex
+~~Deux implémentations différentes existent.~~ **Extrait dans `shared/utils.js`**. Les 8 fichiers utilisent maintenant le fichier partagé.
 
-**[ARCH-05] MOYEN — `computeComposedPrice()` dupliqué**
+**[ARCH-05] ~~MOYEN~~ CORRIGÉ 2026-03-02 — `computeComposedPrice()` dupliqué**
 
-Présent dans `calculateur.html`, `catalogue.html`, et `approbation.html` avec des variations mineures.
+~~Présent dans 3 fichiers avec des variations mineures.~~ **Extrait dans `shared/pricing.js`** avec deux fonctions : `computeComposedPrice()` (format flat) et `computeCatItemPrice()` (format {cost,qty}).
 
 **[ARCH-06] MOYEN — `steleConfirm()` / `steleAlert()` dupliqués**
 
@@ -435,7 +452,7 @@ L'application nécessite une connexion internet permanente. Aucun cache de requ�
 
 | # | Problème | Impact | Effort | Détail |
 |---|----------|--------|--------|--------|
-| RI-01 | **`authenticatedFetch` dupliqué** (ARCH-03) | Divergence entre fichiers, maintenance pénible | Moyen | Extraire dans un fichier JS partagé (`shared/auth.js`) importé via `<script>` |
+| RI-01 | ~~**`authenticatedFetch` dupliqué**~~ **FAIT** (ARCH-03) | ~~Divergence entre fichiers~~ | ~~Moyen~~ | Extrait dans `shared/auth.js` (2026-03-02) |
 | RI-02 | **Employees accessible via anon** (SEC-03) | Emails employés exposés | Faible | Créer une RPC `get_employee_email(name)` au lieu d'une query directe |
 | RI-03 | **Prix composé vs manuel inconsistant** (BUG-04) | Confusion utilisateur, erreurs de pricing | Moyen | Documenter la priorité et l'afficher clairement dans l'UI |
 | RI-04 | **`$match:` pas re-cascadé sur changement DM** (BUG-08) | Matériaux incorrects après changement de DM | Moyen | Étendre `reprocessDefaultCascades` pour aussi relancer les cascades avec `$match:` |
@@ -451,7 +468,7 @@ L'application nécessite une connexion internet permanente. Aucun cache de requ�
 | # | Problème | Impact | Effort | Détail |
 |---|----------|--------|--------|--------|
 | RN-01 | **Modularisation du codebase** (ARCH-01) | Maintenabilité à long terme | Élevé | Décomposer en modules JS (même sans bundler: `<script type="module">` ou fichiers séparés) |
-| RN-02 | **Extraire les fonctions dupliquées** (ARCH-04, -05, -06) | Réduction de code, moins de bugs | Moyen | Fichier `shared/utils.js` avec escapeHtml, computeComposedPrice, steleConfirm, etc. |
+| RN-02 | **Extraire les fonctions dupliquées** (ARCH-04, -05, -06) — **PARTIELLEMENT FAIT** | Réduction de code, moins de bugs | Moyen | `shared/utils.js` (escapeHtml/escapeAttr) + `shared/pricing.js` (computeComposedPrice/computeCatItemPrice) faits. `steleConfirm` encore dupliqué (signatures différentes par fichier) |
 | RN-03 | **Batching des sauvegardes cascade** (PERF-07) | Réduction des requêtes réseau | Moyen | Utiliser Supabase bulk insert/update ou un batch endpoint |
 | RN-04 | **Virtualisation du pipeline** (PERF-06) | Performance avec beaucoup de projets | Moyen | Implémenter un rendering virtualisé (IntersectionObserver ou windowing library) |
 | RN-05 | **Tests automatisés** | Fiabilité du cascade engine et du pricing | Élevé | Au minimum des tests unitaires pour `evalFormula`, `computeComposedPrice`, `extractMatchKeywords`, `scoreMatchCandidates` |

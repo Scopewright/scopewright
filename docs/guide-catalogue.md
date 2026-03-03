@@ -1,7 +1,7 @@
 # Guide du catalogue Stele
 
 > Documentation fonctionnelle et technique du systeme de catalogue de prix.
-> Derniere mise a jour : 2026-02-27
+> Derniere mise a jour : 2026-03-03
 
 ---
 
@@ -493,58 +493,78 @@ Dans `calculation_rule_ai.cascade` :
 
 ### Le target dynamique `$default:`
 
-La syntaxe `$default:NomDuGroupe` reference le materiau par defaut de la soumission pour un groupe donne.
+La syntaxe `$default:NomDuGroupe` reference le materiau par defaut de la piece pour un groupe donne.
 
 **Resolution** :
 1. Extrait le nom de groupe (ex: `"Facades"`)
-2. Cherche dans `currentSubmission.default_materials` l'entree de type `"Facades"`
-3. Retourne son `catalogue_item_id` (ex: `ST-0012`)
-4. Si aucun defaut defini → cascade ignoree, toast "Aucun materiau par defaut pour : Facades"
+2. Cherche dans les materiaux par defaut de la piece (`roomDM[groupId]`) l'entree de type `"Facades"`
+3. Si plusieurs entrees du meme type : `materialCtx` desambigue d'abord, puis `dmChoiceCache`, puis modale de choix
+4. Identifie le `client_text` du DM choisi → filtre `CATALOGUE_DATA` par `client_text` + categories autorisees (`getAllowedCategoriesForGroup`)
+5. Si un seul article technique correspond → utilise directement. Si plusieurs → modale technique (code + description + categorie + prix)
+6. Si aucun defaut defini → cascade ignoree, toast "Aucun materiau par defaut pour : Facades"
 
-**Avantage** : L'article de fabrication n'est pas lie a un materiau specifique. Chaque soumission peut utiliser des materiaux differents, et les cascades s'adaptent automatiquement.
+**Avantage** : L'article de fabrication n'est pas lie a un materiau specifique. Chaque piece peut utiliser des materiaux differents, et les cascades s'adaptent automatiquement.
 
 ### Le target dynamique `$match:`
 
-La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par correspondance de mots-cles. Contrairement a `$default:`, il ne depend pas des materiaux par defaut predefinis.
+La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par correspondance de mots-cles. La categorie dans la regle est un **hint** (pas un filtre litteral) — la categorie effective est derivee dynamiquement depuis le DM.
 
 **Resolution** :
-1. Identifie l'article parent de fabrication dans le groupe (premier row non-cascade)
-2. Extrait les mots-cles du `client_text` du parent (filtrage des stop words : de, du, les, caisson, panneau, etc.)
-3. Consulte le cache `match_defaults` de la soumission (cle = `"CATÉGORIE:mot1+mot2"`)
-4. Si pas en cache : filtre `CATALOGUE_DATA` pour les articles avec `material_costs[categorie] > 0`
-5. Score chaque candidat par nombre de mots-cles correspondants dans son `client_text`
-6. Si 0 resultat et >2 mots-cles : relaxe avec les 2 premiers mots-cles seulement
-7. 1 resultat → utilise directement. Plusieurs → popup de choix. 0 → toast d'erreur.
-8. Le choix est persiste dans `submissions.match_defaults` (JSONB)
+1. **Deriver les categories effectives** (`effectiveExpCats`) :
+   - Commence avec la categorie de la regle (ex: `"PANNEAU BOIS"`)
+   - Cherche le DM via `materialCtx.chosenClientText` → article catalogue → cles `material_costs`
+   - Fallback : room DM direct par type de categorie de depense
+   - Pour chaque cle `material_costs` du DM, verifie la **similarite par mots** : au moins un mot en commun avec la categorie de la regle (ex: `"PANNEAU MELAMINE"` matche `"PANNEAU BOIS"` via `"PANNEAU"`)
+   - `effectiveExpCats` = union de toutes les categories correspondantes
 
-**Exemple** : `$match:PANNEAU BOIS` sur un parent dont le `client_text` contient "placage chene blanc" → cherche un article avec des couts en PANNEAU BOIS dont le texte client contient "chene" et/ou "blanc".
+2. **Filtrer les candidats** : articles avec `material_costs[key] > 0` pour au moins une cle dans `effectiveExpCats` (exclut `item_type=fabrication`)
+
+3. **Chaine de mots-cles** (chaque etape independante) :
+   - Etape 1 : `client_text` du parent → extraction mots-cles (sans stop words)
+   - Etape 2 : `description` du parent → extraction mots-cles
+   - Etape 3 : mots-cles DM via `getDefaultMaterialKeywords()`
+
+4. **Scoring** : `scoreMatchCandidates(keywords, candidates)` — Levenshtein + substring. Relaxation si > 2 mots-cles donnent 0 resultats
+
+5. 1 resultat → utilise directement. Plusieurs → modale de choix (code + description + categorie). 0 → toast d'erreur
+
+6. Le choix est persiste dans `submissions.match_defaults` (JSONB)
+
+**Exemple** : `$match:PANNEAU BOIS` avec DM = "Melamine grise 805" (article ST-0012 avec `material_costs["PANNEAU MELAMINE"]`). Le mot "PANNEAU" est commun → `effectiveExpCats = ["PANNEAU BOIS", "PANNEAU MELAMINE"]` → ST-0012 est candidat.
 
 **Sandbox** : dans le sandbox catalogue, `$match:` prend silencieusement le premier resultat (pas de popup interactive).
 
 ### Execution dans le calculateur
 
-`executeCascade(parentRowId, depth)` :
+`executeCascade(parentRowId, depth, parentOverrides, materialCtx)` :
 
-1. Lit les regles `cascade` de l'article
-2. Pour chaque regle :
+1. **Ask guard** (depth 0 uniquement) : si l'article declare `calculation_rule_ai.ask`, verifie que toutes les variables sont remplies (L/H/P/QTY > 0, n_tablettes/n_partitions != null, 0 valide)
+2. **Pre-peuple materialCtx** depuis le DM de la categorie du parent FAB (si pas deja fourni)
+3. Lit les regles `cascade` de l'article
+4. Pour chaque regle :
+   - Verifie `cascade_suppressed` (enfants supprimes manuellement)
+   - Verifie `override_children` (categories surchargees par un ancetre)
    - Resout le target (`$default:`, `$match:`, ou code direct) — async pour `$match:`
    - Evalue la condition (si presente)
-   - Evalue la quantite (formule avec L/H/P/QTY)
+   - Evalue la quantite (formule avec L/H/P/QTY/n_tablettes/n_partitions)
    - Si l'enfant existe deja → met a jour la quantite
    - Sinon → cree une nouvelle ligne enfant
-3. Supprime les enfants orphelins (regles qui n'existent plus)
-4. Recursion jusqu'a **profondeur 3** (cascades de cascades)
+   - **Persist immediat** via `updateItem()` (bypass debounce global)
+5. Supprime les enfants orphelins (regles qui n'existent plus)
+6. Recursion jusqu'a **profondeur 3** avec `materialCtx` herite
 
 ### Formules disponibles
 
 Variables :
 
-| Variable | Source |
-|----------|--------|
-| `L` | Longueur de la ligne parent |
-| `H` | Hauteur de la ligne parent |
-| `P` | Profondeur de la ligne parent |
-| `QTY` | Quantite de la ligne parent |
+| Variable | Source | Guard |
+|----------|--------|-------|
+| `L` | Longueur du parent FAB racine | > 0 |
+| `H` | Hauteur du parent FAB racine | > 0 |
+| `P` | Profondeur du parent FAB racine | > 0 |
+| `QTY` | Quantite du parent FAB racine | > 0 |
+| `n_tablettes` | Nombre de tablettes | != null (0 valide) |
+| `n_partitions` | Nombre de partitions | != null (0 valide) |
 
 Fonctions :
 
@@ -690,21 +710,27 @@ Le champ `search_in` determine **ou** chercher la sous-chaine : dans `descriptio
 
 ### Fonctionnement
 
-Chaque soumission definit des materiaux par defaut pour chaque groupe. Stockes dans `submissions.default_materials` :
+Chaque piece definit ses materiaux par defaut. Stockes dans `project_rooms.default_materials` (via `roomDM[groupId]`). Le niveau soumission a ete retire.
+
+`client_text` est l'identifiant primaire — un DM represente un materiau client, pas un article technique.
 
 ```json
 [
-  { "type": "Caisson", "catalogue_item_id": "ST-0005", "description": "Melamine blanche" },
-  { "type": "Facades", "catalogue_item_id": "ST-0012", "description": "Placage chene blanc FC" }
+  { "type": "Caisson", "catalogue_item_id": "ST-0005", "client_text": "Melamine blanche", "description": "Melamine TFL blanc" },
+  { "type": "Facades", "catalogue_item_id": "ST-0012", "client_text": "Placage chene blanc", "description": "Placage chene blanc FC 8%" }
 ]
 ```
+
+**Migration legacy** : au chargement (`openSubmission`), les DM sans `client_text` derivent automatiquement le `client_text` depuis le `catalogue_item_id`.
 
 ### Utilisation dans les cascades
 
 Quand une cascade a `target: "$default:Facades"` :
-1. Cherche dans `default_materials` l'entree de type `"Facades"`
-2. Retourne son `catalogue_item_id`
-3. Utilise cet article comme cible
+1. Cherche dans `roomDM[groupId]` les entrees de type `"Facades"`
+2. Si plusieurs entrees du meme type → `materialCtx` desambigue, sinon `dmChoiceCache`, sinon modale de choix (Modale 1 : label = `client_text`)
+3. Filtre `CATALOGUE_DATA` par `client_text` + categories autorisees (`getAllowedCategoriesForGroup`)
+4. Si plusieurs articles techniques correspondent → modale technique (Modale 2 : code + description + categorie + prix)
+5. Retourne le `catalogue_item_id` final
 
 Si aucun defaut defini → cascade ignoree + toast d'avertissement.
 
@@ -713,13 +739,22 @@ Si aucun defaut defini → cascade ignoree + toast d'avertissement.
 Quand l'estimateur ouvre un combobox article dans le calculateur :
 - Section superieure bleue : "Materiaux par defaut" — articles correspondants
 - Section inferieure : reste du catalogue, groupe par categorie
+- Le dropdown DM deduplique par `client_text` (un seul "Placage chene blanc" meme si 2+ articles techniques existent)
 
 ### Quand un defaut change
 
-`reprocessDefaultCascades(changedGroup)` :
-1. Scanne toutes les lignes du calculateur
+`reprocessDefaultCascades(changedGroup, scopeGroupId)` :
+1. Scanne toutes les lignes de la piece
 2. Trouve celles dont les cascades utilisent `$default:{changedGroup}`
-3. Supprime les anciens enfants, cree les nouveaux avec le nouveau materiau
+3. Re-execute `executeCascade()` sequentiellement sur chacune
+4. **Limitation** : ne traite PAS les cibles `$match:` — seuls les `$default:` sont re-cascades
+
+### Validation et UI
+
+- **Groupes requis** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Facades','Finition','Poignees']`. L'ajout d'articles est bloque si des groupes requis manquent
+- **Groupes caches** : `DM_HIDDEN_GROUPS = ['Autre','Eclairage']` — filtres du dropdown DM
+- **Indicateur vide** : classe `.dm-needs-config` avec fleche pulse quand DM count = 0 et ≥1 article dans la piece
+- **Copier de...** : copie les DM depuis une autre piece uniquement (pas de template soumission)
 
 ---
 
@@ -1026,7 +1061,7 @@ Ouvre un tiroir lateral droit avec une analyse complete du catalogue.
 
 ### Checks de l'audit complet
 
-`runFullAudit()` sur tous les articles approuves :
+`runFullAudit()` sur tous les articles :
 
 | # | Check | Severite | Description |
 |---|-------|----------|-------------|
@@ -1037,6 +1072,11 @@ Ouvre un tiroir lateral droit avec une analyse complete du catalogue.
 | 5 | Incoherences orthographiques | WARNING | Descriptions similaires (Levenshtein 1-3). |
 | 6 | Articles jamais utilises | INFO | `usage_count = 0`. |
 | 7 | Articles dormants | INFO | Non utilises depuis 60+ jours. |
+| 8 | Prix aberrants | WARNING | Prix hors IQR (interquartile range) dans la meme categorie. |
+| 9 | Regles de calcul obsoletes | WARNING | Articles avec `$default:` dans `calculation_rule_ai` (migrer vers `$match:`). |
+| 10 | Regles de calcul manquantes | WARNING | Articles sans `calculation_rule_ai` (si des templates existent). |
+| 11 | **Textes clients similaires** | WARNING | Groupement par `normalizeForGrouping()` (lowercase, sans accents, sans articles FR de/du/des/au/aux/le/la/les/en/un/une). Detecte des `client_text` differents qui normalisent au meme texte. Bouton **Uniformiser** par groupe → PATCH tous les articles minoritaires vers le texte le plus frequent. |
+| 12 | **Cles depense similaires** | WARNING | `normalizeExpenseKey()` (uppercase, sans accents, strip S/X pluriel). Detecte "PANNEAU BOIS" vs "PANNEAUX BOIS" dans la meme categorie catalogue. |
 
 ### Navigation
 
@@ -1123,12 +1163,29 @@ Oui. `dims_config` est un objet JSONB `{ "l": true, "h": true, "p": false }` qui
 
 8. **Pas de filtrage proactif du combobox par `requires_choice`** : les restrictions ne se declenchent que si un article du groupe cible **existe deja** dans la piece. Le filtrage en amont ("quand l'estimateur ajoute un article, filtrer les options compatibles") n'est pas implemente.
 
+9. **`$match:` pas re-cascade sur changement DM** : `reprocessDefaultCascades()` ne gere que `$default:`. Les `$match:` ne sont pas recalcules quand un DM change — seul un re-trigger manuel le fait.
+
 ### Performance
 
-9. **`CATALOGUE_DATA` charge en entier** : tous les articles approuves en memoire au demarrage. Correct pour quelques centaines d'articles. Pourrait necessiter de la pagination pour plusieurs milliers.
+10. **`CATALOGUE_DATA` charge en entier** : tous les articles approuves en memoire au demarrage. Correct pour quelques centaines d'articles. Pourrait necessiter de la pagination pour plusieurs milliers.
 
-10. **Cache localStorage d'une heure** : un article approuve peut prendre jusqu'a 1 heure pour apparaitre sur un poste qui a deja visite la page.
+11. **Cache localStorage d'une heure** : un article approuve peut prendre jusqu'a 1 heure pour apparaitre sur un poste qui a deja visite la page.
 
 ### CSS duplique
 
-11. **CSS de presentation duplique dans calculateur.html** : `calculateur.html` contient 2 copies du CSS de presentation de soumission (styles inline + chaine CSS pour l'apercu/impression). Toute modification CSS dans `quote.html` doit etre repliquee aux 2 endroits dans `calculateur.html`.
+12. **CSS de presentation duplique dans calculateur.html** : `calculateur.html` contient 2 copies du CSS de presentation de soumission (styles inline + chaine CSS pour l'apercu/impression). Toute modification CSS dans `quote.html` doit etre repliquee aux 2 endroits dans `calculateur.html`.
+
+### Bugs corriges (2026-03-03)
+
+13. ~~**Perte de donnees cascade via debounce global**~~ **CORRIGE** : `debouncedSaveItem` utilisait un timer global unique. Les creations rapides de 3+ enfants cascade annulaient les saves intermediaires. Corrige par `updateItem()` immediat dans `executeCascade`.
+
+14. ~~**Ask guard bloquait 0 tablettes/partitions**~~ **CORRIGE** : `n_tablettes`/`n_partitions` verifiaient `> 0` mais 0 est valide pour les caissons. Corrige : verifie `== null`.
+
+15. ~~**`findExistingChildForDynamicRule` fallback categorie**~~ **CORRIGE** : le fallback par categorie catalogue permettait aux `$default:` de voler les enfants `$match:`. Supprime.
+
+### Code partage (2026-03-02)
+
+- `shared/auth.js` — `authenticatedFetch()` extrait (7 fichiers → 1)
+- `shared/utils.js` — `escapeHtml()` / `escapeAttr()` extrait (8 fichiers → 1)
+- `shared/pricing.js` — `computeComposedPrice()` / `computeCatItemPrice()` extrait (3 fichiers → 1)
+- `steleConfirm()` / `steleAlert()` — encore duplique (signatures differentes par fichier)

@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-01
+> **Dernière mise à jour** : 2026-03-03
 
 ---
 
@@ -237,9 +237,17 @@ Le moteur de cascade (`executeCascade`) crée automatiquement des lignes enfants
 scheduleCascade(rowId)
   └── debounce 400ms (sauf immediate=true)
        └── runCascadeNow(rowId)
-            └── executeCascade(parentRowId, depth=0, parentOverrides=[])
+            └── executeCascade(parentRowId, depth=0, parentOverrides=[], parentMaterialCtx={})
                  │
-                 ├── Guards: depth < 3, itemMap[rowId] exists, dims/qty > 0
+                 ├── Guards: depth < 3, itemMap[rowId] exists
+                 │
+                 ├── Ask guard (depth 0 uniquement) :
+                 │   └── Si l'article déclare `calculation_rule_ai.ask` (ex: ["L","H"])
+                 │       ├── L/H/P/QTY doivent être > 0
+                 │       └── n_tablettes/n_partitions doivent être != null (0 est valide)
+                 │
+                 ├── Pré-peupler materialCtx depuis le DM de la catégorie du parent FAB
+                 │   └── categoryGroupMapping → DM type → unique DM → chosenClientText
                  │
                  ├── Récupérer dims via getRootDimsForCascade(parentRowId)
                  │   └── Remonte cascadeParentMap → lit dim-l/dim-h/dim-p de la racine
@@ -252,11 +260,13 @@ scheduleCascade(rowId)
                  ├── Séparer enfants existants: locked (ignorés) vs active
                  │
                  ├── Pour chaque règle cascade:
+                 │   ├── Vérifier cascade_suppressed (skip si ID résolu supprimé)
                  │   ├── Vérifier override_children (skip si catégorie overridée)
                  │   ├── Résoudre la cible (direct / $default: / $match:)
                  │   ├── Évaluer condition (si présente)
                  │   ├── Calculer qty = evalFormula(rule.qty, vars) × rootQty
                  │   ├── Réutiliser enfant existant OU créer nouvelle ligne
+                 │   ├── Persist immédiat via updateItem() (bypass debounce global)
                  │   ├── Hériter le tag du parent
                  │   └── Ajouter à matchedChildRowIds
                  │
@@ -265,7 +275,7 @@ scheduleCascade(rowId)
                  ├── syncSortOrderForGroup(groupId)
                  │
                  └── Récursion: pour chaque enfant matché
-                      └── executeCascade(childRowId, depth+1, mergedOverrides)
+                      └── executeCascade(childRowId, depth+1, mergedOverrides, materialCtx)
 ```
 
 ### 3.3 Résolution des cibles
@@ -273,21 +283,32 @@ scheduleCascade(rowId)
 | Pattern | Mécanisme | Détail |
 |---------|-----------|--------|
 | `"ST-0042"` | Code direct | Utilise l'article catalogue directement |
-| `"$default:Facades"` | Matériau par défaut | Lookup dans DM (room → submission → vide). Si multiples entrées du même type → `showDmChoiceModal()`, résultat caché dans `dmChoiceCache` |
-| `"$match:BANDE DE CHANT"` | Correspondance par mots-clés | 3 étapes de résolution (voir ci-dessous) |
+| `"$default:Facades"` | Matériau par défaut | Lookup dans room DM uniquement (`roomDM[groupId]`). Si multiples entrées du même type → `materialCtx` disambiguë d'abord, puis `dmChoiceCache`, puis `showDmChoiceModal()`. Résolution 2 étapes : choix `client_text` (Modale 1) → filtre par `client_text` + `getAllowedCategoriesForGroup` → choix article technique (Modale 2 si multiples) |
+| `"$match:CATÉGORIE"` | Correspondance dynamique | La catégorie dans la règle est un **hint**, pas un filtre littéral. Résolution via DM + word-similarity (voir ci-dessous) |
 
 **Résolution `$match:`** (`resolveMatchTarget`) :
 
-1. **Étape 1** : Extraire les mots-clés du `client_text` du parent
-2. **Étape 2** : Si pas de résultat, extraire de la `description` du parent
-3. **Étape 3** : Si toujours pas, fallback vers les mots-clés du matériau par défaut (`getDefaultMaterialKeywords` avec normalisation singulier/pluriel)
+1. **Dériver les catégories effectives** (`effectiveExpCats`) :
+   - Commence avec la catégorie de la règle (ex: `"PANNEAU BOIS"`) comme `[expCatUpper]`
+   - Cherche le DM via `materialCtx.chosenClientText` → article catalogue → clés `material_costs`
+   - Fallback : room DM direct par type de catégorie de dépense
+   - Pour chaque clé `material_costs` du DM, vérifie la **similarité par mots** : au moins un mot en commun avec la catégorie de la règle (ex: `"PANNEAU MÉLAMINE"` matche `"PANNEAU BOIS"` via `"PANNEAU"`)
+   - `effectiveExpCats` = union de la catégorie originale + catégories dérivées du DM
 
-À chaque étape :
-- `extractMatchKeywords(text)` → enlève les stop words, garde les mots ≥ 3 caractères
-- Filtre les candidats : articles avec `material_costs[expenseCategory]` > 0
-- `scoreMatchCandidates(keywords, candidates)` → score par Levenshtein + substring
-- **Relaxation** : si > 2 mots-clés donnent 0 résultats, réessaye avec seulement les 2 meilleurs
-- Résultat caché dans `matchDefaults` (persisté dans `submission.match_defaults`)
+2. **Filtrer les candidats** : articles avec `material_costs[key] > 0` pour au moins une clé dans `effectiveExpCats` (exclut `item_type=fabrication`)
+
+3. **Fallback catégorie** : si aucun candidat par `material_costs`, cherche par nom de catégorie catalogue (fuzzy, plural-normalisé)
+
+4. **Chaîne de mots-clés** (chaque étape indépendante) :
+   - Étape 1 : `client_text` du parent → `extractMatchKeywords()`
+   - Étape 2 : `description` du parent → `extractMatchKeywords()`
+   - Étape 3 : mots-clés DM via `getDefaultMaterialKeywords()`
+
+5. **Scoring** : `scoreMatchCandidates(keywords, candidates)` → Levenshtein + substring. **Relaxation** : si > 2 mots-clés donnent 0 résultats, réessaye avec les 2 meilleurs
+
+6. **Résultat** : 1 match → utilise directement. Multiples → `showMatchChoiceModal()`. 0 → toast d'erreur
+
+7. **Cache** : `matchDefaults[cacheKey]` persisté dans `submissions.match_defaults`
 
 ### 3.4 `override_children`
 
@@ -304,7 +325,32 @@ Mécanisme pour empêcher la duplication de matériaux cascade à différentes p
 - Les overrides sont propagés à tous les descendants via le paramètre `parentOverrides`
 - Les règles `$match:` dont la catégorie est dans `mergedOverrides` sont sautées avec un log console
 
-### 3.5 Multiplication rootQty
+### 3.5 `materialCtx` (contexte matériau cascade)
+
+4e paramètre de `executeCascade(parentRowId, depth, parentOverrides, parentMaterialCtx)`.
+
+**Structure** : `{ chosenClientText: "Placage chêne blanc" }` — le texte client du matériau DM choisi.
+
+**Pré-peuplement** (depth 0) :
+1. Si `_pendingMaterialCtx[parentRowId]` existe (changement manuel d'enfant) → l'utilise
+2. Sinon, dérive depuis la catégorie du parent FAB via `categoryGroupMapping` :
+   - Cherche le type DM correspondant à la catégorie du parent (ex: article catégorie "Carcasses" → DM type "Caisson")
+   - Si un seul DM de ce type → `chosenClientText` = son `client_text`
+   - Si plusieurs DMs du même type → lookup dans `dmChoiceCache`, puis `showDmChoiceModal()`
+
+**Propagation** : à chaque appel récursif, le `materialCtx` est **copié** (pas référence) et passé au child :
+```javascript
+await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
+```
+
+**Usage** :
+- `resolveCascadeTarget($default:)` : disambiguë quand plusieurs DMs du même type existent
+- `resolveMatchTarget($match:)` : dérive les catégories de dépense dynamiques depuis le DM
+- `getDefaultMaterialKeywords()` : disambiguë dans chaque tier de résolution
+
+**Règle** : materialCtx **disambiguë** uniquement — il ne surcharge JAMAIS un DM unique explicite. Si un seul DM existe pour un type donné, il est utilisé directement quel que soit le materialCtx.
+
+### 3.6 Multiplication rootQty
 
 Les quantités cascade sont calculées **par unité** puis multipliées par la quantité racine :
 
@@ -318,7 +364,7 @@ var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
 - À profondeur 1+ : `getRootQtyForCascade()` remonte `cascadeParentMap` jusqu'à la racine
 - `vars.QTY = rootQty` à toute profondeur (disponible pour conditions, pas pour formules qty)
 
-### 3.6 Passage de dimensions
+### 3.7 Passage de dimensions
 
 `getRootDimsForCascade(rowId)` :
 - Remonte `cascadeParentMap` jusqu'à la racine (le FAB avec les inputs dim-l/dim-h/dim-p)
@@ -326,7 +372,7 @@ var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
 - Les dimensions racine sont utilisées à TOUTE profondeur de cascade
 - Si le parent immédiat a ses propres dims (cas rare de FAB enfant), elles overrident les racine
 
-### 3.7 Guards et protections
+### 3.8 Guards et protections
 
 | Guard | Variable | Rôle |
 |-------|----------|------|
@@ -334,17 +380,24 @@ var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
 | Re-entrance | `_cascadeRunning` | Un seul cascade actif à la fois. `_pendingCascadeRowId` queue 1 cascade |
 | Chargement | `_isLoadingSubmission` | Toutes les cascades dropped pendant `openSubmission()` |
 | Debounce | `scheduleCascade` | 400ms (sauf `immediate=true`) |
+| Ask completeness | `calculation_rule_ai.ask` | Depth 0 uniquement. L/H/P/QTY doivent être > 0. n_tablettes/n_partitions doivent être != null (0 valide). Fallback : inféré depuis `dims_config` si `ask` absent |
 | Polling | `while (!itemMap[row] && attempts < 50)` | Attend que la création DB se termine (80ms × 50 = 4s max) |
 | Contraintes | `dataset.constraintsProcessed` | Empêche le re-triggering des contraintes sur le même article |
 | Article changé | `dataset.lastCatalogueId` | Détecte le changement pour reset les enfants |
 | Locked children | `cascade-locked` CSS class | Enfants verrouillés invisibles au moteur (override manuel) |
+| Cascade suppressed | `cascadeSuppressed[parentRowId]` | Enfants manuellement supprimés ne sont pas recréés. Reset quand le parent change d'article |
+| Persist immédiat | `updateItem()` après chaque enfant | Bypass le debounce global pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag` immédiatement |
 
-### 3.8 Edge cases et limitations
+### 3.9 Edge cases et limitations
 
 1. **`$match:` non re-cascadé sur changement DM** : `reprocessDefaultCascades()` ne gère que les cibles `$default:`. Les `$match:` ne sont pas recalculés quand on change un matériau par défaut — seul un re-trigger manuel de la cascade du parent le fait.
 2. **Cascade max 3 niveaux** : Suffisant pour la plupart des cas (FAB → matériau → sous-composant), mais des structures plus profondes seraient tronquées.
 3. **Polling wait limité à 4 secondes** : Si la création DB est plus lente (connexion faible), le cascade peut échouer avec "Timeout création ligne".
 4. **Singulier/pluriel dans le fuzzy match** : Normalisé via regex `([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)` qui strip les s/x finaux.
+5. **`findExistingChildForDynamicRule` word-similarity pour `$match:`** : Le matching des enfants existants utilise la similarité par mots — les clés `material_costs` de l'enfant doivent partager au moins un mot avec la catégorie de la règle (ex: `"PANNEAU MÉLAMINE"` matche `"PANNEAU BOIS"` via `"PANNEAU"`).
+6. **Fallback catégorie supprimé** : L'ancien fallback par catégorie catalogue dans `findExistingChildForDynamicRule` a été supprimé car il permettait aux règles `$default:` de "voler" les enfants `$match:` (ex: panneau et bande de chant mal assignés).
+7. ~~**Debounce global causait perte de données**~~ **CORRIGÉ** : `debouncedSaveItem` utilisait un timer global unique — les créations rapides de 3+ enfants cascade annulaient les saves intermédiaires. Corrigé par `updateItem()` immédiat dans `executeCascade`.
+8. ~~**Ask guard bloquait 0 tablettes/partitions**~~ **CORRIGÉ** : `n_tablettes`/`n_partitions` vérifiaient `> 0` mais 0 est valide pour les caissons sans tablettes. Corrigé : vérifie `== null` (défini, pas > 0).
 
 ---
 
@@ -353,32 +406,34 @@ var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
 ### 4.1 Structure de données
 
 ```javascript
-// Niveau soumission (submissions.default_materials)
+// Niveau pièce uniquement (project_rooms.default_materials via roomDM[groupId])
+// client_text est l'identifiant primaire pour la résolution cascade
 [
-  { "type": "Caisson", "catalogue_item_id": "ST-0142", "description": "Mélamine TFL blanc" },
-  { "type": "Facades", "catalogue_item_id": "ST-0088", "description": "Laqué blanc" }
+  { "type": "Caisson", "catalogue_item_id": "ST-0142", "client_text": "Mélamine blanche", "description": "Mélamine TFL blanc" },
+  { "type": "Facades", "catalogue_item_id": "ST-0088", "client_text": "Placage chêne blanc", "description": "Placage chêne blanc FC 8%" }
 ]
-
-// Niveau pièce (project_rooms.default_materials via roomDM[groupId])
-// Même structure, override TOTAL (pas merge) le niveau soumission
 ```
 
-### 4.2 Hiérarchie de résolution
+**Note** : Le niveau soumission a été retiré. Seul le niveau pièce est utilisé.
+
+**Migration legacy** : au `openSubmission`, les DM sans `client_text` dérivent automatiquement le `client_text` depuis le `catalogue_item_id` pour les données existantes.
+
+### 4.2 Résolution
 
 ```
 getDefaultMaterialsForGroup(groupId):
-  1. roomDM[groupId] si non vide → UTILISE (override total)
-  2. currentSubmission.default_materials → UTILISE
-  3. [] (vide)
+  → roomDM[groupId] || []
 ```
 
-**Important** : L'override est total, pas un merge. Si une pièce a des DM pour "Caisson" mais pas pour "Facades", elle n'héritera PAS les "Facades" de la soumission.
+Pas de hiérarchie multi-niveaux. Chaque pièce gère ses propres DM de façon indépendante.
 
-### 4.3 Cache et modal de choix
+### 4.3 Cache et modales de choix
 
 - `dmChoiceCache[groupId + ':' + typeName]` : Cache la sélection quand plusieurs entrées DM du même type existent
-- `showDmChoiceModal(groupName, entries)` : Modal radio-button pour choisir parmi les candidats
-- Le cache est invalidé quand un DM est modifié (`dmSelectItem()`)
+- **Modale 1 — `showDmChoiceModal(groupName, dmEntries)`** : Choix du matériau client (label = `client_text`). Utilisée quand plusieurs DM du même type existent et que `materialCtx` ne disambiguë pas
+- **Modale 2 — `showTechnicalItemModal(groupName, catalogueItems)`** : Choix de l'article technique (label = code + `description` + catégorie + prix). Utilisée quand un `client_text` correspond à plusieurs articles catalogue
+- **Modale 3 — `showMatchChoiceModal(expenseCategory, scored, keywords)`** : Choix `$match:` multi-résultats (label = code + `description` + catégorie). Séparée du système DM
+- Le cache est invalidé quand un DM est modifié ou quand un enfant cascade est changé manuellement
 
 ### 4.4 `reprocessDefaultCascades(changedGroup, scopeGroupId)`
 
@@ -389,9 +444,11 @@ Déclenché quand un DM est modifié :
 
 ### 4.5 UI
 
-- **Panel soumission** : Panneau dépliable avec autocomplete groupé par `categoryGroupMapping`
-- **Panel pièce** : Par pièce, avec options "Copier depuis..." (autre pièce ou soumission)
-- **Autocomplete** : Filtre les articles catalogue `is_default=true` des catégories autorisées pour le groupe
+- **Panel pièce** : Par pièce, avec option "Copier de..." (depuis une autre pièce uniquement, pas de template soumission)
+- **Autocomplete** : Filtre les articles catalogue des catégories autorisées pour le groupe, déduplique par `client_text` (un seul "Placage chêne blanc" même si 2+ articles techniques existent)
+- **Indicateur DM vide** : Classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer
+- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Finition','Poignées']`. `addRow()` bloque l'ajout d'articles si des groupes requis manquent (sauf chargement legacy, cascades, bulk load). Le bouton "+" est grisé (`.dm-blocked`)
+- **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent pas dans le dropdown DM
 
 ---
 

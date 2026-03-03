@@ -3191,9 +3191,11 @@
                 var btn = document.createElement('div');
                 btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
                 var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="tm-radio"></div>';
+                var techLabel = item.description || item.id;
+                var catLabel = item.category ? ' <span style="font-size:11px;color:#94a3b8;">(' + escapeHtml(item.category) + ')</span>' : '';
                 btn.innerHTML = radio
                     + '<div style="flex:1;min-width:0;">'
-                    + '<div><strong>' + escapeHtml(item.id) + '</strong> \u2014 ' + escapeHtml(item.description || item.id) + '</div>'
+                    + '<div><strong>' + escapeHtml(item.id) + '</strong> \u2014 ' + escapeHtml(techLabel) + catLabel + '</div>'
                     + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(item.type || 'unit\u00e9') + '</div>' : '')
                     + '</div>';
                 btn.onmouseover = function() { if (selectedId !== item.id) btn.style.background = '#f8fafc'; };

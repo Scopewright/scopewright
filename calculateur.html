@@ -3287,7 +3287,7 @@
      * Exécute les règles `cascade` du calculation_rule_ai de l'article sélectionné.
      * Crée/met à jour/supprime les lignes enfants automatiquement.
      */
-    async function executeCascade(parentRowId, depth, parentOverrides) {
+    async function executeCascade(parentRowId, depth, parentOverrides, parentMaterialCtx) {
         depth = depth || 0;
         if (depth >= 3) { console.log('[CASCADE] max depth reached for', parentRowId); return; }
         console.log('[CASCADE] itemMap check:', parentRowId, '→', itemMap[parentRowId] || 'MISSING');
@@ -3370,11 +3370,10 @@
             if (document.getElementById(c.rowId)) lastInsertedRowId = c.rowId;
         });
 
-        // Cascade material context: the parent FAB's DM determines the material for all children.
-        // Pre-populate from the DM matching the parent's catalogue category so that
-        // $match: children use the parent's material keywords instead of resolving independently.
-        var materialCtx = {};
-        if (catItem && catItem.category) {
+        // Cascade material context: inherited from ancestor cascade, or pre-populated from
+        // the parent FAB's DM. Ensures all children/grandchildren use the same material.
+        var materialCtx = parentMaterialCtx ? { chosenClientText: parentMaterialCtx.chosenClientText } : {};
+        if (!materialCtx.chosenClientText && catItem && catItem.category) {
             var parentDmType = catItem.category;
             var parentDm = getDefaultMaterialsForGroup(groupId);
             var parentDmEntries = parentDm.filter(function(d) {
@@ -3540,7 +3539,7 @@
 
         // Récursion : chaque enfant peut avoir ses propres règles cascade
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
-            await executeCascade(matchedChildRowIds[ci], depth + 1, mergedOverrides);
+            await executeCascade(matchedChildRowIds[ci], depth + 1, mergedOverrides, materialCtx);
         }
     }
 

@@ -2834,6 +2834,23 @@
         }
         console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
 
+        // ── Tier 0: materialCtx shortcut ──
+        // If cascade context specifies the chosen material, use its keywords directly
+        // regardless of DM type matching. This ensures the parent FAB's material choice
+        // propagates correctly to $match: children instead of being overridden by fuzzy DM lookup.
+        if (materialCtx && materialCtx.chosenClientText) {
+            var ctxItem = CATALOGUE_DATA.find(function(i) { return i.client_text === materialCtx.chosenClientText; });
+            if (ctxItem) {
+                var ctxText = ctxItem.client_text || ctxItem.description || '';
+                var ctxKw = extractMatchKeywords(ctxText);
+                if (ctxKw.length > 0) {
+                    console.log('[CASCADE] DM fallback: tier 0 materialCtx shortcut \u2192 "' + materialCtx.chosenClientText + '", keywords:', ctxKw.join(', '));
+                    return { keywords: ctxKw, dmItemId: ctxItem.id };
+                }
+            }
+            // materialCtx.chosenClientText not found in catalogue → fall through to regular tiers
+        }
+
         // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
         var directMatches = [];
         if (parentCategory) {
@@ -3336,13 +3353,29 @@
     }
 
     /**
-     * Re-trigger cascades on all parent rows that use $default: for the given group.
+     * Re-trigger cascades on all parent rows that use $default: or $match: for the given group.
      * Called when a default material changes (dmSelectItem, removeDmEntry, updateDmType).
+     * Also invalidates stale matchDefaults cache (DM keywords changed → cached resolutions wrong).
      */
     async function reprocessDefaultCascades(changedGroup, scopeGroupId) {
         if (!changedGroup || !scopeGroupId) return;
         // Don't reprocess on locked submissions
         if (typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) return;
+
+        // Invalidate stale matchDefaults: DM change may produce different keywords,
+        // making cached $match: resolutions wrong. Clear all and re-derive on next cascade.
+        if (Object.keys(matchDefaults).length > 0) {
+            console.log('[CASCADE] reprocessDefaultCascades: clearing ' + Object.keys(matchDefaults).length + ' stale matchDefaults entries');
+            matchDefaults = {};
+            if (currentSubmission && currentSubmission.id) {
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ match_defaults: {} })
+                });
+            }
+        }
+
         var token = '$default:' + changedGroup;
         var selector = '#' + scopeGroupId + ' .calc-row:not(.cascade-child)';
         var rowIds = [];
@@ -3351,10 +3384,10 @@
             if (!select || !select.value) return;
             var catItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
             if (!catItem || !catItem.calculation_rule_ai || !catItem.calculation_rule_ai.cascade) return;
-            var hasDynamic = catItem.calculation_rule_ai.cascade.some(function(c) {
-                return c.target === token;
+            var hasRelevant = catItem.calculation_rule_ai.cascade.some(function(c) {
+                return c.target === token || (typeof c.target === 'string' && c.target.startsWith('$match:'));
             });
-            if (hasDynamic) rowIds.push(row.id);
+            if (hasRelevant) rowIds.push(row.id);
         });
         // Execute cascades sequentially (each executeCascade handles orphan cleanup)
         for (var i = 0; i < rowIds.length; i++) {

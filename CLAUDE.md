@@ -147,7 +147,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - 3 types de cibles : code direct (`"ST-0042"`), matériau par défaut (`"$default:Facades"`), correspondance fuzzy (`"$match:BANDE DE CHANT"`)
 - `override_children` : empêche la duplication de matériaux cascade entre niveaux. L'item qui **déclare** l'override traite toujours ses propres règles — seuls ses **descendants** sont bloqués (check contre `parentOverrides`, pas `mergedOverrides`)
 - `$match:` candidates : **catégorie de dépense dynamique** — la catégorie dans la règle (ex: `"PANNEAU BOIS"`) est un **hint**, pas un filtre littéral. `resolveMatchTarget` dérive la catégorie réelle depuis le DM : 1) `materialCtx.chosenClientText` → lookup catalogue → clés `material_costs`, 2) fallback DM direct par type. Les clés DM partageant un **mot commun** avec la règle sont incluses (ex: `"PANNEAU MÉLAMINE"` matche `"PANNEAU BOIS"` via `"PANNEAU"`). `effectiveExpCats` = union de toutes les catégories pertinentes. `findExistingChildForDynamicRule` utilise la même similarité par mots pour reconnaître les enfants existants. Fallback catalogue par nom de catégorie (fuzzy, plural-normalisé) si aucun candidat `material_costs`
-- `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM. Chaque tier déduplique par `client_text` (`deduplicateDmByClientText`). Priorité de résolution multi-match : 1) DM unique → direct, 2) `materialCtx` → disambiguë, 3) `dmChoiceCache` → cache, 4) `showDmChoiceModal` → modale
+- `getDefaultMaterialKeywords` : **5 tiers** — **tier 0 : materialCtx shortcut** (si `materialCtx.chosenClientText` existe, ses keywords sont utilisés directement, court-circuitant tous les autres tiers), puis : direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM. Chaque tier déduplique par `client_text` (`deduplicateDmByClientText`). Priorité de résolution multi-match : 1) DM unique → direct, 2) `materialCtx` → disambiguë, 3) `dmChoiceCache` → cache, 4) `showDmChoiceModal` → modale
 - **`materialCtx`** : contexte cascade **hérité à travers toute la chaîne** parent → enfant → petit-enfant (4e paramètre de `executeCascade`). Pré-peuplé depuis le DM de la **catégorie du parent FAB racine** (ex: "Caisson" → `chosenClientText = "Placage chêne blanc"`). Sert de **disambiguateur** quand plusieurs DM existent, mais **ne surcharge jamais** un DM unique explicite (ex: DM "Finition" = "Laque polyuréthane" est utilisé tel quel)
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
@@ -198,7 +198,7 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 
 **Room-level uniquement** (`roomDM[groupId]`). Le niveau soumission a été retiré.
 - `getDefaultMaterialsForGroup(groupId)` retourne `roomDM[groupId]` ou `[]`
-- `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire)
+- `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire). Invalide `matchDefaults` (cache `$match:` persisté) et re-trigger les parents avec `$default:` ET `$match:` targets
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`
 - "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
 - **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.
@@ -213,7 +213,7 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 1. **`resolveCascadeTarget`** : `$default:` → DM entries par type → choix `client_text` (Modale 1 si multiple) → filtrer `CATALOGUE_DATA` par `client_text` + catégorie (`getAllowedCategoriesForGroup`) → choix article technique (Modale 2 si multiple) → `catalogue_item_id` final
 2. **Trois modales** : `showDmChoiceModal(groupName, dmEntries)` — Modale 1 (choix matériau client, label = `client_text`). `showTechnicalItemModal(groupName, catalogueItems)` — Modale 2 (choix article technique, label = code + `description` + catégorie + prix). `showMatchChoiceModal(expenseCategory, scored, keywords)` — Modale 3 (choix `$match:` multi-résultats, label = code + `description` + catégorie)
 3. **`findExistingChildForDynamicRule`** : `validIds` expandés via `client_text` + filtre catégorie (`getAllowedCategoriesForGroup`)
-4. **`getDefaultMaterialKeywords`** : lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`
+4. **`getDefaultMaterialKeywords`** : tier 0 `materialCtx` shortcut (prioritaire), puis lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`
 5. **`getMissingRequiredDm`** : vérifie `client_text || catalogue_item_id`
 6. **`findDmEntryByType`** : accepte entries avec `client_text` sans `catalogue_item_id`
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy

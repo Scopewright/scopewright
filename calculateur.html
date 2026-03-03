@@ -2588,17 +2588,17 @@
      * 3. Default material for the parent's material group (via categoryGroupMapping or name match)
      */
     async function resolveMatchTarget(expenseCategory, groupId) {
-        console.log('%c[TRACE $match] ══════ resolveMatchTarget("' + expenseCategory + '", "' + groupId + '") ══════', 'color:#e65100;font-weight:bold');
         var parentRow = findParentFabRow(groupId);
-        if (!parentRow) { console.warn('[TRACE $match] ABORT: no parent fab row in group', groupId); return null; }
+        if (!parentRow) { console.warn('[CASCADE] $match: no parent fab row in group', groupId); return null; }
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
-        if (!parentItem) { console.warn('[TRACE $match] ABORT: parent item not found', parentRow.catalogueId); return null; }
-        console.log('[TRACE $match] Parent FAB:', parentRow.catalogueId, '| client_text:', JSON.stringify(parentItem.client_text), '| description:', JSON.stringify((parentItem.description || '').substring(0, 60)));
+        if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
 
         var expCatUpper = expenseCategory.toUpperCase();
 
         // Filter catalogue once: items with material_costs in this expense category
+        // Exclude FAB items and service/forfait items — $match: targets materials only
         var candidates = CATALOGUE_DATA.filter(function(item) {
+            if (item.item_type === 'fabrication') return false;
             return itemHasMaterialCost(item, expCatUpper);
         });
         // Fallback: if no items have material_costs for this category,
@@ -2654,24 +2654,20 @@
             }
 
             if (scored.length === 1) {
-                console.log('%c[TRACE $match] ✓ RESOLVED at step ' + (si + 1) + ' (' + keywordSource + ') → ' + scored[0].item.id + ' "' + (scored[0].item.client_text || scored[0].item.description || '').substring(0, 40) + '"', 'color:#2e7d32;font-weight:bold');
                 saveMatchDefault(cacheKey, scored[0].item.id);
                 return scored[0].item.id;
             }
             if (scored.length > 1) {
-                console.log('%c[TRACE $match] ✓ RESOLVED at step ' + (si + 1) + ' (' + keywordSource + ') → ' + scored.length + ' results → showMatchChoiceModal', 'color:#2e7d32;font-weight:bold');
                 var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
                 if (chosen) saveMatchDefault(cacheKey, chosen);
                 return chosen;
             }
             // scored === 0 → continue to next keyword source
-            console.log('[TRACE $match] Step ' + (si + 1) + ' (' + keywordSource + ') → 0 results, continuing fallback...');
+            console.log('[CASCADE] $match: 0 results from ' + keywordSource + ', continuing fallback...');
         }
 
         // Step 3: Fallback to default material keywords
-        console.log('%c[TRACE $match] Steps 1-2 exhausted → entering DM fallback (getDefaultMaterialKeywords)', 'color:#1565c0;font-weight:bold');
         var dmKeywords = await getDefaultMaterialKeywords(groupId, expenseCategory);
-        console.log('[TRACE $match] getDefaultMaterialKeywords returned:', dmKeywords ? ('keywords=[' + dmKeywords.keywords.join(', ') + '] dmItemId=' + dmKeywords.dmItemId) : 'null');
         if (dmKeywords) {
             var keywords = dmKeywords.keywords;
             var keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
@@ -2849,29 +2845,29 @@
             }
         }
 
-        // 4. Cross-DM: collect keywords from ALL DM entries in the room.
-        // Materials in the same room share characteristics (wood species, finish),
-        // so DM keywords like "placage chêne blanc" help score unrelated categories
-        // like BANDE DE CHANT that share the same material palette.
+        // 4. Cross-DM: no type matched — ask user which DM to use for keyword extraction
         if (!dmEntry) {
-            var allKw = [];
-            var firstDmId = null;
-            for (var xi = 0; xi < dm.length; xi++) {
-                if (!dm[xi].catalogue_item_id && !dm[xi].client_text) continue;
-                var xItem = dm[xi].client_text
-                    ? CATALOGUE_DATA.find(function(it) { return it.client_text === dm[xi].client_text; })
-                    : CATALOGUE_DATA.find(function(it) { return it.id === dm[xi].catalogue_item_id; });
-                if (!xItem) continue;
-                if (!firstDmId) firstDmId = xItem.id;
-                var xText = xItem.client_text || xItem.description || '';
-                var xKw = extractMatchKeywords(xText);
-                for (var xk = 0; xk < xKw.length; xk++) {
-                    if (allKw.indexOf(xKw[xk]) === -1) allKw.push(xKw[xk]);
+            var validDm = dm.filter(function(d) { return d.client_text || d.catalogue_item_id; });
+            if (validDm.length === 1) {
+                dmEntry = validDm[0];
+                matchMethod = 'cross-DM(only)';
+            } else if (validDm.length > 1) {
+                var xCacheKey = groupId + ':cross:' + parentCategory;
+                if (dmChoiceCache[xCacheKey]) {
+                    var xCached = validDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
+                    if (xCached) { dmEntry = xCached; matchMethod = 'cross-DM(cached)'; }
                 }
-            }
-            if (allKw.length > 0) {
-                console.log('[CASCADE] DM fallback: cross-DM keywords from all room DMs:', allKw.join(', '));
-                return { keywords: allKw, dmItemId: firstDmId };
+                if (!dmEntry) {
+                    var xResult = await showDmChoiceModal(parentCategory || 'Matériau', validDm);
+                    if (xResult) {
+                        dmEntry = validDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
+                        matchMethod = 'cross-DM(chosen)';
+                        if (xResult.remember) dmChoiceCache[xCacheKey] = xResult.itemId;
+                    } else {
+                        dmEntry = validDm[0];
+                        matchMethod = 'cross-DM(first)';
+                    }
+                }
             }
         }
 

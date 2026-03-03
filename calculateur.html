@@ -1620,7 +1620,7 @@
             case 'add_catalogue_item': {
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
-                var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0 });
+                var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0, skipFocus: true });
                 if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les matériaux par défaut de cette pièce.' };
                 // Wait for Supabase item creation (async in addRow) before updating
                 var waitAttempts = 0;

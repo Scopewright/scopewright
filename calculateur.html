@@ -2398,6 +2398,13 @@
         catch (e) { console.error('[Cascade] Erreur formule:', expr, e); return null; }
     }
 
+    /** Normalize a DM type name for comparison: lowercase, strip accents, strip trailing s/x (French plural). */
+    function normalizeDmType(str) {
+        return (str || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[sx]$/, '');
+    }
+
     /**
      * For dynamic cascade rules ($default: / $match:), check if an existing active child
      * already satisfies the rule — so we can skip resolution (and avoid popup).
@@ -2411,8 +2418,9 @@
             var allowedCats = getAllowedCategoriesForGroup(groupName);
             // Collect DM client_texts for broader fallback
             var dmClientTexts = [];
+            var groupNameNorm = normalizeDmType(groupName);
             for (var i = 0; i < dm.length; i++) {
-                if (dm[i].type === groupName) {
+                if (normalizeDmType(dm[i].type) === groupNameNorm) {
                     if (dm[i].client_text) {
                         dmClientTexts.push(dm[i].client_text);
                         CATALOGUE_DATA.forEach(function(c) {
@@ -2550,10 +2558,11 @@
         if (target.startsWith('$default:')) {
             var groupName = target.substring(9);
             var dm = getDefaultMaterialsForGroup(groupId);
-            // Step 1: Collect DM entries for this type (client_text or catalogue_item_id)
+            // Step 1: Collect DM entries for this type (normalized: accent-insensitive, plural-tolerant)
+            var groupNameNorm = normalizeDmType(groupName);
             var dmMatches = [];
             for (var i = 0; i < dm.length; i++) {
-                if (dm[i].type === groupName && (dm[i].client_text || dm[i].catalogue_item_id)) {
+                if (normalizeDmType(dm[i].type) === groupNameNorm && (dm[i].client_text || dm[i].catalogue_item_id)) {
                     dmMatches.push(dm[i]);
                 }
             }
@@ -2853,12 +2862,12 @@
             // materialCtx.chosenClientText not found in catalogue → fall through to regular tiers
         }
 
-        // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
+        // 1. Collect ALL direct matches: catalogue category name === DM type name (normalized: accent+plural tolerant)
         var directMatches = [];
         if (parentCategory) {
-            var targetLower = parentCategory.toLowerCase();
+            var targetNorm = normalizeDmType(parentCategory);
             for (var di = 0; di < dm.length; di++) {
-                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
+                if (dm[di].type && normalizeDmType(dm[di].type) === targetNorm && (dm[di].client_text || dm[di].catalogue_item_id)) {
                     directMatches.push(dm[di]);
                 }
             }

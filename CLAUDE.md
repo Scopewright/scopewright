@@ -316,6 +316,10 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - Deux formats de `material_costs` : flat numbers (calculateur via `computeComposedPrice`) et objets `{cost, qty}` (catalogue/approbation via `computeCatItemPrice`)
 - Si aucun prix composé défini, le prix manuel (`price`) est utilisé
 
+### Dupliquer un article (catalogue)
+
+Bouton "Dupliquer" dans la modale d'édition (`openEditModal`), à côté de "Supprimer". `duplicateItem()` INSERT un nouvel article avec toutes les données copiées (description, category, item_type, price, labor/material, rules, client_text, dims_config, loss_override_pct, etc.) sauf : `is_default` forcé à false, `status` forcé à "pending". Le code ST-XXXX est auto-généré par le trigger DB. Composantes fournisseur et médias ne sont PAS copiés. Après INSERT, la modale se rouvre sur le nouvel article.
+
 ### Suggestions texte client (catalogue)
 
 L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save — seul le check "pas de texte client" (info) reste dans `runSaveValidation()`.

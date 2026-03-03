@@ -235,6 +235,10 @@ Machine à états : `draft → pending_internal ↔ returned → approved_intern
 Ou via tables DB `roles` + `user_roles`.
 **IMPORTANT** : Toutes les vérifications sont **côté client uniquement** (`checkPageAccess()`). La sécurité réelle repose sur les RLS policies Supabase.
 
+### Sync catégories catalogue (admin.html)
+
+Au chargement, l'admin fetch les catégories distinctes depuis `catalogue_items` et les compare à `app_config.catalogue_categories`. Les catégories présentes dans les articles mais absentes de la config sont **auto-ajoutées** et persistées. Elles apparaissent avec "⚠ Non liée" dans la table catégories, incitant l'admin à les mapper à un groupe matériau.
+
 ### Architecture de rendu soumission
 
 Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sources de données différentes :

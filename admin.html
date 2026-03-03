@@ -1326,6 +1326,24 @@
                     if (rows[i].key === 'category_group_mapping') categoryGroupMapping = rows[i].value;
                 }
             }
+            // Auto-detect categories in catalogue items but missing from app_config
+            try {
+                var catResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=category&category=not.is.null', {});
+                if (catResp.ok) {
+                    var catRows = await catResp.json();
+                    var seen = {};
+                    var actualCategories = [];
+                    catRows.forEach(function(r) {
+                        if (r.category && !seen[r.category]) { seen[r.category] = true; actualCategories.push(r.category); }
+                    });
+                    var missing = actualCategories.filter(function(c) { return catalogueCategories.indexOf(c) === -1; });
+                    if (missing.length > 0) {
+                        missing.forEach(function(c) { catalogueCategories.push(c); });
+                        saveConfig('catalogue_categories', catalogueCategories, 'categoriesFeedback');
+                        console.log('[ADMIN] Auto-added ' + missing.length + ' missing categories:', missing);
+                    }
+                }
+            } catch (e) { console.warn('[ADMIN] Category sync failed:', e); }
             await loadUserProfiles();
             await loadRoles();
             await loadUserRoles(); // Load user role assignments from database

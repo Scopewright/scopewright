@@ -3437,12 +3437,15 @@
                 var key = field.trim();
                 // Map ask field names to vars keys (case-insensitive)
                 var normalized = key.toUpperCase();
+                // L, H, P, QTY : doivent être > 0 (dimensions physiques obligatoires)
                 if (normalized === 'L' || normalized === 'LARGEUR') return !vars.L || vars.L <= 0;
                 if (normalized === 'H' || normalized === 'HAUTEUR') return !vars.H || vars.H <= 0;
                 if (normalized === 'P' || normalized === 'PROFONDEUR') return !vars.P || vars.P <= 0;
                 if (normalized === 'QTY' || normalized === 'QUANTITÉ' || normalized === 'QUANTITE') return !vars.QTY || vars.QTY <= 0;
-                if (normalized === 'N_TABLETTES' || normalized === 'TABLETTES') return !vars.n_tablettes || vars.n_tablettes <= 0;
-                if (normalized === 'N_PARTITIONS' || normalized === 'PARTITIONS') return !vars.n_partitions || vars.n_partitions <= 0;
+                // n_tablettes, n_partitions : 0 est valide (caisson sans tablettes/partitions)
+                // On vérifie seulement que la valeur est définie (pas null/undefined)
+                if (normalized === 'N_TABLETTES' || normalized === 'TABLETTES') return vars.n_tablettes == null;
+                if (normalized === 'N_PARTITIONS' || normalized === 'PARTITIONS') return vars.n_partitions == null;
                 // Unknown ask field — don't block
                 return false;
             });

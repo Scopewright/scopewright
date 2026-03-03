@@ -2774,13 +2774,33 @@
         // 2. Fuzzy match: expense category contains DM type or vice versa (with plural normalization)
         if (!dmEntry && parentCategory) {
             var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+            var fuzzyMatches = [];
             for (var fi = 0; fi < dm.length; fi++) {
                 if (!dm[fi].type || (!dm[fi].catalogue_item_id && !dm[fi].client_text)) continue;
                 var typeNorm = dm[fi].type.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
                 if (catNorm.indexOf(typeNorm) !== -1 || typeNorm.indexOf(catNorm) !== -1) {
-                    dmEntry = dm[fi];
-                    matchMethod = 'fuzzy(' + dm[fi].type + ')';
-                    break;
+                    fuzzyMatches.push(dm[fi]);
+                }
+            }
+            if (fuzzyMatches.length === 1) {
+                dmEntry = fuzzyMatches[0];
+                matchMethod = 'fuzzy(' + fuzzyMatches[0].type + ')';
+            } else if (fuzzyMatches.length > 1) {
+                var fCacheKey = groupId + ':' + parentCategory;
+                if (dmChoiceCache[fCacheKey]) {
+                    var fCached = fuzzyMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
+                    if (fCached) { dmEntry = fCached; matchMethod = 'fuzzy(cached)'; }
+                }
+                if (!dmEntry) {
+                    var fResult = await showDmChoiceModal(parentCategory, fuzzyMatches);
+                    if (fResult) {
+                        dmEntry = fuzzyMatches.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
+                        matchMethod = 'fuzzy(chosen)';
+                        if (fResult.remember) dmChoiceCache[fCacheKey] = fResult.itemId;
+                    } else {
+                        dmEntry = fuzzyMatches[0];
+                        matchMethod = 'fuzzy(first)';
+                    }
                 }
             }
         }
@@ -2788,6 +2808,7 @@
         // 3. Category match: DM item's catalogue category matches expense category
         if (!dmEntry && parentCategory) {
             var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
+            var catMatches = [];
             for (var ci = 0; ci < dm.length; ci++) {
                 if (!dm[ci].catalogue_item_id && !dm[ci].client_text) continue;
                 var dmCatItem = dm[ci].client_text
@@ -2796,9 +2817,28 @@
                 if (!dmCatItem || !dmCatItem.category) continue;
                 var itemCatNorm = dmCatItem.category.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
                 if (catNorm.indexOf(itemCatNorm) !== -1 || itemCatNorm.indexOf(catNorm) !== -1) {
-                    dmEntry = dm[ci];
-                    matchMethod = 'category(' + dmCatItem.category + ')';
-                    break;
+                    catMatches.push(dm[ci]);
+                }
+            }
+            if (catMatches.length === 1) {
+                dmEntry = catMatches[0];
+                matchMethod = 'category(' + catMatches[0].type + ')';
+            } else if (catMatches.length > 1) {
+                var cCacheKey = groupId + ':' + parentCategory;
+                if (dmChoiceCache[cCacheKey]) {
+                    var cCached = catMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
+                    if (cCached) { dmEntry = cCached; matchMethod = 'category(cached)'; }
+                }
+                if (!dmEntry) {
+                    var cResult = await showDmChoiceModal(parentCategory, catMatches);
+                    if (cResult) {
+                        dmEntry = catMatches.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
+                        matchMethod = 'category(chosen)';
+                        if (cResult.remember) dmChoiceCache[cCacheKey] = cResult.itemId;
+                    } else {
+                        dmEntry = catMatches[0];
+                        matchMethod = 'category(first)';
+                    }
                 }
             }
         }

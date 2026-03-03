@@ -2448,12 +2448,24 @@
         }
         if (ruleTarget.startsWith('$match:')) {
             var expCat = ruleTarget.substring(7).toUpperCase();
+            var expWords = expCat.split(/\s+/);
             for (var k = 0; k < activeChildren.length; k++) {
                 var ch = activeChildren[k];
                 if (alreadyMatched.indexOf(ch.rowId) === -1 && ch.catalogueId) {
                     var catItem = CATALOGUE_DATA.find(function(it) { return it.id === ch.catalogueId; });
-                    if (catItem && itemHasMaterialCost(catItem, expCat)) {
-                        return ch.catalogueId;
+                    if (catItem && catItem.material_costs) {
+                        // Check if child has material_costs for ANY category sharing a word
+                        // with the rule category (e.g., "PANNEAU MÉLAMINE" matches "PANNEAU BOIS")
+                        var mcKeys = Object.keys(catItem.material_costs);
+                        for (var mk = 0; mk < mcKeys.length; mk++) {
+                            var keyUpper = mcKeys[mk].toUpperCase();
+                            var val = catItem.material_costs[mcKeys[mk]];
+                            var hasValue = typeof val === 'number' ? val > 0 : (val && val.cost > 0);
+                            if (!hasValue) continue;
+                            var keyWords = keyUpper.split(/\s+/);
+                            var hasCommon = keyWords.some(function(kw) { return expWords.indexOf(kw) !== -1; });
+                            if (hasCommon) return ch.catalogueId;
+                        }
                     }
                 }
             }
@@ -2622,24 +2634,61 @@
         if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
 
         var expCatUpper = expenseCategory.toUpperCase();
+        var ruleWords = expCatUpper.split(/\s+/);
 
-        // ── DEBUG: parent FAB item details ──
-        console.log('[CASCADE] $match parent FAB:', {
-            parentRowId: parentRow.rowId,
-            catalogueId: parentRow.catalogueId,
-            client_text: parentItem.client_text,
-            description: parentItem.description,
-            category: parentItem.category,
-            materialCtx: materialCtx
-        });
+        // ── Dynamic expense category: derive from DM material ──
+        // The rule says $match:PANNEAU BOIS but the actual expense category depends on the
+        // DM material chosen. E.g., DM="Mélamine grise 805" → ST-0012 → material_costs
+        // has "PANNEAU MÉLAMINE", not "PANNEAU BOIS". We expand the candidate filter to
+        // include related expense categories from the DM item.
+        var effectiveExpCats = [expCatUpper];
 
-        // Filter catalogue once: items with material_costs in this expense category
-        // Exclude FAB items and service/forfait items — $match: targets materials only
+        // Try materialCtx first (already resolved by executeCascade)
+        var dmCatItem = null;
+        if (materialCtx && materialCtx.chosenClientText) {
+            dmCatItem = CATALOGUE_DATA.find(function(i) { return i.client_text === materialCtx.chosenClientText; });
+        }
+        // Fallback: look up room DM directly for this expense category
+        if (!dmCatItem) {
+            var dm = getDefaultMaterialsForGroup(groupId);
+            if (dm && dm.length > 0) {
+                var targetLower = expenseCategory.toLowerCase();
+                for (var di = 0; di < dm.length; di++) {
+                    if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
+                        dmCatItem = dm[di].client_text
+                            ? CATALOGUE_DATA.find(function(c) { return c.client_text === dm[di].client_text; })
+                            : CATALOGUE_DATA.find(function(c) { return c.id === dm[di].catalogue_item_id; });
+                        if (dmCatItem) break;
+                    }
+                }
+            }
+        }
+        // Expand expense categories from the DM item's material_costs keys
+        if (dmCatItem && dmCatItem.material_costs) {
+            var dmMcKeys = Object.keys(dmCatItem.material_costs);
+            for (var ki = 0; ki < dmMcKeys.length; ki++) {
+                var keyUpper = dmMcKeys[ki].toUpperCase();
+                if (effectiveExpCats.indexOf(keyUpper) !== -1) continue;
+                // Similarity: at least one word in common with the rule category
+                var keyWords = keyUpper.split(/\s+/);
+                var hasCommon = keyWords.some(function(kw) { return ruleWords.indexOf(kw) !== -1; });
+                if (hasCommon) {
+                    effectiveExpCats.push(keyUpper);
+                }
+            }
+            console.log('[CASCADE] $match: DM item ' + dmCatItem.id + ' (' + (dmCatItem.client_text || '') + ') → effectiveExpCats:', effectiveExpCats);
+        }
+
+        // Filter catalogue: items with material_costs in ANY effective expense category
+        // Exclude FAB items — $match: targets materials only
         var candidates = CATALOGUE_DATA.filter(function(item) {
             if (item.item_type === 'fabrication') return false;
-            return itemHasMaterialCost(item, expCatUpper);
+            for (var ei = 0; ei < effectiveExpCats.length; ei++) {
+                if (itemHasMaterialCost(item, effectiveExpCats[ei])) return true;
+            }
+            return false;
         });
-        // Fallback: if no items have material_costs for this category,
+        // Fallback: if no items have material_costs for any effective category,
         // match by catalogue category name (fuzzy, plural-normalized)
         if (candidates.length === 0) {
             var expNorm = expenseCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
@@ -2652,44 +2701,8 @@
                 console.log('[CASCADE] $match: category fallback found ' + candidates.length + ' candidates for "' + expCatUpper + '"');
             }
         }
-        console.log('[CASCADE] $match: ' + candidates.length + ' candidates for "' + expCatUpper + '"',
+        console.log('[CASCADE] $match: ' + candidates.length + ' candidates for effectiveExpCats:', effectiveExpCats,
             candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
-
-        // ── DEBUG: dump ALL candidates for this expense category ──
-        console.group('[CASCADE] $match candidates for "' + expCatUpper + '" (' + candidates.length + ' total)');
-        candidates.forEach(function(c) {
-            console.log('  ' + c.id + ' | client_text="' + (c.client_text || '(none)') +
-                '" | desc="' + (c.description || '(none)').substring(0, 50) +
-                '" | cat=' + (c.category || '(none)') +
-                ' | type=' + (c.item_type || '?') +
-                ' | material_costs=' + JSON.stringify(c.material_costs || {}));
-        });
-        console.groupEnd();
-
-        // ── DEBUG: check ST-0012 and ST-0044 specifically ──
-        ['ST-0012', 'ST-0044'].forEach(function(debugId) {
-            var debugItem = CATALOGUE_DATA.find(function(i) { return i.id === debugId; });
-            if (debugItem) {
-                // Log the FULL object for inspection
-                console.log('[CASCADE] DEBUG ' + debugId + ' FULL OBJECT:', JSON.parse(JSON.stringify(debugItem)));
-                // Explain WHY it is/isn't a candidate
-                var isFab = debugItem.item_type === 'fabrication';
-                var hasMC = itemHasMaterialCost(debugItem, expCatUpper);
-                var mcKeys = debugItem.material_costs ? Object.keys(debugItem.material_costs) : [];
-                console.log('[CASCADE] DEBUG ' + debugId + ' candidate check:', {
-                    item_type: debugItem.item_type,
-                    excluded_as_fabrication: isFab,
-                    material_costs_keys: mcKeys,
-                    material_costs_keys_upper: mcKeys.map(function(k) { return k.toUpperCase(); }),
-                    looking_for: expCatUpper,
-                    hasMaterialCost: hasMC,
-                    key_match: mcKeys.filter(function(k) { return k.toUpperCase() === expCatUpper; }),
-                    in_candidates: candidates.some(function(c) { return c.id === debugId; })
-                });
-            } else {
-                console.warn('[CASCADE] DEBUG ' + debugId + ': NOT FOUND in CATALOGUE_DATA (' + CATALOGUE_DATA.length + ' items)');
-            }
-        });
 
         // ── Fallback chain: client_text → description → default material ──
         // Each step extracts keywords and scores independently.
@@ -2784,23 +2797,12 @@
      * Score catalogue candidates against keywords by matching client_text/description.
      */
     function scoreMatchCandidates(candidates, keywords) {
-        // ── DEBUG: log every candidate's scoring breakdown ──
-        console.group('[CASCADE] scoreMatchCandidates: ' + candidates.length + ' candidates × ' + keywords.length + ' keywords [' + keywords.join(', ') + ']');
         var scored = candidates.map(function(item) {
             var itemText = (item.client_text || item.description || '').toLowerCase();
             var hits = keywords.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
-            var misses = keywords.filter(function(kw) { return itemText.indexOf(kw) === -1; });
-            if (hits.length > 0 || candidates.length <= 20) {
-                console.log('  ' + item.id + ' score=' + hits.length +
-                    ' | text="' + itemText.substring(0, 60) + '"' +
-                    ' | hits=[' + hits.join(',') + ']' +
-                    (misses.length > 0 ? ' | misses=[' + misses.join(',') + ']' : ''));
-            }
             return { item: item, score: hits.length };
         }).filter(function(s) { return s.score > 0; });
         scored.sort(function(a, b) { return b.score - a.score; });
-        if (scored.length === 0) console.warn('  → 0 scored results!');
-        console.groupEnd();
         return scored;
     }
 
@@ -3024,20 +3026,10 @@
         if (!dmItem && dmEntry.catalogue_item_id) {
             dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
         }
-        // ── DEBUG: trace DM → catalogue item → keywords ──
-        console.log('[CASCADE] DM→keywords trace:', {
-            dmEntry_client_text: dmEntry.client_text,
-            dmEntry_catalogue_item_id: dmEntry.catalogue_item_id,
-            dmItem_found: !!dmItem,
-            dmItem_id: dmItem ? dmItem.id : null,
-            dmItem_client_text: dmItem ? dmItem.client_text : null,
-            dmItem_description: dmItem ? dmItem.description : null
-        });
         if (!dmItem) return null;
 
         var text = dmItem.client_text || dmItem.description || '';
         var kw = extractMatchKeywords(text);
-        console.log('[CASCADE] DM keywords from "' + text + '" →', kw);
         if (kw.length === 0) return null;
 
         return { keywords: kw, dmItemId: dmItem.id };

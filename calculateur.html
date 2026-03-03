@@ -11386,7 +11386,7 @@
             confirmBtn.textContent = 'Upload...';
 
             try {
-                var croppedCanvas = currentCropper.getCroppedCanvas({ maxWidth: 2048, maxHeight: 2048, imageSmoothingQuality: 'high' });
+                var croppedCanvas = currentCropper.getCroppedCanvas({ maxWidth: 4096, maxHeight: 4096, imageSmoothingQuality: 'high' });
                 var cropData = currentCropper.getData(true); // rounded
                 var croppedBlob = await new Promise(function(resolve) {
                     croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.88);

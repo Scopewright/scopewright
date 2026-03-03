@@ -786,6 +786,18 @@
             .btn-ai-dot.ai-active .ai-dot { animation:none; opacity:1; }
             .btn-ai-dot.ai-done .ai-dot { animation:none; }
         }
+        /* Client text suggestions (autocomplete-style) */
+        .ct-suggestions { display:flex; flex-direction:column; gap:2px; }
+        .ct-suggestions:empty { display:none; }
+        .ct-suggestion {
+            display:flex; align-items:center; gap:8px; padding:5px 8px;
+            border-radius:4px; cursor:pointer; font-size:12px;
+            color:#475569; background:#f8fafc; border:1px solid #e2e8f0;
+            transition: background 0.1s;
+        }
+        .ct-suggestion:hover { background:#eef2ff; border-color:#c7d2fe; }
+        .ct-suggestion-text { flex:1; }
+        .ct-suggestion-code { font-size:11px; color:#94a3b8; font-family:monospace; }
 
         /* ── Audit drawer ── */
         .audit-drawer-overlay {
@@ -2110,11 +2122,13 @@
                     <label class="form-label" style="margin-top:8px;">Texte</label>
                     <div class="ai-feedback-container" id="clientTextFeedback"></div>
                     <div class="ai-field-wrap">
-                        <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC">
+                        <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC"
+                               oninput="debouncedClientTextSuggest()">
                         <button class="btn-ai-dot" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
                     </div>
+                    <div class="ct-suggestions" id="clientTextSuggestions"></div>
                 </div>
                 <!-- Template hint banner (admin only) -->
                 <div class="template-hint" id="templateHintBanner" style="display:none;">
@@ -4915,6 +4929,59 @@
             return matrix[b.length][a.length];
         }
 
+        // ── Client text suggestions (real-time, cross-category) ──
+
+        var _ctSuggestTimer = null;
+        function debouncedClientTextSuggest() {
+            clearTimeout(_ctSuggestTimer);
+            _ctSuggestTimer = setTimeout(suggestClientText, 250);
+        }
+
+        function suggestClientText() {
+            var container = document.getElementById('clientTextSuggestions');
+            if (!container) return;
+            var input = document.getElementById('editClientText');
+            var val = (input ? input.value : '').trim();
+            var itemId = document.getElementById('editItemId').value;
+
+            if (val.length < 3) { container.innerHTML = ''; return; }
+
+            var norm = normalizeText(val);
+            var scored = [];
+
+            for (var i = 0; i < CATALOGUE_DATA.length; i++) {
+                var c = CATALOGUE_DATA[i];
+                if (c.id === itemId || !c.client_text) continue;
+                var cNorm = normalizeText(c.client_text);
+                if (!cNorm) continue;
+                var dist = levenshtein(norm, cNorm);
+                if (dist > 0 && dist <= 5) {
+                    scored.push({ item: c, dist: dist });
+                }
+            }
+
+            scored.sort(function(a, b) { return a.dist - b.dist; });
+            var top3 = scored.slice(0, 3);
+
+            if (top3.length === 0) { container.innerHTML = ''; return; }
+
+            container.innerHTML = top3.map(function(s) {
+                return '<div class="ct-suggestion" onclick="applyClientTextSuggestion(this)" data-text="'
+                    + escapeAttr(s.item.client_text) + '">'
+                    + '<span class="ct-suggestion-text">\u00ab ' + escapeHtml(s.item.client_text) + ' \u00bb</span>'
+                    + '<span class="ct-suggestion-code">' + escapeHtml(s.item.id) + '</span>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function applyClientTextSuggestion(el) {
+            var text = el.dataset.text;
+            var input = document.getElementById('editClientText');
+            if (input && text) input.value = text;
+            var container = document.getElementById('clientTextSuggestions');
+            if (container) container.innerHTML = '';
+        }
+
         /** Check if item has composed price (labor or materials defined). */
         function hasComposedPrice(item) {
             var lm = item.labor_minutes || {};
@@ -4971,28 +5038,7 @@
                 warnings.push({ level: 'error', msg: 'Aucun prix défini — ni prix fixe, ni main-d\'œuvre, ni matériaux. L\'article sera inutilisable.' });
             }
 
-            if (clientText) {
-                var normalizedCT = normalizeText(clientText);
-                var sameCategory = CATALOGUE_DATA.filter(function(c) {
-                    return c.category === category && c.id !== itemId;
-                });
-
-                // Outlier check: warn only if this item's client_text is a near-duplicate
-                // (Levenshtein 1-3) of another item — exact duplicates are normal/intentional
-                for (var si = 0; si < sameCategory.length; si++) {
-                    var otherNorm = normalizeText(sameCategory[si].client_text);
-                    if (!otherNorm) continue;
-                    var dist = levenshtein(normalizedCT, otherNorm);
-                    if (dist > 0 && dist <= 3) {
-                        warnings.push({
-                            level: 'warn',
-                            msg: 'Texte client très similaire à ' + sameCategory[si].id + ' : « ' + (sameCategory[si].client_text || '') + ' ». Variante possible (apostrophe, espace, coquille) — vérifier.'
-                        });
-                        break;
-                    }
-                }
-            } else {
-                // Check 3: No client_text
+            if (!clientText) {
                 warnings.push({ level: 'info', msg: 'Pas de texte client défini. L\'article ne sera pas visible dans la présentation client.' });
             }
 

@@ -183,6 +183,21 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 - **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.
 - **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Finition','Poignées']`. `getMissingRequiredDm(groupId)` retourne les groupes non remplis. `addRow()` bloque l'ajout d'articles (toast + ouvre le panneau DM) si des groupes requis manquent — sauf pour le chargement d'articles existants (legacy), les cascades, et le bulk load. Le bouton "+" est grisé (`.dm-blocked`) pour les nouvelles pièces sans DM complets.
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent plus dans le dropdown DM.
+- **Regroupement client_text** (Phase 1) : le dropdown DM (`rdmSearchCatalogue`) déduplique les articles par `client_text` — un seul "Placage de chêne blanc" affiché même si 2+ articles techniques existent. `rdmSelectItem` stocke le `client_text` sur l'entrée DM en plus du `catalogue_item_id` représentant. Structure DM : `{ type, catalogue_item_id, client_text, description }`.
+
+#### Refactor DM client_text — Phase 2 (à venir)
+
+Le DM représente un matériau client, pas un article technique. Phase 2 remplacera `catalogue_item_id` par `client_text` comme identifiant primaire :
+
+1. **`resolveCascadeTarget`** : DM type → `client_text` → filtrer CATALOGUE_DATA par client_text + catégorie (via `getAllowedCategoriesForGroup`)
+2. **Deux modales** : Modale 1 = même type, client_text différents ("Placage chêne" vs "Mélamine grise"). Modale 2 = même client_text, articles techniques différents ("Panneau 3/4" vs "Panneau 1\"")
+3. **`findExistingChildForDynamicRule`** : expand validIds via client_text + filtre catégorie
+4. **`getDefaultMaterialKeywords`** : utiliser client_text pour lookup catalogue au lieu de catalogue_item_id direct
+5. **`getMissingRequiredDm`** : vérifier `client_text || catalogue_item_id`
+6. **Migration données** : au load, dériver client_text depuis catalogue_item_id pour les DM existantes
+7. **`findDmEntryByType`** : accepter entries avec client_text sans catalogue_item_id
+
+Risques Phase 2 : cascade engine (élevé), données existantes (moyen), validation DM requis (moyen).
 
 ### Workflow de soumission
 
@@ -275,6 +290,10 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - `loss_override_pct` sur l'article remplace le `waste` par catégorie
 - Deux formats de `material_costs` : flat numbers (calculateur via `computeComposedPrice`) et objets `{cost, qty}` (catalogue/approbation via `computeCatItemPrice`)
 - Si aucun prix composé défini, le prix manuel (`price`) est utilisé
+
+### Suggestions texte client (catalogue)
+
+L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save — seul le check "pas de texte client" (info) reste dans `runSaveValidation()`.
 
 ## AI — Chatbox et Edge Functions
 

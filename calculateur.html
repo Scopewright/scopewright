@@ -1808,7 +1808,7 @@
     // ═══════════════════════════════════════════════════════════════════════
     // MATÉRIAUX PAR DÉFAUT (JSONB dans submissions.default_materials)
     // ═══════════════════════════════════════════════════════════════════════
-    // Structure: [ { type: "Caisson", catalogue_item_id: "uuid", description: "Mélamine blanc ME1" }, ... ]
+    // Structure: [ { type: "Caisson", catalogue_item_id: "ST-0035", client_text: "Placage de chêne blanc", description: "Placage de chêne blanc" }, ... ]
 
     function getDmTypes() { return materialGroups.filter(function(g) { return DM_HIDDEN_GROUPS.indexOf(g) === -1; }); }
     function getMissingRequiredDm(groupId) {
@@ -2042,31 +2042,44 @@
             return;
         }
 
-        // Detect label collisions for disambiguation
-        var labelCount = {};
+        // Deduplicate by client_text: items sharing the same non-empty client_text
+        // appear as a single entry. Items without client_text remain individual.
+        var deduped = [];
+        var seenCT = {};
         results.forEach(function(item) {
-            var lbl = item.client_text || item.description || item.id;
-            labelCount[lbl] = (labelCount[lbl] || 0) + 1;
+            var ct = (item.client_text || '').trim();
+            if (!ct) {
+                deduped.push({ items: [item], clientText: '', displayName: item.description || item.id });
+            } else if (!seenCT[ct]) {
+                seenCT[ct] = { items: [item], clientText: ct, displayName: ct };
+                deduped.push(seenCT[ct]);
+            } else {
+                seenCT[ct].items.push(item);
+            }
         });
 
+        // Group deduped entries by category (first item's category)
         var grouped = {};
-        results.forEach(function(item) {
-            var cat = item.category || 'Autre';
+        deduped.forEach(function(entry) {
+            var cat = entry.items[0].category || 'Autre';
             if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(item);
+            grouped[cat].push(entry);
         });
 
         var html = '';
         var globalIdx = 0;
         Object.keys(grouped).forEach(function(cat) {
             html += '<div style="padding:4px 10px;font-size:10px;font-weight:700;color:#888;background:#f9f9f9;text-transform:uppercase;letter-spacing:0.3px;position:sticky;top:0;">' + escapeHtml(cat) + '</div>';
-            grouped[cat].forEach(function(item) {
-                var displayName = item.client_text || item.description;
-                var secondary = item.client_text && item.client_text !== item.description ? item.description : '';
-                if (!secondary && labelCount[displayName] > 1) secondary = item.id;
+            grouped[cat].forEach(function(entry) {
+                var count = entry.items.length;
+                var repId = entry.items[0].id;
+                var secondary = count > 1
+                    ? (count + ' articles')
+                    : (entry.items[0].client_text && entry.items[0].description !== entry.items[0].client_text
+                        ? entry.items[0].description : '');
                 html += '<div class="dm-ac-item" data-idx="' + globalIdx + '" ' +
-                    'onmousedown="rdmSelectItem(\'' + groupId + '\',' + idx + ',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(displayName) + '\')">' +
-                    '<span>' + escapeHtml(displayName) + '</span>' +
+                    'onmousedown="rdmSelectItem(\'' + groupId + '\',' + idx + ',\'' + escapeAttr(repId) + '\',\'' + escapeAttr(entry.displayName) + '\',\'' + escapeAttr(entry.clientText) + '\')">' +
+                    '<span>' + escapeHtml(entry.displayName) + '</span>' +
                     (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
                     '</div>';
                 globalIdx++;
@@ -2104,12 +2117,13 @@
         }
     }
 
-    function rdmSelectItem(groupId, idx, itemId, itemDesc) {
+    function rdmSelectItem(groupId, idx, itemId, itemDesc, clientText) {
         var rdm = roomDM[groupId];
         if (!rdm || !rdm[idx]) return;
         var changedGroup = rdm[idx].type;
         if (changedGroup) delete dmChoiceCache[groupId + ':' + changedGroup];
         rdm[idx].catalogue_item_id = itemId;
+        rdm[idx].client_text = clientText || '';
         rdm[idx].description = itemDesc;
         saveRoomDm(groupId);
         // Update input visually

@@ -1027,7 +1027,7 @@
                     var lt2 = effPrice * qty;
                     subtotal += lt2;
                     var catDims = collectRowDims(row);
-                    items.push({
+                    var rowData = {
                         index: idx, tag: tag || null, type: 'catalogue', catalogueId: item.id,
                         description: item.description, itemType: item.type,
                         unitPrice: Math.round(effPrice * 100) / 100, qty: qty,
@@ -1035,7 +1035,9 @@
                         laborMinutes: item.labor_minutes || {},
                         materialCosts: item.material_costs || {},
                         dims: catDims
-                    });
+                    };
+                    if (item.instruction) rowData.instruction = item.instruction;
+                    items.push(rowData);
                 }
             }
         });
@@ -1155,6 +1157,7 @@
             var typeTag = item.item_type === 'fabrication' ? '[Fab] ' : item.item_type === 'materiau' ? '[Mat] ' : '';
             var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
             if (item.client_text) line += ' \u2192 client: "' + item.client_text + '"';
+            if (item.instruction) line += ' [instruction: ' + item.instruction + ']';
             cats[cat].push(line);
         });
         var lines = [];
@@ -1258,7 +1261,11 @@
             aiReferenceImageUrls: collectAiReferenceImageUrls(),
             calculationRules: (CATALOGUE_DATA || [])
                 .filter(function(item) { return item.calculation_rule_ai; })
-                .map(function(item) { return { id: item.id, description: item.description, type: item.type, rule: item.calculation_rule_ai }; })
+                .map(function(item) {
+                    var r = { id: item.id, description: item.description, type: item.type, rule: item.calculation_rule_ai };
+                    if (item.instruction) r.instruction = item.instruction;
+                    return r;
+                })
         };
     }
 

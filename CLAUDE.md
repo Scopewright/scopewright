@@ -351,7 +351,7 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 
 ### Architecture
 
-1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext()` assemble le contexte
+1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext()` assemble le contexte (inclut `item.instruction` dans `catalogueSummary`, `focusRoomDetail.items`, et `calculationRules` — seulement si non-vide)
 2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 7 outils
 3. **Mode simulation** : l'AI propose des modifications en texte d'abord, l'utilisateur confirme, puis les tools sont appelés
 4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". Sinon (première proposition), les boutons sont affichés comme filet de sécurité.

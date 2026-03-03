@@ -165,6 +165,8 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - En plus, dans la boucle des règles, un enfant actif est retrouvé par `cascadeRuleTarget` si l'exact `catalogueId` ne matche plus (cas où la résolution fraîche donne un item différent)
 - **Résultat** : les enfants cascade avec `catalogue_item_id` valide en DB sont préservés, seuls les enfants MANQUANTS sont recréés
 
+**Persistance immédiate des enfants cascade** : `debouncedSaveItem` utilise un **timer unique global** (pas per-row). Quand `executeCascade` crée/met à jour 3 enfants en <500ms, seul le dernier `catalogue_item_id` est sauvé — les précédents sont annulés par le debounce. Fix : `executeCascade` appelle `updateItem()` **immédiatement** après chaque enfant (nouveau ou existant modifié) pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag`. Le debounce fire ensuite sans conflit (écrit les mêmes données).
+
 **Changement manuel d'enfant cascade** : quand l'utilisateur modifie manuellement un enfant (change son article catalogue), le moteur :
 1. **Lock** l'enfant (`cascade-locked`) — protégé contre update/suppression par le moteur
 2. **Invalide** `dmChoiceCache` pour toutes les entrées du groupe parent

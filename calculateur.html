@@ -2623,6 +2623,16 @@
 
         var expCatUpper = expenseCategory.toUpperCase();
 
+        // ── DEBUG: parent FAB item details ──
+        console.log('[CASCADE] $match parent FAB:', {
+            parentRowId: parentRow.rowId,
+            catalogueId: parentRow.catalogueId,
+            client_text: parentItem.client_text,
+            description: parentItem.description,
+            category: parentItem.category,
+            materialCtx: materialCtx
+        });
+
         // Filter catalogue once: items with material_costs in this expense category
         // Exclude FAB items and service/forfait items — $match: targets materials only
         var candidates = CATALOGUE_DATA.filter(function(item) {
@@ -2644,6 +2654,34 @@
         }
         console.log('[CASCADE] $match: ' + candidates.length + ' candidates for "' + expCatUpper + '"',
             candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
+
+        // ── DEBUG: dump ALL candidates for this expense category ──
+        console.group('[CASCADE] $match candidates for "' + expCatUpper + '" (' + candidates.length + ' total)');
+        candidates.forEach(function(c) {
+            console.log('  ' + c.id + ' | client_text="' + (c.client_text || '(none)') +
+                '" | desc="' + (c.description || '(none)').substring(0, 50) +
+                '" | cat=' + (c.category || '(none)') +
+                ' | type=' + (c.item_type || '?') +
+                ' | material_costs=' + JSON.stringify(c.material_costs || {}));
+        });
+        console.groupEnd();
+
+        // ── DEBUG: check ST-0012 specifically ──
+        var st0012 = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0012'; });
+        if (st0012) {
+            console.log('[CASCADE] DEBUG ST-0012:', {
+                id: st0012.id,
+                client_text: st0012.client_text,
+                description: st0012.description,
+                category: st0012.category,
+                item_type: st0012.item_type,
+                material_costs: st0012.material_costs,
+                hasMaterialCost_PANNEAU_BOIS: itemHasMaterialCost(st0012, 'PANNEAU BOIS'),
+                in_candidates: candidates.some(function(c) { return c.id === 'ST-0012'; })
+            });
+        } else {
+            console.warn('[CASCADE] DEBUG ST-0012: NOT FOUND in CATALOGUE_DATA (' + CATALOGUE_DATA.length + ' items)');
+        }
 
         // ── Fallback chain: client_text → description → default material ──
         // Each step extracts keywords and scores independently.
@@ -2738,12 +2776,23 @@
      * Score catalogue candidates against keywords by matching client_text/description.
      */
     function scoreMatchCandidates(candidates, keywords) {
+        // ── DEBUG: log every candidate's scoring breakdown ──
+        console.group('[CASCADE] scoreMatchCandidates: ' + candidates.length + ' candidates × ' + keywords.length + ' keywords [' + keywords.join(', ') + ']');
         var scored = candidates.map(function(item) {
             var itemText = (item.client_text || item.description || '').toLowerCase();
             var hits = keywords.filter(function(kw) { return itemText.indexOf(kw) !== -1; });
+            var misses = keywords.filter(function(kw) { return itemText.indexOf(kw) === -1; });
+            if (hits.length > 0 || candidates.length <= 20) {
+                console.log('  ' + item.id + ' score=' + hits.length +
+                    ' | text="' + itemText.substring(0, 60) + '"' +
+                    ' | hits=[' + hits.join(',') + ']' +
+                    (misses.length > 0 ? ' | misses=[' + misses.join(',') + ']' : ''));
+            }
             return { item: item, score: hits.length };
         }).filter(function(s) { return s.score > 0; });
         scored.sort(function(a, b) { return b.score - a.score; });
+        if (scored.length === 0) console.warn('  → 0 scored results!');
+        console.groupEnd();
         return scored;
     }
 
@@ -2967,10 +3016,20 @@
         if (!dmItem && dmEntry.catalogue_item_id) {
             dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
         }
+        // ── DEBUG: trace DM → catalogue item → keywords ──
+        console.log('[CASCADE] DM→keywords trace:', {
+            dmEntry_client_text: dmEntry.client_text,
+            dmEntry_catalogue_item_id: dmEntry.catalogue_item_id,
+            dmItem_found: !!dmItem,
+            dmItem_id: dmItem ? dmItem.id : null,
+            dmItem_client_text: dmItem ? dmItem.client_text : null,
+            dmItem_description: dmItem ? dmItem.description : null
+        });
         if (!dmItem) return null;
 
         var text = dmItem.client_text || dmItem.description || '';
         var kw = extractMatchKeywords(text);
+        console.log('[CASCADE] DM keywords from "' + text + '" →', kw);
         if (kw.length === 0) return null;
 
         return { keywords: kw, dmItemId: dmItem.id };
@@ -3575,16 +3634,18 @@
                 var childRow = document.getElementById(existing.rowId);
                 if (childRow) {
                     childRow.dataset.cascadeRuleTarget = rule.target;
+                    var itemChanged = existing.catalogueId !== resolvedTarget;
+                    var childQty = childRow.querySelector('.qty-input');
+                    var qtyChanged = childQty && parseFloat(childQty.value) !== qty;
                     // If resolution changed the target item, update the select
-                    if (existing.catalogueId !== resolvedTarget) {
+                    if (itemChanged) {
                         var childSelect2 = childRow.querySelector('.item-select');
                         if (childSelect2) childSelect2.value = resolvedTarget;
                     }
-                    var childQty = childRow.querySelector('.qty-input');
-                    if (childQty && parseFloat(childQty.value) !== qty) {
+                    if (qtyChanged) {
                         childQty.value = qty;
                         updateRow(existing.rowId);
-                    } else if (existing.catalogueId !== resolvedTarget) {
+                    } else if (itemChanged) {
                         updateRow(existing.rowId);
                     }
                     // Sync tag from parent
@@ -3592,6 +3653,24 @@
                     if (childTagSync && childTagSync.value !== parentTag) {
                         childTagSync.value = parentTag;
                         if (itemMap[existing.rowId]) updateItem(itemMap[existing.rowId], { tag: parentTag || null });
+                    }
+
+                    // Immediate DB persist when item or qty changed (bypass single-timer debounce)
+                    if (itemMap[existing.rowId] && (itemChanged || qtyChanged)) {
+                        var _ei = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                        if (_ei) {
+                            var _ecb = document.getElementById(existing.rowId + '-install');
+                            var _einst = _ecb ? _ecb.checked : true;
+                            var _ecp = computeComposedPrice(_ei, _einst);
+                            updateItem(itemMap[existing.rowId], {
+                                catalogue_item_id: resolvedTarget,
+                                item_type: 'catalogue',
+                                description: _ei.description,
+                                unit_type: _ei.type || '',
+                                unit_price: _ecp !== null ? _ecp : (_ei.price || 0),
+                                quantity: qty
+                            });
+                        }
                     }
                 }
                 matchedChildRowIds.push(existing.rowId);
@@ -3628,6 +3707,26 @@
                 if (childTagInput) childTagInput.value = parentTag;
 
                 updateRow(newRowId);
+
+                // Immediate DB persist: debouncedSaveItem uses a single global timer,
+                // so rapid cascade calls cancel each other — only the last child would be saved.
+                // This explicit updateItem ensures every child's catalogue_item_id is persisted.
+                var _ci = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                if (_ci) {
+                    var _icb = document.getElementById(newRowId + '-install');
+                    var _iinst = _icb ? _icb.checked : true;
+                    var _icp = computeComposedPrice(_ci, _iinst);
+                    updateItem(itemMap[newRowId], {
+                        catalogue_item_id: resolvedTarget,
+                        item_type: 'catalogue',
+                        description: _ci.description,
+                        unit_type: _ci.type || '',
+                        unit_price: _icp !== null ? _icp : (_ci.price || 0),
+                        quantity: qty,
+                        tag: parentTag || null
+                    });
+                }
+
                 matchedChildRowIds.push(newRowId);
                 lastInsertedRowId = newRowId;
             }

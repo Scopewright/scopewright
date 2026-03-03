@@ -1809,7 +1809,12 @@
     // ═══════════════════════════════════════════════════════════════════════
     // Structure: [ { type: "Caisson", catalogue_item_id: "uuid", description: "Mélamine blanc ME1" }, ... ]
 
-    function getDmTypes() { return materialGroups; }
+    function getDmTypes() { return materialGroups.filter(function(g) { return DM_HIDDEN_GROUPS.indexOf(g) === -1; }); }
+    function getMissingRequiredDm(groupId) {
+        var rdm = roomDM[groupId] || [];
+        var filled = rdm.filter(function(e) { return e.catalogue_item_id; }).map(function(e) { return e.type; });
+        return DM_REQUIRED_GROUPS.filter(function(g) { return filled.indexOf(g) === -1; });
+    }
     var dmActiveAC = null; // currently open autocomplete index (room-level DM reuses this pattern)
 
     /**
@@ -1863,11 +1868,21 @@
         }
         // Toggle "needs config" indicator: DM empty + at least 1 item row in group
         var label = badge.closest('.room-dm-label');
+        var groupEl = document.getElementById(groupId);
         if (label) {
-            var groupEl = document.getElementById(groupId);
             var hasItems = groupEl && groupEl.querySelectorAll('.calc-row').length > 0;
             var dmEmpty = !rdm || rdm.length === 0;
             label.classList.toggle('dm-needs-config', dmEmpty && hasItems);
+        }
+        // Toggle "+" button blocked state: DM required groups missing + no existing items
+        var addContainer = groupEl ? groupEl.querySelector('.add-row-container') : null;
+        if (addContainer) {
+            var hasExisting = groupEl.querySelectorAll('.calc-row').length > 0;
+            var blocked = getMissingRequiredDm(groupId).length > 0 && !hasExisting;
+            addContainer.querySelectorAll('.btn-add, .add-row-text').forEach(function(el) {
+                el.classList.toggle('dm-blocked', blocked);
+                if (el.classList.contains('btn-add')) el.title = blocked ? 'Configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut' : 'Ajouter une ligne';
+            });
         }
     }
 
@@ -1889,6 +1904,13 @@
         html += '</div>';
         if (rdm.length === 0) {
             html += '<div class="rdm-fallback-hint">Utilise les mat\u00e9riaux de la soumission (mod\u00e8le)</div>';
+        }
+        var missing = getMissingRequiredDm(groupId);
+        if (missing.length > 0) {
+            html += '<div class="rdm-required-hint">';
+            html += '<span class="rdm-required-label">Requis</span> ';
+            html += missing.map(function(g) { return '<span class="rdm-required-tag">' + escapeHtml(g) + '</span>'; }).join(' ');
+            html += '</div>';
         }
         body.innerHTML = html;
         updateRoomDmBadge(groupId);
@@ -6786,6 +6808,10 @@
         .rdm-fallback-hint {
             font-size: 11px; color: #aaa; font-style: italic; padding: 4px 0;
         }
+        .rdm-required-hint { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:8px; padding:8px 0 0; border-top:1px solid #f0f0f0; }
+        .rdm-required-label { font-size:11px; font-weight:500; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin-right:4px; }
+        .rdm-required-tag { font-size:11px; color:#94a3b8; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 6px; }
+        .btn-add.dm-blocked, .add-row-text.dm-blocked { opacity:0.35; cursor:not-allowed; }
         .rdm-copy-dropdown {
             background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 180px; padding: 4px 0;
@@ -9535,6 +9561,16 @@
 
         function addRow(groupId, opts) {
             opts = opts || {};
+            // Block new items if required DMs are missing (skip for existing/cascade/loading)
+            if (!opts.existingId && !opts.cascade && !opts.skipSave) {
+                var missingDm = getMissingRequiredDm(groupId);
+                if (missingDm.length > 0) {
+                    showToast('Configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut (' + missingDm.join(', ') + ')');
+                    var dmBody = document.getElementById(groupId + '-dmBody');
+                    if (dmBody && dmBody.classList.contains('collapsed')) toggleRoomDm(groupId);
+                    return null;
+                }
+            }
             rowCounter++;
             const rowId = `row-${rowCounter}`;
 
@@ -9922,7 +9958,9 @@
             { prefix: 'A', label_fr: 'Accessoire', label_en: 'Accessory' }
         ];
 
-        var materialGroups = ['Caisson', 'Fa\u00e7ades', 'Panneaux', 'Tiroirs', 'Poign\u00e9es', '\u00c9clairage', 'Autre'];
+        var materialGroups = ['Caisson', 'Fa\u00e7ades', 'Panneaux', 'Tiroirs', 'Poign\u00e9es', 'Finition', '\u00c9clairage', 'Autre'];
+        var DM_REQUIRED_GROUPS = ['Caisson', 'Panneaux', 'Tiroirs', 'Fa\u00e7ades', 'Finition', 'Poign\u00e9es'];
+        var DM_HIDDEN_GROUPS = ['Autre', '\u00c9clairage'];
         var categoryGroupMapping = {};
 
         async function loadTauxAndExpenses() {

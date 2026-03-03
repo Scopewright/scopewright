@@ -2666,22 +2666,30 @@
         });
         console.groupEnd();
 
-        // ── DEBUG: check ST-0012 specifically ──
-        var st0012 = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0012'; });
-        if (st0012) {
-            console.log('[CASCADE] DEBUG ST-0012:', {
-                id: st0012.id,
-                client_text: st0012.client_text,
-                description: st0012.description,
-                category: st0012.category,
-                item_type: st0012.item_type,
-                material_costs: st0012.material_costs,
-                hasMaterialCost_PANNEAU_BOIS: itemHasMaterialCost(st0012, 'PANNEAU BOIS'),
-                in_candidates: candidates.some(function(c) { return c.id === 'ST-0012'; })
-            });
-        } else {
-            console.warn('[CASCADE] DEBUG ST-0012: NOT FOUND in CATALOGUE_DATA (' + CATALOGUE_DATA.length + ' items)');
-        }
+        // ── DEBUG: check ST-0012 and ST-0044 specifically ──
+        ['ST-0012', 'ST-0044'].forEach(function(debugId) {
+            var debugItem = CATALOGUE_DATA.find(function(i) { return i.id === debugId; });
+            if (debugItem) {
+                // Log the FULL object for inspection
+                console.log('[CASCADE] DEBUG ' + debugId + ' FULL OBJECT:', JSON.parse(JSON.stringify(debugItem)));
+                // Explain WHY it is/isn't a candidate
+                var isFab = debugItem.item_type === 'fabrication';
+                var hasMC = itemHasMaterialCost(debugItem, expCatUpper);
+                var mcKeys = debugItem.material_costs ? Object.keys(debugItem.material_costs) : [];
+                console.log('[CASCADE] DEBUG ' + debugId + ' candidate check:', {
+                    item_type: debugItem.item_type,
+                    excluded_as_fabrication: isFab,
+                    material_costs_keys: mcKeys,
+                    material_costs_keys_upper: mcKeys.map(function(k) { return k.toUpperCase(); }),
+                    looking_for: expCatUpper,
+                    hasMaterialCost: hasMC,
+                    key_match: mcKeys.filter(function(k) { return k.toUpperCase() === expCatUpper; }),
+                    in_candidates: candidates.some(function(c) { return c.id === debugId; })
+                });
+            } else {
+                console.warn('[CASCADE] DEBUG ' + debugId + ': NOT FOUND in CATALOGUE_DATA (' + CATALOGUE_DATA.length + ' items)');
+            }
+        });
 
         // ── Fallback chain: client_text → description → default material ──
         // Each step extracts keywords and scores independently.

@@ -146,8 +146,8 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Récursion jusqu'à **3 niveaux** de profondeur
 - 3 types de cibles : code direct (`"ST-0042"`), matériau par défaut (`"$default:Facades"`), correspondance fuzzy (`"$match:BANDE DE CHANT"`)
 - `override_children` : empêche la duplication de matériaux cascade entre niveaux. L'item qui **déclare** l'override traite toujours ses propres règles — seuls ses **descendants** sont bloqués (check contre `parentOverrides`, pas `mergedOverrides`)
-- `$match:` candidates : filtre par `material_costs[category]`, sinon fallback par catégorie catalogue (fuzzy, plural-normalisé)
-- `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM (keywords de tous les DM de la pièce — palette matériau partagée)
+- `$match:` candidates : filtre par `material_costs[category]` (exclut `item_type=fabrication`), sinon fallback par catégorie catalogue (fuzzy, plural-normalisé)
+- `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM (modale choix matériau). Chaque tier déduplique par `client_text` (`deduplicateDmByClientText`) et affiche `showDmChoiceModal` si plusieurs matériaux distincts
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)

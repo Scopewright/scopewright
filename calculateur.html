@@ -2724,6 +2724,20 @@
      * Matches parent catalogue category name → DM type name (case-insensitive).
      * Supports multiple DM entries of same type via dmChoiceCache/popup.
      */
+    /** Deduplicate DM entries by client_text — keep one representative per unique material */
+    function deduplicateDmByClientText(entries) {
+        var seen = {};
+        var result = [];
+        for (var i = 0; i < entries.length; i++) {
+            var key = entries[i].client_text || entries[i].catalogue_item_id || '';
+            if (!seen[key]) {
+                seen[key] = true;
+                result.push(entries[i]);
+            }
+        }
+        return result;
+    }
+
     async function getDefaultMaterialKeywords(groupId, parentCategory) {
         // Room-level DM only (submission-level DM removed)
         var dm = getDefaultMaterialsForGroup(groupId);
@@ -2747,27 +2761,28 @@
         var dmEntry = null;
         var matchMethod = '';
 
-        if (directMatches.length === 1) {
-            dmEntry = directMatches[0];
+        var directUnique = deduplicateDmByClientText(directMatches);
+        if (directUnique.length === 1) {
+            dmEntry = directUnique[0];
             matchMethod = 'direct';
-        } else if (directMatches.length > 1) {
+        } else if (directUnique.length > 1) {
             // Multiple DM entries for same type → use cache or popup
             var cacheKey = groupId + ':' + parentCategory;
             if (dmChoiceCache[cacheKey]) {
-                var cached = directMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
+                var cached = directUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
                 if (cached) {
                     dmEntry = cached;
                     matchMethod = 'direct(cached)';
                 }
             }
             if (!dmEntry) {
-                var result = await showDmChoiceModal(parentCategory, directMatches);
+                var result = await showDmChoiceModal(parentCategory, directUnique);
                 if (result) {
-                    dmEntry = directMatches.find(function(m) { return m.catalogue_item_id === result.itemId; });
+                    dmEntry = directUnique.find(function(m) { return m.catalogue_item_id === result.itemId; });
                     matchMethod = 'direct(chosen)';
                     if (result.remember) dmChoiceCache[cacheKey] = result.itemId;
                 } else {
-                    dmEntry = directMatches[0]; // cancelled → fallback to first
+                    dmEntry = directUnique[0]; // cancelled → fallback to first
                     matchMethod = 'direct(first)';
                 }
             }
@@ -2784,23 +2799,24 @@
                     fuzzyMatches.push(dm[fi]);
                 }
             }
-            if (fuzzyMatches.length === 1) {
-                dmEntry = fuzzyMatches[0];
-                matchMethod = 'fuzzy(' + fuzzyMatches[0].type + ')';
-            } else if (fuzzyMatches.length > 1) {
+            var fuzzyUnique = deduplicateDmByClientText(fuzzyMatches);
+            if (fuzzyUnique.length === 1) {
+                dmEntry = fuzzyUnique[0];
+                matchMethod = 'fuzzy(' + fuzzyUnique[0].type + ')';
+            } else if (fuzzyUnique.length > 1) {
                 var fCacheKey = groupId + ':' + parentCategory;
                 if (dmChoiceCache[fCacheKey]) {
-                    var fCached = fuzzyMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
+                    var fCached = fuzzyUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
                     if (fCached) { dmEntry = fCached; matchMethod = 'fuzzy(cached)'; }
                 }
                 if (!dmEntry) {
-                    var fResult = await showDmChoiceModal(parentCategory, fuzzyMatches);
+                    var fResult = await showDmChoiceModal(parentCategory, fuzzyUnique);
                     if (fResult) {
-                        dmEntry = fuzzyMatches.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
+                        dmEntry = fuzzyUnique.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
                         matchMethod = 'fuzzy(chosen)';
                         if (fResult.remember) dmChoiceCache[fCacheKey] = fResult.itemId;
                     } else {
-                        dmEntry = fuzzyMatches[0];
+                        dmEntry = fuzzyUnique[0];
                         matchMethod = 'fuzzy(first)';
                     }
                 }
@@ -2822,49 +2838,61 @@
                     catMatches.push(dm[ci]);
                 }
             }
-            if (catMatches.length === 1) {
-                dmEntry = catMatches[0];
-                matchMethod = 'category(' + catMatches[0].type + ')';
-            } else if (catMatches.length > 1) {
+            var catUnique = deduplicateDmByClientText(catMatches);
+            if (catUnique.length === 1) {
+                dmEntry = catUnique[0];
+                matchMethod = 'category(' + catUnique[0].type + ')';
+            } else if (catUnique.length > 1) {
                 var cCacheKey = groupId + ':' + parentCategory;
                 if (dmChoiceCache[cCacheKey]) {
-                    var cCached = catMatches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
+                    var cCached = catUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
                     if (cCached) { dmEntry = cCached; matchMethod = 'category(cached)'; }
                 }
                 if (!dmEntry) {
-                    var cResult = await showDmChoiceModal(parentCategory, catMatches);
+                    var cResult = await showDmChoiceModal(parentCategory, catUnique);
                     if (cResult) {
-                        dmEntry = catMatches.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
+                        dmEntry = catUnique.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
                         matchMethod = 'category(chosen)';
                         if (cResult.remember) dmChoiceCache[cCacheKey] = cResult.itemId;
                     } else {
-                        dmEntry = catMatches[0];
+                        dmEntry = catUnique[0];
                         matchMethod = 'category(first)';
                     }
                 }
             }
         }
 
-        // 4. Cross-DM: no type matched — ask user which DM to use for keyword extraction
+        // 4. Cross-DM: no type matched — deduplicate by client_text, ask user which material
         if (!dmEntry) {
             var validDm = dm.filter(function(d) { return d.client_text || d.catalogue_item_id; });
-            if (validDm.length === 1) {
-                dmEntry = validDm[0];
+            // Deduplicate by client_text: keep one representative per unique material
+            var seenCt = {};
+            var uniqueDm = [];
+            for (var ui = 0; ui < validDm.length; ui++) {
+                var ct = validDm[ui].client_text || '';
+                var key = ct || validDm[ui].catalogue_item_id || '';
+                if (!seenCt[key]) {
+                    seenCt[key] = true;
+                    uniqueDm.push(validDm[ui]);
+                }
+            }
+            if (uniqueDm.length === 1) {
+                dmEntry = uniqueDm[0];
                 matchMethod = 'cross-DM(only)';
-            } else if (validDm.length > 1) {
+            } else if (uniqueDm.length > 1) {
                 var xCacheKey = groupId + ':cross:' + parentCategory;
                 if (dmChoiceCache[xCacheKey]) {
-                    var xCached = validDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
+                    var xCached = uniqueDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
                     if (xCached) { dmEntry = xCached; matchMethod = 'cross-DM(cached)'; }
                 }
                 if (!dmEntry) {
-                    var xResult = await showDmChoiceModal(parentCategory || 'Matériau', validDm);
+                    var xResult = await showDmChoiceModal('Matériau', uniqueDm);
                     if (xResult) {
-                        dmEntry = validDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
+                        dmEntry = uniqueDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
                         matchMethod = 'cross-DM(chosen)';
                         if (xResult.remember) dmChoiceCache[xCacheKey] = xResult.itemId;
                     } else {
-                        dmEntry = validDm[0];
+                        dmEntry = uniqueDm[0];
                         matchMethod = 'cross-DM(first)';
                     }
                 }

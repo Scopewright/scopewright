@@ -871,6 +871,16 @@
         }
         .audit-summary-item { display:flex; align-items:center; gap:4px; }
         .audit-loading { padding:40px; text-align:center; color:#94a3b8; font-size:13px; }
+        .audit-uniformise-btn {
+            padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;
+            background:#fff; color:var(--sw-text); font-size:11px; cursor:pointer;
+            font-weight:500; transition:all 0.15s; margin-left:auto;
+        }
+        .audit-uniformise-btn:hover { background:#f1f5f9; border-color:#cbd5e1; }
+        .audit-uniformise-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .audit-group-label {
+            font-size:11px; color:#94a3b8; padding:4px 18px 2px; font-style:italic;
+        }
         @media (max-width:600px) { .audit-drawer { width:100%; right:-100%; } }
 
         /* ── Approval buttons ── */
@@ -4913,6 +4923,24 @@
                 .replace(/\s+/g, ' ').trim();
         }
 
+        /** Normalize client_text for grouping: like normalizeText + strip French articles. */
+        function normalizeForGrouping(str) {
+            return (str || '').toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/['']/g, ' ')
+                .replace(/[^a-z0-9\s]/g, '')
+                .replace(/\b(de|du|des|au|aux|le|la|les|en|un|une|l|d)\b/g, '')
+                .replace(/\s+/g, ' ').trim();
+        }
+
+        /** Normalize expense category key: uppercase, no accents, strip trailing S/X (plural). */
+        function normalizeExpenseKey(key) {
+            return (key || '').toUpperCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/S\b/g, '').replace(/X\b/g, '')
+                .replace(/\s+/g, ' ').trim();
+        }
+
         /** Levenshtein distance between two strings. */
         function levenshtein(a, b) {
             if (a.length === 0) return b.length;
@@ -5313,6 +5341,95 @@
                     }
                 }
 
+                // ── Check 11: Similar client_text groups (normalization-based) ──
+                var ctGroups = {};
+                items.forEach(function(item) {
+                    var ct = item.client_text;
+                    if (!ct || !ct.trim()) return;
+                    var norm = normalizeForGrouping(ct);
+                    if (!norm) return;
+                    if (!ctGroups[norm]) ctGroups[norm] = {};
+                    if (!ctGroups[norm][ct]) ctGroups[norm][ct] = [];
+                    ctGroups[norm][ct].push(item);
+                });
+                Object.keys(ctGroups).forEach(function(norm) {
+                    var variants = ctGroups[norm];
+                    var distinctTexts = Object.keys(variants);
+                    if (distinctTexts.length < 2) return;
+
+                    // Find most frequent variant
+                    var bestText = distinctTexts[0], bestCount = variants[distinctTexts[0]].length;
+                    for (var vi = 1; vi < distinctTexts.length; vi++) {
+                        if (variants[distinctTexts[vi]].length > bestCount) {
+                            bestText = distinctTexts[vi];
+                            bestCount = variants[distinctTexts[vi]].length;
+                        }
+                    }
+
+                    var allGroupItems = [];
+                    var idsToUpdate = [];
+                    distinctTexts.forEach(function(txt) {
+                        variants[txt].forEach(function(item) {
+                            allGroupItems.push({
+                                id: item.id,
+                                desc: item.description,
+                                detail: '\u00ab ' + txt + ' \u00bb' + (txt === bestText ? ' \u2713' : '')
+                            });
+                            if (txt !== bestText) idsToUpdate.push(item.id);
+                        });
+                    });
+
+                    findings.warning.push({
+                        title: distinctTexts.length + ' variantes \u2014 \u00ab ' + bestText + ' \u00bb',
+                        items: allGroupItems,
+                        uniformise: { targetText: bestText, itemIds: idsToUpdate }
+                    });
+                });
+
+                // ── Check 12: Similar expense category keys (plural/singular variants) ──
+                var expKeysByCat = {};
+                items.forEach(function(item) {
+                    if (!item.material_costs || !item.category) return;
+                    var keys = Object.keys(item.material_costs).filter(function(k) {
+                        var v = item.material_costs[k];
+                        return typeof v === 'number' ? v > 0 : (v && v.cost > 0);
+                    });
+                    if (keys.length === 0) return;
+                    if (!expKeysByCat[item.category]) expKeysByCat[item.category] = {};
+                    keys.forEach(function(key) {
+                        var normK = normalizeExpenseKey(key);
+                        if (!expKeysByCat[item.category][normK]) expKeysByCat[item.category][normK] = {};
+                        if (!expKeysByCat[item.category][normK][key]) expKeysByCat[item.category][normK][key] = [];
+                        expKeysByCat[item.category][normK][key].push(item);
+                    });
+                });
+                Object.keys(expKeysByCat).forEach(function(cat) {
+                    Object.keys(expKeysByCat[cat]).forEach(function(normK) {
+                        var variants = expKeysByCat[cat][normK];
+                        var distinctKeys = Object.keys(variants);
+                        if (distinctKeys.length < 2) return;
+
+                        var allExpItems = [];
+                        var seen = {};
+                        distinctKeys.forEach(function(key) {
+                            variants[key].forEach(function(item) {
+                                if (seen[item.id]) return;
+                                seen[item.id] = true;
+                                allExpItems.push({
+                                    id: item.id,
+                                    desc: item.description,
+                                    detail: Object.keys(item.material_costs).join(', ')
+                                });
+                            });
+                        });
+
+                        findings.warning.push({
+                            title: 'Cl\u00e9s d\u00e9pense similaires \u2014 ' + cat + ' (' + distinctKeys.join(' / ') + ')',
+                            items: allExpItems
+                        });
+                    });
+                });
+
                 renderAuditReport(body, findings, items.length);
             }, 50);
         }
@@ -5348,6 +5465,11 @@
                     html += '<span class="audit-section-dot ' + section.level + '"></span>';
                     html += '<span class="audit-section-title">' + escapeHtml(finding.title) + '</span>';
                     html += '<span class="audit-section-count">' + finding.items.length + '</span>';
+                    if (finding.uniformise) {
+                        html += '<button class="audit-uniformise-btn" onclick="event.stopPropagation();uniformiseClientText('
+                            + escapeAttr(JSON.stringify(finding.uniformise.targetText)) + ','
+                            + escapeAttr(JSON.stringify(finding.uniformise.itemIds)) + ',this)">Uniformiser</button>';
+                    }
                     html += '<span class="audit-section-chevron">▼</span>';
                     html += '</div>';
                     var groupIds = finding.items.map(function(i) { return i.id; });
@@ -5370,6 +5492,40 @@
             }
 
             container.innerHTML = html;
+        }
+
+        /** Uniformise client_text: PATCH all listed items to the target text. */
+        async function uniformiseClientText(targetText, itemIdsJson, btnEl) {
+            var itemIds = typeof itemIdsJson === 'string' ? JSON.parse(itemIdsJson) : itemIdsJson;
+            if (!itemIds || !itemIds.length) return;
+
+            var confirmed = await steleConfirm(
+                'Uniformiser <b>' + itemIds.length + ' article' + (itemIds.length > 1 ? 's' : '')
+                + '</b> vers \u00ab\u00a0' + escapeHtml(targetText) + '\u00a0\u00bb ?',
+                'Uniformiser textes clients',
+                'Uniformiser'
+            );
+            if (!confirmed) return;
+
+            if (btnEl) { btnEl.disabled = true; btnEl.textContent = '...'; }
+            var success = 0;
+            for (var i = 0; i < itemIds.length; i++) {
+                try {
+                    var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemIds[i]), {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ client_text: targetText })
+                    });
+                    if (resp.ok) {
+                        success++;
+                        var item = CATALOGUE_DATA.find(function(c) { return c.id === itemIds[i]; });
+                        if (item) item.client_text = targetText;
+                    }
+                } catch(e) { console.warn('Uniformise failed for ' + itemIds[i], e); }
+            }
+
+            showBatchToast(success + '/' + itemIds.length + ' article' + (success > 1 ? 's' : '') + ' uniformis\u00e9' + (success > 1 ? 's' : ''));
+            runFullAudit();
         }
 
         // ═══════════════════════════════════════════════════════════════════════

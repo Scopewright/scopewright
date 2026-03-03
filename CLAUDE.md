@@ -315,6 +315,29 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save — seul le check "pas de texte client" (info) reste dans `runSaveValidation()`.
 
+### Audit catalogue (drawer)
+
+12 checks dans `runFullAudit()` → `renderAuditReport()` dans `catalogue_prix_stele_complet.html` :
+
+| Check | Niveau | Détection |
+|-------|--------|-----------|
+| 1 | warning | Variantes texte client suspectes (Levenshtein ≤ 3, même catégorie) |
+| 2 | info | Articles sans texte client |
+| 3 | critical | Articles sans prix |
+| 4 | warning | Catégorie non classée |
+| 5 | warning | Orthographe similaire (Levenshtein < 3, même catégorie) |
+| 6 | info | Jamais utilisés |
+| 7 | info | Dormants (> 60 jours) |
+| 8 | warning | Prix aberrants (IQR) |
+| 9 | warning | Règles de calcul obsolètes ($default:) |
+| 10 | warning | Règles de calcul manquantes |
+| 11 | warning | **Textes clients similaires** — groupement par `normalizeForGrouping()` (lowercase, sans accents, sans articles FR de/du/des/au/aux/le/la/les/en/un/une). Détecte des `client_text` différents qui normalisent au même texte. Bouton **Uniformiser** par groupe → PATCH tous les articles minoritaires vers le texte le plus fréquent |
+| 12 | warning | **Clés dépense similaires** — `normalizeExpenseKey()` (uppercase, sans accents, strip S/X pluriel). Détecte "PANNEAU BOIS" vs "PANNEAUX BOIS" dans la même catégorie catalogue |
+
+- **`normalizeForGrouping(str)`** : normalisation pour groupement client_text
+- **`normalizeExpenseKey(key)`** : normalisation pour clés material_costs
+- **`uniformiseClientText(targetText, itemIds, btn)`** : PATCH batch + refresh audit
+
 ## AI — Chatbox et Edge Functions
 
 ### Architecture

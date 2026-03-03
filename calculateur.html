@@ -2535,28 +2535,22 @@
                 if (ci) return dmChoiceCache[cacheKey];
             }
 
-            // Step 2b: If cascade context has a chosen client_text, prefer DM entry matching it
+            // Step 2b: Choose DM entry
             var chosenEntry;
-            if (materialCtx && materialCtx.chosenClientText) {
-                var ctxMatch = dmMatches.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
-                if (ctxMatch) {
-                    chosenEntry = ctxMatch;
-                } else {
-                    // No DM of this type matches the chosen material → correct: no child created
-                    chosenEntry = dmMatches.length === 1 ? dmMatches[0] : null;
-                }
-            }
-
-            // Step 3: Choose DM entry (Modale 1 if multiple same-type entries)
-            if (!chosenEntry) {
-                if (dmMatches.length === 1) {
-                    chosenEntry = dmMatches[0];
-                } else {
-                    var m1 = await showDmChoiceModal(groupName, dmMatches);
-                    chosenEntry = m1
-                        ? (dmMatches.find(function(m) { return m.catalogue_item_id === m1.itemId; }) || dmMatches[0])
-                        : dmMatches[0];
-                }
+            var dmUnique = deduplicateDmByClientText(dmMatches);
+            if (dmUnique.length === 1) {
+                // Single DM for this type → use it directly (ignore cascade context)
+                chosenEntry = dmUnique[0];
+            } else if (materialCtx && materialCtx.chosenClientText) {
+                // Multiple DMs: cascade context can disambiguate
+                var ctxMatch = dmUnique.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                chosenEntry = ctxMatch || dmUnique[0];
+            } else {
+                // Multiple DMs, no context → show modal
+                var m1 = await showDmChoiceModal(groupName, dmUnique);
+                chosenEntry = m1
+                    ? (dmUnique.find(function(m) { return m.catalogue_item_id === m1.itemId; }) || dmUnique[0])
+                    : dmUnique[0];
                 // Store choice in cascade context for sibling rules
                 if (materialCtx && chosenEntry && chosenEntry.client_text) {
                     materialCtx.chosenClientText = chosenEntry.client_text;
@@ -2764,18 +2758,6 @@
         }
         console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
 
-        // 0. Cascade context shortcut: if a sibling rule already chose a material, reuse it
-        if (materialCtx && materialCtx.chosenClientText) {
-            var ctxItem = CATALOGUE_DATA.find(function(c) { return c.client_text === materialCtx.chosenClientText; });
-            if (ctxItem) {
-                var ctxKw = extractMatchKeywords(ctxItem.client_text || ctxItem.description || '');
-                if (ctxKw.length > 0) {
-                    console.log('[CASCADE] DM fallback: using cascade context client_text="' + materialCtx.chosenClientText + '" → keywords:', ctxKw.join(', '));
-                    return { keywords: ctxKw, dmItemId: ctxItem.id };
-                }
-            }
-        }
-
         // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
         var directMatches = [];
         if (parentCategory) {
@@ -2792,16 +2774,20 @@
 
         var directUnique = deduplicateDmByClientText(directMatches);
         if (directUnique.length === 1) {
+            // Single DM for this type → use it directly (ignore cascade context)
             dmEntry = directUnique[0];
             matchMethod = 'direct';
         } else if (directUnique.length > 1) {
-            // Multiple DM entries for same type → use cache or popup
-            var cacheKey = groupId + ':' + parentCategory;
-            if (dmChoiceCache[cacheKey]) {
-                var cached = directUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
-                if (cached) {
-                    dmEntry = cached;
-                    matchMethod = 'direct(cached)';
+            // Multiple DMs: cascade context can disambiguate
+            if (materialCtx && materialCtx.chosenClientText) {
+                var ctxDirect = directUnique.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                if (ctxDirect) { dmEntry = ctxDirect; matchMethod = 'direct(ctx)'; }
+            }
+            if (!dmEntry) {
+                var cacheKey = groupId + ':' + parentCategory;
+                if (dmChoiceCache[cacheKey]) {
+                    var cached = directUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
+                    if (cached) { dmEntry = cached; matchMethod = 'direct(cached)'; }
                 }
             }
             if (!dmEntry) {
@@ -2833,17 +2819,23 @@
                 dmEntry = fuzzyUnique[0];
                 matchMethod = 'fuzzy(' + fuzzyUnique[0].type + ')';
             } else if (fuzzyUnique.length > 1) {
-                var fCacheKey = groupId + ':' + parentCategory;
-                if (dmChoiceCache[fCacheKey]) {
-                    var fCached = fuzzyUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
-                    if (fCached) { dmEntry = fCached; matchMethod = 'fuzzy(cached)'; }
+                if (materialCtx && materialCtx.chosenClientText) {
+                    var ctxFuzzy = fuzzyUnique.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                    if (ctxFuzzy) { dmEntry = ctxFuzzy; matchMethod = 'fuzzy(ctx)'; }
+                }
+                if (!dmEntry) {
+                    var fCacheKey = groupId + ':' + parentCategory;
+                    if (dmChoiceCache[fCacheKey]) {
+                        var fCached = fuzzyUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
+                        if (fCached) { dmEntry = fCached; matchMethod = 'fuzzy(cached)'; }
+                    }
                 }
                 if (!dmEntry) {
                     var fResult = await showDmChoiceModal(parentCategory, fuzzyUnique);
                     if (fResult) {
                         dmEntry = fuzzyUnique.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
                         matchMethod = 'fuzzy(chosen)';
-                        if (fResult.remember) dmChoiceCache[fCacheKey] = fResult.itemId;
+                        if (fResult.remember) dmChoiceCache[groupId + ':' + parentCategory] = fResult.itemId;
                     } else {
                         dmEntry = fuzzyUnique[0];
                         matchMethod = 'fuzzy(first)';
@@ -2872,17 +2864,23 @@
                 dmEntry = catUnique[0];
                 matchMethod = 'category(' + catUnique[0].type + ')';
             } else if (catUnique.length > 1) {
-                var cCacheKey = groupId + ':' + parentCategory;
-                if (dmChoiceCache[cCacheKey]) {
-                    var cCached = catUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
-                    if (cCached) { dmEntry = cCached; matchMethod = 'category(cached)'; }
+                if (materialCtx && materialCtx.chosenClientText) {
+                    var ctxCat = catUnique.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                    if (ctxCat) { dmEntry = ctxCat; matchMethod = 'category(ctx)'; }
+                }
+                if (!dmEntry) {
+                    var cCacheKey = groupId + ':' + parentCategory;
+                    if (dmChoiceCache[cCacheKey]) {
+                        var cCached = catUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
+                        if (cCached) { dmEntry = cCached; matchMethod = 'category(cached)'; }
+                    }
                 }
                 if (!dmEntry) {
                     var cResult = await showDmChoiceModal(parentCategory, catUnique);
                     if (cResult) {
                         dmEntry = catUnique.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
                         matchMethod = 'category(chosen)';
-                        if (cResult.remember) dmChoiceCache[cCacheKey] = cResult.itemId;
+                        if (cResult.remember) dmChoiceCache[groupId + ':' + parentCategory] = cResult.itemId;
                     } else {
                         dmEntry = catUnique[0];
                         matchMethod = 'category(first)';
@@ -2909,17 +2907,23 @@
                 dmEntry = uniqueDm[0];
                 matchMethod = 'cross-DM(only)';
             } else if (uniqueDm.length > 1) {
-                var xCacheKey = groupId + ':cross:' + parentCategory;
-                if (dmChoiceCache[xCacheKey]) {
-                    var xCached = uniqueDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
-                    if (xCached) { dmEntry = xCached; matchMethod = 'cross-DM(cached)'; }
+                if (materialCtx && materialCtx.chosenClientText) {
+                    var ctxX = uniqueDm.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                    if (ctxX) { dmEntry = ctxX; matchMethod = 'cross-DM(ctx)'; }
+                }
+                if (!dmEntry) {
+                    var xCacheKey = groupId + ':cross:' + parentCategory;
+                    if (dmChoiceCache[xCacheKey]) {
+                        var xCached = uniqueDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
+                        if (xCached) { dmEntry = xCached; matchMethod = 'cross-DM(cached)'; }
+                    }
                 }
                 if (!dmEntry) {
                     var xResult = await showDmChoiceModal('Matériau', uniqueDm);
                     if (xResult) {
                         dmEntry = uniqueDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
                         matchMethod = 'cross-DM(chosen)';
-                        if (xResult.remember) dmChoiceCache[xCacheKey] = xResult.itemId;
+                        if (xResult.remember) dmChoiceCache[groupId + ':cross:' + parentCategory] = xResult.itemId;
                     } else {
                         dmEntry = uniqueDm[0];
                         matchMethod = 'cross-DM(first)';

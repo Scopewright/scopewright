@@ -148,6 +148,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - `override_children` : empêche la duplication de matériaux cascade entre niveaux. L'item qui **déclare** l'override traite toujours ses propres règles — seuls ses **descendants** sont bloqués (check contre `parentOverrides`, pas `mergedOverrides`)
 - `$match:` candidates : filtre par `material_costs[category]` (exclut `item_type=fabrication`), sinon fallback par catégorie catalogue (fuzzy, plural-normalisé)
 - `getDefaultMaterialKeywords` : 4 tiers — direct (DM type === expense), fuzzy (substring), catégorie catalogue de l'item DM, cross-DM (modale choix matériau). Chaque tier déduplique par `client_text` (`deduplicateDmByClientText`) et affiche `showDmChoiceModal` si plusieurs matériaux distincts
+- **`materialCtx`** : contexte cascade local créé par `executeCascade` pour un parent donné. Quand l'utilisateur choisit un matériau (ex: "mélamine grise") pour un enfant, `materialCtx.chosenClientText` propage ce choix aux enfants suivants du même parent — évite de re-demander pour BANDE DE CHANT, FINITION, etc. Propagé via `resolveCascadeTarget` → `resolveMatchTarget` → `getDefaultMaterialKeywords` (tier 0 shortcut)
 - Quantités calculées par unité puis multipliées par `rootQty` (quantité du FAB racine)
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)

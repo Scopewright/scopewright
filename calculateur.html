@@ -2513,7 +2513,7 @@
         return false;
     }
 
-    async function resolveCascadeTarget(target, groupId) {
+    async function resolveCascadeTarget(target, groupId, materialCtx) {
         if (!target) return null;
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
         if (target.startsWith('$default:')) {
@@ -2535,15 +2535,32 @@
                 if (ci) return dmChoiceCache[cacheKey];
             }
 
-            // Step 3: Choose DM entry (Modale 1 if multiple same-type entries)
+            // Step 2b: If cascade context has a chosen client_text, prefer DM entry matching it
             var chosenEntry;
-            if (dmMatches.length === 1) {
-                chosenEntry = dmMatches[0];
-            } else {
-                var m1 = await showDmChoiceModal(groupName, dmMatches);
-                chosenEntry = m1
-                    ? (dmMatches.find(function(m) { return m.catalogue_item_id === m1.itemId; }) || dmMatches[0])
-                    : dmMatches[0];
+            if (materialCtx && materialCtx.chosenClientText) {
+                var ctxMatch = dmMatches.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
+                if (ctxMatch) {
+                    chosenEntry = ctxMatch;
+                } else {
+                    // No DM of this type matches the chosen material → correct: no child created
+                    chosenEntry = dmMatches.length === 1 ? dmMatches[0] : null;
+                }
+            }
+
+            // Step 3: Choose DM entry (Modale 1 if multiple same-type entries)
+            if (!chosenEntry) {
+                if (dmMatches.length === 1) {
+                    chosenEntry = dmMatches[0];
+                } else {
+                    var m1 = await showDmChoiceModal(groupName, dmMatches);
+                    chosenEntry = m1
+                        ? (dmMatches.find(function(m) { return m.catalogue_item_id === m1.itemId; }) || dmMatches[0])
+                        : dmMatches[0];
+                }
+                // Store choice in cascade context for sibling rules
+                if (materialCtx && chosenEntry && chosenEntry.client_text) {
+                    materialCtx.chosenClientText = chosenEntry.client_text;
+                }
             }
 
             // Step 4: Resolve to specific catalogue item via client_text
@@ -2575,7 +2592,7 @@
         }
         // $match: resolution (case-insensitive)
         var expenseCategory = target.substring(7);
-        return await resolveMatchTarget(expenseCategory, groupId);
+        return await resolveMatchTarget(expenseCategory, groupId, materialCtx);
     }
 
     /**
@@ -2587,7 +2604,7 @@
      * 2. Parent item's description
      * 3. Default material for the parent's material group (via categoryGroupMapping or name match)
      */
-    async function resolveMatchTarget(expenseCategory, groupId) {
+    async function resolveMatchTarget(expenseCategory, groupId, materialCtx) {
         var parentRow = findParentFabRow(groupId);
         if (!parentRow) { console.warn('[CASCADE] $match: no parent fab row in group', groupId); return null; }
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
@@ -2667,7 +2684,7 @@
         }
 
         // Step 3: Fallback to default material keywords
-        var dmKeywords = await getDefaultMaterialKeywords(groupId, expenseCategory);
+        var dmKeywords = await getDefaultMaterialKeywords(groupId, expenseCategory, materialCtx);
         if (dmKeywords) {
             var keywords = dmKeywords.keywords;
             var keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
@@ -2738,7 +2755,7 @@
         return result;
     }
 
-    async function getDefaultMaterialKeywords(groupId, parentCategory) {
+    async function getDefaultMaterialKeywords(groupId, parentCategory, materialCtx) {
         // Room-level DM only (submission-level DM removed)
         var dm = getDefaultMaterialsForGroup(groupId);
         if (!dm || dm.length === 0) {
@@ -2746,6 +2763,18 @@
             return null;
         }
         console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
+
+        // 0. Cascade context shortcut: if a sibling rule already chose a material, reuse it
+        if (materialCtx && materialCtx.chosenClientText) {
+            var ctxItem = CATALOGUE_DATA.find(function(c) { return c.client_text === materialCtx.chosenClientText; });
+            if (ctxItem) {
+                var ctxKw = extractMatchKeywords(ctxItem.client_text || ctxItem.description || '');
+                if (ctxKw.length > 0) {
+                    console.log('[CASCADE] DM fallback: using cascade context client_text="' + materialCtx.chosenClientText + '" → keywords:', ctxKw.join(', '));
+                    return { keywords: ctxKw, dmItemId: ctxItem.id };
+                }
+            }
+        }
 
         // 1. Collect ALL direct matches: catalogue category name === DM type name (case-insensitive)
         var directMatches = [];
@@ -2904,6 +2933,11 @@
             return null;
         }
         console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' \u2192 ' + (dmEntry.client_text || dmEntry.catalogue_item_id));
+
+        // Store choice in cascade context for sibling rules
+        if (materialCtx && dmEntry.client_text && !materialCtx.chosenClientText) {
+            materialCtx.chosenClientText = dmEntry.client_text;
+        }
 
         var dmItem = null;
         if (dmEntry.client_text) {
@@ -3332,6 +3366,10 @@
             if (document.getElementById(c.rowId)) lastInsertedRowId = c.rowId;
         });
 
+        // Cascade material context: when a user chooses a material (e.g. "mélamine grise")
+        // for one child, propagate that choice to all subsequent children of this parent
+        var materialCtx = {};
+
         for (var ri = 0; ri < rules.length; ri++) {
             var rule = rules[ri];
             if (!rule.target) continue; // target null = AI (pas JS)
@@ -3354,7 +3392,7 @@
                 resolvedTarget = findExistingChildForDynamicRule(rule.target, groupId, activeChildren, matchedChildRowIds);
             }
             if (!resolvedTarget) {
-                resolvedTarget = await resolveCascadeTarget(rule.target, groupId);
+                resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
             }
             if (!resolvedTarget) {
                 var parentDesc = catItem ? (catItem.client_text || catItem.description || selectedId) : selectedId;

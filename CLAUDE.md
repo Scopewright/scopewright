@@ -191,6 +191,7 @@ Machine à états : `draft → pending_internal ↔ returned → approved_intern
 - Bypass : utilisateurs avec `can_bypass_approval` → draft à `sent_client`
 - Verrouillage via `setEditable(false)`, déverrouillage audité dans `submission_unlock_logs`
 - Snapshots HTML uploadés dans Storage à chaque transition
+- **Suppression projet** : `handleDeleteProject()` bloque la suppression si le projet contient une soumission `accepted` ou `invoiced` (message explicite). Toute autre erreur DB (FK, RLS) affiche aussi un message au lieu d'échouer silencieusement.
 - Détails complets : `docs/TECHNICAL_MANUAL.md` §5
 
 ### Système de permissions (13 permissions, 6 rôles)

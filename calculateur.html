@@ -18057,8 +18057,28 @@
 
         async function handleDeleteProject(projectId, event) {
             event.stopPropagation();
+            // Block deletion for projects with sold/invoiced submissions
+            var PROTECTED_STATUSES = ['accepted', 'invoiced'];
+            try {
+                var chk = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/submissions?project_id=eq.' + projectId
+                    + '&status=in.(' + PROTECTED_STATUSES.join(',') + ')&select=id&limit=1', {}
+                );
+                if (chk.ok) {
+                    var rows = await chk.json();
+                    if (rows.length > 0) {
+                        steleAlert('Ce projet contient une soumission vendue et ne peut pas \u00eatre supprim\u00e9.');
+                        return;
+                    }
+                }
+            } catch (e) { /* continue to normal flow */ }
             if (!(await steleConfirm('Supprimer ce projet et toutes ses donn\u00e9es ?', 'Supprimer le projet', 'Supprimer', true))) return;
-            await deleteProject(projectId);
+            var ok = await deleteProject(projectId);
+            if (!ok) {
+                steleAlert('Impossible de supprimer ce projet. Il contient peut-\u00eatre des donn\u00e9es li\u00e9es.');
+                return;
+            }
+            showToast('Projet supprim\u00e9');
             renderProjectList();
         }
 

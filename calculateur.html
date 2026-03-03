@@ -1621,7 +1621,7 @@
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
                 var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0 });
-                if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut de cette pi\u00e8ce.' };
+                if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les matériaux par défaut de cette pièce.' };
                 // Wait for Supabase item creation (async in addRow) before updating
                 var waitAttempts = 0;
                 while (!itemMap[rowId] && waitAttempts < 50) {
@@ -1629,24 +1629,24 @@
                     waitAttempts++;
                 }
                 if (!itemMap[rowId]) return { error: 'Échec création ligne Supabase' };
-                var select = document.querySelector('#' + rowId + ' .item-select');
-                if (select) {
-                    select.value = input.catalogue_item_id;
-                    updateRow(rowId);
-                    var qtyInput = document.getElementById(rowId + '-qty');
-                    if (qtyInput && input.quantity) {
-                        qtyInput.value = input.quantity;
-                        updateRow(rowId);
-                    }
-                }
+
+                // 1) Select catalogue item + sync combobox display (close dropdown)
+                var row = document.getElementById(rowId);
+                var select = row ? row.querySelector('.item-select') : null;
+                if (select) select.value = input.catalogue_item_id;
+                syncComboboxDisplay(rowId);
+
+                // 2) Set quantity
+                var qtyInput = document.getElementById(rowId + '-qty');
+                if (qtyInput && input.quantity) qtyInput.value = input.quantity;
+
+                // 3) Set tag
                 if (input.tag) {
                     var tagInput = document.getElementById(rowId + '-tag');
-                    if (tagInput) {
-                        tagInput.value = input.tag.toUpperCase();
-                        saveRowTag(rowId);
-                    }
+                    if (tagInput) tagInput.value = input.tag.toUpperCase();
                 }
-                // Set dimensions L, H, P if provided
+
+                // 4) Set dimensions — dataset first so updateRow creates the inputs
                 if (input.length || input.height || input.depth) {
                     var dimsEl = document.getElementById(rowId + '-dims');
                     if (dimsEl) {
@@ -1654,23 +1654,66 @@
                         dimsEl.dataset.h = input.height || '';
                         dimsEl.dataset.p = input.depth || '';
                     }
-                    // Force updateRow to create dim inputs (it checks dims-hidden)
-                    updateRow(rowId);
-                    // Now set values in the created inputs
-                    if (input.length) {
-                        var dimL = document.getElementById(rowId + '-dim-l');
-                        if (dimL) dimL.value = input.length;
-                    }
-                    if (input.height) {
-                        var dimH = document.getElementById(rowId + '-dim-h');
-                        if (dimH) dimH.value = input.height;
-                    }
-                    if (input.depth) {
-                        var dimP = document.getElementById(rowId + '-dim-p');
-                        if (dimP) dimP.value = input.depth;
-                    }
-                    updateRow(rowId);
                 }
+
+                // 5) Single updateRow to recalculate display + create dim inputs
+                updateRow(rowId);
+
+                // 6) Now set actual dim input values (created by updateRow above)
+                if (input.length) { var dimL = document.getElementById(rowId + '-dim-l'); if (dimL) dimL.value = input.length; }
+                if (input.height) { var dimH = document.getElementById(rowId + '-dim-h'); if (dimH) dimH.value = input.height; }
+                if (input.depth) { var dimP = document.getElementById(rowId + '-dim-p'); if (dimP) dimP.value = input.depth; }
+
+                // 7) Immediate save to Supabase (bypass debouncedSaveItem — global debounce
+                //    loses saves when multiple items are added in rapid sequence)
+                if (itemMap[rowId]) {
+                    var selectedId = select ? select.value : '';
+                    var saveFields = { quantity: parseFloat(qtyInput ? qtyInput.value : 0) || 0 };
+                    if (selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
+                        var catItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                        if (catItem) {
+                            var installCb = document.getElementById(rowId + '-install');
+                            var includeInstall = installCb ? installCb.checked : true;
+                            var composed = computeComposedPrice(catItem, includeInstall);
+                            saveFields.item_type = 'catalogue';
+                            saveFields.catalogue_item_id = catItem.id;
+                            saveFields.description = catItem.description;
+                            saveFields.unit_type = catItem.type || '';
+                            saveFields.unit_price = composed !== null ? composed : (catItem.price || 0);
+                            saveFields.markup = 0;
+                        }
+                    }
+                    if (input.tag) saveFields.tag = input.tag.toUpperCase();
+                    saveFields.length_in = input.length ? parseFloat(input.length) || null : null;
+                    saveFields.height_in = input.height ? parseFloat(input.height) || null : null;
+                    saveFields.depth_in = input.depth ? parseFloat(input.depth) || null : null;
+                    var nTab = document.getElementById(rowId + '-n-tab');
+                    var nPart = document.getElementById(rowId + '-n-part');
+                    saveFields.n_tablettes = nTab ? (parseInt(nTab.value) || 0) : 0;
+                    saveFields.n_partitions = nPart ? (parseInt(nPart.value) || 0) : 0;
+                    await updateItem(itemMap[rowId], saveFields);
+                    showSaveIndicator();
+                }
+
+                // 8) Save tag propagation (after DB save)
+                if (input.tag) saveRowTag(rowId);
+
+                // 9) Immediate cascade (bypass scheduleCascade global debounce)
+                if (select && select.value && select.value !== '__PROPOSER__' && select.value !== '__AJOUT__') {
+                    var cascadeCatItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
+                    var hasCascade = cascadeCatItem && cascadeCatItem.calculation_rule_ai && cascadeCatItem.calculation_rule_ai.cascade;
+                    if (hasCascade) {
+                        _cascadeRunning = true;
+                        try {
+                            await executeCascade(rowId, 0);
+                        } finally {
+                            _cascadeRunning = false;
+                        }
+                    }
+                }
+
+                // 10) Process constraints + update totals
+                if (select && select.value) processConstraints(rowId);
                 updateGrandTotal();
                 return { success: true, rowId: rowId, room: input.room_name, tag: input.tag || null };
             }
@@ -2722,25 +2765,23 @@
         // include related expense categories from the DM item.
         var effectiveExpCats = [expCatUpper];
 
-        // Try materialCtx first (already resolved by executeCascade)
+        // Room DM lookup FIRST (specific to the target expense category)
         var dmCatItem = null;
-        if (materialCtx && materialCtx.chosenClientText) {
-            dmCatItem = CATALOGUE_DATA.find(function(i) { return i.client_text === materialCtx.chosenClientText; });
-        }
-        // Fallback: look up room DM directly for this expense category
-        if (!dmCatItem) {
-            var dm = getDefaultMaterialsForGroup(groupId);
-            if (dm && dm.length > 0) {
-                var targetLower = expenseCategory.toLowerCase();
-                for (var di = 0; di < dm.length; di++) {
-                    if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
-                        dmCatItem = dm[di].client_text
-                            ? CATALOGUE_DATA.find(function(c) { return c.client_text === dm[di].client_text; })
-                            : CATALOGUE_DATA.find(function(c) { return c.id === dm[di].catalogue_item_id; });
-                        if (dmCatItem) break;
-                    }
+        var dm = getDefaultMaterialsForGroup(groupId);
+        if (dm && dm.length > 0) {
+            var targetLower = expenseCategory.toLowerCase();
+            for (var di = 0; di < dm.length; di++) {
+                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
+                    dmCatItem = dm[di].client_text
+                        ? CATALOGUE_DATA.find(function(c) { return c.client_text === dm[di].client_text; })
+                        : CATALOGUE_DATA.find(function(c) { return c.id === dm[di].catalogue_item_id; });
+                    if (dmCatItem) break;
                 }
             }
+        }
+        // Fallback: materialCtx (inherited from parent cascade — may be from a different DM domain)
+        if (!dmCatItem && materialCtx && materialCtx.chosenClientText) {
+            dmCatItem = CATALOGUE_DATA.find(function(i) { return i.client_text === materialCtx.chosenClientText; });
         }
         // Expand expense categories from the DM item's material_costs keys
         if (dmCatItem && dmCatItem.material_costs) {
@@ -2913,22 +2954,10 @@
         }
         console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
 
-        // ── Tier 0: materialCtx shortcut ──
-        // If cascade context specifies the chosen material, use its keywords directly
-        // regardless of DM type matching. This ensures the parent FAB's material choice
-        // propagates correctly to $match: children instead of being overridden by fuzzy DM lookup.
-        if (materialCtx && materialCtx.chosenClientText) {
-            var ctxItem = CATALOGUE_DATA.find(function(i) { return i.client_text === materialCtx.chosenClientText; });
-            if (ctxItem) {
-                var ctxText = ctxItem.client_text || ctxItem.description || '';
-                var ctxKw = extractMatchKeywords(ctxText);
-                if (ctxKw.length > 0) {
-                    console.log('[CASCADE] DM fallback: tier 0 materialCtx shortcut \u2192 "' + materialCtx.chosenClientText + '", keywords:', ctxKw.join(', '));
-                    return { keywords: ctxKw, dmItemId: ctxItem.id };
-                }
-            }
-            // materialCtx.chosenClientText not found in catalogue → fall through to regular tiers
-        }
+        // NOTE: Tier 0 materialCtx shortcut REMOVED — it bypassed all DM type matching
+        // and returned keywords from the parent's DM (e.g., Panneaux "placage chêne blanc")
+        // even for unrelated expense categories (e.g., FINITION BOIS). materialCtx is still
+        // used for DISAMBIGUATION in tiers 1-4 below (its correct role).
 
         // 1. Collect ALL direct matches: catalogue category name === DM type name (normalized: accent+plural tolerant)
         var directMatches = [];

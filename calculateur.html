@@ -1813,7 +1813,7 @@
     function getDmTypes() { return materialGroups.filter(function(g) { return DM_HIDDEN_GROUPS.indexOf(g) === -1; }); }
     function getMissingRequiredDm(groupId) {
         var rdm = roomDM[groupId] || [];
-        var filled = rdm.filter(function(e) { return e.catalogue_item_id; }).map(function(e) { return e.type; });
+        var filled = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; }).map(function(e) { return e.type; });
         return DM_REQUIRED_GROUPS.filter(function(g) { return filled.indexOf(g) === -1; });
     }
     var dmActiveAC = null; // currently open autocomplete index (room-level DM reuses this pattern)
@@ -2405,9 +2405,20 @@
             var groupName = ruleTarget.substring(9);
             var dm = getDefaultMaterialsForGroup(groupId);
             var validIds = {};
+            var allowedCats = getAllowedCategoriesForGroup(groupName);
             for (var i = 0; i < dm.length; i++) {
-                if (dm[i].type === groupName && dm[i].catalogue_item_id) {
-                    validIds[dm[i].catalogue_item_id] = true;
+                if (dm[i].type === groupName) {
+                    if (dm[i].client_text) {
+                        CATALOGUE_DATA.forEach(function(c) {
+                            if (c.client_text === dm[i].client_text &&
+                                (!allowedCats || allowedCats.indexOf(c.category) !== -1)) {
+                                validIds[c.id] = true;
+                            }
+                        });
+                    }
+                    if (dm[i].catalogue_item_id) {
+                        validIds[dm[i].catalogue_item_id] = true;
+                    }
                 }
             }
             for (var j = 0; j < activeChildren.length; j++) {
@@ -2508,28 +2519,59 @@
         if (target.startsWith('$default:')) {
             var groupName = target.substring(9);
             var dm = getDefaultMaterialsForGroup(groupId);
-            // Collect ALL DM entries matching this type name
-            var matches = [];
+            // Step 1: Collect DM entries for this type (client_text or catalogue_item_id)
+            var dmMatches = [];
             for (var i = 0; i < dm.length; i++) {
-                if (dm[i].type === groupName && dm[i].catalogue_item_id) {
-                    matches.push(dm[i]);
+                if (dm[i].type === groupName && (dm[i].client_text || dm[i].catalogue_item_id)) {
+                    dmMatches.push(dm[i]);
                 }
             }
-            if (matches.length === 0) return null;
-            if (matches.length === 1) return matches[0].catalogue_item_id;
-            // Multiple DM entries for same type → check cache first
+            if (dmMatches.length === 0) return null;
+
+            // Step 2: Cache check — short-circuit if we already resolved this
             var cacheKey = groupId + ':' + groupName;
             if (dmChoiceCache[cacheKey]) {
-                var cached = matches.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
-                if (cached) return cached.catalogue_item_id;
+                var ci = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[cacheKey]; });
+                if (ci) return dmChoiceCache[cacheKey];
             }
-            // Show choice popup
-            var result = await showDmChoiceModal(groupName, matches);
-            if (!result) return matches[0].catalogue_item_id; // cancelled → fallback to first
-            if (result.remember) {
-                dmChoiceCache[cacheKey] = result.itemId;
+
+            // Step 3: Choose DM entry (Modale 1 if multiple same-type entries)
+            var chosenEntry;
+            if (dmMatches.length === 1) {
+                chosenEntry = dmMatches[0];
+            } else {
+                var m1 = await showDmChoiceModal(groupName, dmMatches);
+                chosenEntry = m1
+                    ? (dmMatches.find(function(m) { return m.catalogue_item_id === m1.itemId; }) || dmMatches[0])
+                    : dmMatches[0];
             }
-            return result.itemId;
+
+            // Step 4: Resolve to specific catalogue item via client_text
+            if (chosenEntry.client_text) {
+                var allowedCats = getAllowedCategoriesForGroup(groupName);
+                var candidates = CATALOGUE_DATA.filter(function(c) {
+                    if (c.client_text !== chosenEntry.client_text) return false;
+                    return !allowedCats || allowedCats.indexOf(c.category) !== -1;
+                });
+                // Fallback: no category match → try without category filter
+                if (candidates.length === 0) {
+                    candidates = CATALOGUE_DATA.filter(function(c) {
+                        return c.client_text === chosenEntry.client_text;
+                    });
+                }
+                if (candidates.length === 0) return chosenEntry.catalogue_item_id || null;
+                if (candidates.length === 1) {
+                    dmChoiceCache[cacheKey] = candidates[0].id;
+                    return candidates[0].id;
+                }
+                // Modale 2: which technical article?
+                var m2 = await showTechnicalItemModal(groupName, candidates);
+                var finalId = m2 ? m2.itemId : candidates[0].id;
+                if (m2 && m2.remember) dmChoiceCache[cacheKey] = finalId;
+                return finalId;
+            }
+            // Legacy fallback: no client_text → use catalogue_item_id directly
+            return chosenEntry.catalogue_item_id || null;
         }
         // $match: resolution (case-insensitive)
         var expenseCategory = target.substring(7);
@@ -2694,7 +2736,7 @@
         if (parentCategory) {
             var targetLower = parentCategory.toLowerCase();
             for (var di = 0; di < dm.length; di++) {
-                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && dm[di].catalogue_item_id) {
+                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
                     directMatches.push(dm[di]);
                 }
             }
@@ -2733,7 +2775,7 @@
         if (!dmEntry && parentCategory) {
             var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
             for (var fi = 0; fi < dm.length; fi++) {
-                if (!dm[fi].catalogue_item_id || !dm[fi].type) continue;
+                if (!dm[fi].type || (!dm[fi].catalogue_item_id && !dm[fi].client_text)) continue;
                 var typeNorm = dm[fi].type.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
                 if (catNorm.indexOf(typeNorm) !== -1 || typeNorm.indexOf(catNorm) !== -1) {
                     dmEntry = dm[fi];
@@ -2747,8 +2789,10 @@
         if (!dmEntry && parentCategory) {
             var catNorm = parentCategory.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
             for (var ci = 0; ci < dm.length; ci++) {
-                if (!dm[ci].catalogue_item_id) continue;
-                var dmCatItem = CATALOGUE_DATA.find(function(it) { return it.id === dm[ci].catalogue_item_id; });
+                if (!dm[ci].catalogue_item_id && !dm[ci].client_text) continue;
+                var dmCatItem = dm[ci].client_text
+                    ? CATALOGUE_DATA.find(function(it) { return it.client_text === dm[ci].client_text; })
+                    : CATALOGUE_DATA.find(function(it) { return it.id === dm[ci].catalogue_item_id; });
                 if (!dmCatItem || !dmCatItem.category) continue;
                 var itemCatNorm = dmCatItem.category.toLowerCase().replace(/([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)/gi, '$1');
                 if (catNorm.indexOf(itemCatNorm) !== -1 || itemCatNorm.indexOf(catNorm) !== -1) {
@@ -2767,8 +2811,10 @@
             var allKw = [];
             var firstDmId = null;
             for (var xi = 0; xi < dm.length; xi++) {
-                if (!dm[xi].catalogue_item_id) continue;
-                var xItem = CATALOGUE_DATA.find(function(it) { return it.id === dm[xi].catalogue_item_id; });
+                if (!dm[xi].catalogue_item_id && !dm[xi].client_text) continue;
+                var xItem = dm[xi].client_text
+                    ? CATALOGUE_DATA.find(function(it) { return it.client_text === dm[xi].client_text; })
+                    : CATALOGUE_DATA.find(function(it) { return it.id === dm[xi].catalogue_item_id; });
                 if (!xItem) continue;
                 if (!firstDmId) firstDmId = xItem.id;
                 var xText = xItem.client_text || xItem.description || '';
@@ -2783,13 +2829,19 @@
             }
         }
 
-        if (!dmEntry || !dmEntry.catalogue_item_id) {
+        if (!dmEntry || (!dmEntry.catalogue_item_id && !dmEntry.client_text)) {
             console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);
             return null;
         }
-        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' \u2192 ' + dmEntry.catalogue_item_id);
+        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' \u2192 ' + (dmEntry.client_text || dmEntry.catalogue_item_id));
 
-        var dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
+        var dmItem = null;
+        if (dmEntry.client_text) {
+            dmItem = CATALOGUE_DATA.find(function(i) { return i.client_text === dmEntry.client_text; });
+        }
+        if (!dmItem && dmEntry.catalogue_item_id) {
+            dmItem = CATALOGUE_DATA.find(function(i) { return i.id === dmEntry.catalogue_item_id; });
+        }
         if (!dmItem) return null;
 
         var text = dmItem.client_text || dmItem.description || '';
@@ -2803,7 +2855,7 @@
     function findDmEntryByType(dm, typeName) {
         var targetLower = typeName.toLowerCase();
         for (var i = 0; i < dm.length; i++) {
-            if (dm[i].type && dm[i].type.toLowerCase() === targetLower && dm[i].catalogue_item_id) return dm[i];
+            if (dm[i].type && dm[i].type.toLowerCase() === targetLower && (dm[i].catalogue_item_id || dm[i].client_text)) return dm[i];
         }
         return null;
     }
@@ -2936,9 +2988,11 @@
                 var btn = document.createElement('div');
                 btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
                 var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="dm-radio"></div>';
+                var mainLabel = e.entry.client_text || e.label;
+                var subLabel = e.entry.client_text ? (e.entry.catalogue_item_id || '') : '';
                 btn.innerHTML = radio
                     + '<div style="flex:1;min-width:0;">'
-                    + '<div><strong>' + escapeHtml(e.entry.catalogue_item_id) + '</strong> \u2014 ' + escapeHtml(e.label) + '</div>'
+                    + '<div><strong>' + escapeHtml(mainLabel) + '</strong>' + (subLabel ? ' <span style="font-size:11px;color:#94a3b8;">' + escapeHtml(subLabel) + '</span>' : '') + '</div>'
                     + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(e.catItem ? (e.catItem.type || 'unit\u00e9') : 'unit\u00e9') + '</div>' : '')
                     + '</div>';
                 btn.onmouseover = function() { if (selectedId !== e.entry.catalogue_item_id) btn.style.background = '#f8fafc'; };
@@ -2956,6 +3010,99 @@
                     confirmBtn.style.opacity = '1';
                 };
                 btn.setAttribute('data-dm-row', '1');
+                list.appendChild(btn);
+            });
+            modal.appendChild(list);
+
+            var rememberDiv = document.createElement('div');
+            rememberDiv.style.cssText = 'display:flex;align-items:center;gap:6px;margin:0 0 14px;font-size:12px;color:#666;';
+            var rememberCb = document.createElement('input');
+            rememberCb.type = 'checkbox';
+            rememberCb.checked = true;
+            rememberCb.style.cssText = 'width:14px;height:14px;accent-color:var(--sw-navy, #0B1220);';
+            rememberDiv.appendChild(rememberCb);
+            var rememberLabel = document.createElement('span');
+            rememberLabel.textContent = 'M\u00e9moriser pour cette pi\u00e8ce';
+            rememberDiv.appendChild(rememberLabel);
+            modal.appendChild(rememberDiv);
+
+            var actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cm-btn-secondary';
+            cancelBtn.textContent = 'Annuler';
+            cancelBtn.onclick = function() { overlay.remove(); resolve(null); };
+            actions.appendChild(cancelBtn);
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.style.cssText = 'padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--sw-navy, #0B1220);color:#fff;opacity:0.4;';
+            confirmBtn.textContent = 'Confirmer';
+            confirmBtn.disabled = true;
+            confirmBtn.onclick = function() {
+                overlay.remove();
+                resolve({ itemId: selectedId, remember: rememberCb.checked });
+            };
+            actions.appendChild(confirmBtn);
+            modal.appendChild(actions);
+
+            overlay.appendChild(modal);
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) { overlay.remove(); resolve(null); }
+            });
+            document.body.appendChild(overlay);
+        });
+    }
+
+    /**
+     * Modal 2: Choose between multiple technical catalogue items sharing the same client_text.
+     * Used by resolveCascadeTarget when a DM client_text matches multiple catalogue articles.
+     * @param {string} groupName - DM group name (e.g. "Façades")
+     * @param {Array} catalogueItems - catalogue items with same client_text
+     * @returns {Promise<{itemId:string, remember:boolean}|null>}
+     */
+    async function showTechnicalItemModal(groupName, catalogueItems) {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'constraint-modal-overlay';
+            var modal = document.createElement('div');
+            modal.className = 'constraint-modal';
+            modal.style.maxWidth = '480px';
+
+            var ct = catalogueItems[0] ? (catalogueItems[0].client_text || '') : '';
+            modal.innerHTML = '<h3 style="margin:0 0 4px;">Article technique : ' + escapeHtml(groupName) + '</h3>'
+                + '<p style="font-size:12px;color:#666;margin:0 0 4px;">Mat\u00e9riau : <strong>' + escapeHtml(ct) + '</strong></p>'
+                + '<p style="font-size:12px;color:#666;margin:0 0 12px;">Plusieurs articles correspondent. Lequel utiliser ?</p>';
+
+            var selectedId = null;
+            var list = document.createElement('div');
+            list.style.cssText = 'max-height:260px; overflow-y:auto; margin:0 0 12px;';
+
+            catalogueItems.forEach(function(item) {
+                var priceText = item.price != null ? formatPrice(item.price) : '';
+                var btn = document.createElement('div');
+                btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
+                var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="tm-radio"></div>';
+                btn.innerHTML = radio
+                    + '<div style="flex:1;min-width:0;">'
+                    + '<div><strong>' + escapeHtml(item.id) + '</strong> \u2014 ' + escapeHtml(item.description || item.id) + '</div>'
+                    + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(item.type || 'unit\u00e9') + '</div>' : '')
+                    + '</div>';
+                btn.onmouseover = function() { if (selectedId !== item.id) btn.style.background = '#f8fafc'; };
+                btn.onmouseout = function() { if (selectedId !== item.id) btn.style.background = '#fff'; };
+                btn.onclick = function() {
+                    selectedId = item.id;
+                    list.querySelectorAll('.tm-radio').forEach(function(r) {
+                        r.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;';
+                    });
+                    list.querySelectorAll('[data-tm-row]').forEach(function(r) { r.style.background = '#fff'; r.style.borderColor = '#e0e0e0'; });
+                    btn.querySelector('.tm-radio').style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid var(--sw-navy, #0B1220);background:var(--sw-navy, #0B1220);flex-shrink:0;box-shadow:inset 0 0 0 3px #fff;';
+                    btn.style.background = '#f0f4ff';
+                    btn.style.borderColor = 'var(--sw-navy, #0B1220)';
+                    confirmBtn.disabled = false;
+                    confirmBtn.style.opacity = '1';
+                };
+                btn.setAttribute('data-tm-row', '1');
                 list.appendChild(btn);
             });
             modal.appendChild(list);
@@ -15843,6 +15990,15 @@
 
                     // Load room-level default materials
                     roomDM[groupId] = room.default_materials || [];
+                    // Migration: derive client_text for legacy DM entries that only have catalogue_item_id
+                    roomDM[groupId].forEach(function(entry) {
+                        if (entry.catalogue_item_id && !entry.client_text) {
+                            var catItem = CATALOGUE_DATA.find(function(c) { return c.id === entry.catalogue_item_id; });
+                            if (catItem && catItem.client_text) {
+                                entry.client_text = catItem.client_text;
+                            }
+                        }
+                    });
                     updateRoomDmBadge(groupId);
 
                     // Load legacy images from JSONB

@@ -185,19 +185,18 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent plus dans le dropdown DM.
 - **Regroupement client_text** (Phase 1) : le dropdown DM (`rdmSearchCatalogue`) déduplique les articles par `client_text` — un seul "Placage de chêne blanc" affiché même si 2+ articles techniques existent. `rdmSelectItem` stocke le `client_text` sur l'entrée DM en plus du `catalogue_item_id` représentant. Structure DM : `{ type, catalogue_item_id, client_text, description }`.
 
-#### Refactor DM client_text — Phase 2 (à venir)
+#### Refactor DM client_text — Phase 2 (IMPLÉMENTÉ)
 
-Le DM représente un matériau client, pas un article technique. Phase 2 remplacera `catalogue_item_id` par `client_text` comme identifiant primaire :
+Le DM représente un matériau client, pas un article technique. `client_text` est désormais l'identifiant primaire pour la résolution cascade :
 
-1. **`resolveCascadeTarget`** : DM type → `client_text` → filtrer CATALOGUE_DATA par client_text + catégorie (via `getAllowedCategoriesForGroup`)
-2. **Deux modales** : Modale 1 = même type, client_text différents ("Placage chêne" vs "Mélamine grise"). Modale 2 = même client_text, articles techniques différents ("Panneau 3/4" vs "Panneau 1\"")
-3. **`findExistingChildForDynamicRule`** : expand validIds via client_text + filtre catégorie
-4. **`getDefaultMaterialKeywords`** : utiliser client_text pour lookup catalogue au lieu de catalogue_item_id direct
-5. **`getMissingRequiredDm`** : vérifier `client_text || catalogue_item_id`
-6. **Migration données** : au load, dériver client_text depuis catalogue_item_id pour les DM existantes
-7. **`findDmEntryByType`** : accepter entries avec client_text sans catalogue_item_id
-
-Risques Phase 2 : cascade engine (élevé), données existantes (moyen), validation DM requis (moyen).
+1. **`resolveCascadeTarget`** : `$default:` → DM entries par type → choix `client_text` (Modale 1 si multiple) → filtrer `CATALOGUE_DATA` par `client_text` + catégorie (`getAllowedCategoriesForGroup`) → choix article technique (Modale 2 si multiple) → `catalogue_item_id` final
+2. **Deux modales** : `showDmChoiceModal(groupName, dmEntries)` — Modale 1 (choix matériau client, label = `client_text`). `showTechnicalItemModal(groupName, catalogueItems)` — Modale 2 (choix article technique, label = `description` + code + prix)
+3. **`findExistingChildForDynamicRule`** : `validIds` expandés via `client_text` + filtre catégorie (`getAllowedCategoriesForGroup`)
+4. **`getDefaultMaterialKeywords`** : lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`
+5. **`getMissingRequiredDm`** : vérifie `client_text || catalogue_item_id`
+6. **`findDmEntryByType`** : accepte entries avec `client_text` sans `catalogue_item_id`
+7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy
+8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
 
 ### Workflow de soumission
 

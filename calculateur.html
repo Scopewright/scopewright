@@ -983,8 +983,10 @@
         var lEl = document.getElementById(rowId + '-dim-l');
         if (!lEl) return null;
         var l = parseFloat(lEl.value) || 0;
-        var h = parseFloat(document.getElementById(rowId + '-dim-h').value) || 0;
-        var p = parseFloat(document.getElementById(rowId + '-dim-p').value) || 0;
+        var hEl = document.getElementById(rowId + '-dim-h');
+        var h = hEl ? (parseFloat(hEl.value) || 0) : 0;
+        var pEl = document.getElementById(rowId + '-dim-p');
+        var p = pEl ? (parseFloat(pEl.value) || 0) : 0;
         if (!l && !h && !p) return null;
         return { l: l, h: h, p: p };
     }

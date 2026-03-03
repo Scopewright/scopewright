@@ -1551,6 +1551,7 @@
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
                 var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0 });
+                if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut de cette pi\u00e8ce.' };
                 // Wait for Supabase item creation (async in addRow) before updating
                 var waitAttempts = 0;
                 while (!itemMap[rowId] && waitAttempts < 50) {
@@ -10048,6 +10049,7 @@
 
         function updateRow(rowId) {
             const row = document.getElementById(rowId);
+            if (!row) return;
             const select = row.querySelector('.item-select');
             const qtyInput = row.querySelector('.qty-input');
             const totalEl = document.getElementById(`${rowId}-total`);

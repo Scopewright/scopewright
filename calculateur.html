@@ -1328,6 +1328,21 @@
         return content;
     }
 
+    // ── Detect if user message is a confirmation (to skip double-confirm on tool_use) ──
+    function isUserConfirmation(msg) {
+        if (!msg) return false;
+        var t = msg.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        var exact = ['oui','ok','go','yes','yep','yup','confirme','applique','fais-le','fais le',
+            'vas-y','vas y','envoie','parfait','d\'accord','daccord','exact','correct','sure',
+            'bien sur','alright','do it','apply','confirm','lance','proceed','execute'];
+        if (exact.indexOf(t) !== -1) return true;
+        var prefixes = ['oui ','ok ','go ','yes ','confirme','applique','parfait','fais'];
+        for (var i = 0; i < prefixes.length; i++) {
+            if (t.indexOf(prefixes[i]) === 0) return true;
+        }
+        return false;
+    }
+
     // ── Main send function ──
     var aiPendingToolCalls = null; // stores pending tool_use blocks for confirmation
 
@@ -1393,15 +1408,20 @@
             aiConversation.push({ role: 'assistant', content: contentBlocks });
 
             if (toolCalls.length > 0) {
-                // Mode simulation: show text + confirm buttons, don't execute tools yet
                 var fullText = textParts.join('\n');
                 if (fullText) appendAiMessage('assistant', fullText);
 
-                // Store pending tool calls
                 aiPendingToolCalls = { tools: toolCalls, conversationSnapshot: aiConversation.length };
-                appendAiMessage('confirm', formatPendingActions(toolCalls));
 
-                saveAiChatMessage('assistant', fullText + '\n[Actions proposées - en attente de confirmation]', []);
+                if (isUserConfirmation(text)) {
+                    // User already confirmed — auto-execute tools without showing buttons
+                    saveAiChatMessage('assistant', fullText + '\n[Actions exécutées automatiquement]', []);
+                    await autoExecutePendingTools();
+                } else {
+                    // First proposal — show confirmation buttons
+                    appendAiMessage('confirm', formatPendingActions(toolCalls));
+                    saveAiChatMessage('assistant', fullText + '\n[Actions proposées - en attente de confirmation]', []);
+                }
             } else {
                 // Pure text response
                 var fullText = textParts.join('\n');
@@ -1500,6 +1520,47 @@
         if (!el) return;
         el.querySelector('.ai-confirm-actions').innerHTML = '<span style="font-size:11px;color:#999;">Ignoré</span>';
         aiPendingToolCalls = null;
+    }
+
+    // ── Auto-execute tools when user already confirmed via text ──
+    async function autoExecutePendingTools() {
+        if (!aiPendingToolCalls) return;
+        try {
+            var toolResults = [];
+            var addItemIndex = 0;
+            for (var i = 0; i < aiPendingToolCalls.tools.length; i++) {
+                var tc = aiPendingToolCalls.tools[i];
+                if (tc.name === 'add_catalogue_item') {
+                    tc.input._staggerIndex = addItemIndex++;
+                }
+                var result = await executeAiTool(tc.name, tc.input);
+                toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(result) });
+                appendAiMessage('action', toolActionLabel(tc.name, tc.input));
+            }
+            if (addItemIndex > 0) {
+                setTimeout(function() { pulseTotals(); }, addItemIndex * 50 + 250);
+            }
+
+            // Continue conversation with tool results
+            aiConversation.push({ role: 'user', content: toolResults });
+            showAiTyping();
+
+            var freshContext = await collectAiContext();
+            var data = await callAiAssistant(aiConversation, freshContext);
+            var contentBlocks = data.content || [];
+            aiConversation.push({ role: 'assistant', content: contentBlocks });
+
+            var txt = contentBlocks.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
+            if (txt) {
+                appendAiMessage('assistant', txt);
+                saveAiChatMessage('assistant', txt, []);
+            }
+        } catch (err) {
+            appendAiMessage('assistant', 'Erreur exécution : ' + err.message);
+        } finally {
+            aiPendingToolCalls = null;
+            hideAiTyping();
+        }
     }
 
     function toolActionLabel(name, input) {

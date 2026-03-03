@@ -2993,10 +2993,12 @@
                 var btn = document.createElement('div');
                 btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
                 var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="match-radio"></div>';
+                var matchLabel = s.item.description || s.item.client_text || s.item.id;
+                var matchCat = s.item.category ? ' <span style="font-size:11px;color:#94a3b8;">(' + escapeHtml(s.item.category) + ')</span>' : '';
                 btn.innerHTML = radio
                     + '<div style="flex:1;min-width:0;">'
-                    + '<div><strong>' + escapeHtml(s.item.id) + '</strong> — ' + escapeHtml(s.item.client_text || s.item.description || '') + '</div>'
-                    + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(s.item.type || 'unité') + '</div>' : '')
+                    + '<div><strong>' + escapeHtml(s.item.id) + '</strong> \u2014 ' + escapeHtml(matchLabel) + matchCat + '</div>'
+                    + (priceText ? '<div style="font-size:11px;color:#888;">' + priceText + '/' + escapeHtml(s.item.type || 'unit\u00e9') + '</div>' : '')
                     + '</div>';
                 btn.onmouseover = function() { if (selectedId !== s.item.id) btn.style.background = '#f8fafc'; };
                 btn.onmouseout = function() { if (selectedId !== s.item.id) btn.style.background = '#fff'; };

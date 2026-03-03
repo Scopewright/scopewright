@@ -3366,9 +3366,42 @@
             if (document.getElementById(c.rowId)) lastInsertedRowId = c.rowId;
         });
 
-        // Cascade material context: when a user chooses a material (e.g. "mélamine grise")
-        // for one child, propagate that choice to all subsequent children of this parent
+        // Cascade material context: the parent FAB's DM determines the material for all children.
+        // Pre-populate from the DM matching the parent's catalogue category so that
+        // $match: children use the parent's material keywords instead of resolving independently.
         var materialCtx = {};
+        if (catItem && catItem.category) {
+            var parentDmType = catItem.category;
+            var parentDm = getDefaultMaterialsForGroup(groupId);
+            var parentDmEntries = parentDm.filter(function(d) {
+                return d.type && d.type.toLowerCase() === parentDmType.toLowerCase() && (d.client_text || d.catalogue_item_id);
+            });
+            var parentDmUnique = deduplicateDmByClientText(parentDmEntries);
+            if (parentDmUnique.length === 1 && parentDmUnique[0].client_text) {
+                materialCtx.chosenClientText = parentDmUnique[0].client_text;
+                console.log('[CASCADE] materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '"');
+            } else if (parentDmUnique.length > 1) {
+                var parentCacheKey = groupId + ':' + parentDmType;
+                var parentDmChoice = null;
+                if (dmChoiceCache[parentCacheKey]) {
+                    var cached = parentDmUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[parentCacheKey]; });
+                    if (cached) parentDmChoice = cached;
+                }
+                if (!parentDmChoice) {
+                    var pResult = await showDmChoiceModal(parentDmType, parentDmUnique);
+                    if (pResult) {
+                        parentDmChoice = parentDmUnique.find(function(m) { return m.catalogue_item_id === pResult.itemId; });
+                        if (pResult.remember) dmChoiceCache[parentCacheKey] = pResult.itemId;
+                    } else {
+                        parentDmChoice = parentDmUnique[0];
+                    }
+                }
+                if (parentDmChoice && parentDmChoice.client_text) {
+                    materialCtx.chosenClientText = parentDmChoice.client_text;
+                    console.log('[CASCADE] materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '" (chosen)');
+                }
+            }
+        }
 
         for (var ri = 0; ri < rules.length; ri++) {
             var rule = rules[ri];

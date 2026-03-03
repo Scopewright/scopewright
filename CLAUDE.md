@@ -349,8 +349,9 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 
 1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext()` assemble le contexte
 2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 7 outils
-3. **Mode simulation** : l'AI propose des modifications, l'utilisateur confirme avant exécution
-4. **Exécution côté client** : `executeAiTool()` applique les modifications DOM + sauvegarde Supabase
+3. **Mode simulation** : l'AI propose des modifications en texte d'abord, l'utilisateur confirme, puis les tools sont appelés
+4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". Sinon (première proposition), les boutons sont affichés comme filet de sécurité.
+5. **Exécution côté client** : `executeAiTool()` applique les modifications DOM + sauvegarde Supabase
 5. **Persistance** : messages sauvés dans table `chat_messages` par soumission
 
 ### 4 Edge Functions
@@ -471,7 +472,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 - **Tokens publics sans expiration** — `public_quote_tokens` n'a pas de `expires_at` (voir audit RC-01)
 - **PostMessage sans validation d'origine** — calculateur ↔ catalogue en iframe (voir audit SEC-11)
 - Google Apps Script nécessite un **redéploiement manuel** après modification du `.gs`
-- Les images sont compressées client-side (canvas resize + JPEG 0.7) avant upload
+- **Compression images** : les captures PDF passent par PNG lossless (temporaire) puis une seule compression JPEG 0.92 au crop. Les photos passent directement au crop JPEG 0.92. `confirmCrop()` est le seul point de compression JPEG (maxDim 3200px). AI chatbox : JPEG 0.90, 2000px.
 
 ## Documentation
 

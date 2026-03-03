@@ -893,7 +893,7 @@
             var img = new Image();
             img.onload = function() {
                 var canvas = document.createElement('canvas');
-                var maxDim = 1200;
+                var maxDim = 2000;
                 var w = img.width, h = img.height;
                 if (w > maxDim || h > maxDim) {
                     if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
@@ -901,7 +901,7 @@
                 }
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.90);
                 aiPendingImages.push(dataUrl);
                 renderAiImagePreviews();
             };
@@ -11798,7 +11798,7 @@
                         await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
                         canvas.toBlob(function(blob) {
                             resolve(blob);
-                        }, 'image/jpeg', 0.92);
+                        }, 'image/png');
                     } catch (err) {
                         reject(err);
                     }
@@ -11867,10 +11867,10 @@
             confirmBtn.textContent = 'Upload...';
 
             try {
-                var croppedCanvas = currentCropper.getCroppedCanvas({ maxWidth: 6000, maxHeight: 6000, imageSmoothingQuality: 'high' });
+                var croppedCanvas = currentCropper.getCroppedCanvas({ maxWidth: 3200, maxHeight: 3200, imageSmoothingQuality: 'high' });
                 var cropData = currentCropper.getData(true); // rounded
                 var croppedBlob = await new Promise(function(resolve) {
-                    croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.88);
+                    croppedCanvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.92);
                 });
 
                 await uploadToStorage(cropState.originalBlob, croppedBlob, cropState.groupId, cropState.ratio, cropData, cropState.existingMediaId, cropState.sourceMetadata);
@@ -11914,10 +11914,11 @@
                 originalUrl = existing ? existing.originalUrl : null;
                 if (!originalUrl) throw new Error('Original introuvable');
             } else {
-                var origPath = 'originals/' + roomId + '/' + ts + '.jpg';
+                var origExt = (originalBlob.type === 'image/png') ? '.png' : '.jpg';
+                var origPath = 'originals/' + roomId + '/' + ts + origExt;
                 var origResp = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + origPath, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                    headers: { 'Content-Type': originalBlob.type || 'image/jpeg', 'x-upsert': 'true' },
                     body: originalBlob
                 });
                 if (!origResp.ok) throw new Error('Upload original échoué: ' + origResp.status);
@@ -13295,7 +13296,7 @@
 '    var viewport = page.getViewport({ scale: 3.0, rotation: rotation });' +
 '    var canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height;' +
 '    await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;' +
-'    capturedBlob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.9); });' +
+'    capturedBlob = await new Promise(function(res) { canvas.toBlob(function(b) { res(b); }, "image/png"); });' +
 '    closeCaptureModal();' +
 '    openCropModal(capturedBlob);' +
 '  } catch (e) { console.error(e); status.style.background = "#ffebee"; status.style.color = "#c62828"; status.textContent = "Erreur: " + e.message; }' +
@@ -13342,15 +13343,16 @@
 '  confirmBtn.disabled = true; confirmBtn.textContent = "Upload...";' +
 '  status.style.display = "block"; status.style.background = "#e3f2fd"; status.style.color = "#1565c0"; status.textContent = "Upload en cours...";' +
 '  try {' +
-'    var croppedCanvas = cropper.getCroppedCanvas({ maxWidth: 2048, maxHeight: 2048, imageSmoothingQuality: "high" });' +
+'    var croppedCanvas = cropper.getCroppedCanvas({ maxWidth: 3200, maxHeight: 3200, imageSmoothingQuality: "high" });' +
 '    var cropData = cropper.getData(true);' +
-'    var croppedBlob = await new Promise(function(res) { croppedCanvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.88); });' +
+'    var croppedBlob = await new Promise(function(res) { croppedCanvas.toBlob(function(b) { res(b); }, "image/jpeg", 0.92); });' +
 '    var ts = Date.now();' +
 '    var headers = { "apikey": ANON_KEY, "Authorization": "Bearer " + accessToken };' +
 
 /* Upload original to room-images */
-'    var origPath = "originals/" + selectedRoomId + "/" + ts + ".jpg";' +
-'    var origResp = await fetch(supabaseUrl + "/storage/v1/object/room-images/" + origPath, { method: "POST", headers: Object.assign({}, headers, { "Content-Type": "image/jpeg", "x-upsert": "true" }), body: capturedBlob });' +
+'    var origExt = capturedBlob.type === "image/png" ? ".png" : ".jpg";' +
+'    var origPath = "originals/" + selectedRoomId + "/" + ts + origExt;' +
+'    var origResp = await fetch(supabaseUrl + "/storage/v1/object/room-images/" + origPath, { method: "POST", headers: Object.assign({}, headers, { "Content-Type": capturedBlob.type || "image/jpeg", "x-upsert": "true" }), body: capturedBlob });' +
 '    if (!origResp.ok) throw new Error("Upload original: " + origResp.status);' +
 '    var originalUrl = supabaseUrl + "/storage/v1/object/public/room-images/" + origPath;' +
 
@@ -13608,10 +13610,10 @@
 
                 await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
-                status.textContent = 'Compression de l\'image...';
+                status.textContent = 'Préparation de l\'image...';
 
                 var blob = await new Promise(function(resolve) {
-                    canvas.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
+                    canvas.toBlob(function(b) { resolve(b); }, 'image/png');
                 });
 
                 // Close the capture modal and open the crop modal

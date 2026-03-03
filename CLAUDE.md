@@ -154,14 +154,14 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
 - Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms
-- **Guard `ask` completeness** : si l'article déclare `calculation_rule_ai.ask` (ex: `["L","H"]`), la cascade ne se déclenche qu'une fois **toutes** les variables listées remplies (> 0). Appliqué uniquement à `depth === 0` (FAB racine). **Fallback** : si `ask` absent, inféré depuis `dims_config` pour les items `fabrication` avec cascade (ex: `{l:true, h:true}` → `["L","H"]`). Mapping : `L`/`LARGEUR`, `H`/`HAUTEUR`, `P`/`PROFONDEUR`, `QTY`/`QUANTITÉ`, `N_TABLETTES`/`TABLETTES`, `N_PARTITIONS`/`PARTITIONS`
+- **Guard `ask` completeness** : si l'article déclare `calculation_rule_ai.ask` (ex: `["L","H"]`), la cascade ne se déclenche qu'une fois **toutes** les variables listées remplies (> 0). Appliqué uniquement à `depth === 0` (FAB racine). **Fallback** : si `ask` absent ET `dims_config` **explicitement défini** sur l'article, inféré depuis `dims_config` (ex: `{l:true, h:true}` → `["L","H"]`). Sans `dims_config` explicite, pas d'inférence (la cascade procède normalement). Mapping : `L`/`LARGEUR`, `H`/`HAUTEUR`, `P`/`PROFONDEUR`, `QTY`/`QUANTITÉ`, `N_TABLETTES`/`TABLETTES`, `N_PARTITIONS`/`PARTITIONS`
 - **Validation target** : après résolution (`resolveCascadeTarget`), le target est vérifié dans `CATALOGUE_DATA`. Si l'ID n'existe pas dans le catalogue, traité comme résolution échouée (empêche la création de lignes vides)
 - **`cascadeRuleTarget`** : chaque enfant cascade stocke `dataset.cascadeRuleTarget = rule.target` (ex: `"$default:Façades"`). Sert à identifier quel rule a créé l'enfant, utilisé par le matching locked children et la préservation au rechargement
 
-**Préservation au rechargement** : `findExistingChildForDynamicRule` utilise 3 niveaux de matching pour retrouver les enfants existants au lieu de les recréer :
+**Préservation au rechargement** : `findExistingChildForDynamicRule` utilise 2 niveaux de matching pour retrouver les enfants existants au lieu de les recréer :
 1. **Exact** : `catalogueId` dans `validIds` (DM entry + catégorie autorisée) — comportement normal
 2. **Fallback client_text** : `client_text` de l'enfant matche un DM entry (sans filtre catégorie) — couvre les cas où `getAllowedCategoriesForGroup` exclut la catégorie
-3. **Fallback catégorie** : catégorie de l'enfant est dans `allowedCats` — fait confiance aux données DB après rechargement
+- ~~Fallback catégorie~~ **Retiré** : le matching par catégorie seule (`allowedCats`) volait les enfants `$match:` quand une règle `$default:` s'exécutait en premier — causait la perte de résolution panneau/bande de chant
 - En plus, dans la boucle des règles, un enfant actif est retrouvé par `cascadeRuleTarget` si l'exact `catalogueId` ne matche plus (cas où la résolution fraîche donne un item différent)
 - **Résultat** : les enfants cascade avec `catalogue_item_id` valide en DB sont préservés, seuls les enfants MANQUANTS sont recréés
 

@@ -2444,20 +2444,6 @@
                     }
                 }
             }
-            // Fallback 2: match by allowed category (trust existing DB data on reload)
-            // If a cascade child exists with an item in a compatible category, keep it
-            if (allowedCats && allowedCats.length > 0) {
-                for (var j3 = 0; j3 < activeChildren.length; j3++) {
-                    var c3 = activeChildren[j3];
-                    if (alreadyMatched.indexOf(c3.rowId) === -1 && c3.catalogueId) {
-                        var childItem3 = CATALOGUE_DATA.find(function(ci) { return ci.id === c3.catalogueId; });
-                        if (childItem3 && allowedCats.indexOf(childItem3.category) !== -1) {
-                            console.log('[CASCADE] findExisting: fallback category match for', c3.catalogueId, 'cat:', childItem3.category);
-                            return c3.catalogueId;
-                        }
-                    }
-                }
-            }
             return null;
         }
         if (ruleTarget.startsWith('$match:')) {
@@ -3379,8 +3365,8 @@
         // Ne s'applique qu'à depth 0 (le FAB racine) — les enfants héritent.
         // Fallback: si pas de ask explicite, inférer depuis dims_config pour les FAB avec cascade.
         var askFields = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.ask;
-        if (!askFields && depth === 0 && catItem && catItem.item_type === 'fabrication' && rules) {
-            var dc = catItem.dims_config || { l: true, h: true, p: true };
+        if (!askFields && depth === 0 && catItem && catItem.item_type === 'fabrication' && rules && catItem.dims_config) {
+            var dc = catItem.dims_config;
             var inferred = [];
             if (dc.l) inferred.push('L');
             if (dc.h) inferred.push('H');

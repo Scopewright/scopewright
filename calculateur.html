@@ -3455,6 +3455,12 @@
             }
         }
 
+        // Invalidate stale dmChoiceCache: old DM choices no longer valid after DM change
+        if (Object.keys(dmChoiceCache).length > 0) {
+            console.log('[CASCADE] reprocessDefaultCascades: clearing ' + Object.keys(dmChoiceCache).length + ' stale dmChoiceCache entries');
+            dmChoiceCache = {};
+        }
+
         var token = '$default:' + changedGroup;
         var selector = '#' + scopeGroupId + ' .calc-row:not(.cascade-child)';
         var rowIds = [];
@@ -3468,9 +3474,17 @@
             });
             if (hasRelevant) rowIds.push(row.id);
         });
-        // Execute cascades sequentially (each executeCascade handles orphan cleanup)
-        for (var i = 0; i < rowIds.length; i++) {
-            await executeCascade(rowIds[i], 0);
+        // Guard: set _cascadeRunning to prevent updateRow → scheduleCascade from
+        // triggering parallel cascades while we're executing. Without this, each
+        // updateRow(child) during item replacement fires scheduleCascade (debounce 400ms)
+        // which creates duplicate children alongside the recursive cascade.
+        _cascadeRunning = true;
+        try {
+            for (var i = 0; i < rowIds.length; i++) {
+                await executeCascade(rowIds[i], 0);
+            }
+        } finally {
+            _cascadeRunning = false;
         }
     }
 

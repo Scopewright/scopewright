@@ -199,7 +199,7 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 
 **Room-level uniquement** (`roomDM[groupId]`). Le niveau soumission a été retiré.
 - `getDefaultMaterialsForGroup(groupId)` retourne `roomDM[groupId]` ou `[]`
-- `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire). Invalide `matchDefaults` (cache `$match:` persisté) et re-trigger les parents avec `$default:` ET `$match:` targets
+- `reprocessDefaultCascades(changedGroup, scopeGroupId)` — re-cascade quand un DM change (scopeGroupId obligatoire). Invalide `matchDefaults` (cache `$match:` persisté) ET `dmChoiceCache` (choix DM stale). Exécute sous guard `_cascadeRunning = true` pour empêcher `updateRow → scheduleCascade` de déclencher des cascades parallèles (cause de doublons). Re-trigger les parents avec `$default:` ET `$match:` targets
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`
 - "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
 - **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.

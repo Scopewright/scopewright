@@ -471,7 +471,40 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 ## Documentation
 
 - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif : architecture, systèmes (cascade, DM, permissions, workflow), Edge Functions, tables, triggers
-- `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 15 bugs, 13 risques architecturaux, 27 recommandations priorisées
+- `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 18 bugs, 13 risques architecturaux, 27 recommandations priorisées
+- `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-010) : contexte, alternatives, conséquences
+- `docs/guide-catalogue.md` — Guide complet du catalogue : structure, cascades, DM, audit, variables, bugs connus
 - `ARCHITECTURE.md` — Vue d'ensemble architecturale (legacy, remplacé par TECHNICAL_MANUAL)
 - `CHANGELOG.md` — Historique des modifications datées
 - `sql/` — Fichiers de migration SQL à exécuter manuellement dans Supabase SQL Editor
+
+## Test checklist cascade
+
+**Valider ces scénarios avant chaque push qui touche au moteur cascade.**
+
+### Résolution matériau
+- [ ] `$default:Facades` avec 1 seul DM → résolution directe, pas de modale
+- [ ] `$default:Facades` avec 2+ DM → `showDmChoiceModal` s'affiche
+- [ ] `$match:PANNEAU BOIS` → détecte un candidat avec `material_costs` contenant "PANNEAU" (word-similarity)
+- [ ] `$match:` sans candidat → toast actionnable 6s, pas de ligne créée
+- [ ] DM avec `client_text` sans `catalogue_item_id` → résolution fonctionne
+
+### Persistance
+- [ ] Cascade 3 enfants rapides → les 3 sont sauvés en DB (pas de perte debounce)
+- [ ] Supprimer un enfant cascade → `cascade_suppressed` mémorise l'ID, pas de regénération
+- [ ] Restaurer via `⊘` → l'enfant revient, `cascade_suppressed` nettoyé
+
+### Propagation contexte
+- [ ] `materialCtx` pré-peuplé depuis le DM du parent FAB racine
+- [ ] `materialCtx` propagé parent → enfant → petit-enfant (3 niveaux)
+- [ ] `materialCtx` disambiguë un DM multi-entrées, mais ne surcharge pas un DM unique
+
+### Guard dimensions
+- [ ] FAB sans L/H/P → cascade bloquée, ask affiché
+- [ ] `n_tablettes = 0` → accepté (valide pour caissons)
+- [ ] `n_tablettes = null` → ask affiché (non défini)
+
+### Catégorie de dépense dynamique
+- [ ] `$match:PANNEAU BOIS` + DM "Placage chêne blanc" (material_costs: {"PANNEAU MÉLAMINE": 5.2}) → détecte via mot commun "PANNEAU"
+- [ ] `effectiveExpCats` = union catégorie règle + catégories dérivées DM
+- [ ] Changement de DM → re-cascade avec nouvelles catégories effectives

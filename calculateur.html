@@ -1343,10 +1343,17 @@
     // ── Call AI Edge Function ──
     var _aiRetried401 = false;
     async function callAiAssistant(messages, context) {
+        // Filter out messages with empty content (causes Anthropic API 400 error)
+        var cleanMessages = messages.filter(function(m) {
+            if (!m.content) return false;
+            if (typeof m.content === 'string') return m.content.length > 0;
+            if (Array.isArray(m.content)) return m.content.length > 0;
+            return true;
+        });
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-assistant', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: messages, context: context })
+            body: JSON.stringify({ messages: cleanMessages, context: context })
         });
         if (!resp.ok) {
             var errText = await resp.text().catch(function() { return ''; });

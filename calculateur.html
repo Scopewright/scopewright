@@ -893,7 +893,7 @@
             var img = new Image();
             img.onload = function() {
                 var canvas = document.createElement('canvas');
-                var maxDim = 2000;
+                var maxDim = 3200;
                 var w = img.width, h = img.height;
                 if (w > maxDim || h > maxDim) {
                     if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }

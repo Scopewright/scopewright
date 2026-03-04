@@ -476,7 +476,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 - **Tokens publics sans expiration** — `public_quote_tokens` n'a pas de `expires_at` (voir audit RC-01)
 - **PostMessage sans validation d'origine** — calculateur ↔ catalogue en iframe (voir audit SEC-11)
 - Google Apps Script nécessite un **redéploiement manuel** après modification du `.gs`
-- **Compression images** : les captures PDF passent par PNG lossless (temporaire) puis une seule compression JPEG 0.92 au crop. Les photos passent directement au crop JPEG 0.92. `confirmCrop()` est le seul point de compression JPEG (maxDim 3200px). AI chatbox : JPEG 0.90, 2000px.
+- **Compression images** : les captures PDF passent par PNG lossless (temporaire) puis une seule compression JPEG 0.92 au crop. Les photos passent directement au crop JPEG 0.92. `confirmCrop()` est le seul point de compression JPEG (maxDim 3200px). AI chatbox : JPEG 0.90, 3200px (aligné sur le crop pour lisibilité des tags).
 
 ## Documentation
 

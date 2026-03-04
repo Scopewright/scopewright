@@ -234,6 +234,15 @@ Deux boutons (+) distincts dans chaque pièce :
 2. **Bottom (+) "Ajouter un article"** : `addRow(groupId)` — ajoute une ligne indépendante
    - Pas de tag hérité, combobox complet (toutes catégories)
 
+### Langue soumission (FR/EN)
+
+- **`submissions.language`** : colonne TEXT (`'fr'` ou `'en'`, default `'fr'`). Migration : `sql/submission_language.sql`
+- **Toggle FR/EN** : `toggleLang()` dans l'aperçu — traduit via Edge Function `translate`, bascule `currentLang`, persiste en DB
+- **Restauration** : `openSubmission()` lit `currentSubmission.language` et restaure `currentLang` + état du bouton
+- **Présentation** : `openPresentation()` passe `&lang=currentLang` dans l'URL de l'iframe `quote.html`
+- **Liens client** : tous les `quote.html?token=` incluent `&lang=currentLang` (envoi, copie, bypass)
+- **quote.html** : lit `?lang=` et utilise `QUOTE_TEXTS[QUOTE_LANG]`, `STEPS_I18N[QUOTE_LANG]`, `client_description_en`, `clause.content_en` avec fallback FR
+
 ### Workflow de soumission
 
 Machine à états : `draft → pending_internal ↔ returned → approved_internal → sent_client → accepted`

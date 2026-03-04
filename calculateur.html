@@ -13902,6 +13902,15 @@
             } else {
                 currentLang = 'fr';
             }
+            // Persist language to DB
+            if (currentSubmission) {
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ language: currentLang })
+                });
+                currentSubmission.language = currentLang;
+            }
             if (btn) {
                 btn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
                 btn.classList.toggle('active', currentLang === 'en');
@@ -15172,7 +15181,7 @@
                 token = created[0].token;
             }
 
-            var url = window.location.origin + '/quote.html?token=' + token;
+            var url = window.location.origin + '/quote.html?token=' + token + '&lang=' + (currentLang || 'fr');
 
             // Build overlay
             var overlay = document.createElement('div');
@@ -16666,6 +16675,14 @@
             document.getElementById('headerSubNumber').textContent = 'Soumission #' + currentSubmission.submission_number;
             document.getElementById('projInstallation').checked = true;
             renderProjectInfoBloc();
+
+            // Restore persisted language
+            currentLang = currentSubmission.language || 'fr';
+            var langBtn = document.getElementById('btnLang');
+            if (langBtn) {
+                langBtn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
+                langBtn.classList.toggle('active', currentLang === 'en');
+            }
 
             // Charger les contacts projet pour les badges header
             loadProjectContacts().then(function() { renderContactBadges(); });
@@ -18388,7 +18405,7 @@
                 setEditable(false);
                 loadSubmissionReviews(currentSubmission.id);
 
-                var link = window.location.origin + '/quote.html?token=' + tokenData.token;
+                var link = window.location.origin + '/quote.html?token=' + tokenData.token + '&lang=' + (currentLang || 'fr');
                 showQuoteLinkModal(link);
             } catch (e) {
                 console.error('Erreur envoi client:', e);
@@ -18426,7 +18443,7 @@
             if (!r.ok) { steleAlert('Erreur chargement du lien.'); return; }
             var tokens = await r.json();
             if (tokens.length === 0) { steleAlert('Aucun lien trouv\u00e9 pour cette soumission.'); return; }
-            var link = window.location.origin + '/quote.html?token=' + tokens[0].token;
+            var link = window.location.origin + '/quote.html?token=' + tokens[0].token + '&lang=' + (currentLang || 'fr');
             showQuoteLinkModal(link);
         }
 
@@ -18593,7 +18610,7 @@
                 showBypassStatus('Soumission envoyée au client (bypass approbation).', false);
 
                 // 7. Afficher le lien client
-                var link = window.location.origin + '/quote.html?token=' + tokenData.token;
+                var link = window.location.origin + '/quote.html?token=' + tokenData.token + '&lang=' + (currentLang || 'fr');
                 setTimeout(function() {
                     closeBypassModal();
                     showQuoteLinkModal(link);

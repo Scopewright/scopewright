@@ -745,6 +745,11 @@
     }
 
     // ── Render un message dans le chat ──
+    function removeLastAiMessage() {
+        var container = document.getElementById('aiMessages');
+        if (container && container.lastElementChild) container.removeChild(container.lastElementChild);
+    }
+
     function appendAiMessage(role, content, opts) {
         opts = opts || {};
         var container = document.getElementById('aiMessages');
@@ -1432,7 +1437,7 @@
 
     // ── Call AI Edge Function ──
     var _aiRetried401 = false;
-    async function callAiAssistant(messages, context) {
+    async function callAiAssistant(messages, context, _isRetry) {
         // Sanitize orphaned tool_use blocks before sending (prevents API 400 error)
         var sanitized = sanitizeConversationToolUse(messages);
         // Filter out messages with empty content (causes Anthropic API 400 error)
@@ -1448,6 +1453,16 @@
             body: JSON.stringify({ messages: cleanMessages, context: context })
         });
         if (!resp.ok) {
+            // Auto-retry on 429 rate limit (wait 15s, one retry)
+            if ((resp.status === 429 || resp.status === 529) && !_isRetry) {
+                appendAiMessage('assistant', 'Un instant, le serveur est occupé...');
+                await new Promise(function(r) { setTimeout(r, 15000); });
+                removeLastAiMessage();
+                return callAiAssistant(messages, context, true);
+            }
+            if ((resp.status === 429 || resp.status === 529) && _isRetry) {
+                throw new Error('Le serveur est temporairement surchargé. Réessaie dans quelques secondes.');
+            }
             var errText = await resp.text().catch(function() { return ''; });
             // Auto-retry on 401 auth error (force token refresh + one more try)
             if (resp.status === 401 && !_aiRetried401) {

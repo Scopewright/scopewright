@@ -365,6 +365,25 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 ${rulesLines}`;
   }
 
+  // Cascade diagnostic instructions
+  dynamicParts += `\n\n## Diagnostic cascade
+Quand un utilisateur signale un problème de cascade (enfants manquants, doublons, mauvais matériau) :
+1. Les logs du moteur cascade sont inclus automatiquement dans ton contexte (section "Logs cascade")
+2. Lis les logs pour identifier la cause : résolution échouée ($default/$match), DM manquant, suppression utilisateur, guard dimensions, etc.
+3. Explique le problème en termes simples (pas de jargon technique)
+4. Propose une solution concrète : configurer un DM, ajuster une règle, restaurer un enfant supprimé`;
+
+  // Catalogue modification instructions
+  dynamicParts += `\n\n## Modification catalogue (tool update_catalogue_item)
+Tu peux modifier certains champs d'articles du catalogue : price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct.
+Flux OBLIGATOIRE :
+1. D'abord PROPOSER les modifications en texte (simulation) — montrer avant/après
+2. Attendre la confirmation EXPLICITE de l'utilisateur ("oui", "confirme", etc.)
+3. SEULEMENT après confirmation, appeler le tool update_catalogue_item
+4. JAMAIS appeler ce tool dans ta première réponse — toujours simuler d'abord
+5. Le paramètre "reason" est OBLIGATOIRE — résume pourquoi la modification est faite
+Champs INTERDITS (sécurité) : id, category, description, client_text, type, status, is_default, sort_order — ces champs ne sont pas modifiables par cet outil.`;
+
   // Project context
   dynamicParts += `\n\n## Contexte actuel
 Projet : ${context.project?.name || 'N/A'}
@@ -397,6 +416,22 @@ Articles:
 ${itemsStr}
 Sous-total: ${f.subtotal}$
 Rentabilité: marge ${f.rentability?.margeReelle?.toFixed(1) || '?'}%, profit ${f.rentability?.profitNet?.toFixed(2) || '?'}$`;
+  }
+
+  // Cascade diagnostic logs (included when user asks about cascade issues)
+  if (context.cascadeDiagnostic) {
+    dynamicParts += `\n\n## Logs cascade (diagnostic)
+Les logs récents du moteur cascade sont inclus ci-dessous pour t'aider à diagnostiquer le problème.
+Chaque ligne indique le niveau [info/warn/error] et le détail de l'opération cascade.
+
+\`\`\`
+${context.cascadeDiagnostic}
+\`\`\`
+
+Utilise ces logs pour identifier :
+- Quelle règle s'est exécutée ou a échoué
+- Pourquoi un enfant n'a pas été créé (resolution failed, suppressed, etc.)
+- Quel DM ou materialCtx a été utilisé`;
   }
 
   // Organizational learnings
@@ -539,6 +574,54 @@ const TOOLS = [
         version_b: { type: "number", description: "Numéro de version B" },
       },
       required: ["version_a", "version_b"],
+    },
+  },
+  {
+    name: "update_catalogue_item",
+    description:
+      "Modifie un article existant du catalogue (prix composé, règles de calcul, minutes, matériaux). TOUJOURS proposer les modifications en mode simulation d'abord, puis attendre la confirmation EXPLICITE de l'utilisateur avant d'appeler ce tool. Ce tool est destructif et irréversible.",
+    input_schema: {
+      type: "object",
+      properties: {
+        catalogue_item_id: {
+          type: "string",
+          description: "ID de l'article catalogue (ex: ST-0042)",
+        },
+        changes: {
+          type: "object",
+          description: "Les champs à modifier",
+          properties: {
+            price: { type: "number", description: "Nouveau prix manuel" },
+            labor_minutes: {
+              type: "object",
+              description:
+                'Minutes par département (ex: {"Ébénisterie": 30})',
+            },
+            material_costs: {
+              type: "object",
+              description:
+                'Coûts matériaux (ex: {"PANNEAU BOIS": {"cost": 5.2, "qty": 1}})',
+            },
+            calculation_rule_ai: {
+              type: "object",
+              description: "Règle de calcul JSON complète",
+            },
+            instruction: {
+              type: "string",
+              description: "Instructions spéciales pour cet article",
+            },
+            loss_override_pct: {
+              type: "number",
+              description: "Facteur de perte override (%)",
+            },
+          },
+        },
+        reason: {
+          type: "string",
+          description: "Justification du changement (sera loggée)",
+        },
+      },
+      required: ["catalogue_item_id", "changes", "reason"],
     },
   },
 ];

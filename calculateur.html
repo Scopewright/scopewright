@@ -96,6 +96,7 @@
     var _cimAttachmentsToDelete = []; // storage paths to delete on save
     let canEditMinutes = false;
     let canEditMaterials = false;
+    let canEditCatalogue = false;
     let mediaTagsList = ['fiche_client', 'catalogue', 'technique', 'dessin'];
     // Pipeline commercial
     var pipelineStatuses = [];
@@ -1200,15 +1201,27 @@
 
     function buildCatalogueSummary() {
         if (!CATALOGUE_DATA || CATALOGUE_DATA.length === 0) return '';
+        // Collect IDs of items in the current submission
+        var submissionCatIds = {};
+        document.querySelectorAll('#calculatorView .furniture-group .calc-row .item-select').forEach(function(sel) {
+            if (sel.value && sel.value !== '__AJOUT__' && sel.value !== '__PROPOSER__') {
+                submissionCatIds[sel.value] = true;
+            }
+        });
         var cats = {};
+        var count = 0;
+        var MAX_ITEMS = 80;
         CATALOGUE_DATA.forEach(function(item) {
             if (!item.in_calculator) return;
+            // Only include: items in submission OR default items (token budget)
+            if (!submissionCatIds[item.id] && !item.is_default) return;
+            if (count >= MAX_ITEMS) return;
+            count++;
             var cat = item.category || 'Autre';
             if (!cats[cat]) cats[cat] = [];
             var typeTag = item.item_type === 'fabrication' ? '[Fab] ' : item.item_type === 'materiau' ? '[Mat] ' : '';
             var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
             if (item.client_text) line += ' \u2192 client: "' + item.client_text + '"';
-            if (item.instruction) line += ' [instruction: ' + item.instruction + ']';
             cats[cat].push(line);
         });
         var lines = [];
@@ -1270,7 +1283,29 @@
         }
     }
 
-    async function collectAiContext() {
+    function detectCascadeDiagnostic(text) {
+        if (!text) return false;
+        var t = text.toLowerCase();
+        var keywords = ['cascade', 'enfant', 'matériau', 'child', 'debug', 'log',
+                        'manqu', 'missing', 'doub', 'dupli', 'bug', 'problème',
+                        'erreur', 'error', 'pourquoi', 'why', '$default', '$match',
+                        'résolution', 'resolve', 'pas créé', 'not created'];
+        return keywords.some(function(kw) { return t.indexOf(kw) !== -1; });
+    }
+
+    function summarizeCascadeLog() {
+        if (cascadeDebugLog.length === 0) return null;
+        var recent = cascadeDebugLog.slice(-50);
+        return recent.map(function(entry) {
+            var line = '[' + entry.level + '] ' + entry.msg;
+            if (entry.data) {
+                try { line += ' ' + JSON.stringify(entry.data); } catch(e) { line += ' [data]'; }
+            }
+            return line;
+        }).join('\n');
+    }
+
+    async function collectAiContext(userMessage) {
         var clientFile = await loadClientFile();
 
         // Load benchmarks from app_config if not already cached
@@ -1310,13 +1345,23 @@
             benchmarks: benchmarks,
             tagPrefixes: tagPrefixes,
             aiReferenceImageUrls: collectAiReferenceImageUrls(),
-            calculationRules: (CATALOGUE_DATA || [])
-                .filter(function(item) { return item.calculation_rule_ai; })
-                .map(function(item) {
-                    var r = { id: item.id, description: item.description, type: item.type, rule: item.calculation_rule_ai };
-                    if (item.instruction) r.instruction = item.instruction;
-                    return r;
-                })
+            calculationRules: detectCascadeDiagnostic(userMessage) ? (function() {
+                // Only include rules for items present in the current submission — diagnostic mode only
+                var submissionCatIds = {};
+                document.querySelectorAll('#calculatorView .furniture-group .calc-row .item-select').forEach(function(sel) {
+                    if (sel.value && sel.value !== '__AJOUT__' && sel.value !== '__PROPOSER__') {
+                        submissionCatIds[sel.value] = true;
+                    }
+                });
+                return (CATALOGUE_DATA || [])
+                    .filter(function(item) { return item.calculation_rule_ai && submissionCatIds[item.id]; })
+                    .map(function(item) {
+                        var r = { id: item.id, description: item.description, type: item.type, rule: item.calculation_rule_ai };
+                        if (item.instruction) r.instruction = item.instruction;
+                        return r;
+                    });
+            })() : [],
+            cascadeDiagnostic: detectCascadeDiagnostic(userMessage) ? summarizeCascadeLog() : null
         };
     }
 
@@ -1458,7 +1503,7 @@
         document.getElementById('aiSendBtn').disabled = true;
 
         try {
-            var context = await collectAiContext();
+            var context = await collectAiContext(text);
             var data = await callAiAssistant(aiConversation, context);
 
             // Process response blocks
@@ -1529,6 +1574,9 @@
                     return 'Rechercher articles : ' + (tc.input.query || '?');
                 case 'compare_versions':
                     return 'Comparer versions ' + tc.input.version_a + ' et ' + tc.input.version_b;
+                case 'update_catalogue_item':
+                    var modFields = Object.keys(tc.input.changes || {}).join(', ');
+                    return 'Modifier article catalogue **' + (tc.input.catalogue_item_id || '?') + '** : ' + modFields + ' — Raison : ' + (tc.input.reason || '?');
                 default:
                     return tc.name + ': ' + JSON.stringify(tc.input);
             }
@@ -1592,6 +1640,15 @@
     // ── Auto-execute tools when user already confirmed via text ──
     async function autoExecutePendingTools() {
         if (!aiPendingToolCalls) return;
+        // Block auto-execution for destructive catalogue tools — force manual confirmation
+        var hasCatalogueUpdate = aiPendingToolCalls.tools.some(function(tc) {
+            return tc.name === 'update_catalogue_item';
+        });
+        if (hasCatalogueUpdate) {
+            appendAiMessage('confirm', formatPendingActions(aiPendingToolCalls.tools));
+            saveAiChatMessage('assistant', '[Actions proposées - confirmation obligatoire pour modification catalogue]', []);
+            return;
+        }
         try {
             var toolResults = [];
             var addItemIndex = 0;
@@ -1638,6 +1695,7 @@
             case 'analyze_rentability': return 'Analyse de rentabilité effectuée';
             case 'suggest_items': return 'Recherche catalogue effectuée';
             case 'compare_versions': return 'Comparaison de versions effectuée';
+            case 'update_catalogue_item': return 'Catalogue modifié : ' + (input.catalogue_item_id || '') + ' (' + Object.keys(input.changes || {}).join(', ') + ')';
             default: return name;
         }
     }
@@ -1645,7 +1703,7 @@
     // ── Tool execution (client-side) ──
     async function executeAiTool(name, input) {
         // Block write operations on locked submissions
-        var _writeOps = ['write_description', 'add_catalogue_item', 'modify_item'];
+        var _writeOps = ['write_description', 'add_catalogue_item', 'modify_item', 'update_catalogue_item'];
         if (_writeOps.indexOf(name) !== -1 &&
             typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) {
             return { error: 'Soumission verrouillée — modification impossible' };
@@ -1856,9 +1914,61 @@
                     };
                 } catch (e) { return { error: e.message }; }
             }
+            case 'update_catalogue_item': {
+                if (!canEditCatalogue) {
+                    return { error: 'Permission refusée — vous n\'avez pas le droit de modifier le catalogue (edit_catalogue)' };
+                }
+                var catId = input.catalogue_item_id;
+                var catItem = CATALOGUE_DATA.find(function(i) { return i.id === catId; });
+                if (!catItem) return { error: 'Article introuvable dans le catalogue: ' + catId };
+
+                var allowedFields = ['price', 'labor_minutes', 'material_costs', 'calculation_rule_ai', 'instruction', 'loss_override_pct'];
+                var changes = {};
+                Object.keys(input.changes || {}).forEach(function(k) {
+                    if (allowedFields.indexOf(k) !== -1) changes[k] = input.changes[k];
+                });
+                if (Object.keys(changes).length === 0) return { error: 'Aucun champ valide à modifier' };
+
+                var before = {};
+                Object.keys(changes).forEach(function(k) { before[k] = catItem[k]; });
+
+                try {
+                    var patchResp = await authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(catId),
+                        { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                          body: JSON.stringify(changes) }
+                    );
+                    if (!patchResp.ok) {
+                        var errText = await patchResp.text();
+                        return { error: 'Échec mise à jour: ' + errText };
+                    }
+                    Object.keys(changes).forEach(function(k) { catItem[k] = changes[k]; });
+                    logCatalogueChange(catId, before, changes, input.reason || '');
+                    return { success: true, item_id: catId, fields_updated: Object.keys(changes), reason: input.reason };
+                } catch (err) {
+                    return { error: 'Erreur réseau: ' + err.message };
+                }
+            }
             default:
                 return { error: 'Tool inconnu: ' + name };
         }
+    }
+
+    async function logCatalogueChange(itemId, before, after, reason) {
+        try {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_change_log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    item_id: itemId,
+                    changed_by: localStorage.getItem('sb_user_email') || 'unknown',
+                    before_values: before,
+                    after_values: after,
+                    reason: reason,
+                    source: 'ai_assistant'
+                })
+            });
+        } catch (e) { console.warn('[AI] Failed to log catalogue change:', e); }
     }
 
     function findGroupIdByName(name) {
@@ -2548,6 +2658,17 @@
         }
     }
 
+    // ── Cascade debug log buffer (circular, max 200 entries) ──
+    var cascadeDebugLog = [];
+    var CASCADE_LOG_MAX = 200;
+    function cascadeLog(level, msg, data) {
+        cascadeDebugLog.push({ ts: Date.now(), level: level, msg: msg, data: data || null });
+        if (cascadeDebugLog.length > CASCADE_LOG_MAX) cascadeDebugLog.shift();
+        if (level === 'warn') console.warn('[CASCADE]', msg, data || '');
+        else if (level === 'error') console.error('[CASCADE]', msg, data || '');
+        else console.log('[CASCADE]', msg, data || '');
+    }
+
     /**
      * Évaluateur de formules sécurisé.
      * Variables : L, H, P (dimensions en pouces), QTY (quantité du parent)
@@ -2568,9 +2689,9 @@
                    .replace(/\bmin\b/g, 'Math.min')
                    .replace(/\bmax\b/g, 'Math.max');
         var check = safe.replace(/Math\.\w+/g, '').replace(/[\d\s+\-*/.(),><=!&|]/g, '');
-        if (check.length > 0) { console.warn('[Cascade] Formule non sécuritaire:', expr, '→', check); return null; }
+        if (check.length > 0) { cascadeLog('warn', 'Formule non sécuritaire: ' + expr + ' → ' + check); return null; }
         try { return new Function('return ' + safe)(); }
-        catch (e) { console.error('[Cascade] Erreur formule:', expr, e); return null; }
+        catch (e) { cascadeLog('error', 'Erreur formule: ' + expr, e.message); return null; }
     }
 
     /** Normalize a DM type name for comparison: lowercase, strip accents, strip trailing s/x (French plural). */
@@ -2624,7 +2745,7 @@
                 if (alreadyMatched.indexOf(c2.rowId) === -1 && c2.catalogueId) {
                     var childItem = CATALOGUE_DATA.find(function(ci) { return ci.id === c2.catalogueId; });
                     if (childItem && childItem.client_text && dmClientTexts.indexOf(childItem.client_text) !== -1) {
-                        console.log('[CASCADE] findExisting: fallback client_text match for', c2.catalogueId, '→', childItem.client_text);
+                        cascadeLog('info', 'findExisting: fallback client_text match for ' + c2.catalogueId + ' → ' + childItem.client_text);
                         return c2.catalogueId;
                     }
                 }
@@ -2815,9 +2936,9 @@
      */
     async function resolveMatchTarget(expenseCategory, groupId, materialCtx) {
         var parentRow = findParentFabRow(groupId);
-        if (!parentRow) { console.warn('[CASCADE] $match: no parent fab row in group', groupId); return null; }
+        if (!parentRow) { cascadeLog('warn', '$match: no parent fab row in group ' + groupId); return null; }
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
-        if (!parentItem) { console.warn('[CASCADE] $match: parent item not found', parentRow.catalogueId); return null; }
+        if (!parentItem) { cascadeLog('warn', '$match: parent item not found ' + parentRow.catalogueId); return null; }
 
         var expCatUpper = expenseCategory.toUpperCase();
         var ruleWords = expCatUpper.split(/\s+/);
@@ -2860,7 +2981,7 @@
                     effectiveExpCats.push(keyUpper);
                 }
             }
-            console.log('[CASCADE] $match: DM item ' + dmCatItem.id + ' (' + (dmCatItem.client_text || '') + ') → effectiveExpCats:', effectiveExpCats);
+            cascadeLog('info', '$match: DM item ' + dmCatItem.id + ' (' + (dmCatItem.client_text || '') + ') → effectiveExpCats: ' + effectiveExpCats.join(', '));
         }
 
         // Filter catalogue: items with material_costs in ANY effective expense category
@@ -2882,10 +3003,10 @@
                 return expNorm.indexOf(catNorm) !== -1 || catNorm.indexOf(expNorm) !== -1;
             });
             if (candidates.length > 0) {
-                console.log('[CASCADE] $match: category fallback found ' + candidates.length + ' candidates for "' + expCatUpper + '"');
+                cascadeLog('info', '$match: category fallback found ' + candidates.length + ' candidates for "' + expCatUpper + '"');
             }
         }
-        console.log('[CASCADE] $match: ' + candidates.length + ' candidates for effectiveExpCats:', effectiveExpCats,
+        cascadeLog('info', '$match: ' + candidates.length + ' candidates for effectiveExpCats: ' + effectiveExpCats.join(', '),
             candidates.slice(0, 5).map(function(c) { return c.id + ' "' + (c.client_text || c.description || '').substring(0, 40) + '"'; }));
 
         // ── Fallback chain: client_text → description → default material ──
@@ -2904,24 +3025,24 @@
         for (var si = 0; si < steps.length; si++) {
             var keywords = steps[si].keywords;
             var keywordSource = steps[si].source;
-            console.log('[CASCADE] $match: step ' + (si + 1) + ' — keywords from ' + keywordSource + ':', keywords.join(', '));
+            cascadeLog('info', '$match: step ' + (si + 1) + ' — keywords from ' + keywordSource + ': ' + keywords.join(', '));
 
             var cacheKey = expCatUpper + ':' + keywords.join('+');
             if (matchDefaults[cacheKey]) {
                 if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
-                    console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
+                    cascadeLog('info', '$match: cache hit ' + cacheKey + ' → ' + matchDefaults[cacheKey]);
                     return matchDefaults[cacheKey];
                 }
             }
 
             var scored = scoreMatchCandidates(candidates, keywords);
-            console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (' + keywordSource + ')',
+            cascadeLog('info', '$match: scored ' + scored.length + '/' + candidates.length + ' (' + keywordSource + ')',
                 scored.slice(0, 3).map(function(s) { return s.item.id + ' score=' + s.score; }));
 
             if (scored.length === 0 && keywords.length > 2) {
                 var relaxedKw = keywords.slice(0, 2);
                 scored = scoreMatchCandidates(candidates, relaxedKw);
-                console.log('[CASCADE] $match: relaxed to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length + ' results');
+                cascadeLog('info', '$match: relaxed to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length + ' results');
             }
 
             if (scored.length === 1) {
@@ -2934,7 +3055,7 @@
                 return chosen;
             }
             // scored === 0 → continue to next keyword source
-            console.log('[CASCADE] $match: 0 results from ' + keywordSource + ', continuing fallback...');
+            cascadeLog('info', '$match: 0 results from ' + keywordSource + ', continuing fallback...');
         }
 
         // Step 3: Fallback to default material keywords
@@ -2942,23 +3063,23 @@
         if (dmKeywords) {
             var keywords = dmKeywords.keywords;
             var keywordSource = 'default_material(' + dmKeywords.dmItemId + ')';
-            console.log('[CASCADE] $match: DM fallback — keywords from ' + keywordSource + ':', keywords.join(', '));
+            cascadeLog('info', '$match: DM fallback — keywords from ' + keywordSource + ': ' + keywords.join(', '));
 
             var cacheKey = expCatUpper + ':' + keywords.join('+');
             if (matchDefaults[cacheKey]) {
                 if (CATALOGUE_DATA.find(function(i) { return i.id === matchDefaults[cacheKey]; })) {
-                    console.log('[CASCADE] $match: cache hit', cacheKey, '→', matchDefaults[cacheKey]);
+                    cascadeLog('info', '$match: cache hit ' + cacheKey + ' → ' + matchDefaults[cacheKey]);
                     return matchDefaults[cacheKey];
                 }
             }
 
             var scored = scoreMatchCandidates(candidates, keywords);
-            console.log('[CASCADE] $match: scored ' + scored.length + '/' + candidates.length + ' (DM keywords)');
+            cascadeLog('info', '$match: scored ' + scored.length + '/' + candidates.length + ' (DM keywords)');
 
             if (scored.length === 0 && keywords.length > 2) {
                 var relaxedKw = keywords.slice(0, 2);
                 scored = scoreMatchCandidates(candidates, relaxedKw);
-                console.log('[CASCADE] $match: relaxed DM to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length);
+                cascadeLog('info', '$match: relaxed DM to top-2 (' + relaxedKw.join(', ') + ') → ' + scored.length);
             }
 
             if (scored.length === 1) {
@@ -2973,7 +3094,7 @@
         }
 
         // All fallback sources exhausted — executeCascade will show actionable toast
-        console.warn('[CASCADE] $match: 0 scored results after full fallback chain for', parentRow.catalogueId, 'category:', expenseCategory);
+        cascadeLog('warn', '$match: 0 scored results after full fallback chain for ' + parentRow.catalogueId + ' category: ' + expenseCategory);
         return null;
     }
 
@@ -3013,10 +3134,10 @@
         // Room-level DM only (submission-level DM removed)
         var dm = getDefaultMaterialsForGroup(groupId);
         if (!dm || dm.length === 0) {
-            console.log('[CASCADE] DM fallback: no default materials for group', groupId);
+            cascadeLog('info', 'DM fallback: no default materials for group ' + groupId);
             return null;
         }
-        console.log('[CASCADE] DM fallback: parentCategory=' + parentCategory + ', dm entries:', dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
+        cascadeLog('info', 'DM fallback: parentCategory=' + parentCategory + ', dm entries: ' + dm.map(function(d) { return d.type + '\u2192' + (d.catalogue_item_id || 'null'); }).join(', '));
 
         // NOTE: Tier 0 materialCtx shortcut REMOVED — it bypassed all DM type matching
         // and returned keywords from the parent's DM (e.g., Panneaux "placage chêne blanc")
@@ -3198,10 +3319,10 @@
         }
 
         if (!dmEntry || (!dmEntry.catalogue_item_id && !dmEntry.client_text)) {
-            console.log('[CASCADE] DM fallback: no DM entry found for category', parentCategory);
+            cascadeLog('info', 'DM fallback: no DM entry found for category ' + parentCategory);
             return null;
         }
-        console.log('[CASCADE] DM fallback: matched via ' + matchMethod + ' \u2192 ' + (dmEntry.client_text || dmEntry.catalogue_item_id));
+        cascadeLog('info', 'DM fallback: matched via ' + matchMethod + ' \u2192 ' + (dmEntry.client_text || dmEntry.catalogue_item_id));
 
         // Store choice in cascade context for sibling rules
         if (materialCtx && dmEntry.client_text && !materialCtx.chosenClientText) {
@@ -3537,7 +3658,7 @@
         // Invalidate stale matchDefaults: DM change may produce different keywords,
         // making cached $match: resolutions wrong. Clear all and re-derive on next cascade.
         if (Object.keys(matchDefaults).length > 0) {
-            console.log('[CASCADE] reprocessDefaultCascades: clearing ' + Object.keys(matchDefaults).length + ' stale matchDefaults entries');
+            cascadeLog('info', 'reprocessDefaultCascades: clearing ' + Object.keys(matchDefaults).length + ' stale matchDefaults entries');
             matchDefaults = {};
             if (currentSubmission && currentSubmission.id) {
                 authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
@@ -3550,7 +3671,7 @@
 
         // Invalidate stale dmChoiceCache: old DM choices no longer valid after DM change
         if (Object.keys(dmChoiceCache).length > 0) {
-            console.log('[CASCADE] reprocessDefaultCascades: clearing ' + Object.keys(dmChoiceCache).length + ' stale dmChoiceCache entries');
+            cascadeLog('info', 'reprocessDefaultCascades: clearing ' + Object.keys(dmChoiceCache).length + ' stale dmChoiceCache entries');
             dmChoiceCache = {};
         }
 
@@ -3588,9 +3709,9 @@
      */
     async function executeCascade(parentRowId, depth, parentOverrides, parentMaterialCtx) {
         depth = depth || 0;
-        if (depth >= 3) { console.log('[CASCADE] max depth reached for', parentRowId); return; }
-        console.log('[CASCADE] itemMap check:', parentRowId, '→', itemMap[parentRowId] || 'MISSING');
-        if (!itemMap[parentRowId]) { console.log('[CASCADE] no itemMap for', parentRowId); return; }
+        if (depth >= 3) { cascadeLog('info', 'max depth reached for ' + parentRowId); return; }
+        cascadeLog('info', 'itemMap check: ' + parentRowId + ' → ' + (itemMap[parentRowId] || 'MISSING'));
+        if (!itemMap[parentRowId]) { cascadeLog('info', 'no itemMap for ' + parentRowId); return; }
 
         var row = document.getElementById(parentRowId);
         if (!row) return;
@@ -3603,8 +3724,8 @@
         var rules = catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade;
         var ownOverrides = (catItem && catItem.calculation_rule_ai && catItem.calculation_rule_ai.override_children) || [];
         var mergedOverrides = (parentOverrides || []).concat(ownOverrides.map(function(o) { return o.toUpperCase(); }));
-        console.log('[CASCADE] executeCascade:', selectedId, 'rules:', rules ? rules.length : 0, 'depth:', depth,
-            mergedOverrides.length > 0 ? 'overrides:' + mergedOverrides.join(',') : '');
+        cascadeLog('info', 'executeCascade: ' + selectedId + ' rules: ' + (rules ? rules.length : 0) + ' depth: ' + depth +
+            (mergedOverrides.length > 0 ? ' overrides: ' + mergedOverrides.join(',') : ''));
         if (!rules || !Array.isArray(rules) || rules.length === 0) {
             // Pas de règles cascade → supprimer les enfants existants
             var orphans = findCascadeChildren(parentRowId);
@@ -3635,7 +3756,7 @@
             n_tablettes: parentNTab ? (parseInt(parentNTab.value) || 0) : (dims.n_tablettes || 0),
             n_partitions: parentNPart ? (parseInt(parentNPart.value) || 0) : (dims.n_partitions || 0)
         };
-        console.log('[CASCADE] vars:', JSON.stringify(vars), 'rootQty:', rootQty);
+        cascadeLog('info', 'vars: ' + JSON.stringify(vars) + ' rootQty: ' + rootQty);
 
         // Guard: si l'article déclare un "ask" (dimensions requises), vérifier
         // que TOUTES sont remplies (> 0) avant de cascader. Évite les cascades
@@ -3669,14 +3790,14 @@
                 return false;
             });
             if (missingAsk.length > 0) {
-                console.log('[CASCADE] skipped: ask fields incomplete —', missingAsk.join(', '), 'missing/zero for', selectedId);
+                cascadeLog('info', 'skipped: ask fields incomplete — ' + missingAsk.join(', ') + ' missing/zero for ' + selectedId);
                 return;
             }
         }
 
         // Au moins une dimension doit exister pour exécuter la cascade
         if (dims.L === 0 && dims.H === 0 && dims.P === 0 && rootQty === 0) {
-            console.log('[CASCADE] skipped: all dims+qty = 0');
+            cascadeLog('info', 'skipped: all dims+qty = 0');
             return;
         }
 
@@ -3714,7 +3835,7 @@
         if (_pendingMaterialCtx[parentRowId]) {
             materialCtx.chosenClientText = _pendingMaterialCtx[parentRowId].chosenClientText;
             delete _pendingMaterialCtx[parentRowId];
-            console.log('[CASCADE] materialCtx: manual child override → "' + materialCtx.chosenClientText + '"');
+            cascadeLog('info', 'materialCtx: manual child override → "' + materialCtx.chosenClientText + '"');
         }
         if (!materialCtx.chosenClientText && catItem && catItem.category) {
             var parentDmType = catItem.category;
@@ -3725,7 +3846,7 @@
             var parentDmUnique = deduplicateDmByClientText(parentDmEntries);
             if (parentDmUnique.length === 1 && parentDmUnique[0].client_text) {
                 materialCtx.chosenClientText = parentDmUnique[0].client_text;
-                console.log('[CASCADE] materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '"');
+                cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '"');
             } else if (parentDmUnique.length > 1) {
                 var parentCacheKey = groupId + ':' + parentDmType;
                 var parentDmChoice = null;
@@ -3744,7 +3865,7 @@
                 }
                 if (parentDmChoice && parentDmChoice.client_text) {
                     materialCtx.chosenClientText = parentDmChoice.client_text;
-                    console.log('[CASCADE] materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '" (chosen)');
+                    cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '" (chosen)');
                 }
             }
         }
@@ -3760,7 +3881,7 @@
             if (ancestorOverrides.length > 0 && rule.target.startsWith('$match:')) {
                 var ruleExpCat = rule.target.substring(7).toUpperCase();
                 if (ancestorOverrides.indexOf(ruleExpCat) !== -1) {
-                    console.log('[CASCADE] skip rule (overridden by ancestor):', rule.target);
+                    cascadeLog('info', 'skip rule (overridden by ancestor): ' + rule.target);
                     continue;
                 }
             }
@@ -3775,7 +3896,7 @@
             }
             // Validate resolved target exists in catalogue (prevent empty rows)
             if (resolvedTarget && !CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; })) {
-                console.warn('[CASCADE] resolved target not in catalogue:', resolvedTarget, '(rule:', rule.target, ')');
+                cascadeLog('warn', 'resolved target not in catalogue: ' + resolvedTarget + ' (rule: ' + rule.target + ')');
                 resolvedTarget = null;
             }
             if (!resolvedTarget) {
@@ -3785,11 +3906,11 @@
                 if (rule.target.startsWith('$default:')) {
                     var dmGroup = rule.target.substring(9);
                     showConstraintToast('Cascade « ' + parentDesc + ' » : aucun DM « ' + dmGroup + ' » configuré' + (roomName ? ' dans ' + roomName : '') + '. Ajoutez-le dans les matériaux par défaut de cette pièce.', 6000);
-                    console.warn('[CASCADE] Resolution failed: $default:' + dmGroup + ' — no DM entry for group "' + dmGroup + '" in room ' + groupId + '. Available DM:', getDefaultMaterialsForGroup(groupId));
+                    cascadeLog('warn', 'Resolution failed: $default:' + dmGroup + ' — no DM entry for group "' + dmGroup + '" in room ' + groupId, getDefaultMaterialsForGroup(groupId));
                 } else if (rule.target.startsWith('$match:')) {
                     var expCat = rule.target.substring(7);
                     showConstraintToast('Cascade « ' + parentDesc + ' » : aucun article trouvé pour ' + expCat + (roomName ? ' dans ' + roomName : '') + '. Ajoutez le DM correspondant dans cette pièce.', 6000);
-                    console.warn('[CASCADE] Resolution failed: $match:' + expCat + ' — no catalogue match for expense category "' + expCat + '" in room ' + groupId);
+                    cascadeLog('warn', 'Resolution failed: $match:' + expCat + ' — no catalogue match for expense category "' + expCat + '" in room ' + groupId);
                 }
                 continue;
             }
@@ -3797,7 +3918,7 @@
             // Check if this target was suppressed by user (manual child deletion)
             var suppressed = cascadeSuppressed[parentRowId] || [];
             if (suppressed.indexOf(resolvedTarget) !== -1) {
-                console.log('[CASCADE] skip (suppressed by user):', resolvedTarget);
+                cascadeLog('info', 'skip (suppressed by user): ' + resolvedTarget);
                 continue;
             }
 
@@ -3823,7 +3944,7 @@
                     matchedChildRowIds.push(lockedChildren[li].rowId);
                     lastInsertedRowId = lockedChildren[li].rowId;
                     lockedMatch = true;
-                    console.log('[CASCADE] locked child matches rule:', rule.target, '→', lockedChildren[li].rowId);
+                    cascadeLog('info', 'locked child matches rule: ' + rule.target + ' → ' + lockedChildren[li].rowId);
                     break;
                 }
             }
@@ -3845,7 +3966,7 @@
                     var childElRt = document.getElementById(activeChildren[ei2].rowId);
                     if (childElRt && childElRt.dataset.cascadeRuleTarget === rule.target) {
                         existing = activeChildren[ei2];
-                        console.log('[CASCADE] existing child matched by ruleTarget:', rule.target, '→', existing.rowId);
+                        cascadeLog('info', 'existing child matched by ruleTarget: ' + rule.target + ' → ' + existing.rowId);
                         break;
                     }
                 }
@@ -3908,7 +4029,7 @@
                     waitAttempts++;
                 }
                 if (!itemMap[newRowId]) {
-                    console.error('[Cascade] Timeout création ligne pour', resolvedTarget, '(rule:', rule.target, ')');
+                    cascadeLog('error', 'Timeout création ligne pour ' + resolvedTarget + ' (rule: ' + rule.target + ')');
                     continue;
                 }
 
@@ -4092,7 +4213,7 @@
         _cascadeRunning = true;
         _pendingCascadeRowId = null;
         executeCascade(rowId, 0).catch(function(err) {
-            console.error('[CASCADE] ERROR:', err);
+            cascadeLog('error', 'ERROR: ' + (err.message || err));
         }).finally(function() {
             _cascadeRunning = false;
             // If a cascade was queued while we were running, execute it now
@@ -10983,7 +11104,7 @@
                     var newItem = selectedId ? CATALOGUE_DATA.find(function(i) { return i.id === selectedId; }) : null;
                     if (newItem && newItem.client_text) {
                         _pendingMaterialCtx[parentRowId] = { chosenClientText: newItem.client_text };
-                        console.log('[CASCADE] manual child change: materialCtx → "' + newItem.client_text + '" for parent', parentRowId);
+                        cascadeLog('info', 'manual child change: materialCtx → "' + newItem.client_text + '" for parent ' + parentRowId);
                     }
 
                     // Schedule parent re-cascade (siblings will update with new materialCtx)
@@ -19317,6 +19438,7 @@
                 const allowed = Object.assign({}, defaults, saved);
                 canEditMinutes = !!allowed.edit_minutes;
                 canEditMaterials = !!allowed.edit_materials;
+                canEditCatalogue = !!allowed.edit_catalogue;
                 canApproveQuotes = !!allowed.can_approve_quotes;
                 canBypassApproval = !!allowed.can_bypass_approval;
                 canUnlockSubmission = !!allowed.can_unlock_submission;
@@ -19330,6 +19452,7 @@
                 var defPerms = DEFAULT_PERMISSIONS[role] || {};
                 canEditMinutes = !!defPerms.edit_minutes;
                 canEditMaterials = !!defPerms.edit_materials;
+                canEditCatalogue = !!defPerms.edit_catalogue;
                 canApproveQuotes = !!defPerms.can_approve_quotes;
                 canBypassApproval = !!defPerms.can_bypass_approval;
                 canUnlockSubmission = !!defPerms.can_unlock_submission;

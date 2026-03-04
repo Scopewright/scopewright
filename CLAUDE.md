@@ -381,22 +381,66 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 
 ### Architecture
 
-1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext()` assemble le contexte (inclut `item.instruction` dans `catalogueSummary`, `focusRoomDetail.items`, et `calculationRules` — seulement si non-vide)
-2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 7 outils
+1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext(userMessage)` assemble le contexte. **Budget tokens** : en mode normal, `catalogueSummary` ne contient que les articles de la soumission + les ★ defaults (max 80), et `calculationRules` est vide. En mode diagnostic (`detectCascadeDiagnostic(userMessage)`), `calculationRules` est peuplé (filtrés aux articles de la soumission) et `summarizeCascadeLog()` inclut les 50 derniers logs cascade. Cible : ≤20K tokens normal, ≤30K diagnostic
+2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 8 outils (dont `update_catalogue_item`)
 3. **Mode simulation** : l'AI propose des modifications en texte d'abord, l'utilisateur confirme, puis les tools sont appelés
-4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". Sinon (première proposition), les boutons sont affichés comme filet de sécurité.
+4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". **Exception** : `update_catalogue_item` est bloqué de l'auto-exécution — toujours boutons de confirmation
 5. **Exécution côté client** : `executeAiTool()` applique les modifications DOM + sauvegarde Supabase. Le handler `add_catalogue_item` fait un **save immédiat** (`await updateItem`) et une **cascade immédiate** (`await executeCascade` avec guard `_cascadeRunning`), sans passer par les debounce globaux (`debouncedSaveItem` 500ms, `scheduleCascade` 400ms) — car le debounce global est une fonction unique dont le timer est annulé quand plusieurs items sont ajoutés en séquence rapide.
 6. **Persistance** : messages sauvés dans table `chat_messages` par soumission
 7. **Changement de pièce** : quand `aiFocusGroupId` change (scroll ou bouton), `onAiFocusChanged()` insère un séparateur visuel (`.ai-scope-separator`) + un message système dans `aiConversation` pour que Claude comprenne le nouveau contexte. `_lastAiFocusGroupId` évite les doublons. Réinitialisé dans `resetAiChat()`
 8. **Sanitisation messages** : filtre défense en profondeur contre `content` vide/null/`[]` — appliqué côté client dans `callAiAssistant()` (calculateur), `callAiReviewAssistant()` (approbation), `callCatAiReviewAssistant()` (catalogue), ET côté serveur dans `ai-assistant/index.ts` (guard permanent). Prévient erreur Anthropic 400 "non-empty content"
 7. **Images AI** : deux sources — chatbox paste/drop (base64, 3200px max, JPEG 0.90) et images de référence (URL directe Storage). Les images de référence utilisent `annotatedUrl` (image avec tags rasterisés) quand disponible, sinon l'image brute. `collectRoomDetail` inclut aussi les positions des tags en texte (`annotations: [{image, tags}]`)
 8. **Rasterisation annotations** : `rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rect navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`. Migration : `sql/annotated_url.sql`
+9. **Cascade debug log** : `cascadeDebugLog` — buffer mémoire circulaire (max 200 entrées) capturant tous les `console.log/warn/error` du moteur cascade via `cascadeLog(level, msg, data)`. `summarizeCascadeLog()` retourne les 50 dernières entrées en texte. `detectCascadeDiagnostic(text)` détecte les mots-clés cascade dans le message utilisateur pour inclure les logs dans le contexte AI
+10. **Tool `update_catalogue_item`** : modifie un article du catalogue depuis l'AI (price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct). Permission `canEditCatalogue` requise (`edit_catalogue`). Whitelist stricte de champs, snapshot avant/après, audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** — confirmation obligatoire. Migration : `sql/catalogue_change_log.sql`
+
+### Architecture des prompts AI
+
+**14 prompts** (12 dans le dropdown admin + 2 invisibles) répartis dans 4 Edge Functions.
+Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override DB** dans `app_config`. Si la DB a une valeur non-vide → utilisée. Sinon → hardcodé.
+
+| Clé `app_config` | Edge Function | Modèle | Admin visible |
+|---|---|---|---|
+| `ai_prompt_estimateur` | ai-assistant | Sonnet 4.5 | ✅ |
+| `ai_prompt_approval_review` | ai-assistant | Sonnet 4.5 | ✅ |
+| `ai_prompt_catalogue_import` | catalogue-import | Sonnet 4.5 | ✅ |
+| `ai_prompt_contacts` | contacts-import | Sonnet 4.5 | ✅ |
+| `ai_prompt_fiche_optimize` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_fiche_translate_fr_en` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_fiche_translate_en_fr` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_client_text_catalogue` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_pres_rule` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_calc_rule` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_description_calculateur` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_import_components` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_explication_catalogue` | translate | Haiku 4.5 | ❌ Manquant |
+| `ai_prompt_json_catalogue` | translate | Haiku 4.5 | ❌ Manquant |
+| `ai_prompt_approval_suggest` | translate | Sonnet 4 | ❌ Manquant |
+
+**Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
+
+**Prompt final = statique (DB ou hardcodé) + dynamique (code) :**
+- `ai_prompt_estimateur` : `DEFAULT_STATIC_PROMPT` (~135 lignes) + `buildSystemPrompt()` (12+ sections dynamiques : taux, dépenses, DM, règles calcul, diagnostic cascade, modification catalogue, contexte projet/pièces, logs cascade, learnings, catalogue résumé). Placeholders : `{{TAG_PREFIXES}}`, `{{DESCRIPTION_FORMAT_RULES}}`
+- `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
+- `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
+- `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
+- Prompts translate (11 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
+
+**Sections hardcodées non-éditables depuis admin :**
+- `DESCRIPTION_FORMAT_RULES` (9 lignes) — injecté via placeholder `{{DESCRIPTION_FORMAT_RULES}}`
+- Instructions "Diagnostic cascade" et "Modification catalogue" — hardcodées dans `buildSystemPrompt()`
+- Header "Règles de calcul" (~30 lignes d'instructions) — hardcodé avant la liste des règles
+- User message templates (translate, 11 actions) — messages action-spécifiques côté code
+
+**Bugs identifiés :**
+- 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin
+- `catalogue-import` n'injecte pas les learnings (contrairement aux 3 autres EF)
 
 ### 4 Edge Functions
 
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
-| `ai-assistant` | Sonnet 4.5 | Non | 7 | calculateur, approbation, catalogue |
+| `ai-assistant` | Sonnet 4.5 | Non | 8 | calculateur, approbation, catalogue |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (11 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |
@@ -449,6 +493,7 @@ chat_messages (par soumission ou par contexte)
 ai_learnings (règles organisationnelles)
 employees, roles, user_roles, user_profiles
 quote_clauses, submission_unlock_logs (immuable)
+catalogue_change_log (audit AI modifications catalogue)
 ```
 
 ### Colonnes et contraintes importantes

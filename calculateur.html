@@ -10519,13 +10519,32 @@
         }
 
         function toggleRowInstallation(rowId) {
+            var cb = document.getElementById(rowId + '-install');
+            var checked = cb ? cb.checked : true;
             updateRow(rowId, { skipCascade: true });
             // Sauvegarder dans Supabase
             if (itemMap[rowId]) {
-                var cb = document.getElementById(rowId + '-install');
-                updateItem(itemMap[rowId], { installation_included: cb.checked });
+                updateItem(itemMap[rowId], { installation_included: checked });
                 showSaveIndicator();
             }
+            // Propager aux enfants cascade (récursif)
+            propagateInstallationToCascadeChildren(rowId, checked);
+        }
+
+        function propagateInstallationToCascadeChildren(parentRowId, checked) {
+            var children = findCascadeChildren(parentRowId);
+            children.forEach(function(child) {
+                var childCb = document.getElementById(child.rowId + '-install');
+                if (childCb && childCb.checked !== checked) {
+                    childCb.checked = checked;
+                    updateRow(child.rowId, { skipCascade: true });
+                    if (itemMap[child.rowId]) {
+                        updateItem(itemMap[child.rowId], { installation_included: checked });
+                    }
+                }
+                // Récursif : petits-enfants
+                propagateInstallationToCascadeChildren(child.rowId, checked);
+            });
         }
 
         function addFurnitureGroup(initialName, opts) {

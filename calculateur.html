@@ -1286,10 +1286,21 @@
     function detectCascadeDiagnostic(text) {
         if (!text) return false;
         var t = text.toLowerCase();
-        var keywords = ['cascade', 'enfant', 'matériau', 'child', 'debug', 'log',
+        var keywords = ['cascade', 'debug', 'log cascade',
                         'manqu', 'missing', 'doub', 'dupli', 'bug', 'problème',
-                        'erreur', 'error', 'pourquoi', 'why', '$default', '$match',
+                        'erreur', 'error', '$default', '$match',
                         'résolution', 'resolve', 'pas créé', 'not created'];
+        return keywords.some(function(kw) { return t.indexOf(kw) !== -1; });
+    }
+
+    function detectCalculationContext(text) {
+        if (!text) return false;
+        var t = text.toLowerCase();
+        var keywords = ['règle', 'regle', 'calcul', 'formule', 'formula',
+                        'cascade', 'enfant', 'child', 'matériau', 'materiau',
+                        'quantité', 'quantite', 'dimension', 'dims',
+                        'pourquoi', 'why', 'comment', 'how',
+                        '$default', '$match', 'calculation_rule'];
         return keywords.some(function(kw) { return t.indexOf(kw) !== -1; });
     }
 
@@ -1345,8 +1356,8 @@
             benchmarks: benchmarks,
             tagPrefixes: tagPrefixes,
             aiReferenceImageUrls: collectAiReferenceImageUrls(),
-            calculationRules: detectCascadeDiagnostic(userMessage) ? (function() {
-                // Only include rules for items present in the current submission — diagnostic mode only
+            calculationRules: detectCalculationContext(userMessage) ? (function() {
+                // Only include rules for items present in the current submission — calculation/diagnostic context
                 var submissionCatIds = {};
                 document.querySelectorAll('#calculatorView .furniture-group .calc-row .item-select').forEach(function(sel) {
                     if (sel.value && sel.value !== '__AJOUT__' && sel.value !== '__PROPOSER__') {
@@ -1385,11 +1396,47 @@
 
     var aiFocusGroupId = null;
 
+    // ── Sanitize orphaned tool_use blocks (defense-in-depth) ──
+    function sanitizeConversationToolUse(messages) {
+        var toolUseIds = {};
+        var toolResultIds = {};
+        messages.forEach(function(msg) {
+            if (!msg.content || !Array.isArray(msg.content)) return;
+            msg.content.forEach(function(block) {
+                if (block.type === 'tool_use' && block.id) toolUseIds[block.id] = true;
+                if (block.type === 'tool_result' && block.tool_use_id) toolResultIds[block.tool_use_id] = true;
+            });
+        });
+        var orphaned = Object.keys(toolUseIds).filter(function(id) { return !toolResultIds[id]; });
+        if (orphaned.length === 0) return messages;
+        console.warn('[AI] Sanitizing ' + orphaned.length + ' orphaned tool_use block(s):', orphaned);
+        var result = messages.slice();
+        // Find each assistant message with orphaned tool_use and inject tool_result right after
+        for (var i = result.length - 1; i >= 0; i--) {
+            var msg = result[i];
+            if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+            var msgOrphans = msg.content.filter(function(b) {
+                return b.type === 'tool_use' && b.id && orphaned.indexOf(b.id) !== -1;
+            });
+            if (msgOrphans.length === 0) continue;
+            var syntheticResults = msgOrphans.map(function(b) {
+                return { type: 'tool_result', tool_use_id: b.id, content: '{"skipped":true,"reason":"sanitized"}' };
+            });
+            result.splice(i + 1, 0, { role: 'user', content: syntheticResults });
+            // Remove these from orphaned list
+            msgOrphans.forEach(function(b) { orphaned.splice(orphaned.indexOf(b.id), 1); });
+            if (orphaned.length === 0) break;
+        }
+        return result;
+    }
+
     // ── Call AI Edge Function ──
     var _aiRetried401 = false;
     async function callAiAssistant(messages, context) {
+        // Sanitize orphaned tool_use blocks before sending (prevents API 400 error)
+        var sanitized = sanitizeConversationToolUse(messages);
         // Filter out messages with empty content (causes Anthropic API 400 error)
-        var cleanMessages = messages.filter(function(m) {
+        var cleanMessages = sanitized.filter(function(m) {
             if (!m.content) return false;
             if (typeof m.content === 'string') return m.content.length > 0;
             if (Array.isArray(m.content)) return m.content.length > 0;
@@ -1494,6 +1541,15 @@
             userContent.push({ type: 'text', text: '[Images de référence des pièces: ' + refLabel + ']' });
         }
 
+        // Dismiss any pending tool calls before pushing new user message
+        if (aiPendingToolCalls && aiPendingToolCalls.tools.length > 0) {
+            var dismissResults = aiPendingToolCalls.tools.map(function(tc) {
+                return { type: 'tool_result', tool_use_id: tc.id, content: '{"dismissed":true,"reason":"user sent new message"}' };
+            });
+            aiConversation.push({ role: 'user', content: dismissResults });
+            aiPendingToolCalls = null;
+        }
+
         aiConversation.push({ role: 'user', content: userContent });
 
         // Save user message to DB
@@ -1589,6 +1645,7 @@
         if (!el || !aiPendingToolCalls) return;
         el.querySelector('.ai-confirm-actions').innerHTML = '<span class="ai-confirm-applied">Application en cours...</span>';
 
+        var _keepPending = false;
         try {
             var toolResults = [];
             var addItemIndex = 0;
@@ -1615,17 +1672,27 @@
             var contentBlocks = data.content || [];
             aiConversation.push({ role: 'assistant', content: contentBlocks });
 
+            // Check if follow-up response contains MORE tool_use blocks
+            var followUpToolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
             var text = contentBlocks.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
             if (text) {
                 appendAiMessage('assistant', text);
                 saveAiChatMessage('assistant', text, []);
             }
 
+            if (followUpToolCalls.length > 0) {
+                // AI wants to call more tools — show confirmation
+                aiPendingToolCalls = { tools: followUpToolCalls, conversationSnapshot: aiConversation.length };
+                appendAiMessage('confirm', formatPendingActions(followUpToolCalls));
+                saveAiChatMessage('assistant', '[Actions proposées - en attente de confirmation]', []);
+                _keepPending = true;
+            }
+
             el.querySelector('.ai-confirm-actions').innerHTML = '<span class="ai-confirm-applied">Appliqué \u2713</span>';
         } catch (err) {
             el.querySelector('.ai-confirm-actions').innerHTML = '<span style="color:#c62828;font-size:11px;">Erreur: ' + escapeHtml(err.message) + '</span>';
         } finally {
-            aiPendingToolCalls = null;
+            if (!_keepPending) aiPendingToolCalls = null;
             hideAiTyping();
         }
     }
@@ -1634,6 +1701,13 @@
         var el = document.getElementById(confirmId);
         if (!el) return;
         el.querySelector('.ai-confirm-actions').innerHTML = '<span style="font-size:11px;color:#999;">Ignoré</span>';
+        // Inject synthetic tool_results so conversation stays valid
+        if (aiPendingToolCalls && aiPendingToolCalls.tools.length > 0) {
+            var dismissResults = aiPendingToolCalls.tools.map(function(tc) {
+                return { type: 'tool_result', tool_use_id: tc.id, content: '{"dismissed":true}' };
+            });
+            aiConversation.push({ role: 'user', content: dismissResults });
+        }
         aiPendingToolCalls = null;
     }
 
@@ -1649,6 +1723,7 @@
             saveAiChatMessage('assistant', '[Actions proposées - confirmation obligatoire pour modification catalogue]', []);
             return;
         }
+        var _keepPending = false;
         try {
             var toolResults = [];
             var addItemIndex = 0;
@@ -1674,15 +1749,25 @@
             var contentBlocks = data.content || [];
             aiConversation.push({ role: 'assistant', content: contentBlocks });
 
+            // Check if follow-up response contains MORE tool_use blocks
+            var followUpToolCalls = contentBlocks.filter(function(b) { return b.type === 'tool_use'; });
             var txt = contentBlocks.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('\n');
             if (txt) {
                 appendAiMessage('assistant', txt);
                 saveAiChatMessage('assistant', txt, []);
             }
+
+            if (followUpToolCalls.length > 0) {
+                // AI wants to call more tools — show confirmation
+                aiPendingToolCalls = { tools: followUpToolCalls, conversationSnapshot: aiConversation.length };
+                appendAiMessage('confirm', formatPendingActions(followUpToolCalls));
+                saveAiChatMessage('assistant', txt + '\n[Actions proposées - en attente de confirmation]', []);
+                _keepPending = true;
+            }
         } catch (err) {
             appendAiMessage('assistant', 'Erreur exécution : ' + err.message);
         } finally {
-            aiPendingToolCalls = null;
+            if (!_keepPending) aiPendingToolCalls = null;
             hideAiTyping();
         }
     }

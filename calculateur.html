@@ -10508,7 +10508,7 @@
             rows.forEach(function(row) {
                 var rowCb = document.getElementById(row.id + '-install');
                 if (rowCb) rowCb.checked = cb.checked;
-                updateRow(row.id);
+                updateRow(row.id, { skipCascade: true });
             });
 
             // Sauvegarder dans Supabase
@@ -10519,7 +10519,7 @@
         }
 
         function toggleRowInstallation(rowId) {
-            updateRow(rowId);
+            updateRow(rowId, { skipCascade: true });
             // Sauvegarder dans Supabase
             if (itemMap[rowId]) {
                 var cb = document.getElementById(rowId + '-install');
@@ -11160,7 +11160,8 @@
             });
         }
 
-        function updateRow(rowId) {
+        function updateRow(rowId, opts) {
+            opts = opts || {};
             const row = document.getElementById(rowId);
             if (!row) return;
             const select = row.querySelector('.item-select');
@@ -11393,7 +11394,8 @@
             }
 
             // Cascade : déclencher quand dimensions/qty changent ou article sélectionné
-            if (!_cascadeRunning && selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
+            // Skip si seul le flag installation a changé (pas une variable cascade)
+            if (!opts.skipCascade && !_cascadeRunning && selectedId && selectedId !== '__PROPOSER__' && selectedId !== '__AJOUT__') {
                 var hasCascadeRules = false;
                 var cascadeCatItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                 if (cascadeCatItem && cascadeCatItem.calculation_rule_ai && cascadeCatItem.calculation_rule_ai.cascade) {

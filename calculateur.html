@@ -4916,6 +4916,12 @@
             border-radius: 6px; outline: none;
         }
         .cb-dropdown .cb-search input:focus { border-color: var(--sw-navy); }
+        .cb-section-label {
+            padding: 8px 12px 4px; font-size: 11px; font-weight: 700;
+            color: var(--sw-navy); text-transform: uppercase; letter-spacing: 0.06em;
+            border-bottom: 1.5px solid var(--sw-border); margin-top: 4px;
+        }
+        .cb-section-label:first-child { margin-top: 0; }
         .cb-group-label {
             padding: 6px 12px 3px; font-size: 10px; font-weight: 600;
             color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;
@@ -9973,25 +9979,26 @@
                     return COMP_CATS.indexOf(item.category) !== -1;
                 });
             }
-            // Prioritize items matching room default materials
-            var dmIds = {};
-            var rowEl = _cbActiveRowId ? document.getElementById(_cbActiveRowId) : null;
-            var cbGroupId = rowEl ? rowEl.dataset.group : null;
-            var dm = cbGroupId ? getDefaultMaterialsForGroup(cbGroupId) : [];
-            dm.forEach(function(entry) {
-                if (entry.catalogue_item_id) dmIds[entry.catalogue_item_id] = true;
+            // Split items into FAB (fabrication) and MAT (materiau/other)
+            var fabItems = [];
+            var matItems = [];
+            items.forEach(function(item) {
+                if (item.item_type === 'fabrication') fabItems.push(item);
+                else matItems.push(item);
             });
-            var hasDmIds = Object.keys(dmIds).length > 0;
-            var priorityItems = [];
-            var restItems = [];
-            if (hasDmIds) {
-                items.forEach(function(item) {
-                    if (dmIds[item.id]) priorityItems.push(item);
-                    else restItems.push(item);
+
+            // Within each section: is_default items first (★), then rest by category
+            function splitDefaults(arr) {
+                var defaults = [];
+                var rest = [];
+                arr.forEach(function(item) {
+                    if (item.is_default) defaults.push(item);
+                    else rest.push(item);
                 });
-            } else {
-                restItems = items;
+                return { defaults: defaults, rest: rest };
             }
+            var fabSplit = splitDefaults(fabItems);
+            var matSplit = splitDefaults(matItems);
 
             var html = '';
             var globalIdx = 0;
@@ -9999,33 +10006,38 @@
             function renderCbItem(item) {
                 var isPending = item.status === 'pending';
                 var pendingBadge = isPending ? ' <span style="color:#f59e0b;">(en attente)</span>' : '';
+                var defaultStar = item.is_default ? '\u2605 ' : '';
                 var cls = 'cb-item' + (isPending ? ' cb-pending' : '');
                 var click = isPending
                     ? 'showPendingToast(event)'
                     : 'selectComboboxItem(\'' + escapeAttr(item.id) + '\')';
                 html += '<div class="' + cls + '" data-id="' + escapeAttr(item.id) + '" data-idx="' + globalIdx + '" onclick="' + click + '" onmouseenter="_cbIdx=' + globalIdx + '">'
                     + '<span class="cb-item-code">' + escapeHtml(item.id) + '</span>'
-                    + '<span class="cb-item-desc">' + escapeHtml(item.description) + pendingBadge + '</span>'
+                    + '<span class="cb-item-desc">' + defaultStar + escapeHtml(item.description) + pendingBadge + '</span>'
                     + '<span class="cb-item-type">' + escapeHtml(item.type || '') + '</span>'
                     + '</div>';
                 globalIdx++;
             }
 
-            // Render priority items first
-            if (priorityItems.length > 0) {
-                html += '<div class="cb-group-label" style="color:#1565C0;font-weight:600;">Matériaux par défaut</div>';
-                priorityItems.forEach(renderCbItem);
+            function renderSection(label, split) {
+                if (split.defaults.length === 0 && split.rest.length === 0) return;
+                html += '<div class="cb-section-label">' + escapeHtml(label) + '</div>';
+                if (split.defaults.length > 0) {
+                    split.defaults.forEach(renderCbItem);
+                }
+                var currentCat = '';
+                split.rest.forEach(function(item) {
+                    if (item.category !== currentCat) {
+                        currentCat = item.category;
+                        html += '<div class="cb-group-label">' + escapeHtml(currentCat || 'Autre') + '</div>';
+                    }
+                    renderCbItem(item);
+                });
             }
 
-            // Render rest grouped by category
-            var currentCat = '';
-            restItems.forEach(function(item) {
-                if (item.category !== currentCat) {
-                    currentCat = item.category;
-                    html += '<div class="cb-group-label">' + escapeHtml(currentCat || 'Autre') + '</div>';
-                }
-                renderCbItem(item);
-            });
+            renderSection('FABRICATION', fabSplit);
+            renderSection('MAT\u00c9RIAUX', matSplit);
+
             // Special options
             html += '<div class="cb-group-label">Autre</div>';
             html += '<div class="cb-item" onclick="selectComboboxItem(\'__PROPOSER__\')"><span class="cb-item-special">\ud83d\udccb Proposer un nouvel article...</span></div>';

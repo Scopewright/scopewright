@@ -234,6 +234,20 @@ Deux boutons (+) distincts dans chaque pièce :
 2. **Bottom (+) "Ajouter un article"** : `addRow(groupId)` — ajoute une ligne indépendante
    - Pas de tag hérité, combobox complet (toutes catégories)
 
+### Dropdown combobox articles
+
+`renderComboboxItems()` affiche les articles groupés par type puis catégorie :
+
+1. **FABRICATION** (section header `.cb-section-label`) — articles `item_type === 'fabrication'`
+   - Articles par défaut (`is_default`) en premier avec ★
+   - Puis articles par catégorie catalogue
+2. **MATÉRIAUX** (section header) — tous les autres articles
+   - Articles par défaut en premier avec ★
+   - Puis articles par catégorie catalogue
+3. **Autre** — Proposer un nouvel article / Ajout personnalisé
+
+CSS : `.cb-section-label` (navy, bold, border-bottom) vs `.cb-group-label` (gris, smaller)
+
 ### Langue soumission (FR/EN)
 
 - **`submissions.language`** : colonne TEXT (`'fr'` ou `'en'`, default `'fr'`). Migration : `sql/submission_language.sql`

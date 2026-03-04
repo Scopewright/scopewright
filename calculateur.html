@@ -10792,6 +10792,26 @@
 
             if (!opts.skipFocus) { var cbFocus = document.getElementById(rowId + '-cb'); if (cbFocus) cbFocus.focus(); }
             updateRoomDmBadge(groupId);
+
+            // Auto-nettoyage : si la ligne est toujours vide 2s après blur du combobox, la supprimer
+            if (!opts.existingId && !opts.cascade) {
+                var cbInput = document.getElementById(rowId + '-cb');
+                if (cbInput) {
+                    cbInput.addEventListener('blur', function onEmptyBlur() {
+                        cbInput.removeEventListener('blur', onEmptyBlur);
+                        setTimeout(function() {
+                            var r = document.getElementById(rowId);
+                            if (!r) return;
+                            var sel = r.querySelector('.item-select');
+                            var val = sel ? sel.value : '';
+                            if (!val || val === '__PROPOSER__') {
+                                removeRow(rowId);
+                            }
+                        }, 2000);
+                    });
+                }
+            }
+
             return rowId;
         }
 
@@ -11469,12 +11489,8 @@
                     fields.markup = 0;
                 }
             } else {
-                // Pas de sélection, on sauvegarde quand même la quantité
-                fields.item_type = 'catalogue';
-                fields.catalogue_item_id = null;
-                fields.description = '';
-                fields.unit_price = 0;
-                fields.markup = 0;
+                // Pas d'article sélectionné — ne pas sauvegarder de ligne vide
+                return;
             }
 
             // Include tag
@@ -17055,8 +17071,12 @@
                     }
 
                     if (room.room_items && room.room_items.length > 0) {
+                        // Filtrer les lignes vides (pas de catalogue_item_id ni custom)
+                        var validItems = room.room_items.filter(function(item) {
+                            return item.catalogue_item_id || item.item_type === 'custom';
+                        });
                         var _loadedCascadeItems = []; // pour la 2e passe
-                        room.room_items.forEach(item => {
+                        validItems.forEach(item => {
                             var isCascade = !!item.parent_item_id;
                             const rowId = addRow(groupId, { existingId: item.id, skipSave: true, skipFocus: true, cascade: isCascade });
 

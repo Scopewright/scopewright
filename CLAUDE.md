@@ -357,6 +357,8 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". Sinon (première proposition), les boutons sont affichés comme filet de sécurité.
 5. **Exécution côté client** : `executeAiTool()` applique les modifications DOM + sauvegarde Supabase. Le handler `add_catalogue_item` fait un **save immédiat** (`await updateItem`) et une **cascade immédiate** (`await executeCascade` avec guard `_cascadeRunning`), sans passer par les debounce globaux (`debouncedSaveItem` 500ms, `scheduleCascade` 400ms) — car le debounce global est une fonction unique dont le timer est annulé quand plusieurs items sont ajoutés en séquence rapide.
 6. **Persistance** : messages sauvés dans table `chat_messages` par soumission
+7. **Images AI** : deux sources — chatbox paste/drop (base64, 3200px max, JPEG 0.90) et images de référence (URL directe Storage). Les images de référence utilisent `annotatedUrl` (image avec tags rasterisés) quand disponible, sinon l'image brute. `collectRoomDetail` inclut aussi les positions des tags en texte (`annotations: [{image, tags}]`)
+8. **Rasterisation annotations** : `rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rect navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`. Migration : `sql/annotated_url.sql`
 
 ### 4 Edge Functions
 

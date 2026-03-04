@@ -1045,7 +1045,18 @@
         // Compute rentability inline (same logic as openRentab but returns data)
         var rentab = computeRentabilityData('room', groupId);
 
-        return {
+        // Collect image annotations for AI context
+        var imageAnnotations = [];
+        (groupImages[groupId] || []).forEach(function(img, imgIdx) {
+            if (img.annotations && img.annotations.length > 0) {
+                var tags = img.annotations.map(function(a) {
+                    return a.id + ' (' + Math.round(a.x * 100) + '%, ' + Math.round(a.y * 100) + '%)';
+                });
+                imageAnnotations.push({ image: imgIdx + 1, tags: tags });
+            }
+        });
+
+        var result = {
             groupId: groupId,
             roomId: roomMap[groupId] || null,
             name: name,
@@ -1056,6 +1067,8 @@
             subtotal: Math.round(subtotal * 100) / 100,
             rentability: rentab
         };
+        if (imageAnnotations.length > 0) result.annotations = imageAnnotations;
+        return result;
     }
 
     function computeRentabilityData(scope, groupId) {
@@ -1278,7 +1291,9 @@
             var roomName = nameEl ? nameEl.value.trim() : 'Sans nom';
             (groupImages[gid] || []).forEach(function(img) {
                 if (img.aiReference && (img.url || img.dataUrl)) {
-                    urls.push({ url: img.url || img.dataUrl, room: roomName });
+                    // Prefer annotated image (with tags burned in) for AI vision
+                    var imageUrl = img.annotatedUrl || img.url || img.dataUrl;
+                    urls.push({ url: imageUrl, room: roomName });
                 }
             });
         });
@@ -9580,15 +9595,148 @@
         function saveAnnotationsNow() {
             clearTimeout(annotSaveTimer);
             if (!annotState.mediaId) return;
-            authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + annotState.mediaId, {
+            var annotations = annotState.annotations;
+            var mediaId = annotState.mediaId;
+            var groupId = annotState.groupId;
+            var imageIndex = annotState.imageIndex;
+            authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + mediaId, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ annotations: annotState.annotations })
+                body: JSON.stringify({ annotations: annotations })
             }).then(function() {
                 showSaveIndicator();
+                // Rasterize image + tags for AI reference
+                rasterizeAnnotatedImage(groupId, imageIndex, mediaId, annotations);
             }).catch(function(e) {
                 console.warn('[Annot] Save failed:', e);
             });
+        }
+
+        /**
+         * Rasterize the source image with annotation tags burned in.
+         * Uploads to Storage as annotated/{mediaId}.jpg and stores the URL in room_media.annotated_url.
+         */
+        function rasterizeAnnotatedImage(groupId, imageIndex, mediaId, annotations) {
+            if (!annotations || annotations.length === 0) {
+                // No annotations → clear annotated_url
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + mediaId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ annotated_url: null })
+                }).catch(function() {});
+                var img0 = (groupImages[groupId] || [])[imageIndex];
+                if (img0) img0.annotatedUrl = null;
+                return;
+            }
+            var imgs = groupImages[groupId] || [];
+            var imgData = imgs[imageIndex];
+            if (!imgData) return;
+            var srcUrl = imgData.url || imgData.dataUrl;
+            if (!srcUrl) return;
+
+            var image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = function() {
+                var w = image.naturalWidth;
+                var h = image.naturalHeight;
+                var canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, w, h);
+
+                // Scale factor for tag sizes relative to image dimensions
+                var scale = Math.max(w, h) / 1200;
+                var fontSize = Math.round(13 * scale);
+                var padX = Math.round(5 * scale);
+                var padY = Math.round(3 * scale);
+                var radius = Math.round(4 * scale);
+                var arrowWidth = Math.max(2, Math.round(2 * scale));
+
+                annotations.forEach(function(a) {
+                    var px = a.x * w;
+                    var py = a.y * h;
+
+                    // Draw arrow
+                    if (a.hasArrow && a.arrowX != null && a.arrowY != null) {
+                        var ax = a.arrowX * w;
+                        var ay = a.arrowY * h;
+                        ctx.beginPath();
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(ax, ay);
+                        ctx.strokeStyle = 'rgba(11,18,32,0.7)';
+                        ctx.lineWidth = arrowWidth;
+                        ctx.stroke();
+                        // Arrowhead
+                        var angle = Math.atan2(ay - py, ax - px);
+                        var headLen = arrowWidth * 4;
+                        ctx.beginPath();
+                        ctx.moveTo(ax, ay);
+                        ctx.lineTo(ax - headLen * Math.cos(angle - 0.4), ay - headLen * Math.sin(angle - 0.4));
+                        ctx.lineTo(ax - headLen * Math.cos(angle + 0.4), ay - headLen * Math.sin(angle + 0.4));
+                        ctx.closePath();
+                        ctx.fillStyle = 'rgba(11,18,32,0.7)';
+                        ctx.fill();
+                    }
+
+                    // Measure text
+                    ctx.font = 'bold ' + fontSize + 'px Inter, system-ui, sans-serif';
+                    var textWidth = ctx.measureText(a.id).width;
+                    var tw = textWidth + padX * 2;
+                    var th = fontSize + padY * 2;
+
+                    // Rounded rect background
+                    var rx = px - tw / 2;
+                    var ry = py - th / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(rx + radius, ry);
+                    ctx.lineTo(rx + tw - radius, ry);
+                    ctx.quadraticCurveTo(rx + tw, ry, rx + tw, ry + radius);
+                    ctx.lineTo(rx + tw, ry + th - radius);
+                    ctx.quadraticCurveTo(rx + tw, ry + th, rx + tw - radius, ry + th);
+                    ctx.lineTo(rx + radius, ry + th);
+                    ctx.quadraticCurveTo(rx, ry + th, rx, ry + th - radius);
+                    ctx.lineTo(rx, ry + radius);
+                    ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
+                    ctx.closePath();
+                    ctx.fillStyle = '#0B1220';
+                    ctx.fill();
+
+                    // Text label
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(a.id, px, py);
+                });
+
+                canvas.toBlob(function(blob) {
+                    if (!blob) return;
+                    var path = 'annotated/' + mediaId + '.jpg';
+                    authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                        body: blob
+                    }).then(function(resp) {
+                        if (!resp.ok) { console.warn('[Annot] Annotated upload failed:', resp.status); return; }
+                        var annotatedUrl = SUPABASE_URL + '/storage/v1/object/public/room-images/' + path;
+                        // Update DB record
+                        authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + mediaId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ annotated_url: annotatedUrl })
+                        }).catch(function() {});
+                        // Update in-memory
+                        if (imgData) imgData.annotatedUrl = annotatedUrl;
+                        console.log('[Annot] Annotated image uploaded:', annotatedUrl);
+                    }).catch(function(e) {
+                        console.warn('[Annot] Annotated upload error:', e);
+                    });
+                }, 'image/jpeg', 0.92);
+            };
+            image.onerror = function() {
+                console.warn('[Annot] Failed to load image for rasterization:', srcUrl);
+            };
+            image.src = srcUrl;
         }
 
         // Arrow mode toggle
@@ -16553,6 +16701,7 @@
                                         name: m.cropped_url.split('/').pop() || 'image.jpg',
                                         url: m.cropped_url,
                                         originalUrl: m.original_url,
+                                        annotatedUrl: m.annotated_url || null,
                                         mediaId: m.id,
                                         tags: m.tags || ['presentation_soumission'],
                                         cropRatio: m.crop_ratio,

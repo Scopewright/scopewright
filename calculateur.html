@@ -592,6 +592,7 @@
     var aiChatLoaded = false;     // whether we loaded from DB for this submission
     var aiScopeObserver = null;
     var _aiScopeDebounceTimer = null;
+    var _lastAiFocusGroupId = null; // tracks previous focus to detect real changes
 
     function openAiDrawer() {
         document.getElementById('aiOverlay').classList.add('active');
@@ -628,6 +629,40 @@
         }
     }
 
+    /** Insert a visual separator + system message when the focused room changes */
+    function onAiFocusChanged(newGroupId) {
+        // Only act if conversation has messages and focus actually changed room
+        if (aiConversation.length === 0) { _lastAiFocusGroupId = newGroupId; return; }
+        if (newGroupId === _lastAiFocusGroupId) return;
+        _lastAiFocusGroupId = newGroupId;
+
+        var label;
+        if (newGroupId) {
+            var nameEl = document.getElementById(newGroupId + '-name');
+            label = nameEl ? nameEl.value.trim() : '';
+            if (!label) label = 'Pièce';
+        } else {
+            label = 'Projet';
+        }
+
+        // DOM separator
+        var container = document.getElementById('aiMessages');
+        if (container) {
+            var sep = document.createElement('div');
+            sep.className = 'ai-scope-separator';
+            sep.innerHTML = '<span>Contexte : ' + escapeHtml(label) + '</span>';
+            container.appendChild(sep);
+            var isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+            if (isNearBottom) container.scrollTop = container.scrollHeight;
+        }
+
+        // System message so Claude sees the context switch
+        var sysMsg = '[L\u2019utilisateur a chang\u00e9 de pi\u00e8ce. Nouveau contexte : ' + label + '. R\u00e9ponds d\u00e9sormais en fonction de cette pi\u00e8ce.]';
+        aiConversation.push({ role: 'user', content: sysMsg });
+        // Persist to DB (fire-and-forget)
+        if (currentSubmission) saveAiChatMessage(currentSubmission.id, 'user', sysMsg);
+    }
+
     function toggleAiFocus(groupId) {
         // Deselect all focus buttons
         document.querySelectorAll('.btn-ai-focus.active').forEach(function(btn) { btn.classList.remove('active'); });
@@ -645,6 +680,7 @@
             openAiDrawer();
         }
         updateAiScope();
+        onAiFocusChanged(aiFocusGroupId);
     }
 
     function setAiScopeFromScroll(groupId) {
@@ -665,6 +701,7 @@
         }
 
         updateAiScope();
+        onAiFocusChanged(aiFocusGroupId);
 
         // Flash the badge
         var badge = document.getElementById('aiScopeBadge');
@@ -933,6 +970,7 @@
         aiChatLoaded = false;
         aiClientFileCache = null;
         aiFocusGroupId = null;
+        _lastAiFocusGroupId = null;
         aiCurrentScope = 'project';
         var container = document.getElementById('aiMessages');
         if (container) container.innerHTML = '';
@@ -8042,6 +8080,16 @@
             content: 'Posez une question sur votre projet, demandez une analyse de rentabilit\00e9, ou d\00e9crivez ce que vous voulez ajouter.';
             color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 24px;
             line-height: 1.6;
+        }
+        .ai-scope-separator {
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; padding: 4px 0; color: #94a3b8; font-size: 11px;
+        }
+        .ai-scope-separator::before, .ai-scope-separator::after {
+            content: ''; flex: 1; height: 1px; background: #e2e8f0;
+        }
+        .ai-scope-separator span {
+            white-space: nowrap; font-weight: 600; letter-spacing: 0.02em;
         }
 
         /* Message base */

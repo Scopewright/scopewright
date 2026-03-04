@@ -4028,10 +4028,17 @@
                 if (!condResult) continue;
             }
 
-            // Calculer la quantité (formule = par unité) × rootQty (nombre d'unités FAB)
+            // Calculer la quantité enfant
+            // Formules avec variables dimensionnelles (L, H, P, QTY, n_tablettes, n_partitions)
+            // → résultat = quantité totale déjà calculée, ne pas multiplier par rootQty
+            // Constantes simples ("2", "1") → quantité par unité FAB, multiplier par rootQty
             var qtyPerUnit = evalFormula(rule.qty, vars);
             if (qtyPerUnit === null || qtyPerUnit <= 0) continue;
-            var qty = Math.round(qtyPerUnit * rootQty * 100) / 100;
+            var formulaStr = String(rule.qty);
+            var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions)\b/.test(formulaStr);
+            var qty = usesDimVars
+                ? Math.round(qtyPerUnit * 100) / 100
+                : Math.round(qtyPerUnit * rootQty * 100) / 100;
 
             // Check if a locked child satisfies this rule (by rule target or catalogueId)
             // Prevents duplicate creation when a manually-changed child already covers this rule.

@@ -220,19 +220,12 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy
 8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
 
-### Boutons d'ajout d'articles (+)
+### Ajout d'articles
 
-Deux boutons (+) distincts dans chaque pièce :
-
-1. **Inline (+)** (sur chaque ligne) : `addRow(groupId, {inheritFrom: rowId})` — ajoute un article complémentaire
-   - Hérite automatiquement du **tag** de la ligne source
-   - Positionné après les enfants cascade de la ligne source
-   - Combobox filtré aux **catégories complémentaires** : Tiroirs, Façades, Poignées, Éclairage, Autre
-   - `row.dataset.complementary = 'true'` — marqueur pour le filtre combobox
-   - Caché sur les lignes enfants cascade (CSS `.cascade-child .cell-add .btn-add { visibility: hidden }`)
-
-2. **Bottom (+) "Ajouter un article"** : `addRow(groupId)` — ajoute une ligne indépendante
-   - Pas de tag hérité, combobox complet (toutes catégories)
+Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-container`). Pas de (+) inline sur les lignes.
+- `addRow(groupId)` — crée une nouvelle ligne avec combobox complet
+- `.dm-blocked` si DM requis manquants (bloque l'ajout)
+- AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
 ### Dropdown combobox articles
 

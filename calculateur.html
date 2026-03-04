@@ -1635,6 +1635,10 @@
             case 'add_catalogue_item': {
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                // Validate catalogue_item_id exists before creating a row
+                if (!input.catalogue_item_id || !CATALOGUE_DATA.find(function(c) { return c.id === input.catalogue_item_id; })) {
+                    return { error: 'Article introuvable dans le catalogue: ' + (input.catalogue_item_id || '(vide)') };
+                }
                 var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0, skipFocus: true });
                 if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les matériaux par défaut de cette pièce.' };
                 // Wait for Supabase item creation (async in addRow) before updating
@@ -4760,7 +4764,6 @@
             margin-left: 6px;
             background: #f8faf9;
         }
-        .calc-row.cascade-child .cell-add .btn-add { visibility: hidden; }
         /* ── Cascade locked (manual override) ── */
         .calc-row.cascade-locked {
             border-left: 3px solid #E8A84C !important;
@@ -9971,14 +9974,6 @@
                            (item.client_text || '').toLowerCase().indexOf(q) !== -1;
                 });
             }
-            // Complementary category filter: inline (+) rows only show complementary categories
-            var _compRowEl = _cbActiveRowId ? document.getElementById(_cbActiveRowId) : null;
-            if (_compRowEl && _compRowEl.dataset.complementary === 'true') {
-                var COMP_CATS = ['Tiroirs', 'Façades', 'Poignées', 'Éclairage', 'Autre'];
-                items = items.filter(function(item) {
-                    return COMP_CATS.indexOf(item.category) !== -1;
-                });
-            }
             // Split items into FAB (fabrication) and MAT (materiau/other)
             var fabItems = [];
             var matItems = [];
@@ -10418,7 +10413,6 @@
             row.dataset.group = groupId;
             row.innerHTML = `
                 <div class="cell-add">
-                    <button class="btn-add" onclick="addRow('${groupId}', {inheritFrom:'${rowId}'})" title="Ajouter un article complémentaire">+</button>
                     <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
                     <button class="btn-suppressed-cascade" id="${rowId}-suppressed-btn" onclick="openSuppressedMenu('${rowId}', this)" title="Cascades supprimées">⊘</button>
                 </div>
@@ -10458,28 +10452,6 @@
                 if (tagEl) tagEl.readOnly = true;
             }
 
-            // Inline (+) inheritance: copy tag from source row, position after its cascade children
-            if (opts.inheritFrom) {
-                var srcTagEl = document.getElementById(opts.inheritFrom + '-tag');
-                var newTagEl = document.getElementById(rowId + '-tag');
-                if (srcTagEl && newTagEl && srcTagEl.value) {
-                    newTagEl.value = srcTagEl.value;
-                }
-                row.dataset.complementary = 'true';
-                // Position after source row's last cascade child (or source row itself)
-                var lastSibling = opts.inheritFrom;
-                var allRows = Array.from(container.querySelectorAll('.calc-row'));
-                var srcIdx = allRows.findIndex(function(r) { return r.id === opts.inheritFrom; });
-                if (srcIdx !== -1) {
-                    for (var si = srcIdx + 1; si < allRows.length; si++) {
-                        if (cascadeParentMap[allRows[si].id] === opts.inheritFrom) {
-                            lastSibling = allRows[si].id;
-                        } else break;
-                    }
-                }
-                opts.afterRowId = lastSibling;
-            }
-
             // Position cascade children directly after their parent (or after last sibling)
             if (opts.afterRowId) {
                 var afterEl = document.getElementById(opts.afterRowId);
@@ -10511,13 +10483,8 @@
                 itemMap[rowId] = opts.existingId;
             } else if (currentSubmission && roomMap[groupId] && !opts.skipSave) {
                 const sortOrder = container.querySelectorAll('.calc-row').length;
-                var inheritedTag = opts.inheritFrom ? (document.getElementById(rowId + '-tag') || {}).value || null : null;
                 createItem(roomMap[groupId], { sort_order: sortOrder }).then(item => {
-                    if (item) {
-                        itemMap[rowId] = item.id;
-                        // Persist inherited tag immediately
-                        if (inheritedTag) updateItem(item.id, { tag: inheritedTag });
-                    }
+                    if (item) itemMap[rowId] = item.id;
                 });
             }
 

@@ -9965,6 +9965,14 @@
                            (item.client_text || '').toLowerCase().indexOf(q) !== -1;
                 });
             }
+            // Complementary category filter: inline (+) rows only show complementary categories
+            var _compRowEl = _cbActiveRowId ? document.getElementById(_cbActiveRowId) : null;
+            if (_compRowEl && _compRowEl.dataset.complementary === 'true') {
+                var COMP_CATS = ['Tiroirs', 'Façades', 'Poignées', 'Éclairage', 'Autre'];
+                items = items.filter(function(item) {
+                    return COMP_CATS.indexOf(item.category) !== -1;
+                });
+            }
             // Prioritize items matching room default materials
             var dmIds = {};
             var rowEl = _cbActiveRowId ? document.getElementById(_cbActiveRowId) : null;
@@ -10398,7 +10406,7 @@
             row.dataset.group = groupId;
             row.innerHTML = `
                 <div class="cell-add">
-                    <button class="btn-add" onclick="addRow('${groupId}')" title="Ajouter une ligne">+</button>
+                    <button class="btn-add" onclick="addRow('${groupId}', {inheritFrom:'${rowId}'})" title="Ajouter un article complémentaire">+</button>
                     <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
                     <button class="btn-suppressed-cascade" id="${rowId}-suppressed-btn" onclick="openSuppressedMenu('${rowId}', this)" title="Cascades supprimées">⊘</button>
                 </div>
@@ -10438,6 +10446,28 @@
                 if (tagEl) tagEl.readOnly = true;
             }
 
+            // Inline (+) inheritance: copy tag from source row, position after its cascade children
+            if (opts.inheritFrom) {
+                var srcTagEl = document.getElementById(opts.inheritFrom + '-tag');
+                var newTagEl = document.getElementById(rowId + '-tag');
+                if (srcTagEl && newTagEl && srcTagEl.value) {
+                    newTagEl.value = srcTagEl.value;
+                }
+                row.dataset.complementary = 'true';
+                // Position after source row's last cascade child (or source row itself)
+                var lastSibling = opts.inheritFrom;
+                var allRows = Array.from(container.querySelectorAll('.calc-row'));
+                var srcIdx = allRows.findIndex(function(r) { return r.id === opts.inheritFrom; });
+                if (srcIdx !== -1) {
+                    for (var si = srcIdx + 1; si < allRows.length; si++) {
+                        if (cascadeParentMap[allRows[si].id] === opts.inheritFrom) {
+                            lastSibling = allRows[si].id;
+                        } else break;
+                    }
+                }
+                opts.afterRowId = lastSibling;
+            }
+
             // Position cascade children directly after their parent (or after last sibling)
             if (opts.afterRowId) {
                 var afterEl = document.getElementById(opts.afterRowId);
@@ -10469,8 +10499,13 @@
                 itemMap[rowId] = opts.existingId;
             } else if (currentSubmission && roomMap[groupId] && !opts.skipSave) {
                 const sortOrder = container.querySelectorAll('.calc-row').length;
+                var inheritedTag = opts.inheritFrom ? (document.getElementById(rowId + '-tag') || {}).value || null : null;
                 createItem(roomMap[groupId], { sort_order: sortOrder }).then(item => {
-                    if (item) itemMap[rowId] = item.id;
+                    if (item) {
+                        itemMap[rowId] = item.id;
+                        // Persist inherited tag immediately
+                        if (inheritedTag) updateItem(item.id, { tag: inheritedTag });
+                    }
                 });
             }
 

@@ -3718,7 +3718,12 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            messages: catAiReviewMessages,
+                            messages: catAiReviewMessages.filter(function(m) {
+                                if (!m.content) return false;
+                                if (typeof m.content === 'string') return m.content.length > 0;
+                                if (Array.isArray(m.content)) return m.content.length > 0;
+                                return true;
+                            }),
                             context: {},
                             prompt_key: 'ai_prompt_approval_review',
                             tools_enabled: false

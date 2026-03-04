@@ -647,11 +647,19 @@ serve(async (req) => {
     // Build tools array: always include save_learning, other tools based on flag
     const allTools = useTools ? [...TOOLS, SAVE_LEARNING_TOOL] : [SAVE_LEARNING_TOOL];
 
+    // Filter out messages with empty content (prevents Anthropic API 400 error)
+    const cleanMessages = messages.filter((m: any) => {
+      if (!m.content) return false;
+      if (typeof m.content === "string") return m.content.length > 0;
+      if (Array.isArray(m.content)) return m.content.length > 0;
+      return true;
+    });
+
     const body: any = {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
       system: systemPrompt,
-      messages: messages,
+      messages: cleanMessages,
       tools: allTools,
     };
 

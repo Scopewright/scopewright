@@ -320,6 +320,14 @@ Le fix token optimization (#132) avait retiré le champ `instruction` de `buildC
 
 **Fix** : `instruction` réinclus pour tous les articles du summary (soumission + defaults), tronqué à 80 caractères.
 
+**[BUG-26] CORRIGÉ — `$match:` résout dans le mauvais contexte matériau**
+
+Quand un FAB contient `$default:Caisson` + `$match:BANDE DE CHANT` + `$match:FINITION BOIS`, le `$default:` résolvait vers mélamine mais `materialCtx.chosenClientText` n'était pas mis à jour avec le `client_text` de l'article résolu. Les `$match:` frères utilisaient le `materialCtx` initial (pré-peuplé depuis le DM de la catégorie FAB), scorant dans le mauvais domaine (ex: chêne blanc au lieu de mélamine).
+
+**Impact** : bandes de chant et finitions incorrectes — le FAB mélamine recevait des enfants cascade chêne blanc.
+
+**Fix** : `resolveCascadeTarget` propage désormais `materialCtx.chosenClientText` après chaque résolution `$default:` réussie (3 points de sortie : cache hit, candidat unique, modale technique). Les `$match:` suivants du même FAB scorent dans le contexte du matériau effectivement résolu.
+
 ---
 
 ## 4. Risques architecturaux

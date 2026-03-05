@@ -343,9 +343,11 @@ Mécanisme pour empêcher la duplication de matériaux cascade à différentes p
 await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
 ```
 
+**Mise à jour par `$default:`** : après résolution d'une règle `$default:`, `resolveCascadeTarget` propage le `client_text` de l'article catalogue résolu dans `materialCtx.chosenClientText`. Cela permet aux règles `$match:` frères (même FAB) de scorer les candidats dans le contexte du matériau effectivement résolu. Trois points de sortie patchés : cache hit (`dmChoiceCache`), candidat unique, et modale technique. Exemple : `$default:Caisson` → mélamine grise 805 → `materialCtx.chosenClientText = "Mélamine grise pale 805"` → `$match:BANDE DE CHANT` score dans le contexte mélamine (pas chêne blanc).
+
 **Usage** :
-- `resolveCascadeTarget($default:)` : disambiguë quand plusieurs DMs du même type existent
-- `resolveMatchTarget($match:)` : dérive les catégories de dépense dynamiques depuis le DM
+- `resolveCascadeTarget($default:)` : disambiguë quand plusieurs DMs du même type existent, puis **propage** le `client_text` résolu dans `materialCtx`
+- `resolveMatchTarget($match:)` : dérive les catégories de dépense dynamiques depuis le DM via `materialCtx.chosenClientText`
 - `getDefaultMaterialKeywords()` : disambiguë dans chaque tier de résolution
 
 **Règle** : materialCtx **disambiguë** uniquement — il ne surcharge JAMAIS un DM unique explicite. Si un seul DM existe pour un type donné, il est utilisé directement quel que soit le materialCtx.

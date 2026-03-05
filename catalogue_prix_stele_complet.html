@@ -711,6 +711,10 @@
         .ai-field-wrap {
             position: relative;
         }
+        /* Force textarea into stacking context so btn-ai-dot renders above it */
+        .ai-field-wrap > textarea {
+            position: relative; z-index: 1;
+        }
         .btn-ai-dot {
             position: absolute; top: 6px; right: 6px; z-index: 2;
             width: 22px; height: 22px; border-radius: 50%;
@@ -2113,7 +2117,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Instruction</label>
-                    <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical;"></textarea>
+                    <div class="ai-feedback-container" id="instructionFeedback"></div>
+                    <div class="ai-field-wrap">
+                        <textarea class="form-input" id="editInstruction" rows="2" style="resize:vertical; padding-right:32px;"></textarea>
+                        <button class="btn-ai-dot" id="btnAiInstruction" onclick="aiInstructionRewrite()" title="Reformuler avec l'AI">
+                            <span class="ai-dot"></span>
+                        </button>
+                    </div>
                 </div>
                 <!-- Proposal context (non-admin proposers + approvers) -->
                 <div class="form-group" id="proposalContextGroup" style="display:none;">
@@ -2130,14 +2140,8 @@
                 <div class="form-group" id="clientTextGroup" style="display:none;">
                     <div class="cp-section-title">Pr&eacute;sentation client</div>
                     <label class="form-label" style="margin-top:8px;">Texte</label>
-                    <div class="ai-feedback-container" id="clientTextFeedback"></div>
-                    <div class="ai-field-wrap">
-                        <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC"
+                    <input type="text" class="form-input" id="editClientText" placeholder="Ex: placage de ch&ecirc;ne blanc FC"
                                oninput="debouncedClientTextSuggest()">
-                        <button class="btn-ai-dot" id="btnAiClientText" onclick="aiCatalogueClientText()" title="Corriger / reformuler avec l'AI">
-                            <span class="ai-dot"></span>
-                        </button>
-                    </div>
                     <div class="ct-suggestions" id="clientTextSuggestions"></div>
                 </div>
                 <!-- Template hint banner (admin only) -->
@@ -6767,6 +6771,51 @@
                     showAiFeedback(feedbackId, envelope);
                 } else if (envelope.status === 'needs_review') {
                     showAiFeedback(feedbackId, envelope, applyData, 'clientText');
+                } else {
+                    applyData();
+                }
+            } catch (err) {
+                hadError = true;
+                showAiFeedback(feedbackId, { status: 'error', warnings: [err.message || 'Erreur inconnue'] });
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('ai-active');
+                if (!hadError) flashAiDotDone(btn);
+            }
+        }
+
+        async function aiInstructionRewrite() {
+            var btn = document.getElementById('btnAiInstruction');
+            var textarea = document.getElementById('editInstruction');
+            var feedbackId = 'instructionFeedback';
+            clearAiFeedback(feedbackId);
+
+            var existingText = textarea.value.trim();
+            if (!existingText) {
+                showAiFeedback(feedbackId, { status: 'error', warnings: ['Aucune instruction \u00e0 reformuler. \u00c9cris d\'abord une instruction brute.'] });
+                return;
+            }
+
+            var prompt = '=== ARTICLE ===\n' + buildArticleContext();
+            prompt += '\n\nInstruction actuelle \u00e0 reformuler :\n' + existingText;
+
+            btn.disabled = true;
+            btn.classList.add('ai-active');
+            var hadError = false;
+            try {
+                var results = await callEdgeFunction([{ key: 'instr', text: prompt }], 'instruction_rewrite');
+                var envelope = parseAiEnvelope(results['instr'], 'text');
+
+                var applyData = function() {
+                    if (envelope.text) textarea.value = envelope.text;
+                    flashAiSuccess(textarea);
+                    clearAiFeedback(feedbackId);
+                };
+
+                if (envelope.status === 'error') {
+                    showAiFeedback(feedbackId, envelope);
+                } else if (envelope.status === 'needs_review') {
+                    showAiFeedback(feedbackId, envelope, applyData, 'instruction');
                 } else {
                     applyData();
                 }

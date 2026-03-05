@@ -134,7 +134,7 @@ Chaque article `catalogue_items` possede ces colonnes :
 | `calculation_rule_human` | TEXT | Regle de calcul en langage naturel. |
 | `calculation_rule_ai` | JSONB | Regle structuree : cascades, contraintes, ask, notes. |
 | `dims_config` | JSONB | Dimensions applicables : `{"l": true, "h": true, "p": false}`. |
-| `instruction` | TEXT | Instructions de prise de mesure pour l'estimateur. |
+| `instruction` | TEXT | Instructions de prise de mesure pour l'estimateur. Bouton AI (`.btn-ai-dot`) pour reformulation structuree via action `instruction_rewrite` (Haiku). |
 
 ### Presentation
 

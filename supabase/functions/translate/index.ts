@@ -28,7 +28,8 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
         "ai_prompt_fiche_optimize", "ai_prompt_fiche_translate_fr_en", "ai_prompt_fiche_translate_en_fr",
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
         "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
-        "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest"
+        "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest",
+        "ai_prompt_instruction_catalogue"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -147,6 +148,36 @@ MODE RÉVISION (description existante) :
 - Ne change PAS le sens ni n'invente de contenu
 
 Retourne UNIQUEMENT le HTML de la description, sans explication.`;
+
+const CATALOGUE_INSTRUCTION_SYSTEM = `Tu es un spécialiste en documentation technique pour Stele, un atelier d'ébénisterie haut de gamme sur mesure.
+Tu reçois l'instruction brute d'un article du catalogue (notes internes pour l'estimateur) et tu dois la reformuler en texte structuré et actionnable.
+
+RÔLE DU CHAMP INSTRUCTION :
+Ce texte guide l'estimateur quand il utilise cet article dans une soumission.
+Il décrit les conditions d'utilisation, les limites dimensionnelles, les ajustements nécessaires, et les pièges à éviter.
+L'AI assistant de l'estimateur lit aussi ce champ pour proposer des ajustements automatiques.
+
+FORMAT DE SORTIE :
+- Phrases courtes et impératives, structurées par thème
+- Utilise des tirets (-) pour lister les points
+- Sépare les thèmes par une ligne vide si plusieurs
+- Commence par la condition ou contrainte la plus importante
+- Les valeurs numériques doivent être explicites (dimensions en pouces, prix en $, pourcentages)
+
+EXEMPLES DE TRANSFORMATION :
+- Entrée : "si c'est plus large que 36po faut ajouter du temps de machinage environ 15min"
+  Sortie : "- Largeur > 36 po : ajouter 15 min de machinage"
+- Entrée : "pour les placages de noyer le prix des matériaux augmente d'environ 20%"
+  Sortie : "- Placage noyer : majorer les coûts matériaux de 20%"
+- Entrée : "ne pas utiliser avec des portes vitrées, ça marche juste avec du massif ou du plaqué"
+  Sortie : "- Compatible uniquement avec façades en massif ou placage\\n- Ne pas utiliser avec portes vitrées"
+
+RÈGLES STRICTES :
+- Ne PAS inventer de contraintes ou valeurs absentes du texte original
+- Conserver TOUTES les informations du texte source, même si elles semblent redondantes
+- Si le texte est déjà bien structuré, ne le reformule pas inutilement
+- Si le texte est ambigu ou incomplet, reformule au mieux et ajoute [à valider] en fin de ligne
+- Retourne UNIQUEMENT le texte reformulé, sans explication, sans markdown, sans backticks`;
 
 const IMPORT_COMPONENTS_SYSTEM = `Tu es un assistant d'import pour Stele, un atelier d'ébénisterie haut de gamme.
 Tu reçois des données fournisseur (screenshot de liste de prix, photo de catalogue, ou texte en vrac) et tu extrais les composantes structurées.
@@ -292,6 +323,7 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   calculateur_description: { key: "ai_prompt_description_calculateur", prompt: CALCULATEUR_DESCRIPTION_SYSTEM },
   import_components:       { key: "ai_prompt_import_components", prompt: IMPORT_COMPONENTS_SYSTEM },
   approval_suggest:        { key: "ai_prompt_approval_suggest", prompt: APPROVAL_SUGGEST_SYSTEM },
+  instruction_rewrite:     { key: "ai_prompt_instruction_catalogue", prompt: CATALOGUE_INSTRUCTION_SYSTEM },
 };
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
@@ -410,6 +442,8 @@ serve(async (req) => {
           ? `Extrais les composantes fournisseur depuis les données ci-dessous (texte et/ou image jointe).\n\n${nonEmpty[0].text}\n\nRetourne UNIQUEMENT le JSON valide.`
           : action === "approval_suggest"
           ? `Voici un article proposé par un estimateur, avec des articles similaires existants.\n\n${nonEmpty[0].text}\n\nGénère des suggestions pour enrichir cet article. Retourne UNIQUEMENT le JSON valide.`
+          : action === "instruction_rewrite"
+          ? `Voici les détails de l'article et son instruction actuelle.\n\n${nonEmpty[0].text}\n\nReformule l'instruction en texte structuré et actionnable. Retourne UNIQUEMENT le texte reformulé.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       // Build multimodal content when images are provided (for import_components with vision)

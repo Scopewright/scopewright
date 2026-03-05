@@ -229,6 +229,20 @@ Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-conta
 - `.dm-blocked` si DM requis manquants (bloque l'ajout)
 - AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
+### Override par ligne (prix, MO, matériaux)
+
+Ajustements par ligne, par soumission, sans modifier le catalogue. Stocké dans `room_items` (JSONB/NUMERIC).
+- **`_rowOverrides[rowId]`** : map mémoire `{ labor: {dept: mins}, material: {cat: cost}, price: number|null }`
+- **Bouton `⚙`** (`.btn-ov`) dans `.cell-unit-price`, visible au hover, violet si override actif
+- **Popover** (`.ov-pop`) : 3 sections — prix de vente, MO par département, matériaux par catégorie. Montre la valeur catalogue en référence
+- **Calcul** : `price_override` remplace entièrement `computeComposedPrice`. `labor_override`/`material_override` fusionnent avec les valeurs catalogue (`Object.assign`) puis recalculent via `computeComposedPrice(merged, includeInstall)`
+- **Rentabilité** : `computeRentabilityData` utilise les overrides. `price_override` → montant flat (comme `__AJOUT__`), labor/material → décomposition MO + matériaux avec valeurs fusionnées
+- **Persistance** : `debouncedSaveItem` sauvegarde les 3 colonnes override + `unit_price` effectif (pour compatibilité `quote.html`)
+- **Indicateur** : classe `.has-override` (bordure gauche violette `#7c3aed`, prix violet bold)
+- **Reset** : changement d'article → overrides supprimés. Bouton "Réinitialiser" dans le popover
+- **Cascade children** : pas de bouton override (masqué dans `addRow` si `opts.cascade`)
+- **AI tool** : `update_submission_line` — jamais auto-exécuté, simulation obligatoire. Migration : `sql/line_overrides.sql`
+
 ### Dropdown combobox articles
 
 `renderComboboxItems()` affiche les articles groupés par type puis catégorie :
@@ -384,7 +398,7 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 ### Architecture
 
 1. **Client** (`calculateur.html`) : drawer latéral droit, `collectAiContext(userMessage)` assemble le contexte. **Budget tokens** : en mode normal, `catalogueSummary` ne contient que les articles de la soumission + les ★ defaults (max 80) avec `instruction` (limites dimensionnelles, notes métier — tronquée à 80 car), et `calculationRules` est vide. Deux détections indépendantes contrôlent l'inclusion conditionnelle : `detectCalculationContext(userMessage)` (mots-clés : règle, calcul, formule, cascade, enfant, dimension, pourquoi, comment…) → inclut `calculationRules`. `detectCascadeDiagnostic(userMessage)` (mots-clés : cascade, debug, bug, manqu, erreur, $default, $match…) → inclut `cascadeDiagnostic` (50 derniers logs). Cible : ≤20K tokens normal, ≤30K diagnostic
-2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 8 outils (dont `update_catalogue_item`)
+2. **Edge Function** (`ai-assistant/index.ts`) : system prompt dynamique + Anthropic API + 9 outils (dont `update_catalogue_item`, `update_submission_line`)
 3. **Mode simulation** : l'AI propose des modifications en texte d'abord, l'utilisateur confirme, puis les tools sont appelés
 4. **Auto-exécution** : `isUserConfirmation(text)` détecte les confirmations ("oui", "go", "confirme"…). Si l'AI retourne des `tool_use` après confirmation, `autoExecutePendingTools()` exécute directement sans afficher les boutons "Appliquer/Ignorer". **Exception** : `update_catalogue_item` est bloqué de l'auto-exécution — toujours boutons de confirmation
 5. **Exécution côté client** : `executeAiTool()` applique les modifications DOM + sauvegarde Supabase. Le handler `add_catalogue_item` fait un **save immédiat** (`await updateItem`) et une **cascade immédiate** (`await executeCascade` avec guard `_cascadeRunning`), sans passer par les debounce globaux (`debouncedSaveItem` 500ms, `scheduleCascade` 400ms) — car le debounce global est une fonction unique dont le timer est annulé quand plusieurs items sont ajoutés en séquence rapide.
@@ -395,7 +409,8 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 8. **Rasterisation annotations** : `rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rect navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`. Migration : `sql/annotated_url.sql`
 9. **Cascade debug log** : `cascadeDebugLog` — buffer mémoire circulaire (max 200 entrées) capturant tous les `console.log/warn/error` du moteur cascade via `cascadeLog(level, msg, data)`. `summarizeCascadeLog()` retourne les 50 dernières entrées en texte. `detectCascadeDiagnostic(text)` détecte les mots-clés cascade dans le message utilisateur pour inclure les logs dans le contexte AI
 10. **Tool `update_catalogue_item`** : modifie un article du catalogue depuis l'AI (price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct). Permission `canEditCatalogue` requise (`edit_catalogue`). Whitelist stricte de champs, snapshot avant/après, audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** — confirmation obligatoire. Migration : `sql/catalogue_change_log.sql`
-11. **Sanitisation tool_use/tool_result** : `sanitizeConversationToolUse(messages)` — défense en profondeur avant chaque appel API. Détecte les blocs `tool_use` orphelins (sans `tool_result` correspondant) et injecte des `tool_result` synthétiques `{"skipped":true}`. Prévient l'erreur Anthropic 400 "tool_use ids found without tool_result blocks". Trois sources d'orphelins corrigées en amont : (a) `aiDismissPending` injecte `{"dismissed":true}` au clic "Ignorer", (b) `sendAiMessage` neutralise les pending tools si l'utilisateur tape un nouveau message, (c) `autoExecutePendingTools`/`aiApplyPending` gèrent les follow-up `tool_use` dans la réponse post-exécution (affichent des boutons de confirmation au lieu de laisser les blocs orphelins)
+11. **Tool `update_submission_line`** : ajuste les minutes MO, coûts matériaux ou prix de vente d'une ligne dans la soumission courante. Override local, ne modifie PAS le catalogue. Fusionne `labor_minutes`/`material_costs` avec les valeurs catalogue via `Object.assign`. `price` remplace entièrement le prix composé. **Jamais auto-exécuté** — simulation obligatoire. Pas d'audit trail DB (chat history seulement). Le contexte AI (`collectRoomDetail`) inclut les overrides existants
+12. **Sanitisation tool_use/tool_result** : `sanitizeConversationToolUse(messages)` — défense en profondeur avant chaque appel API. Détecte les blocs `tool_use` orphelins (sans `tool_result` correspondant) et injecte des `tool_result` synthétiques `{"skipped":true}`. Prévient l'erreur Anthropic 400 "tool_use ids found without tool_result blocks". Trois sources d'orphelins corrigées en amont : (a) `aiDismissPending` injecte `{"dismissed":true}` au clic "Ignorer", (b) `sendAiMessage` neutralise les pending tools si l'utilisateur tape un nouveau message, (c) `autoExecutePendingTools`/`aiApplyPending` gèrent les follow-up `tool_use` dans la réponse post-exécution (affichent des boutons de confirmation au lieu de laisser les blocs orphelins)
 12. **Rate limit auto-retry** : `callAiAssistant` intercepte les réponses 429 (rate limit) et 529 (overloaded). Affiche "Un instant, le serveur est occupé…", attend 15s, retire le message temporaire (`removeLastAiMessage()`), et retry une seule fois. Si le retry échoue aussi, affiche un message d'erreur propre (jamais le texte brut de l'API)
 
 ### Architecture des prompts AI
@@ -444,7 +459,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
-| `ai-assistant` | Sonnet 4.5 | Non | 8 | calculateur, approbation, catalogue |
+| `ai-assistant` | Sonnet 4.5 | Non | 9 | calculateur, approbation, catalogue |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (11 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |
@@ -503,6 +518,9 @@ catalogue_change_log (audit AI modifications catalogue)
 ### Colonnes et contraintes importantes
 
 - `room_items.line_total` est une **colonne générée PostgreSQL** (`qty × unit_price × (1 + markup/100)`) — ne pas écrire dessus
+- `room_items.labor_override` JSONB — override MO par ligne (`{ dept: minutes }`). NULL = valeurs catalogue. Migration : `sql/line_overrides.sql`
+- `room_items.material_override` JSONB — override matériaux par ligne (`{ cat: cost }`). NULL = valeurs catalogue
+- `room_items.price_override` NUMERIC — prix de vente fixe par ligne. NULL = prix composé calculé. Remplace entièrement `computeComposedPrice`
 - `catalogue_items.id` est un TEXT PK auto-généré (ST-XXXX) par trigger `trg_catalogue_auto_code`
 - `project_code` auto-généré par trigger `trg_project_auto_code` (préfixe configurable)
 - `submission_number` séquence globale démarrant à 100

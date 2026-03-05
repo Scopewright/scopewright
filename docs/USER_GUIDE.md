@@ -343,6 +343,24 @@ Le bouton **Rentabilité** dans la barre d'outils ouvre une vue détaillée :
 - **Marge brute** en dollars et en pourcentage
 - **Modificateur %** — Un pourcentage de surcharge appliqué à toutes les sections
 
+### Ajustements par ligne
+
+Pour ajuster le prix, la main-d'œuvre ou les coûts matériaux d'une ligne **sans modifier le catalogue** :
+
+1. **Survolez** la cellule prix d'un article → une icône ⚙ apparaît
+2. **Cliquez** sur ⚙ → un panneau s'ouvre avec trois sections :
+   - **Prix de vente** — Entrez un prix fixe qui remplace entièrement le prix calculé
+   - **Main-d'œuvre** — Ajustez les minutes par département (ex: ébénisterie, installation)
+   - **Coûts matériaux** — Ajustez les coûts par catégorie de dépense
+3. **Référence catalogue** — Chaque champ montre la valeur originale du catalogue en gris
+4. **Appliquer** — Enregistre les ajustements. La ligne affiche un indicateur violet
+
+Les ajustements sont **locaux à cette soumission** — ils ne modifient pas l'article dans le catalogue. Si vous changez l'article sélectionné sur la ligne, les ajustements sont automatiquement supprimés.
+
+Le bouton **Réinitialiser** dans le panneau supprime tous les ajustements et revient aux valeurs du catalogue.
+
+**Note technique** : les ajustements de main-d'œuvre et matériaux se combinent avec les valeurs du catalogue (fusion). Le prix de vente fixe remplace complètement le calcul du prix composé. Les composantes générées automatiquement n'ont pas de bouton d'ajustement.
+
 ### Filtres et navigation
 
 #### Tags
@@ -803,6 +821,7 @@ Personnalisez la page d'introduction de vos soumissions :
 | Import de contacts | **AI** — Collez un screenshot, l'AI fait le reste |
 | Diagnostiquer un problème | **AI** — « Pourquoi le panneau n'est pas généré? » |
 | Corriger un prix catalogue | **AI** — « Change le prix de ST-0042 à 85$ » (si permission) |
+| Ajuster le prix d'une ligne | **AI** — « Ajuste les minutes de la ligne 0 à 60 min ébénisterie » ou **Manuel** — Bouton ⚙ sur la ligne |
 | Changer un matériau par défaut | **Manuel** — Panneau matériaux par défaut |
 
 **Principe fondamental :** L'AI aide et accélère, mais l'estimateur décide. L'AI propose, vous confirmez. Chaque modification passe par votre validation.

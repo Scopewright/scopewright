@@ -328,6 +328,10 @@ Quand un FAB contient `$default:Caisson` + `$match:BANDE DE CHANT` + `$match:FIN
 
 **Fix** : `resolveCascadeTarget` propage désormais `materialCtx.chosenClientText` après chaque résolution `$default:` réussie (3 points de sortie : cache hit, candidat unique, modale technique). Les `$match:` suivants du même FAB scorent dans le contexte du matériau effectivement résolu.
 
+**[FEATURE-01] Override par ligne (prix, MO, matériaux)**
+
+Nouvelles colonnes `room_items` : `labor_override` JSONB, `material_override` JSONB, `price_override` NUMERIC. Override local par soumission, ne modifie pas le catalogue. Fusionné avec valeurs catalogue via `Object.assign`. Popover UI (`.ov-pop`) + indicateur visuel (`.has-override`). Tool AI `update_submission_line` (jamais auto-exécuté). Migration : `sql/line_overrides.sql`.
+
 ---
 
 ## 4. Risques architecturaux

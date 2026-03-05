@@ -1081,6 +1081,16 @@ L'assistant AI du calculateur (`ai-assistant` Edge Function) peut modifier un ar
 - **Jamais auto-execute** : confirmation obligatoire via boutons "Appliquer / Ignorer" — meme si l'utilisateur dit "oui" ou "go"
 - **CATALOGUE_DATA** : mis a jour en memoire apres application (pas de rechargement page necessaire)
 
+### Tool `update_submission_line` (override par ligne)
+
+L'assistant AI du calculateur peut ajuster les minutes MO, couts materiaux ou prix de vente d'une ligne dans la soumission courante. Tool `update_submission_line` :
+
+- **Override local** : ne modifie PAS le catalogue — ajustement per-soumission uniquement
+- **Champs** : `overrides.labor_minutes` (fusionne avec catalogue), `overrides.material_costs` (fusionne avec catalogue), `overrides.price` (remplace entierement le prix compose)
+- **Jamais auto-execute** : simulation obligatoire (avant/apres), confirmation requise
+- **Pas d'audit DB** : pas de table dedicee, historique dans le chat uniquement
+- **Reset** : changement d'article catalogue → overrides supprimes automatiquement
+
 ### Cascade debug logs
 
 `cascadeDebugLog` — buffer memoire circulaire (200 entrees max) capturant tous les `cascadeLog(level, msg, data)` du moteur cascade. `summarizeCascadeLog()` retourne les 50 dernieres entrees en texte.

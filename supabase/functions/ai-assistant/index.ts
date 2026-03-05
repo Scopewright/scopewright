@@ -384,6 +384,18 @@ Flux OBLIGATOIRE :
 5. Le paramètre "reason" est OBLIGATOIRE — résume pourquoi la modification est faite
 Champs INTERDITS (sécurité) : id, category, description, client_text, type, status, is_default, sort_order — ces champs ne sont pas modifiables par cet outil.`;
 
+  // Per-line override instructions
+  dynamicParts += `\n\n## Ajustement par ligne (tool update_submission_line)
+Tu peux ajuster les minutes MO, coûts matériaux ou prix de vente d'une ligne DANS la soumission, sans modifier le catalogue.
+Cas d'usage : meuble plus complexe que la normale, prix négocié, matériau plus cher pour cette dimension, instruction de l'article catalogue.
+Flux OBLIGATOIRE :
+1. Lis l'instruction de l'article catalogue (champ instruction) pour voir s'il y a des règles d'ajustement
+2. PROPOSE les modifications en texte (simulation) : montre catalogue vs override, calcule le nouveau prix
+3. Attends la confirmation EXPLICITE
+4. SEULEMENT après confirmation, appelle le tool update_submission_line
+5. Le paramètre "reason" est OBLIGATOIRE
+IMPORTANT : price override remplace entièrement le prix composé. labor_minutes/material_costs override se fusionnent avec les valeurs catalogue (Object.assign) et le prix est recalculé.`;
+
   // Project context
   dynamicParts += `\n\n## Contexte actuel
 Projet : ${context.project?.name || 'N/A'}
@@ -622,6 +634,50 @@ const TOOLS = [
         },
       },
       required: ["catalogue_item_id", "changes", "reason"],
+    },
+  },
+  {
+    name: "update_submission_line",
+    description:
+      "Ajuste les minutes main-d'œuvre, coûts matériaux ou prix de vente d'une ligne spécifique dans la soumission courante. Ces modifications sont locales à la soumission (override), elles ne modifient PAS le catalogue. TOUJOURS proposer les modifications en mode simulation d'abord (avant/après), puis attendre la confirmation EXPLICITE de l'utilisateur avant d'appeler ce tool. Ce tool n'est JAMAIS auto-exécuté.",
+    input_schema: {
+      type: "object",
+      properties: {
+        room_name: {
+          type: "string",
+          description: "Nom de la pièce contenant la ligne",
+        },
+        item_index: {
+          type: "number",
+          description: "Index de l'article dans la pièce (0-based, tel qu'affiché dans le contexte items[])",
+        },
+        overrides: {
+          type: "object",
+          description: "Les ajustements à appliquer",
+          properties: {
+            labor_minutes: {
+              type: "object",
+              description:
+                'Minutes par département (ex: {"Ébénisterie": 60}). Fusionné avec les valeurs catalogue.',
+            },
+            material_costs: {
+              type: "object",
+              description:
+                'Coûts matériaux par catégorie (ex: {"PANNEAU BOIS": 8.50}). Fusionné avec les valeurs catalogue.',
+            },
+            price: {
+              type: "number",
+              description:
+                "Prix de vente override (remplace entièrement le prix composé). À utiliser quand on veut fixer un prix sans décomposition.",
+            },
+          },
+        },
+        reason: {
+          type: "string",
+          description: "Justification de l'ajustement",
+        },
+      },
+      required: ["room_name", "item_index", "overrides", "reason"],
     },
   },
 ];

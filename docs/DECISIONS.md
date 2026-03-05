@@ -390,3 +390,23 @@
 - Chaque modification est auditée dans `catalogue_change_log` (who, when, before, after)
 - La confirmation obligatoire prévient les modifications accidentelles
 - `CATALOGUE_DATA` en mémoire est mis à jour après application (pas de rechargement requis)
+
+## DEC-020 — Override par ligne (prix, MO, matériaux) sans modifier le catalogue
+
+**Date** : 2026-03-05
+
+**Contexte** : Le prix de chaque ligne est calculé directement depuis le catalogue (`computeComposedPrice`). L'estimateur ne peut pas ajuster une ligne sans modifier l'article catalogue lui-même — ce qui affecte TOUTES les soumissions.
+
+**Décision** : 3 colonnes JSONB/NUMERIC sur `room_items` (`labor_override`, `material_override`, `price_override`). Override local par soumission. `price_override` remplace entièrement le prix composé. `labor_override`/`material_override` fusionnent avec les valeurs catalogue via `Object.assign` puis recalculent. Mémoire JS : `_rowOverrides[rowId]`. UI : bouton ⚙ dans la cellule prix + popover. Indicateur visuel `.has-override`. Tool AI `update_submission_line` (jamais auto-exécuté).
+
+**Alternatives considérées** :
+- **Modifier `shared/pricing.js`** : ajouter un paramètre `overrides` à `computeComposedPrice`. Plus propre mais modifie la signature d'une fonction partagée (3 fichiers). Le pattern merged-item (Object.assign) est plus conservateur.
+- **Colonne `unit_price_override` seule** : pas de décomposition MO/matériaux, rentabilité impossible à calculer avec overrides partiels.
+- **Modal séparée** : trop lourd pour un ajustement rapide. Le popover inline est plus fluide.
+
+**Conséquences** :
+- L'estimateur peut ajuster une ligne en 3 clics sans quitter le calculateur
+- La rentabilité reflète les overrides (MO + matériaux fusionnés, ou flat pour price override)
+- `unit_price` en DB reflète le prix effectif (avec overrides) pour compatibilité `quote.html`
+- Le changement d'article catalogue reset automatiquement les overrides
+- Les cascade children n'ont pas de bouton override (ajustements post-cascade uniquement)

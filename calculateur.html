@@ -91,6 +91,7 @@
     var USER_PROFILES_MAP = {}; // { email: "Prénom Nom" } from user_profiles
     var SUPPLIER_COMPANIES = [];     // [{id, name}] from companies where company_type='Fournisseurs'
     var _customItemDataMap = {};     // { rowId: { description, unit_price, markup, custom_data } }
+    var _rowOverrides = {};          // { rowId: { labor: {dept: mins}, material: {cat: cost}, price: number|null } }
     var _cimRowId = null;            // rowId being edited in custom item modal
     var _cimAttachments = [];        // [{path, name, type, size, isNew, file}]
     var _cimAttachmentsToDelete = []; // storage paths to delete on save
@@ -1081,6 +1082,11 @@
                         dims: catDims
                     };
                     if (item.instruction) rowData.instruction = item.instruction;
+                    var ovCtx = _rowOverrides[row.id];
+                    if (ovCtx) {
+                        rowData.overrides = ovCtx;
+                        if (ovCtx.price != null) rowData.unitPrice = ovCtx.price;
+                    }
                     items.push(rowData);
                 }
             }
@@ -1149,8 +1155,17 @@
             if (!item) return;
             var installCb = document.getElementById(row.id + '-install');
             var includeInstall = installCb ? installCb.checked : true;
-            var laborMinutes = item.labor_minutes || {};
-            var materialCosts = item.material_costs || {};
+
+            // Per-line override: price override = flat amount, no decomposition
+            var ov = _rowOverrides[row.id];
+            if (ov && ov.price != null) {
+                totalPrixVente += ov.price * qty;
+                totalAjout += ov.price * qty;
+                return;
+            }
+
+            var laborMinutes = ov && ov.labor ? Object.assign({}, item.labor_minutes || {}, ov.labor) : (item.labor_minutes || {});
+            var materialCosts = ov && ov.material ? Object.assign({}, item.material_costs || {}, ov.material) : (item.material_costs || {});
 
             tauxHoraires.forEach(function(t) {
                 var dept = t.department;
@@ -1649,6 +1664,14 @@
                 case 'update_catalogue_item':
                     var modFields = Object.keys(tc.input.changes || {}).join(', ');
                     return 'Modifier article catalogue **' + (tc.input.catalogue_item_id || '?') + '** : ' + modFields + ' — Raison : ' + (tc.input.reason || '?');
+                case 'update_submission_line':
+                    var ovParts = [];
+                    if (tc.input.overrides) {
+                        if (tc.input.overrides.price != null) ovParts.push('prix → ' + tc.input.overrides.price + '$');
+                        if (tc.input.overrides.labor_minutes) ovParts.push('MO: ' + JSON.stringify(tc.input.overrides.labor_minutes));
+                        if (tc.input.overrides.material_costs) ovParts.push('mat: ' + JSON.stringify(tc.input.overrides.material_costs));
+                    }
+                    return 'Ajuster ligne ' + tc.input.item_index + ' dans **' + (tc.input.room_name || '?') + '** : ' + (ovParts.join(', ') || '?') + ' — Raison : ' + (tc.input.reason || '?');
                 default:
                     return tc.name + ': ' + JSON.stringify(tc.input);
             }
@@ -1732,7 +1755,7 @@
         if (!aiPendingToolCalls) return;
         // Block auto-execution for destructive catalogue tools — force manual confirmation
         var hasCatalogueUpdate = aiPendingToolCalls.tools.some(function(tc) {
-            return tc.name === 'update_catalogue_item';
+            return tc.name === 'update_catalogue_item' || tc.name === 'update_submission_line';
         });
         if (hasCatalogueUpdate) {
             appendAiMessage('confirm', formatPendingActions(aiPendingToolCalls.tools));
@@ -1797,6 +1820,7 @@
             case 'suggest_items': return 'Recherche catalogue effectuée';
             case 'compare_versions': return 'Comparaison de versions effectuée';
             case 'update_catalogue_item': return 'Catalogue modifié : ' + (input.catalogue_item_id || '') + ' (' + Object.keys(input.changes || {}).join(', ') + ')';
+            case 'update_submission_line': return 'Ajustement ligne ' + (input.item_index || 0) + ' dans ' + (input.room_name || '') + ' (' + Object.keys(input.overrides || {}).join(', ') + ')';
             default: return name;
         }
     }
@@ -1804,7 +1828,7 @@
     // ── Tool execution (client-side) ──
     async function executeAiTool(name, input) {
         // Block write operations on locked submissions
-        var _writeOps = ['write_description', 'add_catalogue_item', 'modify_item', 'update_catalogue_item'];
+        var _writeOps = ['write_description', 'add_catalogue_item', 'modify_item', 'update_catalogue_item', 'update_submission_line'];
         if (_writeOps.indexOf(name) !== -1 &&
             typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) {
             return { error: 'Soumission verrouillée — modification impossible' };
@@ -2049,6 +2073,41 @@
                 } catch (err) {
                     return { error: 'Erreur réseau: ' + err.message };
                 }
+            }
+            case 'update_submission_line': {
+                var gid = findGroupIdByName(input.room_name);
+                if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                var slRows = document.querySelectorAll('#' + gid + '-rows .calc-row');
+                var targetRow = slRows[input.item_index];
+                if (!targetRow) return { error: 'Ligne ' + input.item_index + ' introuvable dans ' + input.room_name };
+                var trId = targetRow.id;
+                var trSel = targetRow.querySelector('.item-select');
+                var trSelId = trSel ? trSel.value : '';
+                if (!trSelId || trSelId === '__AJOUT__' || trSelId === '__PROPOSER__')
+                    return { error: 'Ligne non-catalogue, override impossible' };
+                var trCatItem = CATALOGUE_DATA.find(function(i) { return i.id === trSelId; });
+                if (!trCatItem) return { error: 'Article introuvable: ' + trSelId };
+
+                var trOv = _rowOverrides[trId] || {};
+                var ovIn = input.overrides || {};
+                if (ovIn.labor_minutes) trOv.labor = Object.assign({}, trOv.labor || {}, ovIn.labor_minutes);
+                if (ovIn.material_costs) trOv.material = Object.assign({}, trOv.material || {}, ovIn.material_costs);
+                if (ovIn.price != null) trOv.price = ovIn.price;
+
+                _rowOverrides[trId] = trOv;
+                targetRow.classList.add('has-override');
+                updateRow(trId);
+
+                if (itemMap[trId]) {
+                    await updateItem(itemMap[trId], {
+                        labor_override: trOv.labor && Object.keys(trOv.labor).length > 0 ? trOv.labor : null,
+                        material_override: trOv.material && Object.keys(trOv.material).length > 0 ? trOv.material : null,
+                        price_override: trOv.price != null ? trOv.price : null
+                    });
+                    showSaveIndicator();
+                }
+                updateGrandTotal();
+                return { success: true, room: input.room_name, index: input.item_index, catalogue_id: trSelId, overrides_applied: Object.keys(ovIn), reason: input.reason };
             }
             default:
                 return { error: 'Tool inconnu: ' + name };
@@ -5100,6 +5159,47 @@
             transition: background 0.12s;
         }
         .suppressed-menu-item .sup-restore:hover { background: #f1f5f9; }
+
+        /* ── Per-line override button & popover ── */
+        .cell-unit-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+        .upx { flex: 1; text-align: right; }
+        .btn-ov {
+            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            color: var(--sw-muted); cursor: pointer; border-radius: 4px;
+            font-size: 11px; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .calc-row:hover .btn-ov { display: inline-flex; }
+        .btn-ov:hover { background: #f1f5f9; color: var(--sw-navy); }
+        .calc-row.has-override { border-left: 2px solid #7c3aed; background: rgba(124,58,237,0.02); }
+        .calc-row.has-override .btn-ov { display: inline-flex !important; color: #7c3aed; }
+        .calc-row.has-override .upx { color: #7c3aed; font-weight: 600; }
+        .ov-pop {
+            position: fixed; z-index: 10000; background: #fff;
+            border: 1px solid var(--sw-border); border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.12); width: 320px;
+            animation: sdFadeIn 0.12s ease;
+        }
+        .ov-pop-hdr { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 8px; border-bottom: 1px solid var(--sw-border-2); }
+        .ov-pop-title { font-size: 13px; font-weight: 600; color: var(--sw-text); }
+        .ov-pop-close { border: none; background: none; font-size: 16px; color: var(--sw-muted); cursor: pointer; padding: 0 4px; }
+        .ov-pop-close:hover { color: var(--sw-text); }
+        .ov-sec { padding: 10px 16px; border-bottom: 1px solid var(--sw-border-2); }
+        .ov-sec:last-of-type { border-bottom: none; }
+        .ov-sec-title { font-size: 11px; font-weight: 600; color: var(--sw-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .ov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .ov-lbl { font-size: 12px; color: var(--sw-text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ov-ref { font-size: 11px; color: var(--sw-muted); white-space: nowrap; }
+        .ov-inp {
+            width: 72px; padding: 4px 6px; font-size: 12px; text-align: right;
+            border: 1px solid var(--sw-border); border-radius: 6px;
+            font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+        }
+        .ov-inp:focus { border-color: var(--sw-navy); outline: none; box-shadow: 0 0 0 2px rgba(11,18,32,0.08); }
+        .ov-pop-ftr { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-top: 1px solid var(--sw-border-2); }
+        .ov-btn-clear { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .ov-btn-clear:hover { background: rgba(239,68,68,0.06); }
+        .ov-btn-save { font-size: 12px; padding: 6px 16px; height: auto; }
+
         .cascade-badge {
             font-size: 9px; background: #e2e8f0; color: #475569;
             padding: 1px 5px; border-radius: 3px; margin-left: 4px;
@@ -10743,7 +10843,7 @@
                 <div class="cell-code" id="${rowId}-code">—</div>
                 <div class="cell-type" id="${rowId}-type">—</div>
                 <div class="cell-dims dims-hidden" id="${rowId}-dims">&mdash;</div>
-                <div class="cell-unit-price" id="${rowId}-unit-price">—</div>
+                <div class="cell-unit-price" id="${rowId}-unit-price"><span class="upx">—</span><button class="btn-ov" id="${rowId}-ov-btn" onclick="openOverridePopover('${rowId}')" title="Ajuster le prix">&#9881;</button></div>
                 <div class="cell-qty">
                     <input type="number" class="qty-input" id="${rowId}-qty" value="1" min="0" step="0.01" oninput="updateRow('${rowId}')" onchange="updateRow('${rowId}'); scheduleCascade('${rowId}', true)">
                 </div>
@@ -10759,10 +10859,12 @@
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
 
-            // Cascade children: tag is inherited from parent (readonly)
+            // Cascade children: tag is inherited from parent (readonly), no override button
             if (opts.cascade) {
                 var tagEl = document.getElementById(rowId + '-tag');
                 if (tagEl) tagEl.readOnly = true;
+                var ovBtn = document.getElementById(rowId + '-ov-btn');
+                if (ovBtn) ovBtn.style.display = 'none';
             }
 
             // Position cascade children directly after their parent (or after last sibling)
@@ -10849,7 +10951,8 @@
             typeEl.innerHTML = '<button class="ajout-edit-btn" onclick="openCustomItemModal(\'' + rowId + '\')" title="Modifier">' +
                 escapeHtml(desc || 'Cliquer pour configurer...') + '</button>';
 
-            unitPriceEl.textContent = formatPrice(sellPrice);
+            var upxEl = unitPriceEl.querySelector('.upx');
+            if (upxEl) upxEl.textContent = formatPrice(sellPrice); else unitPriceEl.textContent = formatPrice(sellPrice);
         }
 
         function transformToNormalMode(row, rowId) {
@@ -10859,9 +10962,194 @@
             document.getElementById(rowId + '-code').innerHTML = '\u2014';
             document.getElementById(rowId + '-code').style.gridColumn = '';
             document.getElementById(rowId + '-type').innerHTML = '\u2014';
-            document.getElementById(rowId + '-unit-price').innerHTML = '\u2014';
+            var upEl = document.getElementById(rowId + '-unit-price');
+            var upxN = upEl ? upEl.querySelector('.upx') : null;
+            if (upxN) upxN.textContent = '\u2014'; else if (upEl) upEl.innerHTML = '\u2014';
             document.getElementById(rowId + '-total').textContent = '0,00 $';
             delete _customItemDataMap[rowId];
+        }
+
+        // ── Per-line Override Popover ──
+        var _ovPopRowId = null;
+        function closeOverridePopover() {
+            var pop = document.getElementById('ovPopover');
+            if (pop) pop.remove();
+            _ovPopRowId = null;
+            document.removeEventListener('keydown', _ovEscHandler);
+            document.removeEventListener('mousedown', _ovOutsideHandler);
+        }
+        function _ovEscHandler(e) { if (e.key === 'Escape') closeOverridePopover(); }
+        function _ovOutsideHandler(e) {
+            var pop = document.getElementById('ovPopover');
+            if (pop && !pop.contains(e.target)) {
+                var btn = document.getElementById(_ovPopRowId + '-ov-btn');
+                if (btn && btn.contains(e.target)) return;
+                closeOverridePopover();
+            }
+        }
+
+        function openOverridePopover(rowId) {
+            if (_ovPopRowId === rowId) { closeOverridePopover(); return; }
+            closeOverridePopover();
+            _ovPopRowId = rowId;
+
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var sel = row.querySelector('.item-select');
+            var selectedId = sel ? sel.value : '';
+            if (!selectedId || selectedId === '__AJOUT__' || selectedId === '__PROPOSER__') {
+                showToast('Sélectionnez d\u2019abord un article catalogue'); return;
+            }
+            var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+            if (!item) return;
+
+            var installCb = document.getElementById(rowId + '-install');
+            var includeInstall = installCb ? installCb.checked : true;
+            var catPrice = computeComposedPrice(item, includeInstall);
+            var refPrice = catPrice !== null ? catPrice : (item.price || 0);
+            var ov = _rowOverrides[rowId] || {};
+
+            // Build HTML
+            var html = '<div class="ov-pop-hdr"><span class="ov-pop-title">Ajustements ligne</span><button class="ov-pop-close" onclick="closeOverridePopover()">&times;</button></div>';
+
+            // Section: Sale price
+            html += '<div class="ov-sec"><div class="ov-sec-title">Prix de vente</div>';
+            html += '<div class="ov-row"><span class="ov-lbl">Prix fixe</span><span class="ov-ref">Cat: ' + formatPrice(refPrice) + '</span>';
+            html += '<input type="number" class="ov-inp" id="ov-price" step="0.01" min="0" placeholder="\u2014" value="' + (ov.price != null ? ov.price : '') + '"></div></div>';
+
+            // Section: Labor minutes
+            var laborRows = '';
+            var laborMins = item.labor_minutes || {};
+            tauxHoraires.forEach(function(t) {
+                var dept = t.department;
+                var catVal = laborMins[dept] || 0;
+                var ovVal = ov.labor && ov.labor[dept] != null ? ov.labor[dept] : '';
+                if (catVal > 0 || ovVal !== '') {
+                    laborRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(dept) + '</span><span class="ov-ref">Cat: ' + catVal + '</span>';
+                    laborRows += '<input type="number" class="ov-inp" data-ov-labor="' + escapeAttr(dept) + '" step="1" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
+                }
+            });
+            if (laborRows) {
+                html += '<div class="ov-sec"><div class="ov-sec-title">Main-d\u2019\u0153uvre (minutes)</div>' + laborRows + '</div>';
+            }
+
+            // Section: Material costs
+            var matRows = '';
+            var matCosts = item.material_costs || {};
+            expenseCategories.forEach(function(c) {
+                var catVal = matCosts[c.name] || 0;
+                var ovVal = ov.material && ov.material[c.name] != null ? ov.material[c.name] : '';
+                if (catVal > 0 || ovVal !== '') {
+                    matRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(c.name) + '</span><span class="ov-ref">Cat: ' + formatPrice(catVal) + '</span>';
+                    matRows += '<input type="number" class="ov-inp" data-ov-mat="' + escapeAttr(c.name) + '" step="0.01" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
+                }
+            });
+            if (matRows) {
+                html += '<div class="ov-sec"><div class="ov-sec-title">Co\u00fbts mat\u00e9riaux</div>' + matRows + '</div>';
+            }
+
+            html += '<div class="ov-pop-ftr"><button class="ov-btn-clear" onclick="clearOverrides(\'' + rowId + '\')">R\u00e9initialiser</button>';
+            html += '<button class="sw-btn-primary ov-btn-save" onclick="saveOverrides(\'' + rowId + '\')">Appliquer</button></div>';
+
+            var pop = document.createElement('div');
+            pop.className = 'ov-pop';
+            pop.id = 'ovPopover';
+            pop.innerHTML = html;
+            document.body.appendChild(pop);
+
+            // Position below the override button
+            var btn = document.getElementById(rowId + '-ov-btn');
+            if (btn) {
+                var r = btn.getBoundingClientRect();
+                var popH = pop.offsetHeight;
+                var spaceBelow = window.innerHeight - r.bottom - 8;
+                if (spaceBelow < popH && r.top > popH) {
+                    pop.style.top = (r.top - popH - 4) + 'px';
+                } else {
+                    pop.style.top = (r.bottom + 4) + 'px';
+                }
+                pop.style.left = Math.max(8, Math.min(r.right - 320, window.innerWidth - 328)) + 'px';
+            }
+
+            setTimeout(function() {
+                document.addEventListener('keydown', _ovEscHandler);
+                document.addEventListener('mousedown', _ovOutsideHandler);
+            }, 0);
+        }
+
+        function saveOverrides(rowId) {
+            var item = null;
+            var row = document.getElementById(rowId);
+            if (row) {
+                var sel = row.querySelector('.item-select');
+                var selId = sel ? sel.value : '';
+                if (selId) item = CATALOGUE_DATA.find(function(i) { return i.id === selId; });
+            }
+
+            var ov = {};
+            // Price
+            var priceInput = document.getElementById('ov-price');
+            var priceVal = priceInput ? parseFloat(priceInput.value) : NaN;
+            if (!isNaN(priceVal) && priceVal >= 0) ov.price = priceVal; else ov.price = null;
+
+            // Labor
+            var labor = {};
+            document.querySelectorAll('[data-ov-labor]').forEach(function(inp) {
+                var dept = inp.dataset.ovLabor;
+                var val = parseFloat(inp.value);
+                if (!isNaN(val) && val >= 0) {
+                    var catVal = item && item.labor_minutes ? (item.labor_minutes[dept] || 0) : 0;
+                    if (val !== catVal) labor[dept] = val;
+                }
+            });
+            ov.labor = Object.keys(labor).length > 0 ? labor : null;
+
+            // Material
+            var material = {};
+            document.querySelectorAll('[data-ov-mat]').forEach(function(inp) {
+                var cat = inp.dataset.ovMat;
+                var val = parseFloat(inp.value);
+                if (!isNaN(val) && val >= 0) {
+                    var catVal = item && item.material_costs ? (item.material_costs[cat] || 0) : 0;
+                    if (val !== catVal) material[cat] = val;
+                }
+            });
+            ov.material = Object.keys(material).length > 0 ? material : null;
+
+            var hasAny = ov.price != null || ov.labor || ov.material;
+            if (hasAny) {
+                _rowOverrides[rowId] = ov;
+                if (row) row.classList.add('has-override');
+            } else {
+                delete _rowOverrides[rowId];
+                if (row) row.classList.remove('has-override');
+            }
+
+            updateRow(rowId);
+            updateGrandTotal();
+
+            if (itemMap[rowId]) {
+                updateItem(itemMap[rowId], {
+                    labor_override: ov.labor || null,
+                    material_override: ov.material || null,
+                    price_override: ov.price != null ? ov.price : null
+                });
+                showSaveIndicator();
+            }
+            closeOverridePopover();
+        }
+
+        function clearOverrides(rowId) {
+            delete _rowOverrides[rowId];
+            var row = document.getElementById(rowId);
+            if (row) row.classList.remove('has-override');
+            updateRow(rowId);
+            updateGrandTotal();
+            if (itemMap[rowId]) {
+                updateItem(itemMap[rowId], { labor_override: null, material_override: null, price_override: null });
+                showSaveIndicator();
+            }
+            closeOverridePopover();
         }
 
         function getRoomBaseSubtotal(groupEl) {
@@ -11226,11 +11514,15 @@
             var prevCatId = row.dataset.lastCatalogueId || '';
             if (prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
                 findCascadeChildren(rowId).forEach(function(c) { removeRow(c.rowId); });
-                // New article = new rules → clear suppressions
+                // New article = new rules → clear suppressions + overrides
                 if (cascadeSuppressed[rowId]) {
                     delete cascadeSuppressed[rowId];
                     if (itemMap[rowId]) updateItem(itemMap[rowId], { cascade_suppressed: null });
                     updateSuppressedIndicator(rowId);
+                }
+                if (_rowOverrides[rowId]) {
+                    delete _rowOverrides[rowId];
+                    row.classList.remove('has-override');
                 }
             }
             row.dataset.lastCatalogueId = selectedId;
@@ -11307,15 +11599,29 @@
                         var includeInstall = installCb ? installCb.checked : true;
                         var composedPrice = computeComposedPrice(item, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
+                        // Per-line override
+                        var ov = _rowOverrides[rowId];
+                        if (ov && ov.price != null) {
+                            effectivePrice = ov.price;
+                        } else if (ov && (ov.labor || ov.material)) {
+                            var merged = Object.assign({}, item, {
+                                labor_minutes: Object.assign({}, item.labor_minutes || {}, ov.labor || {}),
+                                material_costs: Object.assign({}, item.material_costs || {}, ov.material || {})
+                            });
+                            var mc = computeComposedPrice(merged, includeInstall);
+                            if (mc !== null) effectivePrice = mc;
+                        }
                         var rowGroup = row.closest('.furniture-group');
                         var mult = rowGroup ? getModifierMultiplier(rowGroup.id) : 1;
-                        unitPriceEl.textContent = formatPrice(effectivePrice * mult);
+                        var _upx = unitPriceEl.querySelector('.upx');
+                        if (_upx) _upx.textContent = formatPrice(effectivePrice * mult); else unitPriceEl.textContent = formatPrice(effectivePrice * mult);
                         totalEl.textContent = formatPrice(effectivePrice * qty * mult);
                     }
                 } else {
                     codeEl.textContent = '—';
                     typeEl.textContent = '—';
-                    unitPriceEl.textContent = '—';
+                    var _upx2 = unitPriceEl.querySelector('.upx');
+                    if (_upx2) _upx2.textContent = '—'; else unitPriceEl.textContent = '—';
                     totalEl.textContent = '0,00 $';
                 }
             }
@@ -11498,6 +11804,28 @@
                     fields.unit_type = item.type || '';
                     fields.unit_price = composed !== null ? composed : (item.price || 0);
                     fields.markup = 0;
+                    // Per-line overrides
+                    var ov = _rowOverrides[rowId];
+                    if (ov) {
+                        fields.labor_override = ov.labor && Object.keys(ov.labor).length > 0 ? ov.labor : null;
+                        fields.material_override = ov.material && Object.keys(ov.material).length > 0 ? ov.material : null;
+                        fields.price_override = ov.price != null ? ov.price : null;
+                        // Save effective (overridden) price for quote.html compatibility
+                        if (ov.price != null) {
+                            fields.unit_price = ov.price;
+                        } else if (ov.labor || ov.material) {
+                            var merged = Object.assign({}, item, {
+                                labor_minutes: Object.assign({}, item.labor_minutes || {}, ov.labor || {}),
+                                material_costs: Object.assign({}, item.material_costs || {}, ov.material || {})
+                            });
+                            var mc = computeComposedPrice(merged, includeInstall);
+                            if (mc !== null) fields.unit_price = mc;
+                        }
+                    } else {
+                        fields.labor_override = null;
+                        fields.material_override = null;
+                        fields.price_override = null;
+                    }
                 }
             } else {
                 // Pas d'article sélectionné — ne pas sauvegarder de ligne vide
@@ -11613,6 +11941,18 @@
                     var includeInstall = installCb ? installCb.checked : true;
                     var composed = computeComposedPrice(item, includeInstall);
                     var eff = composed !== null ? composed : (item.price || 0);
+                    // Per-line override
+                    var ov = _rowOverrides[row.id];
+                    if (ov && ov.price != null) {
+                        eff = ov.price;
+                    } else if (ov && (ov.labor || ov.material)) {
+                        var merged = Object.assign({}, item, {
+                            labor_minutes: Object.assign({}, item.labor_minutes || {}, ov.labor || {}),
+                            material_costs: Object.assign({}, item.material_costs || {}, ov.material || {})
+                        });
+                        var mc = computeComposedPrice(merged, includeInstall);
+                        if (mc !== null) eff = mc;
+                    }
                     return eff * qty;
                 }
             }
@@ -16991,6 +17331,7 @@
             roomDM = {};
             dmChoiceCache = {};
             _pendingMaterialCtx = {};
+            _rowOverrides = {};
             roomDescEN = {};
             roomDescHTML = {};
             resetAiChat();
@@ -17155,6 +17496,16 @@
                             if (item.tag) {
                                 var tagInput = document.getElementById(rowId + '-tag');
                                 if (tagInput) tagInput.value = item.tag;
+                            }
+
+                            // Restore per-line overrides
+                            if (item.labor_override || item.material_override || item.price_override != null) {
+                                _rowOverrides[rowId] = {
+                                    labor: item.labor_override || null,
+                                    material: item.material_override || null,
+                                    price: item.price_override != null ? Number(item.price_override) : null
+                                };
+                                row.classList.add('has-override');
                             }
 
                             // Restore dimensions L/H/P + caisson fields
@@ -17452,6 +17803,12 @@
             // Installation toggles
             container.querySelectorAll('input[type="checkbox"]').forEach(function(el) {
                 el.disabled = !editable;
+            });
+
+            // Override buttons
+            container.querySelectorAll('.btn-ov').forEach(function(el) {
+                el.disabled = !editable;
+                el.style.opacity = editable ? '' : '0.4';
             });
 
             // Bouton "Soumettre pour approbation" en bas

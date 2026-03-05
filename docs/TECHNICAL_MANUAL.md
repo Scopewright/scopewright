@@ -419,7 +419,31 @@ var qty = usesDimVars
 2. **`addRow` blur listener** : pour les nouvelles lignes (pas `existingId`, pas `cascade`), un listener `blur` one-shot sur le combobox appelle `removeRow` après 2 secondes si aucun article n'est sélectionné
 3. **`openSubmission` filtre** : au chargement, `room.room_items` est filtré par `catalogue_item_id || item_type === 'custom'` — les lignes fantômes legacy sont ignorées
 
-### 3.11 Edge cases et limitations
+### 3.11 Override par ligne (prix, MO, matériaux)
+
+Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le catalogue :
+
+**Colonnes DB** (`room_items`) :
+- `labor_override` JSONB — `{ "Ébénisterie": 60, "Installation": 15 }` (minutes par département)
+- `material_override` JSONB — `{ "PANNEAU BOIS": 8.50 }` (coût par catégorie)
+- `price_override` NUMERIC — prix de vente fixe
+
+**Mémoire** : `_rowOverrides[rowId] = { labor, material, price }`. Reset dans `openSubmission`, restauré depuis les colonnes DB au chargement.
+
+**Calcul** :
+1. Si `price_override` est défini → utilisé directement, bypasse `computeComposedPrice`
+2. Si `labor_override` ou `material_override` → fusionné avec les valeurs catalogue via `Object.assign({}, item.labor_minutes, ov.labor)`, puis recalculé via `computeComposedPrice(merged, includeInstall)`
+3. `debouncedSaveItem` sauvegarde le prix effectif dans `unit_price` (compatibilité `quote.html`)
+
+**Rentabilité** : `computeRentabilityData` utilise les overrides. `price_override` → montant flat (comme `__AJOUT__`), pas de décomposition MO/matériaux.
+
+**UI** : Bouton `⚙` (`.btn-ov`) dans `.cell-unit-price`, visible au hover, violet si override actif. Popover `ov-pop` avec 3 sections. Indicateur `.has-override` (bordure gauche violette).
+
+**Reset** : changement d'article catalogue → overrides supprimés automatiquement (dans `updateRow`, check `prevCatId !== selectedId`).
+
+**Exclusions** : pas de bouton override sur les cascade children. Boutons désactivés quand soumission verrouillée (`setEditable`).
+
+### 3.12 Edge cases et limitations
 
 1. **`$match:` non re-cascadé sur changement DM** : `reprocessDefaultCascades()` ne gère que les cibles `$default:`. Les `$match:` ne sont pas recalculés quand on change un matériau par défaut — seul un re-trigger manuel de la cascade du parent le fait.
 2. **Cascade max 3 niveaux** : Suffisant pour la plupart des cas (FAB → matériau → sous-composant), mais des structures plus profondes seraient tronquées.
@@ -609,6 +633,7 @@ calculateur.html                    ai-assistant Edge Function
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions optionnelles |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P) |
 | `update_catalogue_item` | Confirmation obligatoire | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** |
+| `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |
 | `compare_versions` | Auto-exécution | Compare deux versions de soumission. Read-only |
 | `save_learning` | Exécuté côté serveur | Sauvegarde une règle organisationnelle (INSERT dans `ai_learnings`) |

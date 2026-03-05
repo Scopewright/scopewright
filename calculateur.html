@@ -2022,8 +2022,12 @@
                     saveFields.depth_in = input.depth ? parseFloat(input.depth) || null : null;
                     var nTab = document.getElementById(rowId + '-n-tab');
                     var nPart = document.getElementById(rowId + '-n-part');
+                    var nPorte = document.getElementById(rowId + '-n-porte');
+                    var nTiroir = document.getElementById(rowId + '-n-tiroir');
                     saveFields.n_tablettes = nTab ? (parseInt(nTab.value) || 0) : 0;
                     saveFields.n_partitions = nPart ? (parseInt(nPart.value) || 0) : 0;
+                    saveFields.n_portes = nPorte ? (parseInt(nPorte.value) || 0) : 0;
+                    saveFields.n_tiroirs = nTiroir ? (parseInt(nTiroir.value) || 0) : 0;
                     await updateItem(itemMap[rowId], saveFields);
                     showSaveIndicator();
                 }
@@ -2929,7 +2933,9 @@
         // Substitute n_tablettes/n_partitions first (underscores must be resolved before security check)
         var safe = String(expr)
             .replace(/\bn_tablettes\b/g, (vars.n_tablettes != null) ? Number(vars.n_tablettes) : 0)
-            .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0);
+            .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0)
+            .replace(/\bn_portes\b/g, (vars.n_portes != null) ? Number(vars.n_portes) : 0)
+            .replace(/\bn_tiroirs\b/g, (vars.n_tiroirs != null) ? Number(vars.n_tiroirs) : 0);
         safe = safe.replace(/\b(L|H|P|QTY)\b/g, function(m) {
             return (vars[m] != null) ? Number(vars[m]) : 0;
         });
@@ -3057,12 +3063,16 @@
         var dimP = document.getElementById(current + '-dim-p');
         var nTab = document.getElementById(current + '-n-tab');
         var nPart = document.getElementById(current + '-n-part');
+        var nPorte = document.getElementById(current + '-n-porte');
+        var nTiroir = document.getElementById(current + '-n-tiroir');
         return {
             L: dimL ? (parseFloat(dimL.value) || 0) : 0,
             H: dimH ? (parseFloat(dimH.value) || 0) : 0,
             P: dimP ? (parseFloat(dimP.value) || 0) : 0,
             n_tablettes: nTab ? (parseInt(nTab.value) || 0) : 0,
-            n_partitions: nPart ? (parseInt(nPart.value) || 0) : 0
+            n_partitions: nPart ? (parseInt(nPart.value) || 0) : 0,
+            n_portes: nPorte ? (parseInt(nPorte.value) || 0) : 0,
+            n_tiroirs: nTiroir ? (parseInt(nTiroir.value) || 0) : 0
         };
     }
 
@@ -3077,6 +3087,34 @@
         var rootRow = document.getElementById(current);
         var rootQtyInput = rootRow ? rootRow.querySelector('.qty-input') : null;
         return rootQtyInput ? (parseFloat(rootQtyInput.value) || 0) : 0;
+    }
+
+    /**
+     * Apply child_dims formulas to a cascade child row.
+     * Evaluates L/H/P formulas from rule.child_dims using parent vars,
+     * writes results into the child's dim inputs, and recalculates price.
+     * Returns {length_in, height_in, depth_in} for DB persistence, or null if no child_dims.
+     */
+    function applyChildDims(childRowId, rule, vars) {
+        if (!rule.child_dims || typeof rule.child_dims !== 'object') return null;
+        var result = {};
+        var dimMap = { L: 'length_in', H: 'height_in', P: 'depth_in' };
+        var inputMap = { L: '-dim-l', H: '-dim-h', P: '-dim-p' };
+        var keys = Object.keys(rule.child_dims);
+        for (var i = 0; i < keys.length; i++) {
+            var dim = keys[i].toUpperCase();
+            if (!dimMap[dim]) continue;
+            var val = evalFormula(rule.child_dims[keys[i]], vars);
+            if (val === null) continue;
+            val = Math.round(val * 1000) / 1000;
+            result[dimMap[dim]] = val;
+            var inp = document.getElementById(childRowId + inputMap[dim]);
+            if (inp) inp.value = val;
+        }
+        if (Object.keys(result).length > 0) {
+            updateRow(childRowId, { skipCascade: true });
+        }
+        return Object.keys(result).length > 0 ? result : null;
     }
 
     /**
@@ -4010,10 +4048,14 @@
         // Caisson fields: read from parent row (override root dims if present)
         var parentNTab = document.getElementById(parentRowId + '-n-tab');
         var parentNPart = document.getElementById(parentRowId + '-n-part');
+        var parentNPorte = document.getElementById(parentRowId + '-n-porte');
+        var parentNTiroir = document.getElementById(parentRowId + '-n-tiroir');
         var vars = {
             L: dims.L, H: dims.H, P: dims.P, QTY: rootQty,
             n_tablettes: parentNTab ? (parseInt(parentNTab.value) || 0) : (dims.n_tablettes || 0),
-            n_partitions: parentNPart ? (parseInt(parentNPart.value) || 0) : (dims.n_partitions || 0)
+            n_partitions: parentNPart ? (parseInt(parentNPart.value) || 0) : (dims.n_partitions || 0),
+            n_portes: parentNPorte ? (parseInt(parentNPorte.value) || 0) : (dims.n_portes || 0),
+            n_tiroirs: parentNTiroir ? (parseInt(parentNTiroir.value) || 0) : (dims.n_tiroirs || 0)
         };
         cascadeLog('info', 'vars: ' + JSON.stringify(vars) + ' rootQty: ' + rootQty);
 
@@ -4045,6 +4087,8 @@
                 // On vérifie seulement que la valeur est définie (pas null/undefined)
                 if (normalized === 'N_TABLETTES' || normalized === 'TABLETTES') return vars.n_tablettes == null;
                 if (normalized === 'N_PARTITIONS' || normalized === 'PARTITIONS') return vars.n_partitions == null;
+                if (normalized === 'N_PORTES' || normalized === 'PORTES') return vars.n_portes == null;
+                if (normalized === 'N_TIROIRS' || normalized === 'TIROIRS') return vars.n_tiroirs == null;
                 // Unknown ask field — don't block
                 return false;
             });
@@ -4194,7 +4238,7 @@
             var qtyPerUnit = evalFormula(rule.qty, vars);
             if (qtyPerUnit === null || qtyPerUnit <= 0) continue;
             var formulaStr = String(rule.qty);
-            var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions)\b/.test(formulaStr);
+            var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/.test(formulaStr);
             var qty = usesDimVars
                 ? Math.round(qtyPerUnit * 100) / 100
                 : Math.round(qtyPerUnit * rootQty * 100) / 100;
@@ -4264,21 +4308,29 @@
                         if (itemMap[existing.rowId]) updateItem(itemMap[existing.rowId], { tag: parentTag || null });
                     }
 
-                    // Immediate DB persist when item or qty changed (bypass single-timer debounce)
-                    if (itemMap[existing.rowId] && (itemChanged || qtyChanged)) {
+                    // Apply child_dims — ALWAYS when present (parent dims may have changed)
+                    var _existDimsResult = null;
+                    if (rule.child_dims) {
+                        _existDimsResult = applyChildDims(existing.rowId, rule, vars);
+                    }
+
+                    // Immediate DB persist when item, qty, or child_dims changed (bypass single-timer debounce)
+                    if (itemMap[existing.rowId] && (itemChanged || qtyChanged || _existDimsResult)) {
                         var _ei = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
                         if (_ei) {
                             var _ecb = document.getElementById(existing.rowId + '-install');
                             var _einst = _ecb ? _ecb.checked : true;
                             var _ecp = computeComposedPrice(_ei, _einst);
-                            updateItem(itemMap[existing.rowId], {
+                            var _ePayload = {
                                 catalogue_item_id: resolvedTarget,
                                 item_type: 'catalogue',
                                 description: _ei.description,
                                 unit_type: _ei.type || '',
                                 unit_price: _ecp !== null ? _ecp : (_ei.price || 0),
                                 quantity: qty
-                            });
+                            };
+                            if (_existDimsResult) Object.assign(_ePayload, _existDimsResult);
+                            updateItem(itemMap[existing.rowId], _ePayload);
                         }
                     }
                 }
@@ -4317,6 +4369,12 @@
 
                 updateRow(newRowId);
 
+                // Apply child_dims if present
+                var _newDimsResult = null;
+                if (rule.child_dims) {
+                    _newDimsResult = applyChildDims(newRowId, rule, vars);
+                }
+
                 // Immediate DB persist: debouncedSaveItem uses a single global timer,
                 // so rapid cascade calls cancel each other — only the last child would be saved.
                 // This explicit updateItem ensures every child's catalogue_item_id is persisted.
@@ -4325,7 +4383,7 @@
                     var _icb = document.getElementById(newRowId + '-install');
                     var _iinst = _icb ? _icb.checked : true;
                     var _icp = computeComposedPrice(_ci, _iinst);
-                    updateItem(itemMap[newRowId], {
+                    var _nPayload = {
                         catalogue_item_id: resolvedTarget,
                         item_type: 'catalogue',
                         description: _ci.description,
@@ -4333,7 +4391,9 @@
                         unit_price: _icp !== null ? _icp : (_ci.price || 0),
                         quantity: qty,
                         tag: parentTag || null
-                    });
+                    };
+                    if (_newDimsResult) Object.assign(_nPayload, _newDimsResult);
+                    updateItem(itemMap[newRowId], _nPayload);
                 }
 
                 matchedChildRowIds.push(newRowId);
@@ -11747,13 +11807,17 @@
 
                         dimsEl.innerHTML = parts.join('');
 
-                        // Caisson fields: Tab. + Part. — only for category "Caisson"
+                        // Caisson fields: Tab. + Part. + Port. + Tir. — only for category "Caisson"
                         if (dimItem && dimItem.category && dimItem.category.toLowerCase() === 'caisson') {
                             var curTab = dimsEl.dataset.tab || '';
                             var curPart = dimsEl.dataset.part || '';
+                            var curPorte = dimsEl.dataset.porte || '';
+                            var curTiroir = dimsEl.dataset.tiroir || '';
                             dimsEl.innerHTML += '<div class="caisson-sep"></div>'
                                 + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">';
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-porte" placeholder="Port." step="1" min="0" value="' + curPorte + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tiroir" placeholder="Tir." step="1" min="0" value="' + curTiroir + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">';
                         }
 
                         // Disable dims if submission is locked
@@ -11782,6 +11846,10 @@
                     if (tabInput) dimsEl.dataset.tab = tabInput.value;
                     var partInput = document.getElementById(rowId + '-n-part');
                     if (partInput) dimsEl.dataset.part = partInput.value;
+                    var porteInput = document.getElementById(rowId + '-n-porte');
+                    if (porteInput) dimsEl.dataset.porte = porteInput.value;
+                    var tiroirInput = document.getElementById(rowId + '-n-tiroir');
+                    if (tiroirInput) dimsEl.dataset.tiroir = tiroirInput.value;
                     dimsEl.classList.add('dims-hidden');
                     dimsEl.innerHTML = '\u2014';
                 }
@@ -11801,13 +11869,17 @@
                         var fP = document.getElementById(rowId + '-dim-p');
                         var fNTab = document.getElementById(rowId + '-n-tab');
                         var fNPart = document.getElementById(rowId + '-n-part');
+                        var fNPorte = document.getElementById(rowId + '-n-porte');
+                        var fNTiroir = document.getElementById(rowId + '-n-tiroir');
                         var fVars = {
                             L: fL ? (parseFloat(fL.value) || 0) : 0,
                             H: fH ? (parseFloat(fH.value) || 0) : 0,
                             P: fP ? (parseFloat(fP.value) || 0) : 0,
                             QTY: 1,
                             n_tablettes: fNTab ? (parseInt(fNTab.value) || 0) : 0,
-                            n_partitions: fNPart ? (parseInt(fNPart.value) || 0) : 0
+                            n_partitions: fNPart ? (parseInt(fNPart.value) || 0) : 0,
+                            n_portes: fNPorte ? (parseInt(fNPorte.value) || 0) : 0,
+                            n_tiroirs: fNTiroir ? (parseInt(fNTiroir.value) || 0) : 0
                         };
                         if (fVars.L > 0 || fVars.H > 0 || fVars.P > 0) {
                             var autoQty = evalFormula(formula, fVars);
@@ -11937,8 +12009,12 @@
             // Caisson fields
             var nTab = document.getElementById(rowId + '-n-tab');
             var nPart = document.getElementById(rowId + '-n-part');
+            var nPorte = document.getElementById(rowId + '-n-porte');
+            var nTiroir = document.getElementById(rowId + '-n-tiroir');
             fields.n_tablettes = nTab ? (parseInt(nTab.value) || 0) : 0;
             fields.n_partitions = nPart ? (parseInt(nPart.value) || 0) : 0;
+            fields.n_portes = nPorte ? (parseInt(nPorte.value) || 0) : 0;
+            fields.n_tiroirs = nTiroir ? (parseInt(nTiroir.value) || 0) : 0;
 
             updateItem(itemMap[rowId], fields);
             showSaveIndicator();
@@ -17607,11 +17683,13 @@
                                     dimsEl.dataset.p = item.depth_in || '';
                                 }
                             }
-                            if (item.n_tablettes || item.n_partitions) {
+                            if (item.n_tablettes || item.n_partitions || item.n_portes || item.n_tiroirs) {
                                 var dimsEl2 = document.getElementById(rowId + '-dims');
                                 if (dimsEl2) {
                                     dimsEl2.dataset.tab = item.n_tablettes || '';
                                     dimsEl2.dataset.part = item.n_partitions || '';
+                                    dimsEl2.dataset.porte = item.n_portes || '';
+                                    dimsEl2.dataset.tiroir = item.n_tiroirs || '';
                                 }
                             }
 
@@ -17884,8 +17962,8 @@
                 }
             });
 
-            // Dimension inputs (L, H, P, Tab, Part) — dynamically created, no CSS class
-            container.querySelectorAll('[id$="-dim-l"], [id$="-dim-h"], [id$="-dim-p"], [id$="-n-tab"], [id$="-n-part"]').forEach(function(el) {
+            // Dimension inputs (L, H, P, Tab, Part, Port, Tir) — dynamically created, no CSS class
+            container.querySelectorAll('[id$="-dim-l"], [id$="-dim-h"], [id$="-dim-p"], [id$="-n-tab"], [id$="-n-part"], [id$="-n-porte"], [id$="-n-tiroir"]').forEach(function(el) {
                 el.disabled = !editable;
                 el.style.opacity = editable ? '' : '0.6';
             });

@@ -169,7 +169,7 @@ Les catégories sont aussi groupées par `material_groups` (Caisson, Facades, Pa
 }
 ```
 
-**Variables disponibles dans les formules** : `L` (longueur pouces), `H` (hauteur pouces), `P` (profondeur pouces), `QTY` (quantité racine FAB), `n_tablettes`, `n_partitions`
+**Variables disponibles dans les formules** : `L` (longueur pouces), `H` (hauteur pouces), `P` (profondeur pouces), `QTY` (quantité racine FAB), `n_tablettes`, `n_partitions`, `n_portes`, `n_tiroirs`
 
 **Fonctions mathématiques** : `ceil`, `floor`, `round`, `min`, `max`
 
@@ -245,7 +245,7 @@ scheduleCascade(rowId)
                  ├── Ask guard (depth 0 uniquement) :
                  │   └── Si l'article déclare `calculation_rule_ai.ask` (ex: ["L","H"])
                  │       ├── L/H/P/QTY doivent être > 0
-                 │       └── n_tablettes/n_partitions doivent être != null (0 est valide)
+                 │       └── n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 est valide)
                  │
                  ├── Pré-peupler materialCtx depuis le DM de la catégorie du parent FAB
                  │   └── categoryGroupMapping → DM type → unique DM → chosenClientText
@@ -256,7 +256,7 @@ scheduleCascade(rowId)
                  ├── Récupérer rootQty via getRootQtyForCascade(parentRowId)
                  │   └── Remonte cascadeParentMap → lit qty-input de la racine FAB
                  │
-                 ├── vars = { L, H, P, QTY: rootQty, n_tablettes, n_partitions }
+                 ├── vars = { L, H, P, QTY: rootQty, n_tablettes, n_partitions, n_portes, n_tiroirs }
                  │
                  ├── Séparer enfants existants: locked (ignorés) vs active
                  │
@@ -267,7 +267,9 @@ scheduleCascade(rowId)
                  │   ├── Évaluer condition (si présente)
                  │   ├── Calculer qty = evalFormula(rule.qty, vars) × rootQty
                  │   ├── Réutiliser enfant existant OU créer nouvelle ligne
+                 │   ├── Appliquer child_dims si rule.child_dims présent (applyChildDims)
                  │   ├── Persist immédiat via updateItem() (bypass debounce global)
+                 │   │   └── Inclut length_in/height_in/depth_in si child_dims calculés
                  │   ├── Hériter le tag du parent
                  │   └── Ajouter à matchedChildRowIds
                  │
@@ -360,7 +362,7 @@ Le moteur détecte automatiquement si `rule.qty` est une constante ou une formul
 ```javascript
 var qtyPerUnit = evalFormula(rule.qty, vars);
 var formulaStr = String(rule.qty);
-var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions)\b/.test(formulaStr);
+var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/.test(formulaStr);
 var qty = usesDimVars
     ? Math.round(qtyPerUnit * 100) / 100        // formule = quantité totale
     : Math.round(qtyPerUnit * rootQty * 100) / 100; // constante = par unité × rootQty
@@ -382,9 +384,34 @@ var qty = usesDimVars
 
 `getRootDimsForCascade(rowId)` :
 - Remonte `cascadeParentMap` jusqu'à la racine (le FAB avec les inputs dim-l/dim-h/dim-p)
-- Retourne `{ L, H, P, n_tablettes, n_partitions }`
+- Retourne `{ L, H, P, n_tablettes, n_partitions, n_portes, n_tiroirs }`
 - Les dimensions racine sont utilisées à TOUTE profondeur de cascade
 - Si le parent immédiat a ses propres dims (cas rare de FAB enfant), elles overrident les racine
+
+### 3.7.1 `child_dims` — Dimensions calculées des enfants
+
+Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant sont **calculées** à partir des variables du parent au lieu d'être héritées directement.
+
+**Exemple JSON** :
+```json
+{
+  "target": "$default:Facades",
+  "qty": "n_portes",
+  "condition": "n_portes > 0",
+  "child_dims": { "L": "(L / n_portes) - 0.125", "H": "H - 0.25" }
+}
+```
+
+**Fonction `applyChildDims(childRowId, rule, vars)`** :
+1. Si `rule.child_dims` absent → return null (aucun effet)
+2. Pour chaque clé (L, H, P), évalue la formule avec `evalFormula(formula, vars)`
+3. Écrit les résultats dans les inputs dim de l'enfant (si existants)
+4. Appelle `updateRow(childRowId, { skipCascade: true })` pour recalculer le prix
+5. Retourne `{length_in, height_in, depth_in}` pour la persistance DB
+
+**Point critique** : `applyChildDims` est appelé **toujours** quand `rule.child_dims` existe dans les deux branches (enfant existant ET nouveau). Même si item/qty n'ont pas changé, les dimensions du parent ont pu changer (ex: L de 24→36).
+
+**Variables `n_portes` / `n_tiroirs`** : même pattern que `n_tablettes`/`n_partitions`. UI inputs `Port.`/`Tir.` dans la zone dims caisson. Migration : `sql/caisson_portes_tiroirs.sql`.
 
 ### 3.8 Guards et protections
 
@@ -394,14 +421,14 @@ var qty = usesDimVars
 | Re-entrance | `_cascadeRunning` | Un seul cascade actif à la fois. `_pendingCascadeRowId` queue 1 cascade |
 | Chargement | `_isLoadingSubmission` | Toutes les cascades dropped pendant `openSubmission()` |
 | Debounce | `scheduleCascade` | 400ms (sauf `immediate=true`) |
-| Ask completeness | `calculation_rule_ai.ask` | Depth 0 uniquement. L/H/P/QTY doivent être > 0. n_tablettes/n_partitions doivent être != null (0 valide). Fallback : inféré depuis `dims_config` si `ask` absent |
+| Ask completeness | `calculation_rule_ai.ask` | Depth 0 uniquement. L/H/P/QTY doivent être > 0. n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 valide). Fallback : inféré depuis `dims_config` si `ask` absent |
 | Polling | `while (!itemMap[row] && attempts < 50)` | Attend que la création DB se termine (80ms × 50 = 4s max) |
 | Contraintes | `dataset.constraintsProcessed` | Empêche le re-triggering des contraintes sur le même article |
 | Article changé | `dataset.lastCatalogueId` | Détecte le changement pour reset les enfants |
 | Locked children | `cascade-locked` CSS class | Enfants verrouillés invisibles au moteur (override manuel) |
 | Cascade suppressed | `cascadeSuppressed[parentRowId]` | Enfants manuellement supprimés ne sont pas recréés. Reset quand le parent change d'article |
 | Persist immédiat | `updateItem()` après chaque enfant | Bypass le debounce global pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag` immédiatement |
-| Skip cascade | `opts.skipCascade` dans `updateRow` | **Règle** : tout `updateRow()` qui N'EST PAS un changement de dims (L/H/P/n_tablettes/n_partitions) ou d'article catalogue DOIT passer `skipCascade: true`. Corrigé dans : `saveOverrides`, `clearOverrides`, `refreshGroupRows`, `toggleInstallation`, AI tools `update_submission_line`, `modify_item` (sans dims) |
+| Skip cascade | `opts.skipCascade` dans `updateRow` | **Règle** : tout `updateRow()` qui N'EST PAS un changement de dims (L/H/P/n_tablettes/n_partitions/n_portes/n_tiroirs) ou d'article catalogue DOIT passer `skipCascade: true`. Corrigé dans : `saveOverrides`, `clearOverrides`, `refreshGroupRows`, `toggleInstallation`, AI tools `update_submission_line`, `modify_item` (sans dims), `applyChildDims` |
 
 ### 3.9 Propagation installation
 
@@ -1158,9 +1185,9 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 123 assertions en 14 groupes |
-| `tests/cascade-helpers.js` | 15 fonctions pures + constante `MATCH_STOP_WORDS` |
-| `tests/fixtures/catalogue.js` | 14 articles réalistes (ST-0001 à ST-0060) : 4 FAB avec cascade rules, 10 MAT avec `material_costs` |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 148 assertions en 16 groupes |
+| `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
+| `tests/fixtures/catalogue.js` | 15 articles réalistes (ST-0001 à ST-0060 + ST-0005) : 5 FAB avec cascade rules, 10 MAT avec `material_costs` |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
 
 ### 14.3 Fonctions extraites
@@ -1181,8 +1208,9 @@ node tests/cascade-engine.test.js
 | `mergeOverrideChildren(parentOverrides, ownOverrides)` | Ligne 3895 | Aucun |
 | `isRuleOverridden(ruleTarget, ancestorOverrides)` | Lignes 4049-4056 | Aucun |
 | `findExistingChildForDynamicRule(target, dmEntries, activeChildren, alreadyMatched, catalogueData, allowedCats, log)` | Lignes 2869-2941 | `groupId` → `dmEntries`, `CATALOGUE_DATA` → `catalogueData`, `getAllowedCategoriesForGroup` → `allowedCats` pré-calculé |
+| `computeChildDims(childDims, vars, log)` | Pure version of `applyChildDims` | Aucun DOM — retourne `{length_in, height_in, depth_in}` |
 
-### 14.4 Groupes de tests (14)
+### 14.4 Groupes de tests (16)
 
 1. **evalFormula** (17) — arithmétique, variables L/H/P/QTY, n_tablettes/n_partitions, ceil/floor/round/min/max, null, unsafe, division par zéro
 2. **normalizeDmType** (9) — lowercase, accents, pluriel s/x, null, Façades→Facade
@@ -1198,6 +1226,8 @@ node tests/cascade-engine.test.js
 12. **getAllowedCategoriesForGroup** (6) — Caisson→3 cats, Finition→1, inconnu→null
 13. **itemHasMaterialCost** (8) — flat cost, {cost,qty}, zéro, case-insensitive, absent, null
 14. **findExistingChildForDynamicRule** (8) — $default exact/fallback/already-matched, $match word overlap
+15. **n_portes / n_tiroirs** (14) — evalFormula substitution, isFormulaQty detection, checkAskCompleteness guards (0 valid, null blocks, aliases), computeCascadeQty with n_portes formula
+16. **computeChildDims** (11) — null/undefined→{}, L/H/P formulas, only defined keys, unsafe formula omitted, realistic ST-0005 scenario, lowercase key normalization, unknown key ignored
 
 ### 14.5 Synchronisation
 

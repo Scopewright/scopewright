@@ -68,6 +68,7 @@ var inferAskFromDimsConfig = helpers.inferAskFromDimsConfig;
 var mergeOverrideChildren = helpers.mergeOverrideChildren;
 var isRuleOverridden = helpers.isRuleOverridden;
 var findExistingChildForDynamicRule = helpers.findExistingChildForDynamicRule;
+var computeChildDims = helpers.computeChildDims;
 var MATCH_STOP_WORDS = helpers.MATCH_STOP_WORDS;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
@@ -680,6 +681,157 @@ describe('materialCtx propagation logic', function() {
         if (scored.length > 0) {
             assert(scored[0].item.id === 'ST-0031', 'ST-0031 chêne blanc should be top match');
         }
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 15 — n_portes / n_tiroirs variables
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 15 — n_portes / n_tiroirs', function() {
+
+    it('evalFormula substitutes n_portes', function() {
+        var result = evalFormula('n_portes * 2', { L: 24, H: 30, P: 12, n_portes: 3 });
+        assertEqual(result, 6, 'n_portes * 2 with n_portes=3');
+    });
+
+    it('evalFormula substitutes n_tiroirs', function() {
+        var result = evalFormula('n_tiroirs + 1', { L: 24, H: 30, P: 12, n_tiroirs: 4 });
+        assertEqual(result, 5, 'n_tiroirs + 1 with n_tiroirs=4');
+    });
+
+    it('evalFormula defaults n_portes to 0 when null', function() {
+        var result = evalFormula('n_portes + 10', { L: 24, H: 30, P: 12 });
+        assertEqual(result, 10, 'n_portes defaults to 0');
+    });
+
+    it('evalFormula defaults n_tiroirs to 0 when null', function() {
+        var result = evalFormula('n_tiroirs + 5', { L: 24, H: 30, P: 12 });
+        assertEqual(result, 5, 'n_tiroirs defaults to 0');
+    });
+
+    it('evalFormula combined formula with n_portes and dims', function() {
+        var result = evalFormula('(L / n_portes) - 0.125', { L: 24, H: 30, P: 12, n_portes: 2 });
+        assertApprox(result, 11.875, 0.001, 'L/n_portes - 0.125');
+    });
+
+    it('isFormulaQty detects n_portes', function() {
+        assert(isFormulaQty('n_portes'), 'n_portes is a formula');
+    });
+
+    it('isFormulaQty detects n_tiroirs', function() {
+        assert(isFormulaQty('n_tiroirs'), 'n_tiroirs is a formula');
+    });
+
+    it('isFormulaQty detects n_portes in complex formula', function() {
+        assert(isFormulaQty('n_portes * 2 + 1'), 'n_portes in complex expr');
+    });
+
+    it('checkAskCompleteness: N_PORTES with 0 is valid', function() {
+        var missing = checkAskCompleteness(['L', 'H', 'N_PORTES'], { L: 24, H: 30, n_portes: 0 });
+        assertDeepEqual(missing, [], 'n_portes=0 should be valid');
+    });
+
+    it('checkAskCompleteness: N_PORTES with null blocks', function() {
+        var missing = checkAskCompleteness(['L', 'H', 'N_PORTES'], { L: 24, H: 30 });
+        assert(missing.indexOf('N_PORTES') !== -1, 'N_PORTES should be missing when null');
+    });
+
+    it('checkAskCompleteness: PORTES alias works', function() {
+        var missing = checkAskCompleteness(['PORTES'], { n_portes: 2 });
+        assertDeepEqual(missing, [], 'PORTES alias should map to n_portes');
+    });
+
+    it('checkAskCompleteness: N_TIROIRS with null blocks', function() {
+        var missing = checkAskCompleteness(['N_TIROIRS'], {});
+        assert(missing.indexOf('N_TIROIRS') !== -1, 'N_TIROIRS should be missing');
+    });
+
+    it('checkAskCompleteness: TIROIRS alias with 0 is valid', function() {
+        var missing = checkAskCompleteness(['TIROIRS'], { n_tiroirs: 0 });
+        assertDeepEqual(missing, [], 'TIROIRS alias with 0 should be valid');
+    });
+
+    it('computeCascadeQty with n_portes formula', function() {
+        var vars = { L: 36, H: 30, P: 24, QTY: 1, n_portes: 3 };
+        var qty = computeCascadeQty('n_portes', vars, 2);
+        // n_portes is a formula var → total qty = 3, NOT multiplied by rootQty
+        assertEqual(qty, 3, 'n_portes formula qty should be total, not per-unit');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 16 — computeChildDims
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 16 — computeChildDims', function() {
+
+    it('null child_dims returns empty object', function() {
+        var result = computeChildDims(null, { L: 24, H: 30 });
+        assertDeepEqual(result, {}, 'null child_dims → {}');
+    });
+
+    it('undefined child_dims returns empty object', function() {
+        var result = computeChildDims(undefined, { L: 24, H: 30 });
+        assertDeepEqual(result, {}, 'undefined child_dims → {}');
+    });
+
+    it('L formula evaluated correctly', function() {
+        var result = computeChildDims({ L: '(L / n_portes) - 0.125' }, { L: 24, n_portes: 2 });
+        assertApprox(result.length_in, 11.875, 0.001, 'L formula');
+        assert(!result.height_in, 'H not set');
+        assert(!result.depth_in, 'P not set');
+    });
+
+    it('H formula evaluated correctly', function() {
+        var result = computeChildDims({ H: 'H - 0.25' }, { H: 30 });
+        assertApprox(result.height_in, 29.75, 0.001, 'H formula');
+    });
+
+    it('P formula evaluated correctly', function() {
+        var result = computeChildDims({ P: 'P - 1' }, { P: 24 });
+        assertApprox(result.depth_in, 23, 0.001, 'P formula');
+    });
+
+    it('only defined keys are set', function() {
+        var result = computeChildDims({ L: 'L - 1', H: 'H - 2' }, { L: 24, H: 30, P: 12 });
+        assert(result.length_in != null, 'length_in should be set');
+        assert(result.height_in != null, 'height_in should be set');
+        assert(!result.depth_in, 'depth_in should NOT be set');
+    });
+
+    it('unsafe formula key is omitted', function() {
+        var result = computeChildDims({ L: 'L - 1', H: 'alert(1)' }, { L: 24, H: 30 });
+        assertApprox(result.length_in, 23, 0.001, 'L safe formula works');
+        assert(!result.height_in, 'H unsafe formula omitted');
+    });
+
+    it('realistic scenario: porte dims from ST-0005 rule', function() {
+        var rule = { L: '(L / n_portes) - 0.125', H: 'H - 0.25' };
+        var vars = { L: 36, H: 30, P: 24, n_portes: 3, n_tiroirs: 0 };
+        var result = computeChildDims(rule, vars);
+        assertApprox(result.length_in, 11.875, 0.001, 'porte L = 36/3 - 0.125');
+        assertApprox(result.height_in, 29.75, 0.001, 'porte H = 30 - 0.25');
+        assert(!result.depth_in, 'P not in child_dims');
+    });
+
+    it('division by zero in formula returns Infinity → still set', function() {
+        var result = computeChildDims({ L: 'L / n_portes' }, { L: 24, n_portes: 0 });
+        // L/0 = Infinity, evalFormula returns Infinity (not null)
+        assert(result.length_in === Infinity || result.length_in != null, 'division by zero handled');
+    });
+
+    it('lowercase keys are normalized to uppercase', function() {
+        var result = computeChildDims({ l: 'L - 1', h: 'H - 2' }, { L: 24, H: 30 });
+        assertApprox(result.length_in, 23, 0.001, 'lowercase l → length_in');
+        assertApprox(result.height_in, 28, 0.001, 'lowercase h → height_in');
+    });
+
+    it('unknown dim key is ignored', function() {
+        var result = computeChildDims({ L: 'L', W: 'H + 5' }, { L: 24, H: 30 });
+        assertApprox(result.length_in, 24, 0.001, 'L set');
+        assert(!result.width_in, 'W key ignored');
+        assert(Object.keys(result).length === 1, 'only 1 key set');
     });
 });
 

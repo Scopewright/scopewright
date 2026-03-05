@@ -27,7 +27,9 @@ function evalFormula(expr, vars, log) {
     if (!expr) return null;
     var safe = String(expr)
         .replace(/\bn_tablettes\b/g, (vars.n_tablettes != null) ? Number(vars.n_tablettes) : 0)
-        .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0);
+        .replace(/\bn_partitions\b/g, (vars.n_partitions != null) ? Number(vars.n_partitions) : 0)
+        .replace(/\bn_portes\b/g, (vars.n_portes != null) ? Number(vars.n_portes) : 0)
+        .replace(/\bn_tiroirs\b/g, (vars.n_tiroirs != null) ? Number(vars.n_tiroirs) : 0);
     safe = safe.replace(/\b(L|H|P|QTY)\b/g, function(m) {
         return (vars[m] != null) ? Number(vars[m]) : 0;
     });
@@ -127,7 +129,7 @@ function getAllowedCategoriesForGroup(groupName, categoryGroupMapping) {
 // Detects whether a cascade rule qty is a formula (contains dimension variables) or a constant.
 
 function isFormulaQty(formulaStr) {
-    return /\b(L|H|P|QTY|n_tablettes|n_partitions)\b/.test(String(formulaStr));
+    return /\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/.test(String(formulaStr));
 }
 
 // ── computeCascadeQty (extracted from calculateur.html lines 4100-4110) ──
@@ -159,6 +161,8 @@ function checkAskCompleteness(askFields, vars) {
         if (normalized === 'QTY' || normalized === 'QUANTITE' || normalized === 'QUANTITÉ') return !vars.QTY || vars.QTY <= 0;
         if (normalized === 'N_TABLETTES' || normalized === 'TABLETTES') return vars.n_tablettes == null;
         if (normalized === 'N_PARTITIONS' || normalized === 'PARTITIONS') return vars.n_partitions == null;
+        if (normalized === 'N_PORTES' || normalized === 'PORTES') return vars.n_portes == null;
+        if (normalized === 'N_TIROIRS' || normalized === 'TIROIRS') return vars.n_tiroirs == null;
         return false;
     });
 }
@@ -270,6 +274,27 @@ function findExistingChildForDynamicRule(ruleTarget, dmEntries, activeChildren, 
     return null;
 }
 
+// ── computeChildDims (pure version of applyChildDims from calculateur.html) ──
+// Evaluates child_dims formulas and returns {length_in, height_in, depth_in}.
+// Returns empty object if no child_dims or no valid formulas.
+
+function computeChildDims(childDims, vars, log) {
+    log = log || function() {};
+    if (!childDims || typeof childDims !== 'object') return {};
+    var result = {};
+    var dimMap = { L: 'length_in', H: 'height_in', P: 'depth_in' };
+    var keys = Object.keys(childDims);
+    for (var i = 0; i < keys.length; i++) {
+        var dim = keys[i].toUpperCase();
+        if (!dimMap[dim]) continue;
+        var val = evalFormula(childDims[keys[i]], vars, log);
+        if (val === null) continue;
+        val = Math.round(val * 1000) / 1000;
+        result[dimMap[dim]] = val;
+    }
+    return result;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -288,6 +313,7 @@ if (typeof module !== 'undefined' && module.exports) {
         inferAskFromDimsConfig: inferAskFromDimsConfig,
         mergeOverrideChildren: mergeOverrideChildren,
         isRuleOverridden: isRuleOverridden,
-        findExistingChildForDynamicRule: findExistingChildForDynamicRule
+        findExistingChildForDynamicRule: findExistingChildForDynamicRule,
+        computeChildDims: computeChildDims
     };
 }

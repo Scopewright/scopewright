@@ -172,6 +172,24 @@ var CATALOGUE_DATA = [
         price: 80,
         material_costs: {},
         calculation_rule_ai: null
+    },
+    {
+        id: 'ST-0005',
+        description: 'Caisson avec portes et tiroirs',
+        client_text: 'caisson portes tiroirs',
+        category: 'Caisson',
+        item_type: 'fabrication',
+        price: 500,
+        material_costs: {},
+        calculation_rule_ai: {
+            ask: ['L', 'H', 'P', 'N_PORTES'],
+            cascade: [
+                { target: '$default:Facades', qty: 'n_portes',
+                  condition: 'n_portes > 0',
+                  child_dims: { L: '(L / n_portes) - 0.125', H: 'H - 0.25' } },
+                { target: '$default:Caisson', qty: '(L*P*2 + L*H*2) / 144' }
+            ]
+        }
     }
 ];
 

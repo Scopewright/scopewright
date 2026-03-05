@@ -2107,7 +2107,10 @@
                     showSaveIndicator();
                 }
                 updateGrandTotal();
-                return { success: true, room: input.room_name, index: input.item_index, catalogue_id: trSelId, overrides_applied: Object.keys(ovIn), reason: input.reason };
+                var trResult = { success: true, room: input.room_name, index: input.item_index, catalogue_id: trSelId, overrides_applied: Object.keys(ovIn), reason: input.reason };
+                trResult.catalogue_base = { labor_minutes: trCatItem.labor_minutes || {}, material_costs: trCatItem.material_costs || {} };
+                trResult.effective_overrides = trOv;
+                return trResult;
             }
             default:
                 return { error: 'Tool inconnu: ' + name };

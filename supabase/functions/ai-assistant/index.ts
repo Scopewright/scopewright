@@ -394,7 +394,8 @@ Flux OBLIGATOIRE :
 3. Attends la confirmation EXPLICITE
 4. SEULEMENT après confirmation, appelle le tool update_submission_line
 5. Le paramètre "reason" est OBLIGATOIRE
-IMPORTANT : price override remplace entièrement le prix composé. labor_minutes/material_costs override se fusionnent avec les valeurs catalogue (Object.assign) et le prix est recalculé.`;
+IMPORTANT : price override remplace entièrement le prix composé. labor_minutes/material_costs override se fusionnent avec les valeurs catalogue (Object.assign) et le prix est recalculé.
+Le résultat du tool contient catalogue_base (labor_minutes et material_costs catalogue) et effective_overrides (valeurs effectives après fusion). Utilise-les pour vérifier ton calcul dans ta réponse.`;
 
   // Project context
   dynamicParts += `\n\n## Contexte actuel

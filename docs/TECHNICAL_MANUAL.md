@@ -634,7 +634,7 @@ calculateur.html                    ai-assistant Edge Function
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions optionnelles |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P) |
 | `update_catalogue_item` | Confirmation obligatoire | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** |
-| `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. **Jamais auto-exécuté** |
+| `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. Retourne `catalogue_base` + `effective_overrides` pour vérification. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |
 | `compare_versions` | Auto-exécution | Compare deux versions de soumission. Read-only |
 | `save_learning` | Exécuté côté serveur | Sauvegarde une règle organisationnelle (INSERT dans `ai_learnings`) |

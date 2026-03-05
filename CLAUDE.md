@@ -384,9 +384,10 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 ```
 
 - **`condition`** : expression évaluée par `evalFormula` (variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
-- **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau (1.0 = base, 1.25 = +25%)
+- **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau. Accepte un objet `{dept: multiplier}` ou un **nombre scalaire** (appliqué à tous les départements/catégories). 1.0 = base, 1.25 = +25%
 - **First-match** : premier modificateur dont la condition est vraie gagne (pas cumulatif)
 - **Hierarchie d'override** : `price` (override global) > `labor/material` (override manuel) > `laborAuto/materialAuto` (barèmes auto) > valeurs catalogue
+- **Ordre d'exécution dans `updateRow`** : les barèmes sont évalués **après** la section dims (pour que les inputs L/H/P existent dans le DOM) et après l'auto-quantité. Le bloc est déféré via `row._baremeItem` puis exécuté avant `updateGroupSubtotal`
 
 **Colonnes DB** :
 - `catalogue_items.labor_modifiers` JSONB — barèmes JSON

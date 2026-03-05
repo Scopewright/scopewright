@@ -248,7 +248,9 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
 
 **Évaluation** : `evaluateLaborModifiers(item, vars)` — first-match (premier modificateur dont la condition est vraie). Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions : ceil, floor, round, min, max.
 
-**Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.
+**Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). Acceptent un objet `{dept: multiplier}` ou un **nombre scalaire** (appliqué à tous les départements/catégories via expansion). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.
+
+**Ordre d'exécution** : dans `updateRow()`, les barèmes sont évalués **après** la section dims (pour que les inputs L/H/P existent dans le DOM) et après l'auto-quantité. Le bloc est déféré via `row._baremeItem` puis exécuté avant `updateGroupSubtotal`.
 
 **Hiérarchie d'override (3 tiers)** : `ov.price` > `ov.labor/material` (manuel) > `ov.laborAuto/materialAuto` (auto) > valeurs catalogue.
 

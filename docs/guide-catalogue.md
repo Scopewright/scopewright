@@ -340,8 +340,8 @@ Les baremes appliquent des **facteurs multiplicateurs** automatiques sur les min
 
 - **condition** : expression evaluable (variables L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs; fonctions ceil, floor, round, min, max)
 - **label** : description courte affichee dans le popover
-- **labor_factor** : multiplicateur par departement MO (1.0 = base, 1.5 = +50%)
-- **material_factor** : multiplicateur par categorie materiau (meme logique)
+- **labor_factor** : multiplicateur par departement MO (1.0 = base, 1.5 = +50%). Accepte un objet `{ "Machinage": 1.5 }` ou un **nombre scalaire** `1.5` (applique a tous les departements)
+- **material_factor** : multiplicateur par categorie materiau (meme logique, objet ou scalaire)
 - **First-match** : seul le premier modificateur dont la condition est vraie est applique
 
 ### Hierarchie d'override dans le calculateur

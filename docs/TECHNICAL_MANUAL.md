@@ -401,7 +401,7 @@ var qty = usesDimVars
 | Locked children | `cascade-locked` CSS class | Enfants verrouillés invisibles au moteur (override manuel) |
 | Cascade suppressed | `cascadeSuppressed[parentRowId]` | Enfants manuellement supprimés ne sont pas recréés. Reset quand le parent change d'article |
 | Persist immédiat | `updateItem()` après chaque enfant | Bypass le debounce global pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag` immédiatement |
-| Skip cascade | `opts.skipCascade` dans `updateRow` | Toggle installation ne déclenche pas de re-cascade (flag facturation, pas variable dimensionnelle) |
+| Skip cascade | `opts.skipCascade` dans `updateRow` | **Règle** : tout `updateRow()` qui N'EST PAS un changement de dims (L/H/P/n_tablettes/n_partitions) ou d'article catalogue DOIT passer `skipCascade: true`. Corrigé dans : `saveOverrides`, `clearOverrides`, `refreshGroupRows`, `toggleInstallation`, AI tools `update_submission_line`, `modify_item` (sans dims) |
 
 ### 3.9 Propagation installation
 

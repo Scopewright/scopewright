@@ -2086,7 +2086,8 @@
                     var dimP = document.getElementById(targetRow.id + '-dim-p');
                     if (dimP) { dimP.value = changes.depth; applied.push('depth'); }
                 }
-                updateRow(targetRow.id);
+                var hasDimChange = changes.length != null || changes.height != null || changes.depth != null;
+                updateRow(targetRow.id, hasDimChange ? {} : { skipCascade: true });
                 updateGrandTotal();
                 return { success: true, room: input.room_name, index: input.item_index, applied: applied };
             }
@@ -2182,7 +2183,7 @@
 
                 _rowOverrides[trId] = trOv;
                 targetRow.classList.add('has-override');
-                updateRow(trId);
+                updateRow(trId, { skipCascade: true });
 
                 if (itemMap[trId]) {
                     await updateItem(itemMap[trId], {
@@ -11214,7 +11215,7 @@
                 if (row) row.classList.remove('has-override');
             }
 
-            updateRow(rowId);
+            updateRow(rowId, { skipCascade: true });
             updateGrandTotal();
 
             if (itemMap[rowId]) {
@@ -11232,7 +11233,7 @@
             delete _rowOverrides[rowId];
             var row = document.getElementById(rowId);
             if (row) row.classList.remove('has-override');
-            updateRow(rowId);
+            updateRow(rowId, { skipCascade: true });
             updateGrandTotal();
             if (itemMap[rowId]) {
                 updateItem(itemMap[rowId], { labor_override: null, material_override: null, price_override: null });
@@ -12095,7 +12096,7 @@
         function refreshGroupRows(groupId) {
             var container = document.getElementById(groupId + '-rows');
             if (!container) return;
-            container.querySelectorAll('.calc-row').forEach(function(row) { updateRow(row.id); });
+            container.querySelectorAll('.calc-row').forEach(function(row) { updateRow(row.id, { skipCascade: true }); });
             updateGroupSubtotal(groupId);
         }
 

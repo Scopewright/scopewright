@@ -45,6 +45,10 @@
 !images/*
 !docs/
 !docs/*
+!tests/
+!tests/*
+!tests/fixtures/
+!tests/fixtures/*
 
 # Landing page env files
 landing-page/.env

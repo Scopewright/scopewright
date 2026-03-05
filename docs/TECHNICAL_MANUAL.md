@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-03
+> **Dernière mise à jour** : 2026-03-05
 
 ---
 
@@ -21,6 +21,7 @@
 11. [Base de données Supabase](#11-base-de-données-supabase)
 12. [Edge Functions](#12-edge-functions)
 13. [Google Apps Script](#13-google-apps-script)
+14. [Tests automatisés — Moteur cascade](#14-tests-automatisés--moteur-cascade)
 
 ---
 
@@ -671,7 +672,8 @@ calculateur.html                    ai-assistant Edge Function
 | `optimize` | Haiku | Nettoyage/formatage HTML de descriptions meubles |
 | `translate` | Haiku | FR → EN |
 | `en_to_fr` | Haiku | EN → FR canadien |
-| `catalogue_client_text` | Haiku | Génération de texte client depuis description interne |
+| `catalogue_client_text` | Haiku | Génération de texte client depuis description interne (bouton UI retiré, action conservée) |
+| `instruction_rewrite` | Haiku | Reformulation d'instruction article (bouton AI dot sur champ Instruction) |
 | `catalogue_explication` | Haiku | Amélioration d'explication de règle |
 | `catalogue_json` | Sonnet 4 | Conversion explication → JSON structuré |
 | `catalogue_pres_rule` | Sonnet 4 | Génération règle de présentation (explication + JSON) |
@@ -701,8 +703,8 @@ Le flux AI suit un pattern de confirmation utilisateur :
 
 ### 6.9 Prompts overridables
 
-Chaque prompt AI peut être overridé via `app_config` (12 clés) :
-`ai_prompt_estimateur`, `ai_prompt_catalogue_import`, `ai_prompt_contacts`, `ai_prompt_fiche_optimize`, `ai_prompt_fiche_translate_fr_en`, `ai_prompt_fiche_translate_en_fr`, `ai_prompt_client_text_catalogue`, `ai_prompt_json_catalogue`, `ai_prompt_pres_rule`, `ai_prompt_calc_rule`, `ai_prompt_description_calculateur`, `ai_prompt_approval_review`
+Chaque prompt AI peut être overridé via `app_config` (13 clés) :
+`ai_prompt_estimateur`, `ai_prompt_catalogue_import`, `ai_prompt_contacts`, `ai_prompt_fiche_optimize`, `ai_prompt_fiche_translate_fr_en`, `ai_prompt_fiche_translate_en_fr`, `ai_prompt_client_text_catalogue`, `ai_prompt_instruction_catalogue`, `ai_prompt_json_catalogue`, `ai_prompt_pres_rule`, `ai_prompt_calc_rule`, `ai_prompt_description_calculateur`, `ai_prompt_approval_review`
 
 ### 6.10 Cascade debug logs
 
@@ -1071,7 +1073,7 @@ submission_unlock_logs (immuable)
 ### 12.3 translate/index.ts (~527 lignes)
 
 - **Modèles** : Haiku 4.5 (texte), Sonnet 4 (JSON)
-- **11 actions** couvrant traduction, optimisation, génération JSON
+- **12 actions** couvrant traduction, optimisation, génération JSON, reformulation instruction
 - **Prefill assistant** : `"{"` pour forcer output JSON
 - **Multi-texte** : Concaténation avec `===SEPARATOR===`
 - **Multimodal** : Support images base64 pour `import_components`
@@ -1124,6 +1126,73 @@ submission_unlock_logs (immuable)
 - **Images** : Converties de base64 en Blob, ajoutées comme pièces jointes
 - **Destinataire** : `soumissions@stele.ca` avec CC au project manager
 - **Sujet** : `Estimation Stele — #105 — Jean Dupont (3 image(s) jointe(s))`
+
+---
+
+## 14. Tests automatisés — Moteur cascade
+
+### 14.1 Architecture
+
+Tests Node.js headless (0 dépendances externes) couvrant les fonctions pures du moteur cascade. Les fonctions sont extraites de `calculateur.html` en copies paramétrées dans `tests/cascade-helpers.js` — les globales (`CATALOGUE_DATA`, `categoryGroupMapping`, `cascadeLog`) sont remplacées par des paramètres explicites.
+
+```bash
+node tests/cascade-engine.test.js
+# Attendu : 123 passed, 0 failed, exit code 0
+```
+
+### 14.2 Fichiers
+
+| Fichier | Contenu |
+|---------|---------|
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 123 assertions en 14 groupes |
+| `tests/cascade-helpers.js` | 15 fonctions pures + constante `MATCH_STOP_WORDS` |
+| `tests/fixtures/catalogue.js` | 14 articles réalistes (ST-0001 à ST-0060) : 4 FAB avec cascade rules, 10 MAT avec `material_costs` |
+| `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
+
+### 14.3 Fonctions extraites
+
+| Fonction | Source (calculateur.html) | Paramétrage |
+|----------|--------------------------|-------------|
+| `evalFormula(expr, vars, log)` | Lignes 2837-2855 | `cascadeLog` → `log` callback |
+| `normalizeDmType(str)` | Lignes 2858-2862 | Aucun |
+| `extractMatchKeywords(clientText, stopWords)` | Lignes 2792-2796 | `MATCH_STOP_WORDS` → paramètre |
+| `scoreMatchCandidates(candidates, keywords)` | Lignes 3273-3281 | Aucun |
+| `deduplicateDmByClientText(entries)` | Lignes 3289-3300 | Aucun |
+| `itemHasMaterialCost(item, expCatUpper)` | Lignes 2999-3009 | Aucun |
+| `getAllowedCategoriesForGroup(groupName, mapping)` | Lignes 2278-2291 | `categoryGroupMapping` → paramètre |
+| `isFormulaQty(formulaStr)` | Ligne 4107 | Extraction inline |
+| `computeCascadeQty(ruleQty, vars, rootQty, log)` | Lignes 4100-4110 | Combine `evalFormula` + branchement |
+| `checkAskCompleteness(askFields, vars)` | Lignes 3944-3960 | Aucun |
+| `inferAskFromDimsConfig(dimsConfig)` | Lignes 3936-3942 | Aucun |
+| `mergeOverrideChildren(parentOverrides, ownOverrides)` | Ligne 3895 | Aucun |
+| `isRuleOverridden(ruleTarget, ancestorOverrides)` | Lignes 4049-4056 | Aucun |
+| `findExistingChildForDynamicRule(target, dmEntries, activeChildren, alreadyMatched, catalogueData, allowedCats, log)` | Lignes 2869-2941 | `groupId` → `dmEntries`, `CATALOGUE_DATA` → `catalogueData`, `getAllowedCategoriesForGroup` → `allowedCats` pré-calculé |
+
+### 14.4 Groupes de tests (14)
+
+1. **evalFormula** (17) — arithmétique, variables L/H/P/QTY, n_tablettes/n_partitions, ceil/floor/round/min/max, null, unsafe, division par zéro
+2. **normalizeDmType** (9) — lowercase, accents, pluriel s/x, null, Façades→Facade
+3. **isFormulaQty** (8) — constantes vs formules avec variables dimensionnelles
+4. **computeCascadeQty** (9) — constante × rootQty, formule = total (pas × rootQty), résultat ≤0
+5. **mergeOverrideChildren** (4) — vide, parent seul, own seul, concat
+6. **isRuleOverridden** (7) — $match bloqué/non-bloqué, $default jamais bloqué, code direct jamais bloqué
+7. **override_children integration** (6) — FAB ST-0001 : propres rules passent, descendants bloqués
+8. **checkAskCompleteness** (12) — complet, L=0, L absent, n_tablettes=0 valide, alias, champ inconnu
+9. **inferAskFromDimsConfig** (6) — l+h+p, l+h, vide, null
+10. **extractMatchKeywords + scoreMatchCandidates** (9) — extraction, stop words, scoring, tri
+11. **deduplicateDmByClientText** (5) — uniques, duplicates, fallback catalogue_item_id
+12. **getAllowedCategoriesForGroup** (6) — Caisson→3 cats, Finition→1, inconnu→null
+13. **itemHasMaterialCost** (8) — flat cost, {cost,qty}, zéro, case-insensitive, absent, null
+14. **findExistingChildForDynamicRule** (8) — $default exact/fallback/already-matched, $match word overlap
+
+### 14.5 Synchronisation
+
+Les copies dans `cascade-helpers.js` doivent être mises à jour manuellement si la logique source dans `calculateur.html` change. Les numéros de lignes source sont documentés dans les commentaires d'en-tête de chaque fonction. Après modification du moteur cascade :
+
+1. Vérifier si les fonctions extraites ont changé
+2. Mettre à jour les copies si nécessaire
+3. Rouler `node tests/cascade-engine.test.js`
+4. Vérifier 0 failures avant commit
 
 ---
 

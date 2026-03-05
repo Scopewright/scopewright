@@ -415,7 +415,7 @@ L'input `editClientText` dans la modale d'édition catalogue propose des suggest
 
 ### Architecture des prompts AI
 
-**14 prompts** (12 dans le dropdown admin + 2 invisibles) répartis dans 4 Edge Functions.
+**15 prompts** (13 dans le dropdown admin + 2 invisibles) répartis dans 4 Edge Functions.
 Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override DB** dans `app_config`. Si la DB a une valeur non-vide → utilisée. Sinon → hardcodé.
 
 | Clé `app_config` | Edge Function | Modèle | Admin visible |
@@ -427,11 +427,12 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `ai_prompt_fiche_optimize` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_fiche_translate_fr_en` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_fiche_translate_en_fr` | translate | Haiku 4.5 | ✅ |
-| `ai_prompt_client_text_catalogue` | translate | Haiku 4.5 | ✅ |
+| `ai_prompt_client_text_catalogue` | translate | Haiku 4.5 | ✅ (bouton UI retiré, action conservée) |
 | `ai_prompt_pres_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_calc_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_description_calculateur` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_import_components` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_instruction_catalogue` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_explication_catalogue` | translate | Haiku 4.5 | ❌ Manquant |
 | `ai_prompt_json_catalogue` | translate | Haiku 4.5 | ❌ Manquant |
 | `ai_prompt_approval_suggest` | translate | Sonnet 4 | ❌ Manquant |
@@ -443,13 +444,13 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
-- Prompts translate (11 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
+- Prompts translate (12 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
 - `DESCRIPTION_FORMAT_RULES` (9 lignes) — injecté via placeholder `{{DESCRIPTION_FORMAT_RULES}}`
 - Instructions "Diagnostic cascade" et "Modification catalogue" — hardcodées dans `buildSystemPrompt()`
 - Header "Règles de calcul" (~30 lignes d'instructions) — hardcodé avant la liste des règles
-- User message templates (translate, 11 actions) — messages action-spécifiques côté code
+- User message templates (translate, 12 actions) — messages action-spécifiques côté code
 
 **Bugs identifiés :**
 - 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin
@@ -460,7 +461,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | calculateur, approbation, catalogue |
-| `translate` | Haiku 4.5 / Sonnet 4 | Non | — (11 actions) | catalogue, calculateur, approbation |
+| `translate` | Haiku 4.5 / Sonnet 4 | Non | — (12 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |
 
@@ -561,6 +562,27 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 - Demander confirmation UNE SEULE FOIS sur le plan
 - Exécuter le plan au complet sans demander d'approbation intermédiaire
 - Après chaque modification, mettre à jour CLAUDE.md pour refléter les changements
+
+## Tests automatisés
+
+**Avant toute modification au moteur cascade, rouler `node tests/cascade-engine.test.js` et vérifier que tous les tests passent.**
+
+### Infrastructure
+
+| Fichier | Rôle |
+|---------|------|
+| `tests/cascade-engine.test.js` | 123 assertions en 14 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/fixtures/catalogue.js` | 14 articles catalogue réalistes (4 FAB + 10 MAT) |
+| `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
+
+### Fonctions couvertes
+
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`
+
+### Synchronisation
+
+Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des fonctions pures de `calculateur.html`. Si la logique source change, mettre à jour les copies et re-rouler les tests. Les numéros de lignes source sont documentés dans les commentaires d'en-tête de chaque fonction.
 
 ## Ne pas toucher
 

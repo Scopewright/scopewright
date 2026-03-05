@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-03
+> **Dernière mise à jour** : 2026-03-05
 
 ---
 
@@ -207,3 +207,186 @@
 - Les nouvelles pièces guident l'utilisateur vers la configuration DM avant d'ajouter des articles
 - L'indicateur `.dm-needs-config` (flèche pulse) est visible sur les pièces legacy avec des articles mais sans DM
 - `getMissingRequiredDm` vérifie `client_text || catalogue_item_id` pour supporter les deux formats
+
+---
+
+## DEC-011 — Quantités cascade : constante vs formule (rootQty)
+
+**Date** : 2026-03-05
+
+**Contexte** : `executeCascade` multipliait toujours la quantité enfant par `rootQty` (quantité du FAB parent). Pour les formules dimensionnelles (`L * H / 144`), ce résultat est déjà total (ex: 6 caissons de 24"×36" → formule évalue la surface d'un seul panneau × dimensions, pas × 6). Pour les constantes (`"2"` vis par caisson), la multiplication est correcte.
+
+**Décision** : Détecter par regex `/\b(L|H|P|QTY|n_tablettes|n_partitions)\b/` si `rule.qty` contient des variables dimensionnelles. Si oui → le résultat est total, pas de multiplication par `rootQty`. Si non (constante pure) → multiplier par `rootQty`.
+
+**Alternatives considérées** :
+- **Toujours multiplier, ajuster les formules** : obligerait les auteurs de règles à diviser par QTY dans chaque formule dimensionnelle — contre-intuitif et fragile.
+- **Champ explicite `multiply_by_qty: true/false`** sur chaque règle : plus explicite, mais casse toutes les règles existantes et ajoute de la complexité pour les auteurs.
+- **Évaluer deux fois (avec et sans rootQty) et choisir le résultat cohérent** : heuristique fragile, impossible de deviner l'intention de l'auteur.
+
+**Conséquences** :
+- Les formules existantes (`L * H / 144`, `(L + H) * 2 / 12`) fonctionnent sans modification
+- Les constantes existantes (`"2"`, `"4"`) continuent d'être multipliées par la quantité parent
+- Si un auteur veut une constante totale (pas par unité), il peut utiliser `QTY * 0 + 8` (hack) — cas rare
+- La regex couvre toutes les variables connues du moteur cascade
+
+---
+
+## DEC-012 — `$default:` propage materialCtx aux `$match:` frères
+
+**Date** : 2026-03-05
+
+**Contexte** : Un FAB avec `$default:Caisson` + `$match:BANDE DE CHANT` + `$match:FINITION BOIS`. Le `$default:` résout vers mélamine, mais les `$match:` frères scoraient dans le contexte chêne blanc (matériau pré-peuplé depuis le DM, pas depuis le résultat de la résolution).
+
+**Décision** : Après chaque résolution `$default:` réussie, `resolveCascadeTarget` propage le `client_text` de l'article catalogue résolu dans `materialCtx.chosenClientText`. Trois points de sortie : cache hit, candidat unique, modale technique. Le `materialCtx` étant passé par référence dans la boucle des règles, les `$match:` suivantes voient le contexte mis à jour.
+
+**Alternatives considérées** :
+- **Séparer le contexte par type de résolution** (un `defaultCtx` + un `matchCtx`) : plus propre en théorie, mais le `materialCtx` sert déjà les deux et la mutation par référence est simple et lisible.
+- **Stocker le résultat `$default:` dans un objet séparé** (`_lastDefaultResolution`) et le consulter dans `resolveMatchTarget` : ajoute un état global mutable supplémentaire, plus fragile que la propagation locale par référence.
+- **Forcer l'ordre des règles** (`$default:` d'abord, `$match:` ensuite) via tri dans `executeCascade` : contraignant pour les auteurs de règles et ne résoudrait pas le cas multi-`$default:`.
+
+**Conséquences** :
+- Les `$match:` frères d'un `$default:` scorent dans le contexte du matériau effectivement résolu
+- Un FAB mélamine obtient ses bandes de chant et finitions mélamine (pas chêne blanc)
+- Le DM unique explicite reste prioritaire (si un seul DM "Finition" existe, `materialCtx` ne le surcharge pas)
+- Le `materialCtx` peut être écrasé par chaque `$default:` successif — l'ordre des règles dans le JSON a un impact (dernière résolution gagne)
+
+---
+
+## DEC-013 — skipCascade pour le toggle installation
+
+**Date** : 2026-03-05
+
+**Contexte** : Cocher/décocher l'installation d'un meuble appelait `updateRow` → `scheduleCascade` → re-exécution cascade → duplication des enfants. L'installation est un flag de facturation, pas une variable dimensionnelle.
+
+**Décision** : `updateRow(rowId, opts)` accepte `opts.skipCascade`. `toggleInstallation` (meuble) et `toggleRowInstallation` (ligne) passent `{ skipCascade: true }`. En plus, `propagateInstallationToCascadeChildren(parentRowId, checked)` propage récursivement le toggle aux enfants cascade.
+
+**Alternatives considérées** :
+- **Filtrer dans `scheduleCascade`** (ignorer si seul le flag installation a changé) : nécessite de comparer l'état avant/après, complexe et fragile (d'autres champs pourraient changer en même temps).
+- **Ne pas appeler `updateRow` du tout** (modifier seulement la checkbox et sauver en DB) : rompt le flux normal de sauvegarde et obligerait à dupliquer la logique de `updateRow`.
+
+**Conséquences** :
+- Le toggle installation ne déclenche plus de cascade
+- Les enfants cascade héritent automatiquement le toggle de leur parent FAB
+- La propagation est récursive (3 niveaux) via `findCascadeChildren`
+- Le paramètre `opts.skipCascade` est disponible pour d'autres cas futurs similaires
+
+---
+
+## DEC-014 — Anti-lignes vides (3 gardes)
+
+**Date** : 2026-03-05
+
+**Contexte** : Des lignes sans article catalogue persistaient en DB — créées par clic accidentel sur "+" puis clic ailleurs, ou par des bugs de chargement. Ces lignes fantômes polluaient les soumissions et faussaient les totaux.
+
+**Décision** : 3 gardes complémentaires : (a) `debouncedSaveItem` skip si aucun article sélectionné, (b) `addRow` attache un listener `blur` one-shot → `removeRow` après 2s si toujours vide, (c) `openSubmission` filtre les items sans `catalogue_item_id` ni `item_type=custom` avant rendu.
+
+**Alternatives considérées** :
+- **Contrainte NOT NULL sur `catalogue_item_id` en DB** : empêcherait les articles personnalisés (`custom`) qui n'ont pas de `catalogue_item_id`.
+- **Un seul garde au save** : insuffisant car les lignes fantômes apparaissent visuellement et créent de la confusion avant même le save.
+- **Suppression automatique côté serveur** (cron/trigger) : latence, complexité, et les lignes polluent l'UI entre-temps.
+
+**Conséquences** :
+- Les clics accidentels sur "+" sont nettoyés en 2s si l'utilisateur ne sélectionne rien
+- Les saves ne créent plus de lignes vides en DB
+- Le chargement filtre les reliquats historiques — la DB n'est pas nettoyée rétroactivement mais l'UI est propre
+
+---
+
+## DEC-015 — Sanitisation tool_use/tool_result (défense en profondeur)
+
+**Date** : 2026-03-05
+
+**Contexte** : L'API Anthropic retourne erreur 400 si un message `tool_use` n'a pas de `tool_result` correspondant. Trois sources d'orphelins identifiées : dismiss sans injection, nouveau message utilisateur pendant pending tools, follow-up tool_use dans la réponse post-exécution.
+
+**Décision** : `sanitizeConversationToolUse(messages)` est une défense en profondeur appliquée avant chaque appel API. Elle détecte les `tool_use` orphelins et injecte des `tool_result` synthétiques `{"skipped":true}`. En parallèle, les 3 sources amont sont corrigées individuellement.
+
+**Alternatives considérées** :
+- **Corriger uniquement les sources amont** : résout les cas connus, mais toute future modification du flow pourrait créer de nouveaux orphelins. La défense en profondeur est un filet de sécurité.
+- **Vider l'historique conversation quand un orphelin est détecté** : perte de contexte, mauvaise UX.
+- **Filtrer les messages tool_use orphelins** (au lieu d'injecter des tool_result) : viole le protocole API qui exige des paires.
+
+**Conséquences** :
+- Le sanitizer ajoute un overhead O(n) par appel API — négligeable pour des conversations de taille normale
+- Les tool_result synthétiques `{"skipped":true}` sont visibles par l'AI dans le contexte — elle peut voir qu'un outil a été ignoré
+- La correction amont reste importante pour éviter d'accumuler des entrées inutiles dans la conversation
+
+---
+
+## DEC-016 — Rate limit 429/529 auto-retry (1 seul retry, 15s)
+
+**Date** : 2026-03-05
+
+**Contexte** : Les erreurs 429 (rate limit) et 529 (overloaded) de l'API Anthropic étaient affichées brutes à l'utilisateur. L'erreur est transitoire — un retry après quelques secondes réussit généralement.
+
+**Décision** : `callAiAssistant` intercepte les 429/529, affiche "Un instant, le serveur est occupé…", attend 15s, retire le message temporaire, et retry une seule fois. Si le retry échoue, message d'erreur propre (jamais le texte brut de l'API).
+
+**Alternatives considérées** :
+- **Retry exponentiel** (3+ tentatives) : les 429 Anthropic ont un `retry-after` de 60s+ — multiple retries bloqueraient l'UI trop longtemps. Un seul retry avec 15s est un bon compromis.
+- **Retry côté serveur** (Edge Function) : plus propre architecturalement, mais allonge le timeout Edge Function et ne permet pas de feedback UI au client pendant l'attente.
+- **Queue de messages** : overkill pour un scénario rare (< 1% des appels).
+
+**Conséquences** :
+- L'utilisateur voit un message temporaire au lieu d'un JSON brut d'erreur
+- Maximum 15s de latence supplémentaire sur les 429/529
+- Si le problème persiste après retry, l'utilisateur voit un message clair l'invitant à réessayer
+
+---
+
+## DEC-017 — Cascade debug logs (buffer circulaire + inclusion conditionnelle)
+
+**Date** : 2026-03-05
+
+**Contexte** : Le diagnostic des problèmes cascade nécessitait de reproduire le bug avec la console ouverte. Les logs étaient dans `console.log`, perdus au rechargement, et pas accessibles par l'AI.
+
+**Décision** : `cascadeDebugLog` — buffer mémoire circulaire de 200 entrées capturant tous les `cascadeLog(level, msg, data)`. Deux fonctions de détection indépendantes : `detectCascadeDiagnostic(text)` (mots-clés cascade) inclut les 50 derniers logs dans le contexte AI, `detectCalculationContext(text)` (mots-clés calcul) inclut les `calculationRules`. Cible : ≤20K tokens normal, ≤30K diagnostic.
+
+**Alternatives considérées** :
+- **Toujours inclure les logs** : gonfle le contexte AI de ~3K tokens pour chaque message, même quand l'utilisateur parle de prix ou de descriptions.
+- **Logs persistés en DB** : overhead réseau à chaque cascade, et la plupart des logs ne sont jamais consultés. Le buffer mémoire est suffisant pour le diagnostic en session.
+- **Un seul switch "mode debug"** : oblige l'utilisateur à anticiper le problème et activer manuellement le mode.
+
+**Conséquences** :
+- Les logs sont disponibles sans action de l'utilisateur — il suffit de demander "pourquoi le panneau n'est pas généré?"
+- Le buffer circulaire ne consomme pas de mémoire croissante
+- Les détections sont indépendantes — on peut avoir les règles de calcul sans les logs cascade et vice-versa
+
+---
+
+## DEC-018 — Images annotées rasterisées pour l'AI
+
+**Date** : 2026-03-05
+
+**Contexte** : Les annotations (tags C1, F2, P3 sur les plans) étaient stockées en JSONB côté DB mais l'image envoyée à l'AI était l'image brute sans les tags. L'AI ne pouvait pas "voir" les annotations visuellement.
+
+**Décision** : `rasterizeAnnotatedImage()` dessine l'image + les tags (rectangles navy + texte blanc) dans un canvas, upload le résultat en JPEG 0.92 dans `annotated/{mediaId}.jpg`, et stocke l'URL dans `room_media.annotated_url`. L'AI reçoit l'image annotée quand disponible, sinon l'image brute.
+
+**Alternatives considérées** :
+- **Envoyer les annotations en texte** (positions + labels) : l'AI ne peut pas associer visuellement un tag à une zone du plan — elle a besoin de voir le tag sur l'image.
+- **Dessiner les annotations côté serveur** (Edge Function) : ajoute une dépendance canvas serveur (puppeteer/sharp), latence, et complexité de déploiement.
+- **SVG overlay** : pas supporté par l'API vision Anthropic (image bitmap requise).
+
+**Conséquences** :
+- Chaque sauvegarde d'annotations génère un upload JPEG supplémentaire (~200-500KB)
+- L'AI voit les tags exactement comme l'utilisateur les voit
+- Les annotations textuelles (positions en coordonnées) sont aussi incluses dans `collectRoomDetail` pour redondance
+
+---
+
+## DEC-019 — Tool `update_catalogue_item` avec audit trail
+
+**Date** : 2026-03-05
+
+**Contexte** : L'AI assistant dans le calculateur pouvait proposer des modifications d'articles catalogue (prix, formules, matériaux), mais ne pouvait pas les appliquer. L'estimateur devait aller manuellement dans le catalogue.
+
+**Décision** : Tool `update_catalogue_item` dans l'Edge Function `ai-assistant`. Whitelist stricte de champs modifiables (price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct). Permission `canEditCatalogue` requise. Snapshot avant/après dans `catalogue_change_log`. **Jamais auto-exécuté** — toujours boutons de confirmation "Appliquer / Ignorer".
+
+**Alternatives considérées** :
+- **Auto-exécution** (comme les autres outils) : trop risqué — une modification catalogue affecte toutes les soumissions futures. La confirmation obligatoire est un garde-fou nécessaire.
+- **Redirection vers le catalogue** (ouvrir la modale d'édition) : interrompt le flow de l'estimateur qui travaille dans le calculateur.
+- **Pas de tool, uniquement des suggestions texte** : l'estimateur doit copier-coller manuellement les valeurs, friction élevée, erreurs de saisie.
+
+**Conséquences** :
+- L'estimateur peut corriger un prix ou une formule sans quitter le calculateur
+- Chaque modification est auditée dans `catalogue_change_log` (who, when, before, after)
+- La confirmation obligatoire prévient les modifications accidentelles
+- `CATALOGUE_DATA` en mémoire est mis à jour après application (pas de rechargement requis)

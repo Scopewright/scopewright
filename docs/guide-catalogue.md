@@ -1,7 +1,7 @@
 # Guide du catalogue Stele
 
 > Documentation fonctionnelle et technique du systeme de catalogue de prix.
-> Derniere mise a jour : 2026-03-03
+> Derniere mise a jour : 2026-03-05
 
 ---
 
@@ -488,8 +488,20 @@ Dans `calculation_rule_ai.cascade` :
 | Champ | Type | Description |
 |-------|------|-------------|
 | `target` | String | Code article (`ST-0015`), reference dynamique (`$default:NomGroupe`), ou correspondance auto (`$match:CatégorieDépense`). **Obligatoire.** |
-| `qty` | String/Number | Quantite ou formule. Par defaut `1`. |
+| `qty` | String/Number | Quantite ou formule. Par defaut `1`. **Important** : le champ s'appelle `qty`, jamais `formula`. |
 | `condition` | String/null | Formule booleenne. Si presente, la cascade ne s'execute que si la condition est vraie. |
+| `override_children` | String[] | Categories de depense a bloquer chez les descendants. Ex: `["BANDE DE CHANT", "FINITION BOIS"]`. L'item qui declare l'override traite ses propres regles — seuls ses descendants les sautent. |
+
+**Quantites : constante vs formule**
+
+Le moteur detecte automatiquement si `qty` est une constante ou une formule dimensionnelle via regex `/\b(L|H|P|QTY|n_tablettes|n_partitions)\b/` :
+
+| Type | Exemple | Comportement |
+|------|---------|-------------|
+| Constante | `"2"`, `"4"` | Quantite **par unite FAB** — multipliee par `rootQty` (quantite du parent). 6 caissons × 2 = 12 |
+| Formule dimensionnelle | `"L * H / 144"` | Resultat **total** — PAS multiplie par `rootQty`. La formule calcule deja la surface totale |
+
+Cela evite le doublement des quantites pour les formules qui utilisent des dimensions physiques.
 
 ### Le target dynamique `$default:`
 
@@ -512,8 +524,7 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
 **Resolution** :
 1. **Deriver les categories effectives** (`effectiveExpCats`) :
    - Commence avec la categorie de la regle (ex: `"PANNEAU BOIS"`)
-   - Cherche le DM via `materialCtx.chosenClientText` → article catalogue → cles `material_costs`
-   - Fallback : room DM direct par type de categorie de depense
+   - Cherche le DM : room DM direct par type d'abord (prioritaire), puis fallback `materialCtx.chosenClientText` → article catalogue → cles `material_costs`. **Depuis 2026-03-05** : le `materialCtx` est mis a jour par le `$default:` precedent, donc `$match:` freres utilisent le contexte du materiau effectivement resolu (ex: melamine, pas chene blanc)
    - Pour chaque cle `material_costs` du DM, verifie la **similarite par mots** : au moins un mot en commun avec la categorie de la regle (ex: `"PANNEAU MELAMINE"` matche `"PANNEAU BOIS"` via `"PANNEAU"`)
    - `effectiveExpCats` = union de toutes les categories correspondantes
 
@@ -545,13 +556,29 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
    - Verifie `cascade_suppressed` (enfants supprimes manuellement)
    - Verifie `override_children` (categories surchargees par un ancetre)
    - Resout le target (`$default:`, `$match:`, ou code direct) — async pour `$match:`
+   - **Apres `$default:`** : propage le `client_text` resolu dans `materialCtx.chosenClientText` (3 points de sortie : cache hit, candidat unique, modale technique)
    - Evalue la condition (si presente)
-   - Evalue la quantite (formule avec L/H/P/QTY/n_tablettes/n_partitions)
+   - Evalue la quantite : **constante** (× `rootQty`) ou **formule dimensionnelle** (resultat total, pas de multiplication)
    - Si l'enfant existe deja → met a jour la quantite
    - Sinon → cree une nouvelle ligne enfant
    - **Persist immediat** via `updateItem()` (bypass debounce global)
 5. Supprime les enfants orphelins (regles qui n'existent plus)
 6. Recursion jusqu'a **profondeur 3** avec `materialCtx` herite
+
+### Guards et protections
+
+| Guard | Declencheur | Effet |
+|-------|------------|-------|
+| `_cascadeRunning` | Re-entrance | Empeche les cascades paralleles |
+| `_isLoadingSubmission` | Chargement | Bloque les cascades pendant le chargement |
+| Debounce 400ms | `scheduleCascade` | Evite les cascades en rafale |
+| `opts.skipCascade` | Toggle installation | Empeche le toggle installation de declencher une cascade |
+| `cascade_suppressed` | Suppression manuelle enfant | Memorise les enfants supprimes, empeche la regeneration |
+| Anti-lignes vides | `debouncedSaveItem`, `addRow` blur, `openSubmission` | 3 gardes empechent les lignes sans article de persister |
+
+### Propagation installation
+
+`toggleRowInstallation` → `propagateInstallationToCascadeChildren(parentRowId, checked)` : quand l'utilisateur coche/decoche l'installation sur un article parent, le toggle est propage recursivement a tous les enfants cascade via `findCascadeChildren`. Sauvegarde DB immediate, `skipCascade: true`.
 
 ### Formules disponibles
 
@@ -731,6 +758,7 @@ Quand une cascade a `target: "$default:Facades"` :
 3. Filtre `CATALOGUE_DATA` par `client_text` + categories autorisees (`getAllowedCategoriesForGroup`)
 4. Si plusieurs articles techniques correspondent → modale technique (Modale 2 : code + description + categorie + prix)
 5. Retourne le `catalogue_item_id` final
+6. **Propage** le `client_text` de l'article resolu dans `materialCtx.chosenClientText` — permet aux `$match:` freres de scorer dans le bon contexte
 
 Si aucun defaut defini → cascade ignoree + toast d'avertissement.
 
@@ -747,7 +775,7 @@ Quand l'estimateur ouvre un combobox article dans le calculateur :
 1. Scanne toutes les lignes de la piece
 2. Trouve celles dont les cascades utilisent `$default:{changedGroup}`
 3. Re-execute `executeCascade()` sequentiellement sur chacune
-4. **Limitation** : ne traite PAS les cibles `$match:` — seuls les `$default:` sont re-cascades
+4. **Limitation** : ne traite PAS les cibles `$match:` — seuls les `$default:` et les `$match:` des parents avec `$default:` sont re-cascades
 
 ### Validation et UI
 
@@ -830,6 +858,7 @@ Deux mecanismes d'assemblage :
 |------------|-----|-----|-------|
 | Acces catalogue | `catalogue` | Tous les employes | Voir le catalogue (lecture seule) |
 | Edition catalogue | `catalogue_edit` | Admin, Achat | Modifier les articles existants et en creer |
+| Edition catalogue (AI) | `edit_catalogue` | Admin, Achat | Permet au tool AI `update_catalogue_item` de modifier un article depuis le calculateur. Audit trail dans `catalogue_change_log` |
 | Edition minutes | `edit_minutes` | Admin | Modifier les minutes de main-d'oeuvre dans le prix compose |
 | Edition materiaux | `edit_materials` | Admin, Achat | Modifier les couts materiaux dans le prix compose |
 | Approbation articles | `can_approve_quotes` | Admin | Approuver/rejeter les articles `pending` |
@@ -1042,6 +1071,38 @@ Chat conversationnel (`catalogue-import` Edge Function, Sonnet 4.5) avec 7 outil
 
 Outils en lecture seule : execution auto (max 5 boucles). Outils d'ecriture : recap + confirmation utilisateur.
 
+### Tool `update_catalogue_item` (depuis le calculateur)
+
+L'assistant AI du calculateur (`ai-assistant` Edge Function) peut modifier un article catalogue directement, sans quitter le calculateur. Tool `update_catalogue_item` :
+
+- **Champs modifiables** (whitelist) : `price`, `labor_minutes`, `material_costs`, `calculation_rule_ai`, `instruction`, `loss_override_pct`
+- **Permission** : `edit_catalogue` requise (permission `canEditCatalogue`)
+- **Audit** : snapshot avant/apres dans `catalogue_change_log` (qui, quand, quoi)
+- **Jamais auto-execute** : confirmation obligatoire via boutons "Appliquer / Ignorer" — meme si l'utilisateur dit "oui" ou "go"
+- **CATALOGUE_DATA** : mis a jour en memoire apres application (pas de rechargement page necessaire)
+
+### Cascade debug logs
+
+`cascadeDebugLog` — buffer memoire circulaire (200 entrees max) capturant tous les `cascadeLog(level, msg, data)` du moteur cascade. `summarizeCascadeLog()` retourne les 50 dernieres entrees en texte.
+
+Deux detections independantes controlent l'inclusion dans le contexte AI :
+- `detectCascadeDiagnostic(text)` — mots-cles cascade (cascade, debug, bug, manqu, erreur, $default, $match…) → inclut les logs
+- `detectCalculationContext(text)` — mots-cles calcul (regle, formule, dimension, pourquoi, comment…) → inclut `calculationRules`
+
+Usage : l'utilisateur demande "pourquoi la bande de chant n'est pas generee?" → les logs sont injectes dans le contexte AI → l'assistant peut diagnostiquer le probleme.
+
+### Images annotees rasterisees
+
+`rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rectangles navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`. L'AI recoit l'image annotee quand disponible (les tags sont visibles directement sur l'image).
+
+### Rate limit auto-retry (429/529)
+
+`callAiAssistant` intercepte les erreurs 429 (rate limit) et 529 (overloaded). Affiche "Un instant, le serveur est occupe…", attend 15s, retire le message temporaire, et retry une seule fois. Si le retry echoue aussi, message d'erreur propre (jamais le texte brut de l'API).
+
+### Sanitisation tool_use/tool_result
+
+`sanitizeConversationToolUse(messages)` — defense en profondeur avant chaque appel API. Detecte les blocs `tool_use` orphelins (sans `tool_result` correspondant) et injecte des `tool_result` synthetiques `{"skipped":true}`. Previent l'erreur API 400 "tool_use ids found without tool_result blocks".
+
 ### Apprentissage organisationnel (`ai_learnings`)
 
 Table de regles apprises injectees dans les prompts systeme :
@@ -1182,6 +1243,24 @@ Oui. `dims_config` est un objet JSONB `{ "l": true, "h": true, "p": false }` qui
 14. ~~**Ask guard bloquait 0 tablettes/partitions**~~ **CORRIGE** : `n_tablettes`/`n_partitions` verifiaient `> 0` mais 0 est valide pour les caissons. Corrige : verifie `== null`.
 
 15. ~~**`findExistingChildForDynamicRule` fallback categorie**~~ **CORRIGE** : le fallback par categorie catalogue permettait aux `$default:` de voler les enfants `$match:`. Supprime.
+
+### Bugs corriges (2026-03-05)
+
+16. ~~**rootQty multipliait les formules dimensionnelles**~~ **CORRIGE** : `qty = evalFormula(rule.qty) * rootQty` doublait les quantites pour les formules L/H/P. Fix : detection constante vs formule par regex.
+
+17. ~~**tool_use orphelins → erreur API 400**~~ **CORRIGE** : `sanitizeConversationToolUse` + 3 corrections amont (dismiss, nouveau message, follow-up).
+
+18. ~~**429/529 affiche brut**~~ **CORRIGE** : auto-retry 15s + message propre.
+
+19. ~~**Toggle installation declenchait cascade → duplication enfants**~~ **CORRIGE** : `opts.skipCascade` + propagation installation aux enfants cascade.
+
+20. ~~**Lignes vides persistantes**~~ **CORRIGE** : 3 gardes (debouncedSaveItem skip, blur listener 2s, openSubmission filtre).
+
+21. ~~**Upload plan PDF avec caracteres invalides**~~ **CORRIGE** : sanitisation filename (NFD, apostrophes, em dash, espaces).
+
+22. ~~**`$match:` resolvait dans le mauvais contexte materiau**~~ **CORRIGE** : `resolveCascadeTarget` propage `materialCtx.chosenClientText` apres chaque resolution `$default:`.
+
+23. ~~**Instruction manquant dans catalogueSummary**~~ **CORRIGE** : champ `instruction` reinclus (tronque 80 car).
 
 ### Code partage (2026-03-02)
 

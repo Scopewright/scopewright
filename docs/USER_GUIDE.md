@@ -190,10 +190,12 @@ Quand vous ajoutez un **article de fabrication** (ex: un caisson), le système g
 
 Par exemple, ajouter un **Caisson standard** avec L=24", H=36" :
 - Crée automatiquement une ligne **Panneau mélamine** avec la bonne surface (pi²)
-- Crée automatiquement une ligne **Bande de chant** avec le bon linéaire
-- Crée automatiquement une ligne **Finition** correspondant à votre matériau par défaut
+- Crée automatiquement une ligne **Bande de chant** assortie au matériau du panneau (mélamine → bande PVC mélamine, placage → bande de chant chêne blanc)
+- Crée automatiquement une ligne **Finition** correspondant à votre matériau par défaut (si applicable — les mélamine ne reçoivent pas de finition)
 
-Les composantes sont indentées sous l'article parent et leurs quantités sont calculées par les formules de l'article.
+Les composantes sont indentées sous l'article parent et leurs quantités sont calculées par les formules de l'article. Les quantités distinguent automatiquement les constantes (ex: "4 vis par caisson") des formules dimensionnelles (ex: "surface L×H/144") — pas de risque de doublement quand vous avez plusieurs unités du même article.
+
+**Cohérence matériau** : quand le système résout le panneau vers mélamine, toutes les composantes associées (bande de chant, finition) sont automatiquement résolues dans le même contexte matériau. Pas besoin de vérifier manuellement la cohérence.
 
 #### Dimensions
 
@@ -275,6 +277,8 @@ L'assistant Scopewright est un estimateur virtuel qui connaît votre catalogue, 
 >
 > La ligne manuelle (row-14) n'est pas liée au caisson. Voulez-vous que je supprime le doublon manuel?
 
+L'assistant a accès aux **50 derniers événements** du moteur de composantes automatiques. Il détecte automatiquement quand votre question concerne un problème de génération et inclut les logs pertinents. Pas besoin d'activer un mode debug — demandez simplement "pourquoi le panneau n'est pas généré?" ou "pourquoi la finition est en chêne blanc?".
+
 **Envoyer un screenshot :**
 
 Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une image. L'assistant peut lire :
@@ -284,6 +288,8 @@ Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une i
 - Des notes manuscrites
 
 **Mode simulation :** L'assistant propose toujours les modifications en texte d'abord. Vous voyez ce qu'il veut faire, puis vous cliquez **Appliquer** ou **Ignorer**. Rien ne se fait sans votre confirmation.
+
+**Modifier le catalogue depuis le calculateur :** Si vous avez la permission d'édition du catalogue, l'assistant peut aussi modifier un article du catalogue directement (prix, formules, matériaux). Ces modifications passent toujours par une confirmation explicite et sont tracées dans un journal d'audit.
 
 **Changement de contexte automatique :** Quand vous scrollez d'un meuble à l'autre dans le calculateur, l'assistant comprend automatiquement le changement et adapte ses réponses au meuble visible.
 
@@ -319,11 +325,13 @@ Chaque meuble et chaque ligne a une **checkbox installation** (✓).
 
 - **Checkbox meuble** : coche/décoche toutes les lignes du meuble d'un coup
 - **Checkbox ligne** : contrôle individuel par article
-- **Checkbox parent** : cocher/décocher un article de fabrication propage automatiquement à toutes ses composantes générées
+- **Checkbox parent** : cocher/décocher un article de fabrication propage automatiquement à toutes ses composantes générées (panneaux, bande de chant, finition, etc.) — récursif sur tous les niveaux
 
 Le prix affiché inclut l'installation quand la case est cochée. Si l'installation est exclue pour une section, la mention « *Installation non incluse pour cette section* » apparaît dans la soumission.
 
 Il y a aussi un **toggle global** au niveau du projet qui contrôle l'installation pour tous les meubles.
+
+**Note technique** : le toggle installation ne recalcule pas les composantes — c'est un flag de facturation uniquement. Aucun risque de duplication ou de modification des articles.
 
 ### Rentabilité
 
@@ -794,6 +802,7 @@ Personnalisez la page d'introduction de vos soumissions :
 | Générer les descriptions | **AI** — Cliquez le bouton AI sur chaque meuble |
 | Import de contacts | **AI** — Collez un screenshot, l'AI fait le reste |
 | Diagnostiquer un problème | **AI** — « Pourquoi le panneau n'est pas généré? » |
+| Corriger un prix catalogue | **AI** — « Change le prix de ST-0042 à 85$ » (si permission) |
 | Changer un matériau par défaut | **Manuel** — Panneau matériaux par défaut |
 
 **Principe fondamental :** L'AI aide et accélère, mais l'estimateur décide. L'AI propose, vous confirmez. Chaque modification passe par votre validation.

@@ -567,6 +567,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif : architecture, systèmes (cascade, DM, permissions, workflow), Edge Functions, tables, triggers
 - `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 18 bugs, 13 risques architecturaux, 27 recommandations priorisées
 - `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-010) : contexte, alternatives, conséquences
+- `docs/USER_GUIDE.md` — Guide utilisateur complet : 9 parties, fonctionnalités, exemples AI, workflow, trucs et astuces
 - `docs/guide-catalogue.md` — Guide complet du catalogue : structure, cascades, DM, audit, variables, bugs connus
 - `ARCHITECTURE.md` — Vue d'ensemble architecturale (legacy, remplacé par TECHNICAL_MANUAL)
 - `CHANGELOG.md` — Historique des modifications datées

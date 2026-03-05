@@ -276,6 +276,50 @@ Le fallback par catégorie catalogue dans `findExistingChildForDynamicRule` perm
 
 **Fix** : Fallback catégorie supprimé. Matching uniquement par `catalogueId` in `validIds` ou `client_text` DM.
 
+### 3.7 Bugs corrigés (2026-03-05)
+
+**[BUG-19] CORRIGÉ — `rootQty` multipliait les formules dimensionnelles → quantités doublées**
+
+Les formules cascade contenant `L`, `H`, `P` ou `QTY` (ex: `"(L*H)/144"`) calculent déjà la quantité totale. Le moteur multipliait le résultat par `rootQty`, doublant les quantités (ex: FAB pi² L=24, H=36 → formule = 6, × rootQty 6 = 36 au lieu de 6).
+
+**Fix** : Détection regex `/\b(L|H|P|QTY|n_tablettes|n_partitions)\b/` sur `rule.qty`. Formules avec variables → résultat direct. Constantes → × rootQty.
+
+**[BUG-20] CORRIGÉ — tool_use orphelins causaient erreur API 400**
+
+Quand l'AI appelait un tool (ex: `suggest_items`), le bloc `tool_use` était pushé dans `aiConversation` mais le `tool_result` n'était pas toujours injecté. 3 chemins défaillants : (a) follow-up API avec nouveaux `tool_use`, (b) utilisateur tape un message avec tools pending, (c) clic "Ignorer" sans injection `tool_result`.
+
+**Fix** : `sanitizeConversationToolUse()` défense en profondeur + 3 fix amont (dismiss, sendAiMessage, follow-up handling).
+
+**[BUG-21] CORRIGÉ — Erreur 429/529 affichée brut à l'utilisateur**
+
+Les réponses API 429 (rate limit) et 529 (overloaded) étaient affichées comme texte technique dans le chat.
+
+**Fix** : `callAiAssistant` intercepte 429/529, affiche "Un instant, le serveur est occupé…", attend 15s, retire le message, retry une fois. Message d'erreur propre si le retry échoue.
+
+**[BUG-22] CORRIGÉ — Toggle installation déclenchait duplication des enfants cascade**
+
+`toggleInstallation()` appelait `updateRow()` sans distinction. `updateRow` déclenchait `scheduleCascade` à chaque appel, causant la duplication des enfants.
+
+**Fix** : `updateRow` accepte `opts.skipCascade`. `toggleInstallation` et `toggleRowInstallation` passent `{ skipCascade: true }`.
+
+**[BUG-23] CORRIGÉ — Lignes vides persistantes dans le calculateur**
+
+Les lignes sans article sélectionné persistaient en DB et réapparaissaient au rechargement.
+
+**Fix** : 3 gardes — (a) `debouncedSaveItem` skip si select vide, (b) `addRow` blur listener → `removeRow` après 2s si vide, (c) `openSubmission` filtre les items sans `catalogue_item_id` ni `item_type=custom`.
+
+**[BUG-24] CORRIGÉ — Upload plan PDF avec caractères invalides**
+
+Les noms de fichiers avec apostrophes, accents, espaces ou tirets longs causaient une erreur Supabase Storage `InvalidKey`.
+
+**Fix** : `uploadNewPlan` sanitise le nom avant upload (NFD strip accents, strip apostrophes, em/en dash → hyphen, espaces → underscores). Le `file_name` original est conservé en DB.
+
+**[BUG-25] CORRIGÉ — Champ `instruction` absent du contexte AI**
+
+Le fix token optimization (#132) avait retiré le champ `instruction` de `buildCatalogueSummary`. L'assistant ne pouvait plus lire les limites dimensionnelles et notes métier des articles.
+
+**Fix** : `instruction` réinclus pour tous les articles du summary (soumission + defaults), tronqué à 80 caractères.
+
 ---
 
 ## 4. Risques architecturaux

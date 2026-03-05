@@ -350,19 +350,30 @@ await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
 
 **Règle** : materialCtx **disambiguë** uniquement — il ne surcharge JAMAIS un DM unique explicite. Si un seul DM existe pour un type donné, il est utilisé directement quel que soit le materialCtx.
 
-### 3.6 Multiplication rootQty
+### 3.6 Quantités enfants (constante vs formule)
 
-Les quantités cascade sont calculées **par unité** puis multipliées par la quantité racine :
+Le moteur détecte automatiquement si `rule.qty` est une constante ou une formule dimensionnelle :
 
 ```javascript
-var qtyPerUnit = evalFormula(rule.qty, vars); // ex: L*H/144 = 1 pi²
-var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
+var qtyPerUnit = evalFormula(rule.qty, vars);
+var formulaStr = String(rule.qty);
+var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions)\b/.test(formulaStr);
+var qty = usesDimVars
+    ? Math.round(qtyPerUnit * 100) / 100        // formule = quantité totale
+    : Math.round(qtyPerUnit * rootQty * 100) / 100; // constante = par unité × rootQty
 ```
+
+| Type formule | Exemple `rule.qty` | Résultat | Multiplication rootQty |
+|---|---|---|---|
+| Constante | `"2"` | 2 charnières par unité | × rootQty → ex: 2 × 6 = 12 |
+| Formule L/H | `"(L*H)/144"` | Surface en pi² | Non (déjà total) |
+| Formule QTY | `"QTY"` | = rootQty | Non |
+| Formule n_tab | `"n_tablettes + 1"` | Tablettes + 1 | Non |
 
 - `rootQty` est toujours la QTY du FAB racine (pas du parent immédiat)
 - À profondeur 0 : `rootQty = parentQty` (pas de traversal)
 - À profondeur 1+ : `getRootQtyForCascade()` remonte `cascadeParentMap` jusqu'à la racine
-- `vars.QTY = rootQty` à toute profondeur (disponible pour conditions, pas pour formules qty)
+- `vars.QTY = rootQty` à toute profondeur
 
 ### 3.7 Passage de dimensions
 
@@ -387,8 +398,26 @@ var qty = qtyPerUnit * rootQty;               // ex: 1 × 8 = 8 pi²
 | Locked children | `cascade-locked` CSS class | Enfants verrouillés invisibles au moteur (override manuel) |
 | Cascade suppressed | `cascadeSuppressed[parentRowId]` | Enfants manuellement supprimés ne sont pas recréés. Reset quand le parent change d'article |
 | Persist immédiat | `updateItem()` après chaque enfant | Bypass le debounce global pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag` immédiatement |
+| Skip cascade | `opts.skipCascade` dans `updateRow` | Toggle installation ne déclenche pas de re-cascade (flag facturation, pas variable dimensionnelle) |
 
-### 3.9 Edge cases et limitations
+### 3.9 Propagation installation
+
+`toggleRowInstallation(rowId)` propage récursivement l'état coché/décoché à tous les enfants cascade via `propagateInstallationToCascadeChildren(parentRowId, checked)` :
+
+- Utilise `findCascadeChildren()` pour trouver les enfants directs
+- Récursif : propage aussi aux petits-enfants (3 niveaux couverts)
+- Chaque enfant : checkbox mise à jour + `updateRow(skipCascade: true)` + `updateItem()` en DB
+- `toggleInstallation(groupId)` (checkbox groupe) passe aussi `skipCascade: true`
+
+### 3.10 Anti-lignes vides
+
+3 gardes empêchent les lignes sans article de persister :
+
+1. **`debouncedSaveItem`** : si le `select.value` est vide, `return` immédiat — rien n'est écrit en DB
+2. **`addRow` blur listener** : pour les nouvelles lignes (pas `existingId`, pas `cascade`), un listener `blur` one-shot sur le combobox appelle `removeRow` après 2 secondes si aucun article n'est sélectionné
+3. **`openSubmission` filtre** : au chargement, `room.room_items` est filtré par `catalogue_item_id || item_type === 'custom'` — les lignes fantômes legacy sont ignorées
+
+### 3.11 Edge cases et limitations
 
 1. **`$match:` non re-cascadé sur changement DM** : `reprocessDefaultCascades()` ne gère que les cibles `$default:`. Les `$match:` ne sont pas recalculés quand on change un matériau par défaut — seul un re-trigger manuel de la cascade du parent le fait.
 2. **Cascade max 3 niveaux** : Suffisant pour la plupart des cas (FAB → matériau → sous-composant), mais des structures plus profondes seraient tronquées.
@@ -577,6 +606,7 @@ calculateur.html                    ai-assistant Edge Function
 | `write_description` | Confirmation requise | Écrit/réécrit la description client d'une pièce en HTML formaté Stele |
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions optionnelles |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P) |
+| `update_catalogue_item` | Confirmation obligatoire | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |
 | `compare_versions` | Auto-exécution | Compare deux versions de soumission. Read-only |
 | `save_learning` | Exécuté côté serveur | Sauvegarde une règle organisationnelle (INSERT dans `ai_learnings`) |
@@ -646,6 +676,45 @@ Le flux AI suit un pattern de confirmation utilisateur :
 
 Chaque prompt AI peut être overridé via `app_config` (12 clés) :
 `ai_prompt_estimateur`, `ai_prompt_catalogue_import`, `ai_prompt_contacts`, `ai_prompt_fiche_optimize`, `ai_prompt_fiche_translate_fr_en`, `ai_prompt_fiche_translate_en_fr`, `ai_prompt_client_text_catalogue`, `ai_prompt_json_catalogue`, `ai_prompt_pres_rule`, `ai_prompt_calc_rule`, `ai_prompt_description_calculateur`, `ai_prompt_approval_review`
+
+### 6.10 Cascade debug logs
+
+`cascadeDebugLog` — buffer mémoire circulaire (max 200 entrées) capturant les événements du moteur cascade via `cascadeLog(level, msg, data)` (niveaux : `info`, `warn`, `error`). `summarizeCascadeLog()` retourne les 50 dernières entrées en texte pour injection dans le contexte AI.
+
+Deux fonctions de détection contrôlent l'inclusion conditionnelle dans le contexte :
+- **`detectCascadeDiagnostic(text)`** : mots-clés cascade/debug/bug/erreur → inclut les logs cascade
+- **`detectCalculationContext(text)`** : mots-clés règle/calcul/formule/dimension → inclut les `calculationRules`
+
+### 6.11 Sanitisation tool_use/tool_result
+
+`sanitizeConversationToolUse(messages)` — défense en profondeur avant chaque appel API. Parcourt `aiConversation`, identifie les blocs `tool_use` sans `tool_result` correspondant, et injecte des `tool_result` synthétiques `{"skipped":true}`. Prévient l'erreur Anthropic 400 "tool_use ids found without tool_result blocks".
+
+3 sources d'orphelins corrigées en amont :
+1. **`aiDismissPending`** : injecte `{"dismissed":true}` au clic "Ignorer"
+2. **`sendAiMessage`** : neutralise les pending tools si l'utilisateur tape un nouveau message
+3. **`autoExecutePendingTools`/`aiApplyPending`** : gèrent les follow-up `tool_use` dans la réponse post-exécution (affichent des boutons de confirmation)
+
+### 6.12 Rate limit auto-retry
+
+`callAiAssistant` intercepte les réponses 429 (rate limit) et 529 (overloaded). Affiche "Un instant, le serveur est occupé…", attend 15 secondes, retire le message temporaire (`removeLastAiMessage()`), et retry une seule fois. Si le retry échoue aussi, affiche un message d'erreur propre. Le texte brut de l'API n'est jamais affiché.
+
+### 6.13 Images et annotations AI
+
+Deux sources d'images dans le chat :
+- **Chatbox paste/drop** : compressées base64 JPEG 0.90, 3200px max
+- **Images de référence** : URL directe Storage, préfère `annotatedUrl` (image avec tags rasterisés) quand disponible
+
+`rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rect navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`.
+
+### 6.14 Changement de pièce AI
+
+Quand `aiFocusGroupId` change (scroll ou bouton), `onAiFocusChanged()` insère un séparateur visuel (`.ai-scope-separator`) + un message système dans `aiConversation` pour que Claude comprenne le nouveau contexte. `_lastAiFocusGroupId` évite les doublons.
+
+### 6.15 Budget tokens
+
+En mode normal, `catalogueSummary` ne contient que les articles de la soumission + les ★ defaults (max 80) avec `instruction` (tronquée à 80 car). `calculationRules` est vide. Cible : ≤20K tokens.
+
+En mode diagnostic (détecté par mots-clés), `calculationRules` et/ou `cascadeDiagnostic` sont inclus. Cible : ≤30K tokens.
 
 ---
 

@@ -11835,7 +11835,9 @@
                             n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
                             n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
                         };
+                        console.log('[BAREMES] evaluateLaborModifiers called:', item.id, 'labor_modifiers:', item.labor_modifiers, 'vars:', _almVars);
                         var autoModResult = evaluateLaborModifiers(item, _almVars);
+                        console.log('[BAREMES] result:', autoModResult);
                         if (autoModResult) {
                             if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
                             _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;

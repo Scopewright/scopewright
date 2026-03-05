@@ -589,6 +589,45 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     var aiConversation = [];      // { role, content } for API
+    var AI_MAX_HISTORY = 16;      // max messages to keep (pairs: user+assistant)
+
+    // Truncate conversation history to keep only recent messages
+    // Preserves tool_use/tool_result pairs integrity
+    function truncateAiHistory(messages) {
+        if (messages.length <= AI_MAX_HISTORY) return messages;
+        // Find a safe cut point: we keep the last AI_MAX_HISTORY messages
+        // but never split a tool_use from its tool_result
+        var keepFrom = messages.length - AI_MAX_HISTORY;
+        // Walk forward to find a safe cut: first user message that isn't a tool_result
+        while (keepFrom < messages.length) {
+            var msg = messages[keepFrom];
+            if (msg.role === 'user') {
+                // Check if this is a tool_result response (must keep with prior assistant)
+                var isToolResult = Array.isArray(msg.content) && msg.content.length > 0 && msg.content[0].type === 'tool_result';
+                if (!isToolResult) break;
+            }
+            keepFrom++;
+        }
+        if (keepFrom >= messages.length - 2) return messages; // not enough to trim
+        var trimmed = messages.slice(0, keepFrom);
+        // Build a compact summary of trimmed messages
+        var summaryParts = [];
+        trimmed.forEach(function(msg) {
+            if (msg.role === 'user') {
+                var txt = typeof msg.content === 'string' ? msg.content :
+                    (Array.isArray(msg.content) ? msg.content.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join(' ') : '');
+                if (txt && txt.length > 0) summaryParts.push('User: ' + txt.substring(0, 80));
+            } else if (msg.role === 'assistant') {
+                var txt2 = typeof msg.content === 'string' ? msg.content :
+                    (Array.isArray(msg.content) ? msg.content.filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join(' ') : '');
+                if (txt2 && txt2.length > 0) summaryParts.push('AI: ' + txt2.substring(0, 100));
+            }
+        });
+        var summary = '[Résumé conversation précédente (' + trimmed.length + ' messages)]\n' + summaryParts.join('\n');
+        var result = [{ role: 'user', content: summary }, { role: 'assistant', content: 'Compris, je continue avec ce contexte.' }];
+        return result.concat(messages.slice(keepFrom));
+    }
+
     var aiPendingImages = [];     // base64 images waiting to send
     var aiCurrentScope = 'project';
     var aiChatLoaded = false;     // whether we loaded from DB for this submission
@@ -1006,6 +1045,10 @@
             var roomPct = roomModifiers[gid] || 0;
             var globalPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
             var effectiveTotal = getEffectiveRoomTotal(gid);
+            // Slim DM: only type + client_text for token budget
+            var slimDM = (roomDM[gid] || []).map(function(dm) {
+                return { type: dm.type, client_text: dm.client_text || null, catalogue_item_id: dm.catalogue_item_id || null };
+            });
             rooms.push({
                 groupId: gid,
                 roomId: roomMap[gid] || null,
@@ -1017,7 +1060,7 @@
                 effectiveTotal: effectiveTotal,
                 hasDescription: !!(descEl && descEl.value.trim()),
                 installationIncluded: installCb ? installCb.checked : true,
-                defaultMaterials: roomDM[gid] || []
+                defaultMaterials: slimDM
             });
         });
         return rooms;
@@ -1229,20 +1272,21 @@
             }
         });
         var cats = {};
-        var count = 0;
-        var MAX_ITEMS = 80;
+        var countSub = 0, countDef = 0;
+        var MAX_SUB = 50, MAX_DEF = 15;
         CATALOGUE_DATA.forEach(function(item) {
             if (!item.in_calculator) return;
-            // Only include: items in submission OR default items (token budget)
-            if (!submissionCatIds[item.id] && !item.is_default) return;
-            if (count >= MAX_ITEMS) return;
-            count++;
+            var inSub = !!submissionCatIds[item.id];
+            if (!inSub && !item.is_default) return;
+            if (inSub && countSub >= MAX_SUB) return;
+            if (!inSub && countDef >= MAX_DEF) return;
+            if (inSub) countSub++; else countDef++;
             var cat = item.category || 'Autre';
             if (!cats[cat]) cats[cat] = [];
-            var typeTag = item.item_type === 'fabrication' ? '[Fab] ' : item.item_type === 'materiau' ? '[Mat] ' : '';
-            var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
-            if (item.client_text) line += ' \u2192 client: "' + item.client_text + '"';
-            if (item.instruction) line += ' [note: ' + item.instruction.substring(0, 80) + ']';
+            var typeTag = item.item_type === 'fabrication' ? '[F] ' : item.item_type === 'materiau' ? '[M] ' : '';
+            var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 40) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
+            // client_text only for submission items (AI needs it for context)
+            if (inSub && item.client_text) line += ' \u2192"' + item.client_text.substring(0, 40) + '"';
             cats[cat].push(line);
         });
         var lines = [];
@@ -1350,12 +1394,31 @@
             }
         } catch (e) { /* ignore */ }
 
+        var isCalcCtx = detectCalculationContext(userMessage);
+        var refImgs = collectAiReferenceImageUrls();
+        var hasImages = refImgs.length > 0;
+        var needsDesc = /descri|rédige|écri|texte client|présentation/i.test(userMessage || '');
+
+        // Focus room detail — strip heavy fields when not in calculation context
+        var focusDetail = aiCurrentScope === 'room' && aiFocusGroupId ? collectRoomDetail(aiFocusGroupId) : null;
+        if (focusDetail && !isCalcCtx) {
+            focusDetail.items = focusDetail.items.map(function(it) {
+                var slim = { index: it.index, description: it.description, qty: it.qty, unitPrice: it.unitPrice, lineTotal: it.lineTotal };
+                if (it.tag) slim.tag = it.tag;
+                if (it.type) slim.type = it.type;
+                if (it.catalogueId) slim.catalogueId = it.catalogueId;
+                if (it.dims) slim.dims = it.dims;
+                if (it.overrides) slim.overrides = it.overrides;
+                return slim;
+            });
+            delete focusDetail.rentability;
+        }
+
         return {
             project: currentProject ? {
                 name: currentProject.name,
                 client: currentProject.client_name,
-                designer: currentProject.designer,
-                address: currentProject.client_address
+                designer: currentProject.designer
             } : null,
             submission: currentSubmission ? {
                 id: currentSubmission.id,
@@ -1367,18 +1430,21 @@
                 global_price_modifier_pct: currentSubmission.global_price_modifier_pct || null
             } : null,
             rooms: collectRoomsSummary(),
-            focusRoomDetail: aiCurrentScope === 'room' && aiFocusGroupId ? collectRoomDetail(aiFocusGroupId) : null,
+            focusRoomDetail: focusDetail,
             tauxHoraires: tauxHoraires,
-            expenseCategories: expenseCategories,
+            expenseCategories: isCalcCtx ? expenseCategories : (expenseCategories || []).map(function(c) {
+                return { name: c.name, markup: c.markup, waste: c.waste };
+            }),
             grandTotal: calculerGrandTotal(),
             subtotalBeforeDiscount: calculerSubtotalBeforeDiscount(),
             catalogueSummary: buildCatalogueSummary(),
             clientFile: clientFile,
             benchmarks: benchmarks,
             tagPrefixes: tagPrefixes,
-            aiReferenceImageUrls: collectAiReferenceImageUrls(),
-            calculationRules: detectCalculationContext(userMessage) ? (function() {
-                // Only include rules for items present in the current submission — calculation/diagnostic context
+            aiReferenceImageUrls: refImgs,
+            hasImages: hasImages,
+            needsDescriptionHelp: needsDesc,
+            calculationRules: isCalcCtx ? (function() {
                 var submissionCatIds = {};
                 document.querySelectorAll('#calculatorView .furniture-group .calc-row .item-select').forEach(function(sel) {
                     if (sel.value && sel.value !== '__AJOUT__' && sel.value !== '__PROPOSER__') {
@@ -1453,9 +1519,17 @@
 
     // ── Call AI Edge Function ──
     var _aiRetried401 = false;
+    // Rough token estimate: ~4 chars per token for French text, ~3 for JSON
+    function estimateTokens(obj) {
+        var s = typeof obj === 'string' ? obj : JSON.stringify(obj);
+        return Math.ceil((s || '').length / 3.5);
+    }
+
     async function callAiAssistant(messages, context, _isRetry) {
+        // Truncate old messages to stay within token budget
+        var truncated = truncateAiHistory(messages);
         // Sanitize orphaned tool_use blocks before sending (prevents API 400 error)
-        var sanitized = sanitizeConversationToolUse(messages);
+        var sanitized = sanitizeConversationToolUse(truncated);
         // Filter out messages with empty content (causes Anthropic API 400 error)
         var cleanMessages = sanitized.filter(function(m) {
             if (!m.content) return false;
@@ -1463,6 +1537,18 @@
             if (Array.isArray(m.content)) return m.content.length > 0;
             return true;
         });
+        // Token measurement
+        var ctxTokens = estimateTokens(context);
+        var msgTokens = estimateTokens(cleanMessages);
+        var catTokens = estimateTokens(context.catalogueSummary || '');
+        var roomDetailTokens = estimateTokens(context.focusRoomDetail || '');
+        var rulesTokens = estimateTokens(context.calculationRules || []);
+        var diagTokens = estimateTokens(context.cascadeDiagnostic || '');
+        console.log('[AI] Token estimate — context: ~' + ctxTokens + ', messages: ~' + msgTokens +
+            ', total: ~' + (ctxTokens + msgTokens) +
+            ' | catalogue: ~' + catTokens + ', roomDetail: ~' + roomDetailTokens +
+            ', rules: ~' + rulesTokens + ', diag: ~' + diagTokens +
+            ', msgCount: ' + cleanMessages.length);
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-assistant', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

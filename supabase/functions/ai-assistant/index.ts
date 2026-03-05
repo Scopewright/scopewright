@@ -35,75 +35,13 @@ Prix de vente = Main-d'œuvre + Matériaux
 - Prix coûtant matériaux = coût × (1 + perte/100)
 
 ## Tags de soumission
-Chaque pièce à soumissionner contient des tags placés sur les images du plan par l'estimateur.
-Les tags identifient les composantes physiques sur le plan.
 Préfixes : {{TAG_PREFIXES}}
 Exemples : C1 = premier caisson, F2 = deuxième filler, P1 = premier panneau
+Quand l'estimateur travaille par tag, inclus TOUJOURS le tag dans chaque article ajouté via add_catalogue_item.
 
-Les préfixes de tags et leurs désignations sont configurés dans l'administration. Consulte le contexte pour connaître les préfixes actifs et ce qu'ils représentent.
+{{PLANS_SECTION}}
 
-Quand l'estimateur te demande "Fais-moi le C1" :
-1. Regarde les images marquées AI pour voir où C1 est placé sur le plan
-2. Identifie le type d'élément (caisson, panneau, filler, etc.) selon le préfixe
-3. Cherche dans le catalogue les articles correspondants à ce type
-4. Si l'article a une règle de calcul, utilise-la pour proposer la quantité
-5. Propose les lignes à ajouter (mode simulation — ne rien appliquer sans confirmation)
-
-Tu peux aussi signaler des oublis :
-- "Tu n'as pas encore traité le C2"
-- "Sur le plan, l'élément à gauche du frigo n'a pas de tag — ça ressemble à un recouvrement, tu veux l'ajouter ?"
-
-**Tags dans les tools :**
-- Quand l'estimateur travaille par tag ("Fais-moi le C1", "Ajoute le F2"), inclus TOUJOURS le tag dans chaque article que tu ajoutes via add_catalogue_item. Tous les articles liés au même élément physique portent le même tag.
-- Exemple : "Fais-moi le C1" → tous les articles (caisson, portes, charnières, pattes) doivent avoir tag="C1".
-- TOUJOURS utiliser les tags dans tes réponses quand ils existent. Dis "C3 n'a pas de filler à sa droite" plutôt que "le troisième caisson".
-
-## Comment lire les plans d'ébénisterie
-Les plans sont des élévations intérieures (vues de face d'un mur).
-
-Repères de position :
-- Les caissons BAS sont SOUS la ligne de comptoir (partie inférieure du plan)
-- Les caissons HAUTS sont AU-DESSUS de la ligne de comptoir (partie supérieure du plan)
-- Les électroménagers (four, frigo, lave-vaisselle) sont entre les caissons bas
-- Les fillers (F1, F2...) sont des bandes étroites entre un meuble et un mur ou entre deux meubles
-- Les panneaux (P1, P2...) sont des surfaces décoratives, souvent à côté des électros
-
-Dimensions sur les plans :
-- Format typique : 2'-6" signifie 2 pieds 6 pouces = 30 pouces
-- L'échelle est indiquée en bas du plan (ex: 1/4" = 1'-0")
-- Les cotes (lignes avec flèches) indiquent les dimensions réelles
-- Largeur = dimension horizontale, Hauteur = dimension verticale
-
-IMPORTANT — Précision :
-- Si tu n'es pas certain de la position exacte d'un tag sur le plan, DIS-LE plutôt que de deviner
-- Exemple correct : "C1 semble être le caisson en bas à gauche — tu confirmes ?"
-- Exemple incorrect : affirmer avec certitude une position dont tu n'es pas sûr
-- En cas de doute, demande : "C1 c'est lequel exactement sur le plan ?"
-
-## Règles pour les descriptions client
-Quand tu écris ou optimises une description, respecte ces règles exactement :
-{{DESCRIPTION_FORMAT_RULES}}
-- Orthographe, accents, pluriels, concordances simples
-- Garder le ton original, pas de reformulation marketing
-- Pas de créativité non demandée, pas de contenu inventé
-
-## Descriptions client à partir du catalogue
-Chaque article du catalogue peut avoir un texte de présentation client (champ client_text).
-Quand tu génères une description client pour un élément :
-1. Prends le client_text de chaque article/sous-composante utilisé
-2. Si l'article a une règle de présentation (presentation_rule), suis-la pour l'ordre, le préfixe et les inclusions/exclusions
-3. Assemble les fragments dans l'ordre logique : Matériau → Finition → Quincaillerie → Détails
-4. Sépare par le séparateur défini (virgule par défaut)
-5. Commence par le type d'élément : "Caisson en [matériau], [finition], [détails]"
-6. Le résultat doit être une phrase naturelle et professionnelle
-
-Exemples :
-- "Caisson bas en mélamine blanche thermofusionnée, chants PVC assortis, 2 tablettes ajustables, ouverture par pression"
-- "Armoire haute en placage de chêne blanc FC, laque au polyuréthane clair, 4 tablettes ajustables, charnières à fermeture douce"
-- "Panneau décoratif en placage de noyer naturel, vernis mat"
-
-Si un article n'a pas de client_text, utilise sa description du catalogue reformulée pour le client.
-Les fragments sont en minuscule sans point final — c'est toi qui assembles la phrase complète.
+{{DESCRIPTION_SECTION}}
 
 ## Classification des articles
 Les articles du catalogue ont deux classifications :
@@ -143,6 +81,21 @@ Ne propose PAS de sauvegarder des informations triviales, ponctuelles, ou spéci
 - Tu ne peux PAS approuver ou changer le statut des soumissions
 - Tu ne peux PAS accéder aux projets d'autres utilisateurs
 - Si on te demande quelque chose hors scope, dis-le clairement`;
+
+// Conditional section: plans reading guide (only when images are present)
+const PLANS_SECTION = `## Comment lire les plans d'ébénisterie
+Plans = élévations intérieures (vues de face d'un mur).
+- Caissons BAS sous la ligne de comptoir, HAUTS au-dessus
+- Électros entre les caissons bas, fillers entre meubles/murs, panneaux = surfaces décoratives
+- Dimensions : 2'-6" = 30 pouces. Largeur = horizontal, Hauteur = vertical
+- Si pas certain d'une position, DIS-LE plutôt que deviner`;
+
+// Conditional section: description writing rules (only when description help needed)
+const DESCRIPTION_SECTION = `## Descriptions client
+{{DESCRIPTION_FORMAT_RULES}}
+- Orthographe, accents, pluriels, concordances simples. Ton original, pas de reformulation marketing.
+- Assemble les client_text : Matériau → Finition → Quincaillerie → Détails. Commence par le type d'élément.
+- Exemples : "Caisson bas en mélamine blanche, chants PVC assortis, 2 tablettes ajustables"`;
 
 const DESCRIPTION_FORMAT_RULES = `
 FORMAT HTML OBLIGATOIRE :
@@ -257,8 +210,14 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
   const tagPrefixStr = (context.tagPrefixes || [])
     .map((t: any) => `${t.prefix} = ${t.label_fr} (${t.label_en})`)
     .join(", ");
+  // Conditional sections based on context flags
+  const plansContent = context.hasImages ? PLANS_SECTION : '';
+  const descContent = context.needsDescriptionHelp ? DESCRIPTION_SECTION.replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES) : '';
+
   staticPrompt = staticPrompt
     .replace("{{TAG_PREFIXES}}", tagPrefixStr || "C = Caisson, F = Filler, P = Panneau, T = Tiroir, M = Moulure, A = Accessoire")
+    .replace("{{PLANS_SECTION}}", plansContent)
+    .replace("{{DESCRIPTION_SECTION}}", descContent)
     .replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES);
 
   // Build dynamic context sections
@@ -292,16 +251,21 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
   dynamicParts += `\n\n## Catégories de dépenses (matériaux)\n${matStr || 'Non disponible'}`;
 
   if (context.benchmarks) {
-    dynamicParts += `\n\n## Barèmes de comparaison\n${JSON.stringify(context.benchmarks, null, 2)}`;
+    dynamicParts += `\n\n## Barèmes de comparaison\n${JSON.stringify(context.benchmarks)}`;
   }
 
-  // Per-room default materials
+  // Per-room default materials — compact format
   if (context.rooms && Array.isArray(context.rooms)) {
     const roomsWithDM = context.rooms.filter((r: any) => r.defaultMaterials && r.defaultMaterials.length > 0);
     if (roomsWithDM.length > 0) {
       dynamicParts += `\n\n## Matériaux par défaut — Par pièce`;
       roomsWithDM.forEach((r: any) => {
-        dynamicParts += `\n### ${r.name}\n${JSON.stringify(r.defaultMaterials, null, 2)}`;
+        const dmCompact = r.defaultMaterials.map((dm: any) => {
+          let s = dm.type + ': ' + (dm.client_text || dm.catalogue_item_id || '?');
+          if (dm.description) s += ' (' + dm.description.substring(0, 40) + ')';
+          return s;
+        }).join('; ');
+        dynamicParts += `\n- ${r.name}: ${dmCompact}`;
       });
     }
   }

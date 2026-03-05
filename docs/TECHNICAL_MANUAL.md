@@ -741,9 +741,23 @@ Quand `aiFocusGroupId` change (scroll ou bouton), `onAiFocusChanged()` insère u
 
 ### 6.15 Budget tokens
 
-En mode normal, `catalogueSummary` ne contient que les articles de la soumission + les ★ defaults (max 80) avec `instruction` (tronquée à 80 car). `calculationRules` est vide. Cible : ≤20K tokens.
+**Optimisations token (v2)** :
 
-En mode diagnostic (détecté par mots-clés), `calculationRules` et/ou `cascadeDiagnostic` sont inclus. Cible : ≤30K tokens.
+1. **`catalogueSummary`** : articles de la soumission (max 50) + ★ defaults (max 15). Descriptions tronquées à 40 chars. `client_text` inclus seulement pour les articles en soumission (40 chars max). `instruction` retirée du summary (disponible dans `calculationRules` quand pertinent).
+
+2. **`focusRoomDetail`** : en mode normal, les items sont allégés (pas de `laborMinutes`, `materialCosts`, `rentability`). En mode calcul (détecté par mots-clés), les données complètes sont incluses.
+
+3. **`expenseCategories`** : en mode normal, seulement `name`, `markup`, `waste`. En mode calcul, complet avec templates.
+
+4. **`defaultMaterials`** : format compact dans rooms summary (`type`, `client_text`, `catalogue_item_id` seulement). Dans le system prompt, format texte inline au lieu de JSON indenté.
+
+5. **Troncature historique** : `truncateAiHistory(messages)` garde les 16 derniers messages. Les anciens sont résumés en 1 message condensé (80 chars/user, 100 chars/assistant). Respecte l'intégrité des paires `tool_use`/`tool_result`.
+
+6. **Sections system prompt conditionnelles** : "Comment lire les plans" inclus seulement si `hasImages=true`. "Descriptions client" inclus seulement si `needsDescriptionHelp=true`.
+
+7. **Token measurement** : `console.log('[AI] Token estimate...')` dans `callAiAssistant` — affiche context, messages, total, et détail par composant.
+
+Cible : ≤15K tokens normal, ≤20K diagnostic.
 
 ---
 

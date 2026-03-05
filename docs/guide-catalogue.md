@@ -929,9 +929,8 @@ Ces informations sont visibles par l'approbateur dans `approbation.html`.
 
 | Check | Severite | Description |
 |-------|----------|-------------|
-| Pas de prix | Erreur (bloquant) | Ni prix fixe ni prix compose |
-| Pas de client_text | Avertissement | Non-bloquant, re-click pour sauvegarder |
-| Doublon texte client | Avertissement | Levenshtein 1-3 avec un autre article de la meme categorie |
+| Pas de prix | Erreur (bloquant) | Ni prix fixe ni prix compose. Bypass au 2e clic |
+| Pas de client_text | Info (non-bloquant) | S'affiche mais ne bloque pas la sauvegarde |
 
 ---
 

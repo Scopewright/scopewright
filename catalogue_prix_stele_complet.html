@@ -5172,8 +5172,13 @@
                 container.appendChild(banner);
             });
 
-            _saveValidationBypass = true;
-            return true;
+            // Only block save for error/warn — info is non-blocking
+            var hasBlockingWarning = warnings.some(function(w) { return w.level === 'error' || w.level === 'warn'; });
+            if (hasBlockingWarning) {
+                _saveValidationBypass = true;
+                return true;
+            }
+            return false;
         }
 
         // ── Audit drawer open/close ──

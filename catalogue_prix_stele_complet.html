@@ -1507,6 +1507,14 @@
             background: #ffebee;
             color: #c62828;
         }
+        .save-toast {
+            position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%);
+            background: var(--sw-navy, #0B1220); color: #fff;
+            font-size: 13px; padding: 6px 16px; border-radius: 8px;
+            opacity: 1; transition: opacity 400ms ease;
+            pointer-events: none; white-space: nowrap;
+        }
+        .save-toast.fade-out { opacity: 0; }
 
 
         /* Modal */
@@ -1618,6 +1626,7 @@
         }
 
         .modal-footer {
+            position: relative;
             padding: 16px 24px;
             border-top: 1px solid var(--sw-border);
             display: flex;
@@ -5118,6 +5127,18 @@
             return sortedArr[lo] + (sortedArr[hi] - sortedArr[lo]) * (idx - lo);
         }
 
+        function showSaveToast() {
+            var existing = document.querySelector('.save-toast');
+            if (existing) existing.remove();
+            var toast = document.createElement('div');
+            toast.className = 'save-toast';
+            toast.textContent = 'Sauvegardé \u2713';
+            var footer = document.querySelector('.modal-footer');
+            if (footer) footer.appendChild(toast);
+            setTimeout(function() { toast.classList.add('fade-out'); }, 2000);
+            setTimeout(function() { toast.remove(); }, 2500);
+        }
+
         var _saveValidationBypass = false;
 
         /**
@@ -5893,11 +5914,7 @@
                 _modalDirty = false;
 
                 if (!silent) {
-                    status.textContent = '\u2713 Sauvegardé';
-                    status.style.display = '';
-                    status.className = 'edit-status success';
-
-                    setTimeout(() => closeEditModal(), 800);
+                    showSaveToast();
                 }
             } catch (err) {
                 console.error('Erreur sauvegarde:', err);

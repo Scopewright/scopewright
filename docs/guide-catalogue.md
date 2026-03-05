@@ -932,6 +932,10 @@ Ces informations sont visibles par l'approbateur dans `approbation.html`.
 | Pas de prix | Erreur (bloquant) | Ni prix fixe ni prix compose. Bypass au 2e clic |
 | Pas de client_text | Info (non-bloquant) | S'affiche mais ne bloque pas la sauvegarde |
 
+### Comportement apres sauvegarde
+
+La modale reste ouverte apres sauvegarde. Un toast navy "Sauvegarde ✓" apparait au-dessus du footer (2.5s, auto-fade). L'utilisateur ferme manuellement via Annuler, X ou Escape.
+
 ---
 
 ## 15. Workflow d'une soumission

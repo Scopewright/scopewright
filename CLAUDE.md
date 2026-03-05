@@ -370,6 +370,10 @@ Bouton "Dupliquer" dans la modale d'édition (`openEditModal`), à côté de "Su
 
 L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save. `runSaveValidation()` affiche des avis avant sauvegarde : seuls les niveaux `error`/`warn` bloquent (bypass au 2e clic), le niveau `info` (ex: "pas de texte client") s'affiche sans bloquer.
 
+### Sauvegarde modale catalogue
+
+La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast navy "Sauvegardé ✓" apparaît au-dessus du footer et disparaît après 2.5s (`showSaveToast()`). L'utilisateur ferme manuellement via Annuler, le X, ou Escape. Le dirty tracking est reset après chaque save (`_modalSnapshot` recapturé). En mode embedded (iframe calculateur), la modale se ferme automatiquement après `postMessage`.
+
 ### Audit catalogue (drawer)
 
 12 checks dans `runFullAudit()` → `renderAuditReport()` dans `catalogue_prix_stele_complet.html` :

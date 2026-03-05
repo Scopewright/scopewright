@@ -9493,6 +9493,7 @@
                     <span class="pdf-zoom-info" id="pdfZoomInfo">100%</span>
                     <button class="pdf-control-btn" onclick="pdfZoom(0.25)" title="Zoom +">&#43;</button>
                     <button class="pdf-control-btn" onclick="pdfResetZoom()" title="R\u00e9initialiser zoom">&#8634;</button>
+                    <button class="pdf-control-btn" onclick="pdfFitToPage()" title="Ajuster \u00e0 la page" style="font-size:11px;letter-spacing:0.3px;">FIT</button>
                     <div class="pdf-control-divider"></div>
                     <button class="pdf-control-btn" onclick="pdfRotate()" title="Rotation 90\u00b0">&#8635;</button>
                     <div class="pdf-control-divider"></div>
@@ -13779,7 +13780,7 @@
 '  document.getElementById("btnPrev").disabled = currentPage <= 1; document.getElementById("btnNext").disabled = currentPage >= totalPages;' +
 '}' +
 'function navigate(d) { currentPage += d; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; render(); }' +
-'function zoom(d) { scale += d; if (scale < 0.5) scale = 0.5; if (scale > 3.0) scale = 3.0; render(); }' +
+'function zoom(d) { scale += d; if (scale < 0.25) scale = 0.25; if (scale > 3.0) scale = 3.0; render(); }' +
 'function rotate() { rotation = (rotation + 90) % 360; render(); }' +
 'var scrollCooldown = false;' +
 'document.getElementById("canvasContainer").addEventListener("wheel", function(e) {' +
@@ -14039,13 +14040,27 @@
 
         function pdfZoom(delta) {
             pdfScale += delta;
-            if (pdfScale < 0.5) pdfScale = 0.5;
+            if (pdfScale < 0.25) pdfScale = 0.25;
             if (pdfScale > 3.0) pdfScale = 3.0;
             renderPdfPage();
         }
 
         function pdfResetZoom() {
             pdfScale = 1.0;
+            renderPdfPage();
+        }
+
+        async function pdfFitToPage() {
+            if (!pdfDoc) return;
+            var page = await pdfDoc.getPage(pdfCurrentPage);
+            var viewport = page.getViewport({ scale: 1.0, rotation: pdfRotation });
+            var container = document.getElementById('pdfCanvasContainer');
+            if (!container) return;
+            var cw = container.clientWidth - 32;
+            var ch = container.clientHeight - 32;
+            var scaleW = cw / viewport.width;
+            var scaleH = ch / viewport.height;
+            pdfScale = Math.max(0.25, Math.min(Math.floor(Math.min(scaleW, scaleH) * 100) / 100, 3.0));
             renderPdfPage();
         }
 
@@ -19967,7 +19982,7 @@
             // PDF Viewer
             openPdfViewer, closePdfViewer, openPdfInNewWindow, createStandaloneViewer,
             renderPdfPage, renderPdfThumbnails,
-            pdfNavigate, pdfGoToPage, pdfZoom, pdfResetZoom, pdfRotate,
+            pdfNavigate, pdfGoToPage, pdfZoom, pdfResetZoom, pdfFitToPage, pdfRotate,
             // Capture PDF
             capturePdfPage, loadRoomsForCapture, closeCaptureRoomModal, confirmCapture,
             // Traduction & optimisation

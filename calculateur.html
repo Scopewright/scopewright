@@ -1227,6 +1227,7 @@
             var typeTag = item.item_type === 'fabrication' ? '[Fab] ' : item.item_type === 'materiau' ? '[Mat] ' : '';
             var line = (item.is_default ? '\u2605 ' : '') + typeTag + item.id + ': ' + (item.description || '').substring(0, 60) + ' (' + (item.type || '') + ' ' + (item.price || 0) + '$)';
             if (item.client_text) line += ' \u2192 client: "' + item.client_text + '"';
+            if (item.instruction) line += ' [note: ' + item.instruction.substring(0, 80) + ']';
             cats[cat].push(line);
         });
         var lines = [];

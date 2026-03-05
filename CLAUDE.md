@@ -560,6 +560,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 - **PostMessage sans validation d'origine** — calculateur ↔ catalogue en iframe (voir audit SEC-11)
 - Google Apps Script nécessite un **redéploiement manuel** après modification du `.gs`
 - **Compression images** : les captures PDF passent par PNG lossless (temporaire) puis une seule compression JPEG 0.92 au crop. Les photos passent directement au crop JPEG 0.92. `confirmCrop()` est le seul point de compression JPEG (maxDim 3200px). AI chatbox : JPEG 0.90, 3200px (aligné sur le crop pour lisibilité des tags).
+- **Sanitisation noms fichiers** : `uploadNewPlan` sanitise `file.name` avant upload Storage — NFD strip accents, strip apostrophes `''`, em/en dash → hyphen, espaces → underscores, strip caractères non-alphanumériques restants. Le `file_name` original est conservé en DB pour affichage.
 
 ## Documentation
 

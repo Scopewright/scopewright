@@ -13311,8 +13311,14 @@
 
                 status.innerHTML = '<span style="display:inline-block; animation: pulse 1.5s ease-in-out infinite;">⬆️</span> Upload en cours (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)...';
 
-                // Upload to Storage
-                var storagePath = currentSubmission.id + '/v' + nextVersion + '_' + file.name;
+                // Upload to Storage — sanitiser le nom (accents, apostrophes, espaces)
+                var safeName = file.name
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
+                    .replace(/['']/g, '')                              // strip apostrophes
+                    .replace(/[\u2013\u2014]/g, '-')                   // em/en dash → hyphen
+                    .replace(/\s+/g, '_')                              // spaces → underscores
+                    .replace(/[^a-zA-Z0-9_.\-]/g, '');                 // strip remaining invalid chars
+                var storagePath = currentSubmission.id + '/v' + nextVersion + '_' + safeName;
                 var uploadResp = await authenticatedFetch(
                     SUPABASE_URL + '/storage/v1/object/submission-plans/' + storagePath,
                     {

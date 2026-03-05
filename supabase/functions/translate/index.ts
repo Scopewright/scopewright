@@ -282,7 +282,7 @@ RÈGLES :
 - IMPORTANT : Ne JAMAIS inclure de barèmes ou modificateurs (labor_factor, material_factor, condition de palier dimensionnel) dans ce JSON. Les barèmes sont gérés séparément dans le champ labor_modifiers.
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
-const CATALOGUE_LABOR_MODIFIERS_SYSTEM = \`Tu es un ingénieur de barèmes pour Scopewright, la plateforme d'estimation de Stele.
+const CATALOGUE_LABOR_MODIFIERS_SYSTEM = `Tu es un ingénieur de barèmes pour Scopewright, la plateforme d'estimation de Stele.
 Tu reçois l'explication en langage naturel des barèmes de prix d'un article du catalogue.
 Tu dois faire DEUX choses :
 1. Reformuler/corriger le texte d'explication (phrases claires, techniques, concises)
@@ -316,7 +316,7 @@ RÈGLES :
 - Les paliers doivent être ordonnés du plus grand au plus petit (ex: L > 48, L > 36, L <= 36)
 - "status" : "ok" si résultat fiable, "needs_review" si doutes
 - "warnings" : max 3 messages courts en français
-- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks\`;
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
 const APPROVAL_SUGGEST_SYSTEM = `Tu es un expert en catalogues de cuisine et meubles sur mesure pour Stele, atelier d'ébénisterie haut de gamme.
 Un estimateur a proposé un nouvel article au catalogue. Tu reçois :

@@ -305,6 +305,63 @@ var waste = item.loss_override_pct != null
 
 **Points de resolution** : Le champ est lu dans `updateComposedPrice()` (catalogue), `computeComposedPrice()` (calculateur), `computeRentabilityData()` (calculateur), `openRentab()` (calculateur), et `updateComposedPrice()` (approbation).
 
+## 5b. Baremes et modificateurs (`labor_modifiers`)
+
+Section separee de `calculation_rule_ai` dans la modale catalogue (visible admin uniquement, entre "Regles de cascade" et "Composantes").
+
+### Principe
+
+Les baremes appliquent des **facteurs multiplicateurs** automatiques sur les minutes MO et/ou les couts materiaux en fonction des dimensions de l'article. Exemples : largeur > 36 po → +25% machinage, volume > 10 pi3 → +20% panneaux.
+
+### Structure JSON
+
+```json
+{
+  "modifiers": [
+    {
+      "condition": "L > 48",
+      "label": "Grand (> 48 po)",
+      "labor_factor": { "Machinage": 1.5 },
+      "material_factor": { "PANNEAU MELAMINE": 1.20 }
+    },
+    {
+      "condition": "L > 36",
+      "label": "Moyen (> 36 po)",
+      "labor_factor": { "Machinage": 1.25 }
+    },
+    {
+      "condition": "L <= 36",
+      "label": "Standard",
+      "labor_factor": null
+    }
+  ]
+}
+```
+
+- **condition** : expression evaluable (variables L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs; fonctions ceil, floor, round, min, max)
+- **label** : description courte affichee dans le popover
+- **labor_factor** : multiplicateur par departement MO (1.0 = base, 1.5 = +50%)
+- **material_factor** : multiplicateur par categorie materiau (meme logique)
+- **First-match** : seul le premier modificateur dont la condition est vraie est applique
+
+### Hierarchie d'override dans le calculateur
+
+1. **Prix global** (`ov.price`) — override total, ignore tout le reste
+2. **Manuel** (`ov.labor`, `ov.material`) — override par departement/categorie via popover
+3. **Auto** (`ov.laborAuto`, `ov.materialAuto`) — baremes auto-evalues
+4. **Catalogue** — valeurs de base si aucun override
+
+### Popover 3 colonnes
+
+Le popover d'override affiche 3 colonnes : Cat (catalogue), Auto (bareme), Manuel (override).
+- La colonne Auto affiche la valeur *apres application du facteur* (ex: 60 min × 1.25 = 75 min)
+- Un banner bleu indique le bareme actif
+- Un indicateur ⚙ apparait sur la ligne quand un bareme est actif
+
+### AI
+
+Le bouton AI dans la section baremes genere le JSON structure depuis l'explication en langage naturel. Action `catalogue_labor_modifiers` dans la edge function `translate`. Prompt editable dans admin.html.
+
 ---
 
 ## 6. Categories de depense

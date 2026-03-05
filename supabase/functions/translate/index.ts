@@ -29,7 +29,7 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
         "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
         "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest",
-        "ai_prompt_instruction_catalogue"
+        "ai_prompt_instruction_catalogue", "ai_prompt_labor_modifiers"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -279,7 +279,44 @@ RÈGLES :
 - Le JSON doit refléter fidèlement les instructions de l'explication
 - "status" : "ok" si résultat fiable, "needs_review" si doutes (données ambiguës, codes inconnus, infos manquantes), "error" si impossible
 - "warnings" : max 3 messages courts en français expliquant les doutes
+- IMPORTANT : Ne JAMAIS inclure de barèmes ou modificateurs (labor_factor, material_factor, condition de palier dimensionnel) dans ce JSON. Les barèmes sont gérés séparément dans le champ labor_modifiers.
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
+const CATALOGUE_LABOR_MODIFIERS_SYSTEM = \`Tu es un ingénieur de barèmes pour Scopewright, la plateforme d'estimation de Stele.
+Tu reçois l'explication en langage naturel des barèmes de prix d'un article du catalogue.
+Tu dois faire DEUX choses :
+1. Reformuler/corriger le texte d'explication (phrases claires, techniques, concises)
+2. Générer le JSON de barèmes structuré correspondant
+
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
+{
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
+  "explication": "Texte reformulé",
+  "json": {
+    "modifiers": [
+      {
+        "condition": "L > 36",
+        "label": "Largeur > 36 po",
+        "labor_factor": { "Machinage": 1.25 },
+        "material_factor": { "PANNEAU MÉLAMINE": 1.10 }
+      }
+    ]
+  }
+}
+
+RÈGLES :
+- "condition" : expression évaluable avec variables L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions: ceil, floor, round, min, max. Opérateurs: +, -, *, /, >, <, >=, <=, ==, &&, ||
+- "label" : description courte pour l'affichage (ex: "Largeur > 36 po")
+- "labor_factor" : multiplicateur par département MO (1.0 = pas de changement, 1.25 = +25%)
+- "material_factor" : multiplicateur par catégorie matériau (même logique)
+- Les facteurs sont des MULTIPLICATEURS, pas des ajouts. 1.0 = base, 1.5 = +50%
+- Si la condition est fausse, le modificateur est ignoré
+- Premier modificateur dont la condition est vraie EST APPLIQUÉ (first-match, pas cumulatif)
+- Les paliers doivent être ordonnés du plus grand au plus petit (ex: L > 48, L > 36, L <= 36)
+- "status" : "ok" si résultat fiable, "needs_review" si doutes
+- "warnings" : max 3 messages courts en français
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks\`;
 
 const APPROVAL_SUGGEST_SYSTEM = `Tu es un expert en catalogues de cuisine et meubles sur mesure pour Stele, atelier d'ébénisterie haut de gamme.
 Un estimateur a proposé un nouvel article au catalogue. Tu reçois :
@@ -324,6 +361,7 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   import_components:       { key: "ai_prompt_import_components", prompt: IMPORT_COMPONENTS_SYSTEM },
   approval_suggest:        { key: "ai_prompt_approval_suggest", prompt: APPROVAL_SUGGEST_SYSTEM },
   instruction_rewrite:     { key: "ai_prompt_instruction_catalogue", prompt: CATALOGUE_INSTRUCTION_SYSTEM },
+  catalogue_labor_modifiers: { key: "ai_prompt_labor_modifiers", prompt: CATALOGUE_LABOR_MODIFIERS_SYSTEM },
 };
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
@@ -408,7 +446,7 @@ serve(async (req) => {
     }
 
     // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
-    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest"];
+    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers"];
     const model = SONNET_ACTIONS.includes(action)
       ? "claude-sonnet-4-20250514"
       : "claude-haiku-4-5-20251001";
@@ -444,6 +482,8 @@ serve(async (req) => {
           ? `Voici un article proposé par un estimateur, avec des articles similaires existants.\n\n${nonEmpty[0].text}\n\nGénère des suggestions pour enrichir cet article. Retourne UNIQUEMENT le JSON valide.`
           : action === "instruction_rewrite"
           ? `Voici les détails de l'article et son instruction actuelle.\n\n${nonEmpty[0].text}\n\nReformule l'instruction en texte structuré et actionnable. Retourne UNIQUEMENT le texte reformulé.`
+          : action === "catalogue_labor_modifiers"
+          ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nGénère les barèmes JSON. Retourne UNIQUEMENT le JSON valide.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       // Build multimodal content when images are provided (for import_components with vision)
@@ -463,7 +503,7 @@ serve(async (req) => {
       }
 
       // Actions that require strict JSON output: use assistant prefill to force JSON
-      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest"];
+      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers"];
       const useJsonPrefill = JSON_ACTIONS.includes(action);
       const messages: any[] = [{ role: "user", content: userContent }];
       if (useJsonPrefill) {

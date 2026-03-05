@@ -365,6 +365,42 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - Deux formats de `material_costs` : flat numbers (calculateur via `computeComposedPrice`) et objets `{cost, qty}` (catalogue/approbation via `computeCatItemPrice`)
 - Si aucun prix composé défini, le prix manuel (`price`) est utilisé
 
+### Barèmes et modificateurs (`labor_modifiers`)
+
+Ajustements automatiques de prix basés sur les dimensions de l'article. Section **séparée** de `calculation_rule_ai` dans la modale catalogue (visible admin uniquement).
+
+**Structure JSON** (`catalogue_items.labor_modifiers`) :
+```json
+{
+  "modifiers": [
+    {
+      "condition": "L > 48",
+      "label": "Grand (> 48 po)",
+      "labor_factor": { "Machinage": 1.5 },
+      "material_factor": { "PANNEAU MÉLAMINE": 1.20 }
+    }
+  ]
+}
+```
+
+- **`condition`** : expression évaluée par `evalFormula` (variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
+- **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau (1.0 = base, 1.25 = +25%)
+- **First-match** : premier modificateur dont la condition est vraie gagne (pas cumulatif)
+- **Hierarchie d'override** : `price` (override global) > `labor/material` (override manuel) > `laborAuto/materialAuto` (barèmes auto) > valeurs catalogue
+
+**Colonnes DB** :
+- `catalogue_items.labor_modifiers` JSONB — barèmes JSON
+- `catalogue_items.labor_modifiers_human` TEXT — explication humaine
+- `room_items.labor_auto_modifier` JSONB — résultat auto-calculé persisté (pour quote.html)
+
+**Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, label}` ou null
+
+**Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif.
+
+**AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`
+
+**Tests** : groupes 17-19 dans `tests/cascade-engine.test.js` (evaluateLaborModifiers basic + formulas + integration)
+
 ### Dupliquer un article (catalogue)
 
 Bouton "Dupliquer" dans la modale d'édition (`openEditModal`), à côté de "Supprimer". `duplicateItem()` INSERT un nouvel article avec toutes les données copiées (description, category, item_type, price, labor/material, rules, client_text, dims_config, loss_override_pct, etc.) sauf : `is_default` forcé à false, `status` forcé à "pending". Le code ST-XXXX est auto-généré par le trigger DB. Composantes fournisseur et médias ne sont PAS copiés. Après INSERT, la modale se rouvre sur le nouvel article.
@@ -437,6 +473,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `ai_prompt_client_text_catalogue` | translate | Haiku 4.5 | ✅ (bouton UI retiré, action conservée) |
 | `ai_prompt_pres_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_calc_rule` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_labor_modifiers` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_description_calculateur` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_import_components` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_instruction_catalogue` | translate | Haiku 4.5 | ✅ |
@@ -653,6 +690,13 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] Parent dims changent (L: 24→36) → enfant child_dims recalculés automatiquement
 - [ ] `child_dims` absent → aucun effet sur les dims enfant
 - [ ] Formule unsafe dans child_dims → clé ignorée, pas de crash
+
+### Barèmes et modificateurs
+- [ ] Article avec `labor_modifiers` + L > seuil → popover affiche colonne Auto avec valeurs factorisées
+- [ ] Changer les dimensions → Auto recalculé dynamiquement
+- [ ] Override manuel > Auto (manual gagne)
+- [ ] Recharger soumission → auto/manuels restaurés
+- [ ] Article sans `labor_modifiers` → pas de colonne Auto, pas de `.has-auto-modifier`
 
 ### Catégorie de dépense dynamique
 - [ ] `$match:PANNEAU BOIS` + DM "Placage chêne blanc" (material_costs: {"PANNEAU MÉLAMINE": 5.2}) → détecte via mot commun "PANNEAU"

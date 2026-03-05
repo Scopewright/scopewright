@@ -3118,6 +3118,30 @@
     }
 
     /**
+     * Evaluate labor_modifiers for a catalogue item given current dims.
+     * Returns { labor_factor: {dept: multiplier}, material_factor: {cat: multiplier}, label } or null.
+     * First-match: first modifier whose condition is truthy wins.
+     */
+    function evaluateLaborModifiers(item, vars) {
+        if (!item || !item.labor_modifiers) return null;
+        var mods = item.labor_modifiers.modifiers;
+        if (!Array.isArray(mods) || mods.length === 0) return null;
+        for (var i = 0; i < mods.length; i++) {
+            var m = mods[i];
+            if (!m.condition) continue;
+            var result = evalFormula(m.condition, vars, cascadeLog);
+            if (result) {
+                return {
+                    labor_factor: m.labor_factor || null,
+                    material_factor: m.material_factor || null,
+                    label: m.label || m.condition
+                };
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve a cascade target.
      * - "$default:GROUP" → look up default material for the group
      * - "$match:EXPENSE_CATEGORY" → keyword-match parent's client_text against catalogue
@@ -5326,19 +5350,25 @@
         .ov-pop {
             position: fixed; z-index: 10000; background: #fff;
             border: 1px solid var(--sw-border); border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(15,23,42,0.12); width: 320px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.12); width: 380px;
             animation: sdFadeIn 0.12s ease;
         }
         .ov-pop-hdr { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 8px; border-bottom: 1px solid var(--sw-border-2); }
         .ov-pop-title { font-size: 13px; font-weight: 600; color: var(--sw-text); }
         .ov-pop-close { border: none; background: none; font-size: 16px; color: var(--sw-muted); cursor: pointer; padding: 0 4px; }
         .ov-pop-close:hover { color: var(--sw-text); }
+        .ov-auto-banner { font-size: 11px; color: #2563eb; background: #eff6ff; padding: 6px 16px; border-bottom: 1px solid #dbeafe; }
         .ov-sec { padding: 10px 16px; border-bottom: 1px solid var(--sw-border-2); }
         .ov-sec:last-of-type { border-bottom: none; }
         .ov-sec-title { font-size: 11px; font-weight: 600; color: var(--sw-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
         .ov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .ov-row.ov-hdr { margin-bottom: 4px; border-bottom: 1px solid var(--sw-border-2); padding-bottom: 4px; }
+        .ov-row.ov-hdr span { font-size: 10px; font-weight: 600; color: var(--sw-muted); text-transform: uppercase; }
         .ov-lbl { font-size: 12px; color: var(--sw-text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ov-ref { font-size: 11px; color: var(--sw-muted); white-space: nowrap; }
+        .ov-ref { font-size: 11px; color: var(--sw-muted); white-space: nowrap; width: 60px; text-align: right; }
+        .ov-auto { font-size: 11px; color: var(--sw-muted); white-space: nowrap; width: 52px; text-align: right; }
+        .ov-auto.ov-auto-active { color: #2563eb; font-weight: 600; }
+        .ov-inp-hdr { font-size: 10px; width: 72px; text-align: right; }
         .ov-inp {
             width: 72px; padding: 4px 6px; font-size: 12px; text-align: right;
             border: 1px solid var(--sw-border); border-radius: 6px;
@@ -5349,6 +5379,7 @@
         .ov-btn-clear { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
         .ov-btn-clear:hover { background: rgba(239,68,68,0.06); }
         .ov-btn-save { font-size: 12px; padding: 6px 16px; height: auto; }
+        .has-auto-modifier .upx::after { content: '\u2699'; margin-left: 3px; font-size: 10px; color: #2563eb; }
 
         .cascade-badge {
             font-size: 9px; background: #e2e8f0; color: #475569;
@@ -10355,7 +10386,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config,loss_override_pct&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config,loss_override_pct,labor_modifiers&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -11167,35 +11198,52 @@
             html += '<div class="ov-row"><span class="ov-lbl">Prix fixe</span><span class="ov-ref">Cat: ' + formatPrice(refPrice) + '</span>';
             html += '<input type="number" class="ov-inp" id="ov-price" step="0.01" min="0" placeholder="\u2014" value="' + (ov.price != null ? ov.price : '') + '"></div></div>';
 
-            // Section: Labor minutes
+            // Auto label banner
+            if (ov.autoLabel) {
+                html += '<div class="ov-auto-banner">\u2699 ' + escapeHtml(ov.autoLabel) + '</div>';
+            }
+
+            // Section: Labor minutes (3 columns: Cat | Auto | Manuel)
             var laborRows = '';
             var laborMins = item.labor_minutes || {};
             tauxHoraires.forEach(function(t) {
                 var dept = t.department;
                 var catVal = laborMins[dept] || 0;
+                var autoFactor = ov.laborAuto && ov.laborAuto[dept] != null ? ov.laborAuto[dept] : null;
+                var autoVal = autoFactor ? Math.round(catVal * autoFactor) : null;
                 var ovVal = ov.labor && ov.labor[dept] != null ? ov.labor[dept] : '';
-                if (catVal > 0 || ovVal !== '') {
-                    laborRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(dept) + '</span><span class="ov-ref">Cat: ' + catVal + '</span>';
+                if (catVal > 0 || ovVal !== '' || autoVal) {
+                    laborRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(dept) + '</span>';
+                    laborRows += '<span class="ov-ref">Cat: ' + catVal + '</span>';
+                    laborRows += '<span class="ov-auto' + (autoVal ? ' ov-auto-active' : '') + '">' + (autoVal != null ? autoVal : '\u2014') + '</span>';
                     laborRows += '<input type="number" class="ov-inp" data-ov-labor="' + escapeAttr(dept) + '" step="1" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
                 }
             });
             if (laborRows) {
-                html += '<div class="ov-sec"><div class="ov-sec-title">Main-d\u2019\u0153uvre (minutes)</div>' + laborRows + '</div>';
+                html += '<div class="ov-sec"><div class="ov-sec-title">Main-d\u2019\u0153uvre (minutes)</div>';
+                html += '<div class="ov-row ov-hdr"><span class="ov-lbl"></span><span class="ov-ref">Cat</span><span class="ov-auto">Auto</span><span class="ov-inp-hdr">Manuel</span></div>';
+                html += laborRows + '</div>';
             }
 
-            // Section: Material costs
+            // Section: Material costs (3 columns: Cat | Auto | Manuel)
             var matRows = '';
             var matCosts = item.material_costs || {};
             expenseCategories.forEach(function(c) {
                 var catVal = matCosts[c.name] || 0;
+                var matAutoFactor = ov.materialAuto && ov.materialAuto[c.name] != null ? ov.materialAuto[c.name] : null;
+                var matAutoVal = matAutoFactor ? Math.round(catVal * matAutoFactor * 100) / 100 : null;
                 var ovVal = ov.material && ov.material[c.name] != null ? ov.material[c.name] : '';
-                if (catVal > 0 || ovVal !== '') {
-                    matRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(c.name) + '</span><span class="ov-ref">Cat: ' + formatPrice(catVal) + '</span>';
+                if (catVal > 0 || ovVal !== '' || matAutoVal) {
+                    matRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(c.name) + '</span>';
+                    matRows += '<span class="ov-ref">Cat: ' + formatPrice(catVal) + '</span>';
+                    matRows += '<span class="ov-auto' + (matAutoVal ? ' ov-auto-active' : '') + '">' + (matAutoVal != null ? formatPrice(matAutoVal) : '\u2014') + '</span>';
                     matRows += '<input type="number" class="ov-inp" data-ov-mat="' + escapeAttr(c.name) + '" step="0.01" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
                 }
             });
             if (matRows) {
-                html += '<div class="ov-sec"><div class="ov-sec-title">Co\u00fbts mat\u00e9riaux</div>' + matRows + '</div>';
+                html += '<div class="ov-sec"><div class="ov-sec-title">Co\u00fbts mat\u00e9riaux</div>';
+                html += '<div class="ov-row ov-hdr"><span class="ov-lbl"></span><span class="ov-ref">Cat</span><span class="ov-auto">Auto</span><span class="ov-inp-hdr">Manuel</span></div>';
+                html += matRows + '</div>';
             }
 
             html += '<div class="ov-pop-ftr"><button class="ov-btn-clear" onclick="clearOverrides(\'' + rowId + '\')">R\u00e9initialiser</button>';
@@ -11218,7 +11266,7 @@
                 } else {
                     pop.style.top = (r.bottom + 4) + 'px';
                 }
-                pop.style.left = Math.max(8, Math.min(r.right - 320, window.innerWidth - 328)) + 'px';
+                pop.style.left = Math.max(8, Math.min(r.right - 380, window.innerWidth - 388)) + 'px';
             }
 
             setTimeout(function() {
@@ -11266,12 +11314,16 @@
             });
             ov.material = Object.keys(material).length > 0 ? material : null;
 
-            var hasAny = ov.price != null || ov.labor || ov.material;
-            if (hasAny) {
-                _rowOverrides[rowId] = ov;
+            var hasManual = ov.price != null || ov.labor || ov.material;
+            // Preserve auto fields from _rowOverrides (managed by updateRow)
+            var existing = _rowOverrides[rowId] || {};
+            if (hasManual) {
+                _rowOverrides[rowId] = Object.assign({}, existing, ov);
                 if (row) row.classList.add('has-override');
             } else {
-                delete _rowOverrides[rowId];
+                // Keep auto fields, remove manual
+                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, autoLabel: existing.autoLabel };
+                if (!existing.laborAuto && !existing.materialAuto) delete _rowOverrides[rowId];
                 if (row) row.classList.remove('has-override');
             }
 
@@ -11290,7 +11342,13 @@
         }
 
         function clearOverrides(rowId) {
-            delete _rowOverrides[rowId];
+            // Only clear manual overrides, preserve auto (managed by updateRow)
+            var existing = _rowOverrides[rowId] || {};
+            if (existing.laborAuto || existing.materialAuto) {
+                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, autoLabel: existing.autoLabel };
+            } else {
+                delete _rowOverrides[rowId];
+            }
             var row = document.getElementById(rowId);
             if (row) row.classList.remove('has-override');
             updateRow(rowId, { skipCascade: true });
@@ -11749,7 +11807,41 @@
                         var includeInstall = installCb ? installCb.checked : true;
                         var composedPrice = computeComposedPrice(item, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
-                        // Per-line override
+
+                        // ── Auto labor modifiers (barèmes) ──
+                        var _almL = document.getElementById(rowId + '-dim-l');
+                        var _almH = document.getElementById(rowId + '-dim-h');
+                        var _almP = document.getElementById(rowId + '-dim-p');
+                        var _almVars = {
+                            L: _almL ? (parseFloat(_almL.value) || 0) : 0,
+                            H: _almH ? (parseFloat(_almH.value) || 0) : 0,
+                            P: _almP ? (parseFloat(_almP.value) || 0) : 0,
+                            QTY: parseFloat(qtyInput.value) || 0,
+                            n_tablettes: parseInt((document.getElementById(rowId + '-n-tab') || {}).value) || 0,
+                            n_partitions: parseInt((document.getElementById(rowId + '-n-part') || {}).value) || 0,
+                            n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
+                            n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
+                        };
+                        var autoModResult = evaluateLaborModifiers(item, _almVars);
+                        if (autoModResult) {
+                            if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
+                            _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;
+                            _rowOverrides[rowId].materialAuto = autoModResult.material_factor;
+                            _rowOverrides[rowId].autoLabel = autoModResult.label;
+                            row.classList.add('has-auto-modifier');
+                        } else if (_rowOverrides[rowId]) {
+                            delete _rowOverrides[rowId].laborAuto;
+                            delete _rowOverrides[rowId].materialAuto;
+                            delete _rowOverrides[rowId].autoLabel;
+                            row.classList.remove('has-auto-modifier');
+                            if (Object.keys(_rowOverrides[rowId]).every(function(k) { return _rowOverrides[rowId][k] == null; })) {
+                                delete _rowOverrides[rowId];
+                            }
+                        } else {
+                            row.classList.remove('has-auto-modifier');
+                        }
+
+                        // Per-line override (hierarchy: price > manual labor/material > auto labor/material)
                         var ov = _rowOverrides[rowId];
                         if (ov && ov.price != null) {
                             effectivePrice = ov.price;
@@ -11760,6 +11852,31 @@
                             });
                             var mc = computeComposedPrice(merged, includeInstall);
                             if (mc !== null) effectivePrice = mc;
+                        } else if (ov && (ov.laborAuto || ov.materialAuto)) {
+                            var autoMerged = Object.assign({}, item);
+                            if (ov.laborAuto) {
+                                autoMerged.labor_minutes = Object.assign({}, item.labor_minutes || {});
+                                Object.keys(ov.laborAuto).forEach(function(dept) {
+                                    if (autoMerged.labor_minutes[dept] != null) {
+                                        autoMerged.labor_minutes[dept] = Math.round(autoMerged.labor_minutes[dept] * ov.laborAuto[dept]);
+                                    }
+                                });
+                            }
+                            if (ov.materialAuto) {
+                                autoMerged.material_costs = Object.assign({}, item.material_costs || {});
+                                Object.keys(ov.materialAuto).forEach(function(cat) {
+                                    var val = autoMerged.material_costs[cat];
+                                    if (val != null) {
+                                        if (typeof val === 'number') {
+                                            autoMerged.material_costs[cat] = Math.round(val * ov.materialAuto[cat] * 100) / 100;
+                                        } else if (val && val.cost != null) {
+                                            autoMerged.material_costs[cat] = Object.assign({}, val, { cost: Math.round(val.cost * ov.materialAuto[cat] * 100) / 100 });
+                                        }
+                                    }
+                                });
+                            }
+                            var amc = computeComposedPrice(autoMerged, includeInstall);
+                            if (amc !== null) effectivePrice = amc;
                         }
                         var rowGroup = row.closest('.furniture-group');
                         var mult = rowGroup ? getModifierMultiplier(rowGroup.id) : 1;
@@ -11972,6 +12089,12 @@
                         fields.labor_override = ov.labor && Object.keys(ov.labor).length > 0 ? ov.labor : null;
                         fields.material_override = ov.material && Object.keys(ov.material).length > 0 ? ov.material : null;
                         fields.price_override = ov.price != null ? ov.price : null;
+                        // Auto labor modifier (barèmes)
+                        fields.labor_auto_modifier = (ov.laborAuto || ov.materialAuto) ? {
+                            labor_factor: ov.laborAuto || null,
+                            material_factor: ov.materialAuto || null,
+                            label: ov.autoLabel || null
+                        } : null;
                         // Save effective (overridden) price for quote.html compatibility
                         if (ov.price != null) {
                             fields.unit_price = ov.price;
@@ -11982,11 +12105,33 @@
                             });
                             var mc = computeComposedPrice(merged, includeInstall);
                             if (mc !== null) fields.unit_price = mc;
+                        } else if (ov.laborAuto || ov.materialAuto) {
+                            // Auto modifier affects effective price for quote.html
+                            var autoM2 = Object.assign({}, item);
+                            if (ov.laborAuto) {
+                                autoM2.labor_minutes = Object.assign({}, item.labor_minutes || {});
+                                Object.keys(ov.laborAuto).forEach(function(dept) {
+                                    if (autoM2.labor_minutes[dept] != null) autoM2.labor_minutes[dept] = Math.round(autoM2.labor_minutes[dept] * ov.laborAuto[dept]);
+                                });
+                            }
+                            if (ov.materialAuto) {
+                                autoM2.material_costs = Object.assign({}, item.material_costs || {});
+                                Object.keys(ov.materialAuto).forEach(function(cat) {
+                                    var v2 = autoM2.material_costs[cat];
+                                    if (v2 != null) {
+                                        if (typeof v2 === 'number') autoM2.material_costs[cat] = Math.round(v2 * ov.materialAuto[cat] * 100) / 100;
+                                        else if (v2 && v2.cost != null) autoM2.material_costs[cat] = Object.assign({}, v2, { cost: Math.round(v2.cost * ov.materialAuto[cat] * 100) / 100 });
+                                    }
+                                });
+                            }
+                            var amc2 = computeComposedPrice(autoM2, includeInstall);
+                            if (amc2 !== null) fields.unit_price = amc2;
                         }
                     } else {
                         fields.labor_override = null;
                         fields.material_override = null;
                         fields.price_override = null;
+                        fields.labor_auto_modifier = null;
                     }
                 }
             } else {
@@ -12107,7 +12252,7 @@
                     var includeInstall = installCb ? installCb.checked : true;
                     var composed = computeComposedPrice(item, includeInstall);
                     var eff = composed !== null ? composed : (item.price || 0);
-                    // Per-line override
+                    // Per-line override (hierarchy: price > manual > auto)
                     var ov = _rowOverrides[row.id];
                     if (ov && ov.price != null) {
                         eff = ov.price;
@@ -12118,6 +12263,26 @@
                         });
                         var mc = computeComposedPrice(merged, includeInstall);
                         if (mc !== null) eff = mc;
+                    } else if (ov && (ov.laborAuto || ov.materialAuto)) {
+                        var autoM = Object.assign({}, item);
+                        if (ov.laborAuto) {
+                            autoM.labor_minutes = Object.assign({}, item.labor_minutes || {});
+                            Object.keys(ov.laborAuto).forEach(function(dept) {
+                                if (autoM.labor_minutes[dept] != null) autoM.labor_minutes[dept] = Math.round(autoM.labor_minutes[dept] * ov.laborAuto[dept]);
+                            });
+                        }
+                        if (ov.materialAuto) {
+                            autoM.material_costs = Object.assign({}, item.material_costs || {});
+                            Object.keys(ov.materialAuto).forEach(function(cat) {
+                                var v = autoM.material_costs[cat];
+                                if (v != null) {
+                                    if (typeof v === 'number') autoM.material_costs[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
+                                    else if (v && v.cost != null) autoM.material_costs[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
+                                }
+                            });
+                        }
+                        var amc = computeComposedPrice(autoM, includeInstall);
+                        if (amc !== null) eff = amc;
                     }
                     return eff * qty;
                 }
@@ -17672,6 +17837,16 @@
                                     price: item.price_override != null ? Number(item.price_override) : null
                                 };
                                 row.classList.add('has-override');
+                            }
+                            // Restore auto labor modifiers (barèmes)
+                            if (item.labor_auto_modifier) {
+                                if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
+                                _rowOverrides[rowId].laborAuto = item.labor_auto_modifier.labor_factor || null;
+                                _rowOverrides[rowId].materialAuto = item.labor_auto_modifier.material_factor || null;
+                                _rowOverrides[rowId].autoLabel = item.labor_auto_modifier.label || null;
+                                if (item.labor_auto_modifier.labor_factor || item.labor_auto_modifier.material_factor) {
+                                    row.classList.add('has-auto-modifier');
+                                }
                             }
 
                             // Restore dimensions L/H/P + caisson fields

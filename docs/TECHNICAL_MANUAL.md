@@ -224,6 +224,42 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - Les composants fournisseur (`catalogue_item_components`) verrouillent automatiquement les inputs de `material_costs` pour les catégories concernées
 - Si aucun prix composé n'est défini, le prix manuel (`price`) est utilisé
 
+### 2.8 Barèmes et modificateurs (`labor_modifiers`)
+
+Ajustements automatiques de prix basés sur les dimensions. Section séparée de `calculation_rule_ai` dans la modale catalogue (admin only).
+
+**Structure JSON** (`catalogue_items.labor_modifiers`) :
+```json
+{
+  "modifiers": [
+    {
+      "condition": "L > 48",
+      "label": "Grand (> 48 po)",
+      "labor_factor": { "Machinage": 1.5 },
+      "material_factor": { "PANNEAU MÉLAMINE": 1.20 }
+    }
+  ]
+}
+```
+
+**Colonnes DB** :
+- `catalogue_items.labor_modifiers` JSONB, `catalogue_items.labor_modifiers_human` TEXT
+- `room_items.labor_auto_modifier` JSONB — résultat persisté
+
+**Évaluation** : `evaluateLaborModifiers(item, vars)` — first-match (premier modificateur dont la condition est vraie). Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions : ceil, floor, round, min, max.
+
+**Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.
+
+**Hiérarchie d'override (3 tiers)** : `ov.price` > `ov.labor/material` (manuel) > `ov.laborAuto/materialAuto` (auto) > valeurs catalogue.
+
+**Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`.
+
+**Persistance** : `debouncedSaveItem()` écrit `labor_auto_modifier` JSONB. `openSubmission()` restaure dans `_rowOverrides`. `saveOverrides()` ne touche que les champs manuels. CSS `.has-auto-modifier` (gear icon).
+
+**AI** : action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`.
+
+**Migration** : `sql/labor_modifiers.sql`
+
 ---
 
 ## 3. Moteur de cascade

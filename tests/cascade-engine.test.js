@@ -835,6 +835,230 @@ describe('GROUP 16 — computeChildDims', function() {
     });
 });
 
+// GROUP 17 — evaluateLaborModifiers — basic
+
+describe('GROUP 17 — evaluateLaborModifiers — basic', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+
+    it('null item → null', function() {
+        assertEqual(evaluateLaborModifiers(null, { L: 40 }), null);
+    });
+
+    it('item without labor_modifiers → null', function() {
+        assertEqual(evaluateLaborModifiers({ id: 'ST-0001' }, { L: 40 }), null);
+    });
+
+    it('empty modifiers array → null', function() {
+        assertEqual(evaluateLaborModifiers({ labor_modifiers: { modifiers: [] } }, { L: 40 }), null);
+    });
+
+    it('labor_modifiers without modifiers key → null', function() {
+        assertEqual(evaluateLaborModifiers({ labor_modifiers: {} }, { L: 40 }), null);
+    });
+
+    it('first condition true → returns its factors', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 30', label: 'Wide', labor_factor: { 'Machinage': 1.5 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Wide');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+    });
+
+    it('first condition false, second true → returns second', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 48', label: 'XL', labor_factor: { 'Machinage': 2.0 } },
+                { condition: 'L > 36', label: 'Large', labor_factor: { 'Machinage': 1.25 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assertEqual(result.label, 'Large');
+        assertEqual(result.labor_factor['Machinage'], 1.25);
+    });
+
+    it('no conditions match → null', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 100', label: 'Huge', labor_factor: { 'Machinage': 3.0 } }
+            ]}
+        };
+        assertEqual(evaluateLaborModifiers(item, { L: 40 }), null);
+    });
+
+    it('condition without labor_factor → returns { labor_factor: null }', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 0', label: 'Base' }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        assert(result !== null, 'should match');
+        assertEqual(result.labor_factor, null);
+        assertEqual(result.material_factor, null);
+    });
+
+    it('label fallback to condition string when no label', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 30', labor_factor: { 'A': 1.1 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assertEqual(result.label, 'L > 30');
+    });
+
+    it('modifier with empty condition string is skipped', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: '', label: 'Empty', labor_factor: { 'A': 1.1 } },
+                { condition: 'L > 0', label: 'Fallback', labor_factor: { 'A': 1.2 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        assertEqual(result.label, 'Fallback');
+    });
+});
+
+// GROUP 18 — evaluateLaborModifiers — formulas
+
+describe('GROUP 18 — evaluateLaborModifiers — formulas', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+
+    it('condition with L * H surface calculation', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L * H > 1000', label: 'Grande surface', labor_factor: { 'Ébénisterie': 1.3 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40, H: 30 }); // 1200 > 1000
+        assert(result !== null, 'should match');
+        assertEqual(result.labor_factor['Ébénisterie'], 1.3);
+    });
+
+    it('condition with ceil/floor', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'ceil(L / 12) > 3', label: 'Multi-panneau', labor_factor: { 'Machinage': 1.4 } }
+            ]}
+        };
+        // ceil(40/12) = ceil(3.33) = 4 > 3 → true
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Multi-panneau');
+    });
+
+    it('false condition is skipped', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L * H > 2000', label: 'Très grand', labor_factor: { 'A': 2.0 } }
+            ]}
+        };
+        assertEqual(evaluateLaborModifiers(item, { L: 30, H: 20 }), null); // 600 < 2000
+    });
+
+    it('condition with n_tablettes variable', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'n_tablettes > 3', label: 'Multi-tablettes', labor_factor: { 'Ébénisterie': 1.2 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 24, n_tablettes: 5 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Multi-tablettes');
+    });
+
+    it('first-match: multiple true conditions → only first wins', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 20', label: 'First', labor_factor: { 'A': 1.1 } },
+                { condition: 'L > 10', label: 'Second', labor_factor: { 'A': 1.2 } },
+                { condition: 'L > 0', label: 'Third', labor_factor: { 'A': 1.3 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 30 });
+        assertEqual(result.label, 'First');
+        assertEqual(result.labor_factor['A'], 1.1);
+    });
+
+    it('material_factor only (no labor_factor)', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 36', label: 'Wide panel', material_factor: { 'PANNEAU MÉLAMINE': 1.15 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assert(result !== null, 'should match');
+        assertEqual(result.labor_factor, null);
+        assertEqual(result.material_factor['PANNEAU MÉLAMINE'], 1.15);
+    });
+});
+
+// GROUP 19 — evaluateLaborModifiers — integration with ST-0006
+
+describe('GROUP 19 — evaluateLaborModifiers — integration ST-0006', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+    var ST0006 = CATALOGUE_DATA.find(function(c) { return c.id === 'ST-0006'; });
+
+    it('ST-0006 exists in fixtures', function() {
+        assert(ST0006 !== undefined, 'ST-0006 must be in CATALOGUE_DATA');
+        assert(ST0006.labor_modifiers, 'must have labor_modifiers');
+        assertEqual(ST0006.labor_modifiers.modifiers.length, 3);
+    });
+
+    it('L=50 → Grand (> 48 po) — Machinage 1.5×, mat 1.20×', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 50, H: 30, P: 24 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Grand (> 48 po)');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+        assertEqual(result.material_factor['PANNEAU MÉLAMINE'], 1.20);
+    });
+
+    it('L=40 → Moyen (> 36 po) — Machinage 1.25×', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 40, H: 30, P: 24 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Moyen (> 36 po)');
+        assertEqual(result.labor_factor['Machinage'], 1.25);
+        assertEqual(result.material_factor, null, 'Moyen has no material_factor');
+    });
+
+    it('L=30 → Standard — null labor_factor', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 30, H: 30, P: 24 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Standard');
+        assertEqual(result.labor_factor, null);
+    });
+
+    it('L=48 (boundary) → Moyen (> 36 po), not Grand', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 48, H: 30, P: 24 });
+        assertEqual(result.label, 'Moyen (> 36 po)');
+    });
+
+    it('L=36 (boundary) → Standard (L <= 36)', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 36, H: 30, P: 24 });
+        assertEqual(result.label, 'Standard');
+    });
+
+    it('applied labor_factor changes effective minutes', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 50, H: 30, P: 24 });
+        // ST-0006 base: Machinage = 60 min, factor 1.5 → 90 min
+        var effectiveMachinage = Math.round(ST0006.labor_minutes['Machinage'] * result.labor_factor['Machinage']);
+        assertEqual(effectiveMachinage, 90);
+        // Ébénisterie not in factor → stays 120
+        assert(!result.labor_factor['Ébénisterie'], 'Ébénisterie not modified');
+    });
+
+    it('applied material_factor changes effective cost', function() {
+        var result = evaluateLaborModifiers(ST0006, { L: 50, H: 30, P: 24 });
+        // ST-0006 base: PANNEAU MÉLAMINE = 5.20, factor 1.20 → 6.24
+        var effectiveCost = Math.round(ST0006.material_costs['PANNEAU MÉLAMINE'] * result.material_factor['PANNEAU MÉLAMINE'] * 100) / 100;
+        assertApprox(effectiveCost, 6.24, 0.01, 'material cost with factor');
+    });
+});
+
 // ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════

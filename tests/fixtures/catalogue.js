@@ -190,6 +190,27 @@ var CATALOGUE_DATA = [
                 { target: '$default:Caisson', qty: '(L*P*2 + L*H*2) / 144' }
             ]
         }
+    },
+
+    // ── FABRICATION item with labor_modifiers (barèmes) ──
+    {
+        id: 'ST-0006',
+        description: 'Caisson base avec barèmes',
+        client_text: 'caisson barèmes',
+        category: 'Caisson',
+        item_type: 'fabrication',
+        price: 450,
+        labor_minutes: { 'Ébénisterie': 120, 'Machinage': 60 },
+        material_costs: { 'PANNEAU MÉLAMINE': 5.20 },
+        dims_config: { l: true, h: true, p: true },
+        labor_modifiers: {
+            modifiers: [
+                { condition: 'L > 48', label: 'Grand (> 48 po)', labor_factor: { 'Machinage': 1.5 }, material_factor: { 'PANNEAU MÉLAMINE': 1.20 } },
+                { condition: 'L > 36', label: 'Moyen (> 36 po)', labor_factor: { 'Machinage': 1.25 } },
+                { condition: 'L <= 36', label: 'Standard', labor_factor: null }
+            ]
+        },
+        calculation_rule_ai: { ask: ['L', 'H', 'P'] }
     }
 ];
 

@@ -295,6 +295,31 @@ function computeChildDims(childDims, vars, log) {
     return result;
 }
 
+// ── evaluateLaborModifiers (calculateur.html — labor_modifiers system) ──
+// Evaluates labor_modifiers for a catalogue item given current dims.
+// Returns { labor_factor, material_factor, label } or null.
+// First-match: first modifier whose condition is truthy wins.
+
+function evaluateLaborModifiers(item, vars, log) {
+    log = log || function() {};
+    if (!item || !item.labor_modifiers) return null;
+    var mods = item.labor_modifiers.modifiers;
+    if (!Array.isArray(mods) || mods.length === 0) return null;
+    for (var i = 0; i < mods.length; i++) {
+        var m = mods[i];
+        if (!m.condition) continue;
+        var result = evalFormula(m.condition, vars, log);
+        if (result) {
+            return {
+                labor_factor: m.labor_factor || null,
+                material_factor: m.material_factor || null,
+                label: m.label || m.condition
+            };
+        }
+    }
+    return null;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -314,6 +339,7 @@ if (typeof module !== 'undefined' && module.exports) {
         mergeOverrideChildren: mergeOverrideChildren,
         isRuleOverridden: isRuleOverridden,
         findExistingChildForDynamicRule: findExistingChildForDynamicRule,
-        computeChildDims: computeChildDims
+        computeChildDims: computeChildDims,
+        evaluateLaborModifiers: evaluateLaborModifiers
     };
 }

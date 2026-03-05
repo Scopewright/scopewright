@@ -995,6 +995,46 @@ describe('GROUP 18 — evaluateLaborModifiers — formulas', function() {
         assertEqual(result.labor_factor, null);
         assertEqual(result.material_factor['PANNEAU MÉLAMINE'], 1.15);
     });
+
+    it('scalar labor_factor → expanded to all departments', function() {
+        var item = {
+            labor_minutes: { 'Ébénisterie': 120, 'Machinage': 60, 'Installation': 30 },
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 30', label: 'Large', labor_factor: 1.25 }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assert(result !== null, 'should match');
+        assert(typeof result.labor_factor === 'object', 'should be object not number');
+        assertEqual(result.labor_factor['Ébénisterie'], 1.25);
+        assertEqual(result.labor_factor['Machinage'], 1.25);
+        assertEqual(result.labor_factor['Installation'], 1.25);
+    });
+
+    it('scalar material_factor → expanded to all categories', function() {
+        var item = {
+            material_costs: { 'PANNEAU MÉLAMINE': 5.20, 'QUINCAILLERIE': 0.50 },
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 30', label: 'Large', material_factor: 1.10 }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 40 });
+        assert(result !== null, 'should match');
+        assert(typeof result.material_factor === 'object', 'should be object not number');
+        assertEqual(result.material_factor['PANNEAU MÉLAMINE'], 1.10);
+        assertEqual(result.material_factor['QUINCAILLERIE'], 1.10);
+    });
+
+    it('scalar labor_factor without labor_minutes → null (cannot expand)', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 0', label: 'Test', labor_factor: 1.5 }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        // No labor_minutes on item → cannot expand → null
+        assertEqual(result.labor_factor, null);
+    });
 });
 
 // GROUP 19 — evaluateLaborModifiers — integration with ST-0006

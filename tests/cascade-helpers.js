@@ -310,11 +310,24 @@ function evaluateLaborModifiers(item, vars, log) {
         if (!m.condition) continue;
         var result = evalFormula(m.condition, vars, log);
         if (result) {
-            return {
-                labor_factor: m.labor_factor || null,
-                material_factor: m.material_factor || null,
-                label: m.label || m.condition
-            };
+            // Normalize scalar factor → per-key object
+            var lf = m.labor_factor || null;
+            if (typeof lf === 'number') {
+                if (item.labor_minutes && Object.keys(item.labor_minutes).length > 0) {
+                    var lfObj = {};
+                    Object.keys(item.labor_minutes).forEach(function(d) { lfObj[d] = lf; });
+                    lf = lfObj;
+                } else { lf = null; }
+            }
+            var mf = m.material_factor || null;
+            if (typeof mf === 'number') {
+                if (item.material_costs && Object.keys(item.material_costs).length > 0) {
+                    var mfObj = {};
+                    Object.keys(item.material_costs).forEach(function(c) { mfObj[c] = mf; });
+                    mf = mfObj;
+                } else { mf = null; }
+            }
+            return { labor_factor: lf, material_factor: mf, label: m.label || m.condition };
         }
     }
     return null;

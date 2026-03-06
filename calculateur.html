@@ -11094,7 +11094,21 @@
         }
 
         /**
-         * Update parent's .cell-total to show aggregate (parent + children) when collapsed,
+         * Collect ALL cascade descendants recursively (children, grandchildren, etc.)
+         */
+        function getAllCascadeDescendants(parentRowId) {
+            var all = [];
+            var children = findCascadeChildRows(parentRowId);
+            children.forEach(function(child) {
+                all.push(child);
+                var grandchildren = getAllCascadeDescendants(child.id);
+                for (var i = 0; i < grandchildren.length; i++) all.push(grandchildren[i]);
+            });
+            return all;
+        }
+
+        /**
+         * Update parent's .cell-total to show aggregate (parent + ALL descendants) when collapsed,
          * or restore individual total when expanded. Purely visual — no calc logic touched.
          */
         function updateCollapsedParentTotal(parentRowId) {
@@ -11117,20 +11131,20 @@
                 return;
             }
 
-            // Collapsed: compute aggregate
-            var children = findCascadeChildRows(parentRowId);
-            if (children.length === 0) return;
-            var parentVal = getRowTotal(parentRow);
-            var sum = parentVal;
-            children.forEach(function(child) {
-                sum += getRowTotal(child);
+            // Collapsed: compute aggregate over ALL descendants (recursive)
+            var descendants = getAllCascadeDescendants(parentRowId);
+            if (descendants.length === 0) return;
+            var sum = getRowTotal(parentRow);
+            descendants.forEach(function(desc) {
+                sum += getRowTotal(desc);
             });
             // Store individual total for restore on expand
             parentRow.dataset.individualTotal = totalEl.textContent;
             totalEl.textContent = formatPrice(sum);
             parentRow.classList.add('aggregate-total');
-            // Update badge to include aggregate hint
-            if (badge) badge.textContent = '(+' + children.length + ')';
+            // Badge shows direct children count
+            var directChildren = findCascadeChildRows(parentRowId);
+            if (badge) badge.textContent = '(+' + directChildren.length + ')';
         }
 
         function toggleShowAllCascade(groupId, checked) {
@@ -12396,12 +12410,15 @@
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
 
-            // Store individual total for aggregate display, then update collapsed parent
+            // Store individual total for aggregate display, then update collapsed ancestors
             var _totalEl = document.getElementById(rowId + '-total');
             if (_totalEl) row.dataset.individualTotal = _totalEl.textContent;
-            var _parentOfThis = cascadeParentMap[rowId];
-            if (_parentOfThis && !_cascadeExpanded[_parentOfThis]) {
-                updateCollapsedParentTotal(_parentOfThis);
+            var _ancestor = cascadeParentMap[rowId];
+            while (_ancestor) {
+                if (!_cascadeExpanded[_ancestor]) {
+                    updateCollapsedParentTotal(_ancestor);
+                }
+                _ancestor = cascadeParentMap[_ancestor];
             }
 
             // Sauvegarder dans Supabase (debounce)

@@ -11325,6 +11325,8 @@
                 if (parentRow && parentRow.dataset.group === groupId) {
                     _seenParents[parentId] = true;
                     if (!checked) {
+                        // Reset manual expand — full collapse for this group
+                        _cascadeExpanded[parentId] = false;
                         applyCascadeVisibility(parentId);
                     } else {
                         // Show-all: restore individual totals

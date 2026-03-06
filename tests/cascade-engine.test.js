@@ -1469,6 +1469,132 @@ describe('GROUP 23 — FAB child not blocked by parent override_children', funct
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 24 — evaluateLaborModifiers — cumulative mode
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 24 — evaluateLaborModifiers — cumulative mode', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+    var ST0008 = CATALOGUE_DATA.find(function(c) { return c.id === 'ST-0008'; });
+
+    it('ST-0008 exists with cumulative: true', function() {
+        assert(ST0008 !== undefined, 'ST-0008 must be in CATALOGUE_DATA');
+        assert(ST0008.labor_modifiers.cumulative === true, 'must be cumulative');
+        assertEqual(ST0008.labor_modifiers.modifiers.length, 6);
+    });
+
+    it('cumulative: false on ST-0006 → first-match (unchanged behavior)', function() {
+        var ST0006 = CATALOGUE_DATA.find(function(c) { return c.id === 'ST-0006'; });
+        // L=50 matches both L > 48 AND L > 36, but first-match → only L > 48
+        var result = evaluateLaborModifiers(ST0006, { L: 50, H: 30, P: 24 });
+        assertEqual(result.label, 'Grand (> 48 po)');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+    });
+
+    it('single axis match: L=40 only → Largeur > 36 po', function() {
+        var result = evaluateLaborModifiers(ST0008, { L: 40, H: 30, P: 0.75 });
+        assert(result !== null, 'should match');
+        assertEqual(result.label, 'Largeur > 36 po');
+        assertEqual(result.labor_factor['Machinage'], 1.25);
+        assertEqual(result.material_factor, null, 'no mat factor for this modifier');
+    });
+
+    it('two axes: L=50 + H=100 → both L and H modifiers multiply', function() {
+        // L=50 matches L > 48 (Mach 1.5, BF 1.20) AND L > 36 (Mach 1.25)
+        // H=100 matches H > 96 (Éb 1.4, Mach 1.3) AND H > 48 (Éb 1.2)
+        var result = evaluateLaborModifiers(ST0008, { L: 50, H: 100, P: 0.75 });
+        assert(result !== null, 'should match');
+        // Machinage: 1.5 * 1.25 * 1.3 = 2.4375
+        assertApprox(result.labor_factor['Machinage'], 1.5 * 1.25 * 1.3, 0.001, 'Machinage cumulative');
+        // Ébénisterie: 1.4 * 1.2 = 1.68
+        assertApprox(result.labor_factor['Ébénisterie'], 1.4 * 1.2, 0.001, 'Ébénisterie cumulative');
+        // BOIS FRANC: 1.20 (only from L > 48)
+        assertEqual(result.material_factor['BOIS FRANC'], 1.20);
+    });
+
+    it('three axes: L=50 + H=100 + P=2 → all three multiply', function() {
+        // P=2 matches P > 1.5 (Sablage 1.5, BF 1.15) AND P > 1 (Sablage 1.25)
+        var result = evaluateLaborModifiers(ST0008, { L: 50, H: 100, P: 2 });
+        // Sablage: 1.5 * 1.25 = 1.875
+        assertApprox(result.labor_factor['Sablage'], 1.5 * 1.25, 0.001, 'Sablage cumulative');
+        // BOIS FRANC: 1.20 * 1.15 = 1.38
+        assertApprox(result.material_factor['BOIS FRANC'], 1.20 * 1.15, 0.001, 'BOIS FRANC cumulative');
+        // Labels joined
+        assert(result.label.indexOf('Largeur > 48 po') !== -1, 'label has L');
+        assert(result.label.indexOf('Longueur > 96 po') !== -1, 'label has H');
+        assert(result.label.indexOf('Épaisseur > 1.5 po') !== -1, 'label has P');
+    });
+
+    it('no conditions match → null', function() {
+        // L=30, H=30, P=0.5 → no conditions true
+        var result = evaluateLaborModifiers(ST0008, { L: 30, H: 30, P: 0.5 });
+        assertEqual(result, null);
+    });
+
+    it('labels joined with " + "', function() {
+        var result = evaluateLaborModifiers(ST0008, { L: 40, H: 60, P: 0.75 });
+        // L > 36 + H > 48
+        assertEqual(result.label, 'Largeur > 36 po + Longueur > 48 po');
+    });
+
+    it('cumulative factors multiply, not add', function() {
+        // Verify multiplication semantics: Machinage with L=50 (1.5) and L>36 (1.25) = 1.875 not 2.75
+        var result = evaluateLaborModifiers(ST0008, { L: 50, H: 30, P: 0.75 });
+        // L > 48 → Mach 1.5, L > 36 → Mach 1.25 → cumulative 1.5 * 1.25 = 1.875
+        assertApprox(result.labor_factor['Machinage'], 1.875, 0.001, 'multiply not add');
+    });
+
+    it('keys only appear if at least one modifier sets them', function() {
+        // L=40 → only L > 36 matches → only Machinage in labor_factor
+        var result = evaluateLaborModifiers(ST0008, { L: 40, H: 30, P: 0.75 });
+        assert(result.labor_factor['Machinage'] != null, 'Machinage set');
+        assert(!result.labor_factor['Ébénisterie'], 'Ébénisterie not set');
+        assert(!result.labor_factor['Sablage'], 'Sablage not set');
+    });
+
+    it('cumulative with scalar factor expands to all departments', function() {
+        var item = {
+            labor_minutes: { 'A': 60, 'B': 30 },
+            labor_modifiers: {
+                cumulative: true,
+                modifiers: [
+                    { condition: 'L > 0', label: 'M1', labor_factor: 1.2 },
+                    { condition: 'H > 0', label: 'M2', labor_factor: 1.3 }
+                ]
+            }
+        };
+        var result = evaluateLaborModifiers(item, { L: 10, H: 10 });
+        // Both match, A: 1.2 * 1.3 = 1.56, B: 1.2 * 1.3 = 1.56
+        assertApprox(result.labor_factor['A'], 1.56, 0.001);
+        assertApprox(result.labor_factor['B'], 1.56, 0.001);
+        assertEqual(result.label, 'M1 + M2');
+    });
+
+    it('cumulative with empty-key factor {"": 1.25} expands and multiplies', function() {
+        var item = {
+            labor_minutes: { 'X': 100, 'Y': 50 },
+            labor_modifiers: {
+                cumulative: true,
+                modifiers: [
+                    { condition: 'L > 0', label: 'A', labor_factor: { '': 1.25 } },
+                    { condition: 'H > 0', label: 'B', labor_factor: { 'X': 1.5 } }
+                ]
+            }
+        };
+        var result = evaluateLaborModifiers(item, { L: 10, H: 10 });
+        // X: 1.25 * 1.5 = 1.875, Y: 1.25 (only from A)
+        assertApprox(result.labor_factor['X'], 1.875, 0.001);
+        assertApprox(result.labor_factor['Y'], 1.25, 0.001);
+    });
+
+    it('applied cumulative changes effective minutes correctly', function() {
+        // ST-0008: Machinage base 45, L=50 H=100 → cumulative 1.5*1.25*1.3 = 2.4375
+        var result = evaluateLaborModifiers(ST0008, { L: 50, H: 100, P: 0.75 });
+        var effectiveMach = Math.round(ST0008.labor_minutes['Machinage'] * result.labor_factor['Machinage']);
+        assertEqual(effectiveMach, Math.round(45 * 2.4375)); // 110
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

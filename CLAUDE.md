@@ -412,7 +412,8 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 - **`condition`** : expression évaluée par `evalFormula` (variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
 - **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau. 3 formats acceptés : objet `{dept: multiplier}`, **nombre scalaire** (appliqué à tous), ou **objet clé vide** `{"": multiplier}` (AI génère parfois ce format, normalisé en per-key). 1.0 = base, 1.25 = +25%
-- **First-match** : premier modificateur dont la condition est vraie gagne (pas cumulatif)
+- **First-match** (défaut) : premier modificateur dont la condition est vraie gagne
+- **Cumulatif** (`"cumulative": true` au niveau racine du JSON) : TOUS les modificateurs dont la condition est vraie sont appliqués — les facteurs sont **multipliés** entre eux (pas additionnés). Utile quand les axes dimensionnels sont indépendants (ex: largeur × longueur × épaisseur)
 - **Hierarchie d'override per-département** : `price` (override global, remplace tout) > sinon pour chaque département/catégorie : `manual` si défini, sinon `auto-factored` (catalogue × facteur), sinon `catalogue`. Les tiers manual et auto ne sont **pas mutuellement exclusifs** — un override manuel sur un département préserve les valeurs auto-factorisées des autres départements
 - **Ordre d'exécution dans `updateRow`** : les barèmes sont évalués **inline** après la section dims et l'auto-quantité, par lookup direct `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque appel de `updateRow` (changement dims, article, quantité)
 
@@ -427,7 +428,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`
 
-**Tests** : groupes 17-19 dans `tests/cascade-engine.test.js` (evaluateLaborModifiers basic + formulas + integration)
+**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) dans `tests/cascade-engine.test.js`
 
 ### Dupliquer un article (catalogue)
 
@@ -644,9 +645,9 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 215 assertions en 23 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 227 assertions en 24 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
-| `tests/fixtures/catalogue.js` | 16 articles catalogue réalistes (6 FAB + 10 MAT) |
+| `tests/fixtures/catalogue.js` | 17 articles catalogue réalistes (7 FAB + 10 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes
@@ -738,6 +739,8 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] Override manuel > Auto (manual gagne)
 - [ ] Recharger soumission → auto/manuels restaurés
 - [ ] Article sans `labor_modifiers` → pas de colonne Auto, pas de `.has-auto-modifier`
+- [ ] `cumulative: true` → tous les modificateurs vrais sont appliqués, facteurs multipliés
+- [ ] `cumulative: false`/absent → first-match (comportement inchangé)
 
 ### Catégorie de dépense dynamique
 - [ ] `$match:PANNEAU BOIS` + DM "Placage chêne blanc" (material_costs: {"PANNEAU MÉLAMINE": 5.2}) → détecte via mot commun "PANNEAU"

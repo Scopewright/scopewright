@@ -231,6 +231,7 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
 **Structure JSON** (`catalogue_items.labor_modifiers`) :
 ```json
 {
+  "cumulative": false,
   "modifiers": [
     {
       "condition": "L > 48",
@@ -241,12 +242,17 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
   ]
 }
 ```
+`cumulative` : `false`/absent = first-match, `true` = tous les modificateurs vrais sont appliqués (facteurs multipliés).
 
 **Colonnes DB** :
 - `catalogue_items.labor_modifiers` JSONB, `catalogue_items.labor_modifiers_human` TEXT
 - `room_items.labor_auto_modifier` JSONB — résultat persisté
 
-**Évaluation** : `evaluateLaborModifiers(item, vars)` — first-match (premier modificateur dont la condition est vraie). Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions : ceil, floor, round, min, max.
+**Évaluation** : `evaluateLaborModifiers(item, vars)` — deux modes :
+- **First-match** (défaut) : premier modificateur dont la condition est vraie gagne
+- **Cumulatif** (`"cumulative": true` au niveau racine) : tous les modificateurs dont la condition est vraie sont appliqués — les facteurs sont **multipliés** entre eux (pas additionnés). Utile pour les articles avec axes dimensionnels indépendants (ex: largeur × longueur × épaisseur)
+
+Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions : ceil, floor, round, min, max.
 
 **Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). 3 formats : objet `{dept: multiplier}`, nombre scalaire (appliqué à tous via expansion), ou objet clé vide `{"": multiplier}` (normalisé en per-key — l'AI génère parfois ce format). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.
 
@@ -1274,9 +1280,9 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 215 assertions en 23 groupes |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 227 assertions en 24 groupes |
 | `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
-| `tests/fixtures/catalogue.js` | 17 articles réalistes (ST-0001 à ST-0060 + ST-0005 + ST-0007 + ST-0045) : 7 FAB avec cascade rules, 10 MAT avec `material_costs` |
+| `tests/fixtures/catalogue.js` | 17 articles réalistes (ST-0001 à ST-0060 + ST-0005 à ST-0008 + ST-0045) : 7 FAB avec cascade rules, 10 MAT avec `material_costs` |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
 
 ### 14.3 Fonctions extraites

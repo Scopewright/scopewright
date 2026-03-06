@@ -295,58 +295,83 @@ function computeChildDims(childDims, vars, log) {
     return result;
 }
 
-// ── evaluateLaborModifiers (calculateur.html — labor_modifiers system) ──
+// ── evaluateLaborModifiers (calculateur.html ~line 3242 — labor_modifiers system) ──
 // Evaluates labor_modifiers for a catalogue item given current dims.
 // Returns { labor_factor, material_factor, label } or null.
-// First-match: first modifier whose condition is truthy wins.
+// Two modes: first-match (default) or cumulative (labor_modifiers.cumulative: true).
 
 function evaluateLaborModifiers(item, vars, log) {
     log = log || function() {};
     if (!item || !item.labor_modifiers) return null;
     var mods = item.labor_modifiers.modifiers;
     if (!Array.isArray(mods) || mods.length === 0) return null;
-    for (var i = 0; i < mods.length; i++) {
-        var m = mods[i];
-        if (!m.condition) continue;
-        var result = evalFormula(m.condition, vars, log);
-        if (result) {
-            // Normalize scalar/empty-key factor → per-key object
-            var lf = m.labor_factor || null;
-            if (typeof lf === 'number') {
-                if (item.labor_minutes && Object.keys(item.labor_minutes).length > 0) {
-                    var lfObj = {};
-                    Object.keys(item.labor_minutes).forEach(function(d) { lfObj[d] = lf; });
-                    lf = lfObj;
-                } else { lf = null; }
+    var isCumulative = !!item.labor_modifiers.cumulative;
+
+    // Normalize a factor: scalar/empty-key → per-key object
+    function normFactor(raw, refObj) {
+        if (!raw && raw !== 0) return null;
+        if (typeof raw === 'number') {
+            if (refObj && Object.keys(refObj).length > 0) {
+                var out = {};
+                Object.keys(refObj).forEach(function(k) { out[k] = raw; });
+                return out;
             }
-            if (lf && typeof lf === 'object' && lf[''] != null) {
-                var lfVal = lf[''];
-                if (item.labor_minutes && Object.keys(item.labor_minutes).length > 0) {
-                    var lfObj2 = {};
-                    Object.keys(item.labor_minutes).forEach(function(d) { lfObj2[d] = lfVal; });
-                    lf = lfObj2;
-                } else { lf = null; }
+            return null;
+        }
+        if (typeof raw === 'object' && raw[''] != null) {
+            var val = raw[''];
+            if (refObj && Object.keys(refObj).length > 0) {
+                var out2 = {};
+                Object.keys(refObj).forEach(function(k) { out2[k] = val; });
+                return out2;
             }
-            var mf = m.material_factor || null;
-            if (typeof mf === 'number') {
-                if (item.material_costs && Object.keys(item.material_costs).length > 0) {
-                    var mfObj = {};
-                    Object.keys(item.material_costs).forEach(function(c) { mfObj[c] = mf; });
-                    mf = mfObj;
-                } else { mf = null; }
+            return null;
+        }
+        return raw;
+    }
+
+    if (!isCumulative) {
+        // First-match: return first modifier whose condition is truthy
+        for (var i = 0; i < mods.length; i++) {
+            var m = mods[i];
+            if (!m.condition) continue;
+            if (evalFormula(m.condition, vars, log)) {
+                return {
+                    labor_factor: normFactor(m.labor_factor, item.labor_minutes),
+                    material_factor: normFactor(m.material_factor, item.material_costs),
+                    label: m.label || m.condition
+                };
             }
-            if (mf && typeof mf === 'object' && mf[''] != null) {
-                var mfVal = mf[''];
-                if (item.material_costs && Object.keys(item.material_costs).length > 0) {
-                    var mfObj2 = {};
-                    Object.keys(item.material_costs).forEach(function(d) { mfObj2[d] = mfVal; });
-                    mf = mfObj2;
-                } else { mf = null; }
-            }
-            return { labor_factor: lf, material_factor: mf, label: m.label || m.condition };
+        }
+        return null;
+    }
+
+    // Cumulative: collect all matching modifiers, multiply factors
+    var mergedLf = null;
+    var mergedMf = null;
+    var labels = [];
+    for (var j = 0; j < mods.length; j++) {
+        var mc = mods[j];
+        if (!mc.condition) continue;
+        if (!evalFormula(mc.condition, vars, log)) continue;
+        labels.push(mc.label || mc.condition);
+        var lf = normFactor(mc.labor_factor, item.labor_minutes);
+        if (lf) {
+            if (!mergedLf) { mergedLf = {}; }
+            Object.keys(lf).forEach(function(k) {
+                mergedLf[k] = (mergedLf[k] || 1) * lf[k];
+            });
+        }
+        var mf = normFactor(mc.material_factor, item.material_costs);
+        if (mf) {
+            if (!mergedMf) { mergedMf = {}; }
+            Object.keys(mf).forEach(function(k) {
+                mergedMf[k] = (mergedMf[k] || 1) * mf[k];
+            });
         }
     }
-    return null;
+    if (!mergedLf && !mergedMf) return null;
+    return { labor_factor: mergedLf, material_factor: mergedMf, label: labels.join(' + ') };
 }
 
 // ── checkMaterialCtxOverlap (calculateur.html — inline in executeCascade) ──

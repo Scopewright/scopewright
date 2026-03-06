@@ -294,6 +294,7 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
   "warnings": [],
   "explication": "Texte reformulé",
   "json": {
+    "cumulative": false,
     "modifiers": [
       {
         "condition": "L > 36",
@@ -312,8 +313,9 @@ RÈGLES :
 - "material_factor" : multiplicateur par catégorie matériau (même logique)
 - Les facteurs sont des MULTIPLICATEURS, pas des ajouts. 1.0 = base, 1.5 = +50%
 - Si la condition est fausse, le modificateur est ignoré
-- Premier modificateur dont la condition est vraie EST APPLIQUÉ (first-match, pas cumulatif)
-- Les paliers doivent être ordonnés du plus grand au plus petit (ex: L > 48, L > 36, L <= 36)
+- Par défaut, premier modificateur dont la condition est vraie EST APPLIQUÉ (first-match). Les paliers doivent être ordonnés du plus grand au plus petit (ex: L > 48, L > 36, L <= 36)
+- Si les modificateurs sont sur des AXES INDÉPENDANTS (ex: largeur ET longueur ET épaisseur), ajouter "cumulative": true au niveau racine du JSON. En mode cumulatif, TOUS les modificateurs dont la condition est vraie sont appliqués — les facteurs sont MULTIPLIÉS entre eux (pas additionnés). Exemple: Machinage 1.5× (largeur) × 1.3× (longueur) = 1.95×
+- Utiliser cumulative quand chaque dimension a ses propres paliers indépendants. Garder first-match quand les paliers sont mutuellement exclusifs sur la même variable
 - "status" : "ok" si résultat fiable, "needs_review" si doutes
 - "warnings" : max 3 messages courts en français
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;

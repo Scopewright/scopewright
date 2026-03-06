@@ -233,6 +233,31 @@ var CATALOGUE_DATA = [
         }
     },
 
+    // ── FABRICATION item with cumulative labor_modifiers (barèmes) ──
+    {
+        id: 'ST-0008',
+        description: 'Bois brut massif avec barèmes cumulatifs',
+        client_text: 'bois brut massif',
+        category: 'Panneau',
+        item_type: 'fabrication',
+        price: 200,
+        labor_minutes: { 'Ébénisterie': 60, 'Machinage': 45, 'Sablage': 30 },
+        material_costs: { 'BOIS FRANC': 12.00, 'COLLE': 1.50 },
+        dims_config: { l: true, h: true, p: true },
+        labor_modifiers: {
+            cumulative: true,
+            modifiers: [
+                { condition: 'L > 48', label: 'Largeur > 48 po', labor_factor: { 'Machinage': 1.5 }, material_factor: { 'BOIS FRANC': 1.20 } },
+                { condition: 'L > 36', label: 'Largeur > 36 po', labor_factor: { 'Machinage': 1.25 } },
+                { condition: 'H > 96', label: 'Longueur > 96 po', labor_factor: { 'Ébénisterie': 1.4, 'Machinage': 1.3 } },
+                { condition: 'H > 48', label: 'Longueur > 48 po', labor_factor: { 'Ébénisterie': 1.2 } },
+                { condition: 'P > 1.5', label: 'Épaisseur > 1.5 po', labor_factor: { 'Sablage': 1.5 }, material_factor: { 'BOIS FRANC': 1.15 } },
+                { condition: 'P > 1', label: 'Épaisseur > 1 po', labor_factor: { 'Sablage': 1.25 } }
+            ]
+        },
+        calculation_rule_ai: { ask: ['L', 'H', 'P'] }
+    },
+
     // ── Parent FAB that cascades to a FAB child + has override_children ──
     {
         id: 'ST-0007',

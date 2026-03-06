@@ -252,6 +252,8 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
 - **First-match** (défaut) : premier modificateur dont la condition est vraie gagne
 - **Cumulatif** (`"cumulative": true` au niveau racine) : tous les modificateurs dont la condition est vraie sont appliqués — les facteurs sont **multipliés** entre eux (pas additionnés). Utile pour les articles avec axes dimensionnels indépendants (ex: largeur × longueur × épaisseur)
 
+**Fallback source** : lit `item.labor_modifiers` (colonne DB séparée) en priorité. Si absent, fallback vers `item.calculation_rule_ai.labor_modifiers`. Permet aux articles MAT d'avoir leurs barèmes dans `calculation_rule_ai` sans nécessiter la colonne dédiée.
+
 Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Fonctions : ceil, floor, round, min, max.
 
 **Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). 3 formats : objet `{dept: multiplier}`, nombre scalaire (appliqué à tous via expansion), ou objet clé vide `{"": multiplier}` (normalisé en per-key — l'AI génère parfois ce format). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.

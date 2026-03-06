@@ -183,6 +183,28 @@ var CATALOGUE_DATA = [
         },
         calculation_rule_ai: { ask: ['L', 'H', 'P'] }
     },
+    // ── MATERIAL item with labor_modifiers inside calculation_rule_ai (fallback path) ──
+    {
+        id: 'ST-0052',
+        description: 'Bois brut massif MAT (nested modifiers)',
+        client_text: 'bois brut massif nested',
+        category: 'Bois franc',
+        item_type: 'material',
+        price: 15.00,
+        labor_minutes: { 'Machinage': 30, 'Sablage': 20 },
+        material_costs: { 'BOIS FRANC': 12.00 },
+        dims_config: { l: true, h: true, p: true },
+        calculation_rule_ai: {
+            ask: ['L', 'H', 'P'],
+            labor_modifiers: {
+                cumulative: true,
+                modifiers: [
+                    { condition: 'L > 48', label: 'Largeur > 48 po', labor_factor: { 'Machinage': 1.5 } },
+                    { condition: 'H > 96', label: 'Longueur > 96 po', labor_factor: { 'Sablage': 1.4 } }
+                ]
+            }
+        }
+    },
 
     {
         id: 'ST-0060',

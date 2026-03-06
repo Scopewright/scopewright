@@ -422,7 +422,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 - `catalogue_items.labor_modifiers_human` TEXT — explication humaine
 - `room_items.labor_auto_modifier` JSONB — résultat auto-calculé persisté (pour quote.html)
 
-**Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, label}` ou null. Appelé **inline** dans `updateRow()` à chaque appel (pas de pattern deferred) — lookup direct via `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque changement de dimensions. **Normalisation clé vide** : `labor_factor: {"": 1.25}` (généré par l'AI) est expandé à tous les départements MO de l'article
+**Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, label}` ou null. **Fallback** : lit `item.labor_modifiers` (colonne DB séparée) en priorité, puis `item.calculation_rule_ai.labor_modifiers` si absent — permet aux articles MAT d'avoir leurs barèmes dans `calculation_rule_ai` sans colonne dédiée. Appelé **inline** dans `updateRow()` à chaque appel (pas de pattern deferred) — lookup direct via `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque changement de dimensions. **Normalisation clé vide** : `labor_factor: {"": 1.25}` (généré par l'AI) est expandé à tous les départements MO de l'article
 
 **Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif.
 
@@ -430,7 +430,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables. Le guard `formula auto-qty` est aussi étendu : `calculation_rule_ai` est évalué pour tout article avec `dims_config` (pas seulement FAB). La modale catalogue sauvegarde `dims_config` pour tout type d'article si au moins une checkbox dim est cochée (ne force plus `null` pour les non-FAB).
 
-**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) dans `tests/cascade-engine.test.js`
+**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) + groupe 27 (calculation_rule_ai fallback) dans `tests/cascade-engine.test.js`
 
 ### Parser fractions dims (`parseFraction`)
 
@@ -657,9 +657,9 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 259 assertions en 26 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 265 assertions en 27 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 18 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
-| `tests/fixtures/catalogue.js` | 20 articles catalogue réalistes (8 FAB + 12 MAT) |
+| `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes

@@ -1766,6 +1766,75 @@ describe('GROUP 26 — parseFraction', function() {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 27 — evaluateLaborModifiers fallback (calculation_rule_ai.labor_modifiers)
+// ════════════════════════════════════════════════════════════════
+
+describe('27. evaluateLaborModifiers — calculation_rule_ai fallback', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+    var ST0051 = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0051'; });
+    var ST0052 = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0052'; });
+
+    it('top-level labor_modifiers still works (ST-0051)', function() {
+        var result = evaluateLaborModifiers(ST0051, { L: 60, H: 50, P: 1 });
+        assert(result !== null, 'expected non-null');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+    });
+
+    it('nested labor_modifiers in calculation_rule_ai works (ST-0052)', function() {
+        var result = evaluateLaborModifiers(ST0052, { L: 60, H: 50, P: 1 });
+        assert(result !== null, 'expected non-null');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+    });
+
+    it('nested cumulative mode works (ST-0052, both conditions true)', function() {
+        var result = evaluateLaborModifiers(ST0052, { L: 60, H: 100, P: 1 });
+        assert(result !== null, 'expected non-null');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+        assertEqual(result.labor_factor['Sablage'], 1.4);
+    });
+
+    it('nested: no condition matches → null', function() {
+        var result = evaluateLaborModifiers(ST0052, { L: 30, H: 50, P: 1 });
+        assertEqual(result, null);
+    });
+
+    it('top-level takes priority over nested', function() {
+        // Item with BOTH top-level and nested labor_modifiers
+        var hybrid = {
+            labor_minutes: { 'Machinage': 30 },
+            labor_modifiers: {
+                modifiers: [{ condition: 'L > 10', label: 'Top-level', labor_factor: { 'Machinage': 2.0 } }]
+            },
+            calculation_rule_ai: {
+                labor_modifiers: {
+                    modifiers: [{ condition: 'L > 10', label: 'Nested', labor_factor: { 'Machinage': 3.0 } }]
+                }
+            }
+        };
+        var result = evaluateLaborModifiers(hybrid, { L: 20 });
+        assert(result !== null, 'expected non-null');
+        assertEqual(result.label, 'Top-level');
+        assertEqual(result.labor_factor['Machinage'], 2.0);
+    });
+
+    it('item with empty top-level falls back to nested', function() {
+        var item = {
+            labor_minutes: { 'Sablage': 20 },
+            labor_modifiers: null,
+            calculation_rule_ai: {
+                labor_modifiers: {
+                    modifiers: [{ condition: 'L > 10', label: 'FromNested', labor_factor: { 'Sablage': 1.8 } }]
+                }
+            }
+        };
+        var result = evaluateLaborModifiers(item, { L: 20 });
+        assert(result !== null, 'expected non-null');
+        assertEqual(result.label, 'FromNested');
+        assertEqual(result.labor_factor['Sablage'], 1.8);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

@@ -3269,10 +3269,12 @@
      * First-match: first modifier whose condition is truthy wins.
      */
     function evaluateLaborModifiers(item, vars) {
-        if (!item || !item.labor_modifiers) return null;
-        var mods = item.labor_modifiers.modifiers;
+        if (!item) return null;
+        var lm = item.labor_modifiers || (item.calculation_rule_ai && item.calculation_rule_ai.labor_modifiers) || null;
+        if (!lm) return null;
+        var mods = lm.modifiers;
         if (!Array.isArray(mods) || mods.length === 0) return null;
-        var isCumulative = !!item.labor_modifiers.cumulative;
+        var isCumulative = !!lm.cumulative;
 
         // Normalize a factor: scalar/empty-key → per-key object
         function normFactor(raw, refObj) {
@@ -12624,7 +12626,7 @@
             // ── Auto labor modifiers (barèmes) — evaluate EVERY call using selectedId directly ──
             if (selectedId && selectedId !== '__AJOUT__' && selectedId !== '__PROPOSER__') {
                 var _bItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
-                if (_bItem && _bItem.labor_modifiers) {
+                if (_bItem && (_bItem.labor_modifiers || (_bItem.calculation_rule_ai && _bItem.calculation_rule_ai.labor_modifiers))) {
                     var _bInstallCb = document.getElementById(rowId + '-install');
                     var _bInstall = _bInstallCb ? _bInstallCb.checked : true;
                     var _bComposed = computeComposedPrice(_bItem, _bInstall);

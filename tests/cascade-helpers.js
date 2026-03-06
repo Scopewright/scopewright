@@ -302,10 +302,12 @@ function computeChildDims(childDims, vars, log) {
 
 function evaluateLaborModifiers(item, vars, log) {
     log = log || function() {};
-    if (!item || !item.labor_modifiers) return null;
-    var mods = item.labor_modifiers.modifiers;
+    if (!item) return null;
+    var lm = item.labor_modifiers || (item.calculation_rule_ai && item.calculation_rule_ai.labor_modifiers) || null;
+    if (!lm) return null;
+    var mods = lm.modifiers;
     if (!Array.isArray(mods) || mods.length === 0) return null;
-    var isCumulative = !!item.labor_modifiers.cumulative;
+    var isCumulative = !!lm.cumulative;
 
     // Normalize a factor: scalar/empty-key → per-key object
     function normFactor(raw, refObj) {

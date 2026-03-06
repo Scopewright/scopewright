@@ -1989,6 +1989,17 @@
                     }
                 }
 
+                // 4b) Set caisson variables — dataset first so updateRow creates the inputs with values
+                if (input.n_tablettes != null || input.n_partitions != null || input.n_portes != null || input.n_tiroirs != null) {
+                    var dimsEl2 = document.getElementById(rowId + '-dims');
+                    if (dimsEl2) {
+                        if (input.n_tablettes != null) dimsEl2.dataset.tab = input.n_tablettes;
+                        if (input.n_partitions != null) dimsEl2.dataset.part = input.n_partitions;
+                        if (input.n_portes != null) dimsEl2.dataset.porte = input.n_portes;
+                        if (input.n_tiroirs != null) dimsEl2.dataset.tiroir = input.n_tiroirs;
+                    }
+                }
+
                 // 5) Single updateRow to recalculate display + create dim inputs
                 updateRow(rowId);
 
@@ -1996,6 +2007,17 @@
                 if (input.length) { var dimL = document.getElementById(rowId + '-dim-l'); if (dimL) dimL.value = input.length; }
                 if (input.height) { var dimH = document.getElementById(rowId + '-dim-h'); if (dimH) dimH.value = input.height; }
                 if (input.depth) { var dimP = document.getElementById(rowId + '-dim-p'); if (dimP) dimP.value = input.depth; }
+
+                // 6b) Set caisson input values (created by updateRow above)
+                if (input.n_tablettes != null) { var nTabI = document.getElementById(rowId + '-n-tab'); if (nTabI) nTabI.value = input.n_tablettes; }
+                if (input.n_partitions != null) { var nPartI = document.getElementById(rowId + '-n-part'); if (nPartI) nPartI.value = input.n_partitions; }
+                if (input.n_portes != null) { var nPorteI = document.getElementById(rowId + '-n-porte'); if (nPorteI) nPorteI.value = input.n_portes; }
+                if (input.n_tiroirs != null) { var nTiroirI = document.getElementById(rowId + '-n-tiroir'); if (nTiroirI) nTiroirI.value = input.n_tiroirs; }
+
+                // 6c) Re-run updateRow so barèmes + auto-qty see the caisson values
+                if (input.n_tablettes != null || input.n_partitions != null || input.n_portes != null || input.n_tiroirs != null) {
+                    updateRow(rowId, { skipCascade: true });
+                }
 
                 // 7) Immediate save to Supabase (bypass debouncedSaveItem — global debounce
                 //    loses saves when multiple items are added in rapid sequence)
@@ -2020,14 +2042,11 @@
                     saveFields.length_in = input.length ? parseFloat(input.length) || null : null;
                     saveFields.height_in = input.height ? parseFloat(input.height) || null : null;
                     saveFields.depth_in = input.depth ? parseFloat(input.depth) || null : null;
-                    var nTab = document.getElementById(rowId + '-n-tab');
-                    var nPart = document.getElementById(rowId + '-n-part');
-                    var nPorte = document.getElementById(rowId + '-n-porte');
-                    var nTiroir = document.getElementById(rowId + '-n-tiroir');
-                    saveFields.n_tablettes = nTab ? (parseInt(nTab.value) || 0) : 0;
-                    saveFields.n_partitions = nPart ? (parseInt(nPart.value) || 0) : 0;
-                    saveFields.n_portes = nPorte ? (parseInt(nPorte.value) || 0) : 0;
-                    saveFields.n_tiroirs = nTiroir ? (parseInt(nTiroir.value) || 0) : 0;
+                    // Use AI-provided values directly (inputs may not exist yet for caisson fields)
+                    saveFields.n_tablettes = input.n_tablettes != null ? (parseInt(input.n_tablettes) || 0) : 0;
+                    saveFields.n_partitions = input.n_partitions != null ? (parseInt(input.n_partitions) || 0) : 0;
+                    saveFields.n_portes = input.n_portes != null ? (parseInt(input.n_portes) || 0) : 0;
+                    saveFields.n_tiroirs = input.n_tiroirs != null ? (parseInt(input.n_tiroirs) || 0) : 0;
                     await updateItem(itemMap[rowId], saveFields);
                     showSaveIndicator();
                 }
@@ -2090,7 +2109,27 @@
                     var dimP = document.getElementById(targetRow.id + '-dim-p');
                     if (dimP) { dimP.value = changes.depth; applied.push('depth'); }
                 }
-                var hasDimChange = changes.length != null || changes.height != null || changes.depth != null;
+                if (changes.n_tablettes != null) {
+                    var nTabM = document.getElementById(targetRow.id + '-n-tab');
+                    if (nTabM) { nTabM.value = changes.n_tablettes; applied.push('n_tablettes'); }
+                    if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { n_tablettes: changes.n_tablettes });
+                }
+                if (changes.n_partitions != null) {
+                    var nPartM = document.getElementById(targetRow.id + '-n-part');
+                    if (nPartM) { nPartM.value = changes.n_partitions; applied.push('n_partitions'); }
+                    if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { n_partitions: changes.n_partitions });
+                }
+                if (changes.n_portes != null) {
+                    var nPorteM = document.getElementById(targetRow.id + '-n-porte');
+                    if (nPorteM) { nPorteM.value = changes.n_portes; applied.push('n_portes'); }
+                    if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { n_portes: changes.n_portes });
+                }
+                if (changes.n_tiroirs != null) {
+                    var nTiroirM = document.getElementById(targetRow.id + '-n-tiroir');
+                    if (nTiroirM) { nTiroirM.value = changes.n_tiroirs; applied.push('n_tiroirs'); }
+                    if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { n_tiroirs: changes.n_tiroirs });
+                }
+                var hasDimChange = changes.length != null || changes.height != null || changes.depth != null || changes.n_portes != null || changes.n_tiroirs != null || changes.n_tablettes != null || changes.n_partitions != null;
                 updateRow(targetRow.id, hasDimChange ? {} : { skipCascade: true });
                 updateGrandTotal();
                 return { success: true, room: input.room_name, index: input.item_index, applied: applied };
@@ -5445,7 +5484,7 @@
         .ov-btn-clear { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
         .ov-btn-clear:hover { background: rgba(239,68,68,0.06); }
         .ov-btn-save { font-size: 12px; padding: 6px 16px; height: auto; }
-        .has-auto-modifier .upx::after { content: '\u2699'; margin-left: 3px; font-size: 10px; color: #2563eb; }
+        .has-auto-modifier .upx::after { content: '\2699'; margin-left: 3px; font-size: 10px; color: #2563eb; }
 
         .cascade-badge {
             font-size: 9px; background: #e2e8f0; color: #475569;

@@ -324,6 +324,8 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 
 **Dimensions** : Quand l'estimateur fournit des dimensions (L, H, P en pouces), TOUJOURS les passer dans le tool add_catalogue_item via les paramètres length, height, depth. C'est crucial pour que le moteur cascade puisse calculer les articles enfants automatiquement.
 
+**Variables caisson** : Pour les caissons, TOUJOURS passer n_portes, n_tiroirs, n_tablettes, n_partitions quand l'estimateur les fournit. Ces variables sont essentielles pour que la cascade génère les façades, tiroirs et tablettes. Exemple : un caisson avec 2 portes → n_portes=2.
+
 **Cascade automatique** : Les articles avec une clé "cascade" dans leur règle de calcul déclenchent automatiquement des articles enfants côté client quand les dimensions L/H/P sont saisies. Tu n'as PAS besoin de gérer ces cascades — elles sont gérées par le moteur JS du calculateur. Tu peux toutefois expliquer ou ajuster les résultats si l'estimateur le demande.
 
 ${rulesLines}`;
@@ -496,6 +498,22 @@ const TOOLS = [
           type: "number",
           description: "Profondeur (P) en pouces — pour les articles de type fabrication",
         },
+        n_tablettes: {
+          type: "number",
+          description: "Nombre de tablettes — pour les caissons",
+        },
+        n_partitions: {
+          type: "number",
+          description: "Nombre de partitions — pour les caissons",
+        },
+        n_portes: {
+          type: "number",
+          description: "Nombre de portes — pour les caissons",
+        },
+        n_tiroirs: {
+          type: "number",
+          description: "Nombre de tiroirs — pour les caissons",
+        },
       },
       required: ["room_name", "catalogue_item_id", "quantity"],
     },
@@ -519,6 +537,10 @@ const TOOLS = [
             length: { type: "number", description: "Largeur (L) en pouces" },
             height: { type: "number", description: "Hauteur (H) en pouces" },
             depth: { type: "number", description: "Profondeur (P) en pouces" },
+            n_tablettes: { type: "number", description: "Nombre de tablettes" },
+            n_partitions: { type: "number", description: "Nombre de partitions" },
+            n_portes: { type: "number", description: "Nombre de portes" },
+            n_tiroirs: { type: "number", description: "Nombre de tiroirs" },
           },
         },
       },

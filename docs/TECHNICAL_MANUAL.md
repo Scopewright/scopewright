@@ -250,7 +250,7 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
 
 **Facteurs** : multiplicateurs (1.0 = base, 1.25 = +25%). 3 formats : objet `{dept: multiplier}`, nombre scalaire (appliqué à tous via expansion), ou objet clé vide `{"": multiplier}` (normalisé en per-key — l'AI génère parfois ce format). Appliqués aux valeurs catalogue : `labor_minutes[dept] × factor`, `material_costs[cat] × factor`.
 
-**Ordre d'exécution** : dans `updateRow()`, les barèmes sont évalués **après** la section dims (pour que les inputs L/H/P existent dans le DOM) et après l'auto-quantité. Le bloc est déféré via `row._baremeItem` puis exécuté avant `updateGroupSubtotal`.
+**Ordre d'exécution** : dans `updateRow()`, les barèmes sont évalués **inline** après la section dims et auto-quantité, par lookup direct de `selectedId` → `CATALOGUE_DATA`. Pas de pattern deferred — réévalue à chaque appel `updateRow` (y compris changement de dimensions).
 
 **Hiérarchie d'override (3 tiers)** : `ov.price` > `ov.labor/material` (manuel) > `ov.laborAuto/materialAuto` (auto) > valeurs catalogue.
 
@@ -700,8 +700,8 @@ calculateur.html                    ai-assistant Edge Function
 |------|------|-------------|
 | `analyze_rentability` | Confirmation requise | Analyse de rentabilité : prix de vente, coûts, marges, heures par département |
 | `write_description` | Confirmation requise | Écrit/réécrit la description client d'une pièce en HTML formaté Stele |
-| `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions optionnelles |
-| `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P) |
+| `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions (L/H/P) et variables caisson (n_tablettes, n_partitions, n_portes, n_tiroirs) optionnelles |
+| `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P, n_tablettes, n_partitions, n_portes, n_tiroirs) |
 | `update_catalogue_item` | Confirmation obligatoire | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** |
 | `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. Retourne `catalogue_base` + `effective_overrides` pour vérification. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |

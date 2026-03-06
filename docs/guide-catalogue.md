@@ -358,9 +358,15 @@ Le popover d'override affiche 3 colonnes : Cat (catalogue), Auto (bareme), Manue
 - Un banner bleu indique le bareme actif
 - Un indicateur ⚙ apparait sur la ligne quand un bareme est actif
 
+### Evaluation dans le calculateur
+
+`evaluateLaborModifiers` est appele **inline** dans `updateRow()` a chaque appel (pas de pattern differe). Le lookup se fait directement via `selectedId` → `CATALOGUE_DATA`. Les baremes sont donc reevalues automatiquement a chaque changement de dimensions.
+
 ### AI
 
 Le bouton AI dans la section baremes genere le JSON structure depuis l'explication en langage naturel. Action `catalogue_labor_modifiers` dans la edge function `translate`. Prompt editable dans admin.html.
+
+Les tools AI `add_catalogue_item` et `modify_item` supportent les variables caisson (`n_tablettes`, `n_partitions`, `n_portes`, `n_tiroirs`). Quand l'AI ajoute un caisson avec 2 portes, `n_portes=2` est passe au DOM et a la DB, permettant a la cascade de generer les facades automatiquement.
 
 ---
 

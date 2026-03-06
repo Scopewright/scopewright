@@ -395,6 +395,8 @@ await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
 
 **Filtre keyword-overlap sur `$match:`** : après résolution d'un `$match:`, si `materialCtx._updatedBySiblingDefault` est vrai (le `chosenClientText` a été propagé par un `$default:` frère dans la même boucle de règles, pas le materialCtx initial pré-peuplé depuis le DM du FAB racine), le moteur vérifie qu'il y a ≥1 mot-clé en commun (longueur > 2 chars) entre `materialCtx.chosenClientText` et le `client_text` de l'article résolu. Si 0 mots en commun → résolution rejetée → pas de ligne enfant créée. Cela empêche par ex. `$match:FINITION BOIS` de résoudre vers "laque polyuréthane" quand le matériau du `$default:Caisson` est "mélamine blanche" (0 mots communs). La logique est testable via `checkMaterialCtxOverlap()` dans `tests/cascade-helpers.js`.
 
+**Propagation via enfants existants** : quand `findExistingChildForDynamicRule` retrouve un enfant pour une règle `$default:`, le `client_text` de l'article existant est propagé dans `materialCtx` avec `_updatedBySiblingDefault = true`. Sans cette propagation, les changements de dims (qui déclenchent `scheduleCascade` → `executeCascade`) ne déclencheraient pas le filtre materialCtx car le `$default:` résoudrait via enfant existant sans passer par `resolveCascadeTarget`.
+
 ### 3.6 Quantités enfants (constante vs formule)
 
 Le moteur détecte automatiquement si `rule.qty` est une constante ou une formule dimensionnelle :

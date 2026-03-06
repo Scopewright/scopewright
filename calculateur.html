@@ -4231,6 +4231,16 @@
             var resolvedTarget = null;
             if (rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) {
                 resolvedTarget = findExistingChildForDynamicRule(rule.target, groupId, activeChildren, matchedChildRowIds);
+                // When $default: resolves via existing child, propagate materialCtx
+                // so sibling $match: rules can be filtered by keyword overlap
+                if (resolvedTarget && rule.target.startsWith('$default:')) {
+                    var _existItem = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                    if (_existItem && _existItem.client_text && materialCtx) {
+                        materialCtx.chosenClientText = _existItem.client_text;
+                        materialCtx._updatedBySiblingDefault = true;
+                        cascadeLog('info', '$default: existing child → materialCtx: "' + _existItem.client_text + '"');
+                    }
+                }
             }
             if (!resolvedTarget) {
                 resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
@@ -12027,8 +12037,10 @@
                 // Per-line override (hierarchy: price > manual labor/material > auto labor/material)
                 var effectivePrice = _bPrice;
                 var ov = _rowOverrides[rowId];
+                console.log('[BAREMES] override hierarchy — ov:', JSON.stringify(ov), 'basePrice:', _bPrice);
                 if (ov && ov.price != null) {
                     effectivePrice = ov.price;
+                    console.log('[BAREMES] tier 1: price override →', effectivePrice);
                 } else if (ov && (ov.labor || ov.material)) {
                     var merged = Object.assign({}, _bItem, {
                         labor_minutes: Object.assign({}, _bItem.labor_minutes || {}, ov.labor || {}),
@@ -12060,8 +12072,10 @@
                         });
                     }
                     var amc = computeComposedPrice(autoMerged, _bInstall);
+                    console.log('[BAREMES] tier 3: autoMerged labor_minutes:', JSON.stringify(autoMerged.labor_minutes), 'material_costs:', JSON.stringify(autoMerged.material_costs), 'composedPrice:', amc);
                     if (amc !== null) effectivePrice = amc;
                 }
+                console.log('[BAREMES] final effectivePrice:', effectivePrice, '(base was:', _bPrice, ')');
                 var rowGroup = row.closest('.furniture-group');
                 var mult = rowGroup ? getModifierMultiplier(rowGroup.id) : 1;
                 var _upx = document.getElementById(rowId + '-unit-price');

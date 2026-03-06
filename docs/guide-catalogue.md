@@ -643,6 +643,17 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
 | `cascade_suppressed` | Suppression manuelle enfant | Memorise les enfants supprimes, empeche la regeneration |
 | Anti-lignes vides | `debouncedSaveItem`, `addRow` blur, `openSubmission` | 3 gardes empechent les lignes sans article de persister |
 | Tri topologique | `openSubmission` | Tri defensif des items charges : parents toujours avant leurs enfants, meme si `sort_order` DB est corrompu |
+| Collapse enfants | `cascade-child` display:none par defaut | Enfants masques, triangle ▶ sur parent, badge (+N), checkbox globale par piece |
+
+### Collapse enfants cascade
+
+Les enfants cascade sont **masques par defaut** pour reduire le bruit visuel. Un parent FAB avec 5 enfants affiche un triangle ▶ et un badge `(+5)`.
+
+- **Triangle** ▶ dans `.cell-add` du parent → clic toggle expand/collapse
+- **Badge** `(+N)` dans `.cell-total` quand collapse → disparait quand expanded
+- **Checkbox** par piece dans le header → `Montrer les composantes` → force tous les enfants visibles
+- **Etat** : memoire seulement (`_cascadeExpanded`), pas persiste en DB — reset a collapse au chargement
+- Les calculs, saves, et propagation installation **fonctionnent normalement** sur les enfants masques
 
 ### Propagation installation
 

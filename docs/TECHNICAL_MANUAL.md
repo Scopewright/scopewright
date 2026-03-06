@@ -483,7 +483,22 @@ Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant
 - Chaque enfant : checkbox mise à jour + `updateRow(skipCascade: true)` + `updateItem()` en DB
 - `toggleInstallation(groupId)` (checkbox groupe) passe aussi `skipCascade: true`
 
-### 3.10 Anti-lignes vides
+### 3.10 Collapse enfants cascade
+
+Les enfants cascade sont **masqués par défaut** pour réduire le bruit visuel (3 caissons = 20+ lignes sans collapse).
+
+**CSS** : `.cascade-child { display: none }`, `.cascade-child.cascade-visible { display: grid }`. Classe `.show-all-cascade` sur le groupe force tous les enfants visibles.
+
+**UI** :
+- Triangle ▶ (`btn-cascade-toggle`) dans `.cell-add` sur les parents FAB. Clic → `toggleCascadeChildren(parentRowId)`
+- Badge `(+N)` dans `.cell-total` quand collapsé. Disparaît quand expanded
+- Checkbox par pièce dans le header (`cb-show-cascade`) → `toggleShowAllCascade(groupId, checked)` → `.show-all-cascade` sur le groupe
+
+**État** : `_cascadeExpanded[parentRowId]` en mémoire. Pas de persistance DB — reset à collapsé au chargement.
+
+**Invariants préservés** : `getRowTotal`, `computeRentabilityData`, `debouncedSaveItem`, `propagateInstallationToCascadeChildren` opèrent sur les éléments DOM par ID, pas par visibilité — fonctionnent normalement sur enfants masqués.
+
+### 3.10.1 Anti-lignes vides
 
 3 gardes empêchent les lignes sans article de persister :
 

@@ -4589,6 +4589,12 @@
         // Persist sort_order to match DOM order
         syncSortOrderForGroup(groupId);
 
+        // Mark parent as cascade parent + apply collapse visibility
+        if (matchedChildRowIds.length > 0) {
+            markCascadeParent(parentRowId);
+            applyCascadeVisibility(parentRowId);
+        }
+
         // Récursion : chaque enfant peut avoir ses propres règles cascade
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
             await executeCascade(matchedChildRowIds[ci], depth + 1, mergedOverrides, materialCtx);
@@ -5389,7 +5395,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 230px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 280px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 8px 10px;
             background: transparent;
@@ -5421,7 +5427,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 230px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 280px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             align-items: center;
@@ -5433,7 +5439,29 @@
             border-left: 2px solid var(--stele-green);
             margin-left: 6px;
             background: #f8faf9;
+            display: none; /* collapsed by default */
         }
+        .calc-row.cascade-child.cascade-visible { display: grid; }
+        /* ── Cascade toggle triangle ── */
+        .btn-cascade-toggle {
+            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            color: #94a3b8; cursor: pointer; border-radius: 4px; font-size: 10px;
+            align-items: center; justify-content: center; flex-shrink: 0;
+            transition: color 0.15s, transform 0.15s;
+        }
+        .btn-cascade-toggle:hover { color: var(--sw-navy); background: #f1f5f9; }
+        .btn-cascade-toggle.expanded { transform: rotate(90deg); }
+        .cascade-parent-row .btn-cascade-toggle { display: inline-flex; }
+        /* ── Cascade count badge ── */
+        .cascade-count-badge {
+            font-size: 9px; color: #94a3b8; font-weight: 400; margin-left: 4px;
+            white-space: nowrap;
+        }
+        .cascade-parent-row.cascade-expanded .cascade-count-badge { display: none; }
+        /* ── Show-all mode ── */
+        .show-all-cascade .calc-row.cascade-child { display: grid; }
+        .show-all-cascade .btn-cascade-toggle { display: none !important; }
+        .show-all-cascade .cascade-count-badge { display: none; }
         /* ── Cascade locked (manual override) ── */
         .calc-row.cascade-locked {
             border-left: 3px solid #E8A84C !important;
@@ -8612,7 +8640,7 @@
             .main-content { padding: 24px 16px; }
             .project-list-view { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 45px 1fr 70px 70px 170px 90px 80px 24px 100px 24px;
+                grid-template-columns: 24px 45px 1fr 70px 70px 210px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -10964,6 +10992,95 @@
             }
         }
 
+        // ── Cascade collapse/expand ──
+        var _cascadeExpanded = {}; // parentRowId → true/false
+
+        function findCascadeChildRows(parentRowId) {
+            var children = [];
+            Object.keys(cascadeParentMap).forEach(function(childId) {
+                if (cascadeParentMap[childId] === parentRowId) {
+                    var el = document.getElementById(childId);
+                    if (el) children.push(el);
+                }
+            });
+            return children;
+        }
+
+        function toggleCascadeChildren(parentRowId) {
+            var expanded = !_cascadeExpanded[parentRowId];
+            _cascadeExpanded[parentRowId] = expanded;
+            var parentRow = document.getElementById(parentRowId);
+            var toggleBtn = document.getElementById(parentRowId + '-cascade-toggle');
+            if (toggleBtn) toggleBtn.classList.toggle('expanded', expanded);
+            if (parentRow) parentRow.classList.toggle('cascade-expanded', expanded);
+            var children = findCascadeChildRows(parentRowId);
+            children.forEach(function(child) {
+                child.classList.toggle('cascade-visible', expanded);
+                // Recurse: if child is also a cascade parent, show/hide grandchildren
+                var grandChildren = findCascadeChildRows(child.id);
+                if (grandChildren.length > 0) {
+                    var childExpanded = expanded && _cascadeExpanded[child.id];
+                    grandChildren.forEach(function(gc) {
+                        gc.classList.toggle('cascade-visible', childExpanded);
+                    });
+                }
+            });
+            updateCascadeChildBadge(parentRowId);
+        }
+
+        function updateCascadeChildBadge(parentRowId) {
+            var badge = document.getElementById(parentRowId + '-cascade-badge');
+            if (!badge) return;
+            var children = findCascadeChildRows(parentRowId);
+            if (children.length === 0) {
+                badge.textContent = '';
+                return;
+            }
+            var expanded = _cascadeExpanded[parentRowId];
+            badge.textContent = expanded ? '' : '(+' + children.length + ')';
+        }
+
+        function markCascadeParent(parentRowId) {
+            var parentRow = document.getElementById(parentRowId);
+            if (parentRow && !parentRow.classList.contains('cascade-parent-row')) {
+                parentRow.classList.add('cascade-parent-row');
+            }
+            updateCascadeChildBadge(parentRowId);
+        }
+
+        function applyCascadeVisibility(parentRowId) {
+            // Check global show-all for this group
+            var parentRow = document.getElementById(parentRowId);
+            if (!parentRow) return;
+            var container = parentRow.closest('.furniture-group');
+            if (container && container.classList.contains('show-all-cascade')) return; // global overrides
+            var expanded = _cascadeExpanded[parentRowId] || false;
+            var children = findCascadeChildRows(parentRowId);
+            children.forEach(function(child) {
+                child.classList.toggle('cascade-visible', expanded);
+            });
+            updateCascadeChildBadge(parentRowId);
+            var toggleBtn = document.getElementById(parentRowId + '-cascade-toggle');
+            if (toggleBtn) toggleBtn.classList.toggle('expanded', expanded);
+            if (parentRow) parentRow.classList.toggle('cascade-expanded', expanded);
+        }
+
+        function toggleShowAllCascade(groupId, checked) {
+            var group = document.getElementById(groupId);
+            if (!group) return;
+            group.classList.toggle('show-all-cascade', checked);
+            if (!checked) {
+                // Restore per-parent state
+                Object.keys(cascadeParentMap).forEach(function(childId) {
+                    var parentId = cascadeParentMap[childId];
+                    var parentRow = document.getElementById(parentId);
+                    if (parentRow && parentRow.dataset.group === groupId) {
+                        applyCascadeVisibility(parentId);
+                    }
+                });
+            }
+        }
+
         function toggleRowInstallation(rowId) {
             var cb = document.getElementById(rowId + '-install');
             var checked = cb ? cb.checked : true;
@@ -11040,7 +11157,7 @@
                     <div class="room-dm-body collapsed" id="${groupId}-dmBody"></div>
                 </div>
                 <div class="calc-header">
-                    <span></span>
+                    <span class="col-center" title="Montrer les composantes"><input type="checkbox" class="cb-show-cascade" onchange="toggleShowAllCascade('${groupId}', this.checked)" style="width:12px;height:12px;cursor:pointer;accent-color:var(--sw-navy);"></span>
                     <span class="col-center sortable" onclick="sortGroupRows('${groupId}','tag')">Tag<span class="sort-arrow">&#9650;</span></span>
                     <span class="sortable" onclick="sortGroupRows('${groupId}','article')">Article<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center">Code</span>
@@ -11161,6 +11278,7 @@
             row.dataset.group = groupId;
             row.innerHTML = `
                 <div class="cell-add">
+                    <button class="btn-cascade-toggle" id="${rowId}-cascade-toggle" onclick="toggleCascadeChildren('${rowId}')" title="Afficher/masquer les composantes">&#9654;</button>
                     <button class="btn-revert-cascade" onclick="revertCascadeLock('${rowId}')" title="Rétablir la cascade automatique">↩</button>
                     <button class="btn-suppressed-cascade" id="${rowId}-suppressed-btn" onclick="openSuppressedMenu('${rowId}', this)" title="Cascades supprimées">⊘</button>
                 </div>
@@ -11185,7 +11303,7 @@
                 <div class="install-toggle-row">
                     <input type="checkbox" id="${rowId}-install" checked onchange="toggleRowInstallation('${rowId}')" title="Installation incluse">
                 </div>
-                <div class="cell-total" id="${rowId}-total">0,00 $</div>
+                <div class="cell-total" id="${rowId}-total">0,00 $<span class="cascade-count-badge" id="${rowId}-cascade-badge"></span></div>
                 <div class="cell-remove">
                     <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
                 </div>
@@ -12400,10 +12518,21 @@
                     deleteItem(itemMap[rowId]);
                     delete itemMap[rowId];
                 }
+                var _removedParent = cascadeParentMap[rowId];
                 row.remove();
                 delete cascadeParentMap[rowId];
                 delete cascadeSuppressed[rowId];
                 delete _customItemDataMap[rowId];
+                // Update parent cascade badge/marker after child removal
+                if (_removedParent) {
+                    var remaining = findCascadeChildRows(_removedParent);
+                    if (remaining.length === 0) {
+                        var pRow = document.getElementById(_removedParent);
+                        if (pRow) pRow.classList.remove('cascade-parent-row', 'cascade-expanded');
+                        delete _cascadeExpanded[_removedParent];
+                    }
+                    updateCascadeChildBadge(_removedParent);
+                }
                 if (groupId) {
                     updateGroupSubtotal(groupId);
                     updateRoomDmBadge(groupId);
@@ -17868,6 +17997,7 @@
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
             cascadeParentMap = {};
+            _cascadeExpanded = {};
             _cascadeRunning = false;
             _isLoadingSubmission = true;
             matchDefaults = currentSubmission.match_defaults || {};
@@ -18074,10 +18204,18 @@
                             updateRow(rowId);
                         });
 
-                        // 2e passe : restaurer cascadeParentMap
+                        // 2e passe : restaurer cascadeParentMap + collapse visibility
+                        var _parentsSeen = {};
                         _loadedCascadeItems.forEach(function(ci) {
                             var parentRowId = Object.keys(itemMap).find(function(k) { return itemMap[k] === ci.parentItemId; });
-                            if (parentRowId) cascadeParentMap[ci.rowId] = parentRowId;
+                            if (parentRowId) {
+                                cascadeParentMap[ci.rowId] = parentRowId;
+                                _parentsSeen[parentRowId] = true;
+                            }
+                        });
+                        Object.keys(_parentsSeen).forEach(function(pid) {
+                            markCascadeParent(pid);
+                            applyCascadeVisibility(pid);
                         });
                     }
                 }
@@ -20734,6 +20872,7 @@
             // Groupes (meubles)
             toggleGroup, addFurnitureGroup, removeFurnitureGroup,
             toggleProjectInstallation, toggleInstallation, toggleRowInstallation,
+            toggleCascadeChildren, toggleShowAllCascade,
             // Lignes
             addRow, removeRow, transformToAjoutMode, transformToNormalMode,
             refreshAllSelects, updateRow, saveRowTag, getRowTotal,

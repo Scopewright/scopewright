@@ -672,7 +672,7 @@ En plus des enfants generes automatiquement par les regles cascade, il est possi
 - **Creation** : `addRow(groupId, { parentRowId })` cree une ligne `cascade-child` + `cascade-locked` des la creation. L'enfant est insere apres les enfants cascade existants du parent et herite son tag
 - **Persistance** : `parent_item_id` (UUID Supabase) + `cascade_locked: true` envoyes dans `createItem`
 - **Protection** : `executeCascade` ignore completement les enfants `cascade-locked` — pas de mise a jour, pas de suppression, pas de re-resolution
-- **AI** : le tool `add_catalogue_item` accepte `parent_item_id` (UUID). `collectRoomDetail` expose `isFabParent: true` + `itemId` sur les parents FAB pour que l'AI puisse cibler un parent
+- **AI** : le tool `add_catalogue_item` accepte `parent_item_id` (UUID). `collectRoomDetail` expose `isFabParent: true` + `itemId` sur tout article FAB (pas seulement ceux avec enfants cascade) pour que l'AI puisse cibler un parent
 
 ### Propagation installation
 

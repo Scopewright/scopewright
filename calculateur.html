@@ -1856,13 +1856,13 @@
     // ── Auto-execute tools when user already confirmed via text ──
     async function autoExecutePendingTools() {
         if (!aiPendingToolCalls) return;
-        // Block auto-execution for destructive catalogue tools — force manual confirmation
-        var hasCatalogueUpdate = aiPendingToolCalls.tools.some(function(tc) {
-            return tc.name === 'update_catalogue_item' || tc.name === 'update_submission_line';
+        // Block auto-execution for submission line overrides — force manual confirmation
+        var hasLineOverride = aiPendingToolCalls.tools.some(function(tc) {
+            return tc.name === 'update_submission_line';
         });
-        if (hasCatalogueUpdate) {
+        if (hasLineOverride) {
             appendAiMessage('confirm', formatPendingActions(aiPendingToolCalls.tools));
-            saveAiChatMessage('assistant', '[Actions proposées - confirmation obligatoire pour modification catalogue]', []);
+            saveAiChatMessage('assistant', '[Actions proposées - confirmation obligatoire pour override ligne]', []);
             return;
         }
         var _keepPending = false;

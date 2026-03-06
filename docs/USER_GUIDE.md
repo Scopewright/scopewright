@@ -217,7 +217,8 @@ Pour les caissons, quatre champs supplémentaires apparaissent :
 La quantité est calculée automatiquement selon le type d'unité :
 - **pi²** : L × H / 144
 - **linéaire** : L / 12
-- **unitaire** : vous entrez la quantité manuellement
+- **unité** : vous entrez la quantité manuellement
+- **pmp** : pied mesure de planche
 
 ### Utiliser l'assistant AI estimateur
 
@@ -403,7 +404,7 @@ Le catalogue est votre base de données de tous les articles disponibles pour l'
 - Un **code unique** auto-généré (ST-0001, ST-0002…)
 - Une **description** technique interne
 - Un **texte client** (ce que le client voit dans la soumission)
-- Un **type d'unité** (unitaire, pi², linéaire, %)
+- Un **type d'unité** (unité, pi², pmp, linéaire, %)
 - Un **prix** (manuel ou composé)
 - Des **règles de calcul** optionnelles (composantes automatiques)
 - Des **images** et **fiches de vente**
@@ -429,7 +430,7 @@ Cliquez **+** dans l'en-tête du catalogue. La fiche d'article complète s'ouvre
 #### Informations de base
 - **Description** — Le nom technique complet (ex: « Caisson standard mélamine 3/4" »)
 - **Catégorie** — La famille de produit (ex: Caisson, Comptoir, Quincaillerie)
-- **Type d'unité** — Comment l'article est mesuré : pi², linéaire, unitaire, %
+- **Type d'unité** — Comment l'article est mesuré : pi², pmp, unité, linéaire, %
 - **Instruction** — Notes pour les estimateurs (ex: « Largeur max 48", hauteur max 96" »)
 
 #### Texte client

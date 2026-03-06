@@ -724,7 +724,7 @@ calculateur.html                    ai-assistant Edge Function
 | `write_description` | Confirmation requise | Écrit/réécrit la description client d'une pièce en HTML formaté Stele |
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions (L/H/P) et variables caisson (n_tablettes, n_partitions, n_portes, n_tiroirs) optionnelles |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P, n_tablettes, n_partitions, n_portes, n_tiroirs) |
-| `update_catalogue_item` | Confirmation obligatoire | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. **Jamais auto-exécuté** |
+| `update_catalogue_item` | Auto après confirmation | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. Auto-exécuté après confirmation conversationnelle |
 | `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. Retourne `catalogue_base` + `effective_overrides` pour vérification. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |
 | `compare_versions` | Auto-exécution | Compare deux versions de soumission. Read-only |

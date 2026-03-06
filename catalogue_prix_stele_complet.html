@@ -3867,7 +3867,7 @@
 
             // Populer types dynamiquement
             const typeSelect = document.getElementById('editType');
-            const types = new Set(['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%']);
+            const types = new Set(['pi\u00b2', 'pmp', 'unit\u00e9', 'lin\u00e9aire', '%']);
             CATALOGUE_DATA.forEach(i => { if (i.type) types.add(i.type); });
             if (item.type && !types.has(item.type)) types.add(item.type);
             typeSelect.innerHTML = Array.from(types).map(t => '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>').join('');
@@ -4208,7 +4208,7 @@
             catSelect.disabled = false;
 
             var typeSelect = document.getElementById('editType');
-            var types = new Set(['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%']);
+            var types = new Set(['pi\u00b2', 'pmp', 'unit\u00e9', 'lin\u00e9aire', '%']);
             CATALOGUE_DATA.forEach(function(i) { if (i.type) types.add(i.type); });
             if (item.type && !types.has(item.type)) types.add(item.type);
             typeSelect.innerHTML = Array.from(types).map(function(t) { return '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>'; }).join('');
@@ -4363,7 +4363,7 @@
                     description: item.description || '',
                     category: item.category || '',
                     item_type: item.item_type || null,
-                    type: item.type || 'unitaire',
+                    type: item.type || 'unité',
                     price: item.price,
                     instruction: item.instruction || null,
                     in_calculator: item.in_calculator !== false,
@@ -6319,7 +6319,7 @@
             });
 
             // Unit types
-            var unitTypes = ['pi\u00b2', 'unitaire', 'lin\u00e9aire', '%'];
+            var unitTypes = ['pi\u00b2', 'pmp', 'unit\u00e9', 'lin\u00e9aire', '%'];
 
             // Check if an article is currently open in the edit modal
             var openArticle = null;

@@ -197,7 +197,7 @@ Les composantes sont indentées sous l'article parent et leurs quantités sont c
 
 **Cohérence matériau** : quand le système résout le panneau vers mélamine, toutes les composantes associées (bande de chant, finition) sont automatiquement résolues dans le même contexte matériau. Pas besoin de vérifier manuellement la cohérence. Par exemple, mélamine ne reçoit pas de finition laque (le système le sait et n'en crée pas).
 
-**Collapse des composantes** : les composantes sont **masquées par défaut** pour garder le calculateur lisible. Chaque parent affiche un triangle ▶ et un badge **(+3)** indiquant le nombre de composantes cachées. Cliquez le triangle pour expand/collapse les composantes d'un article. Une checkbox dans l'en-tête de la pièce permet de **tout montrer** d'un coup.
+**Collapse des composantes** : les composantes sont **masquées par défaut** pour garder le calculateur lisible. Chaque parent affiche un triangle ▶ et un badge **(+3)** indiquant le nombre de composantes cachées. Quand les composantes sont masquées, le **total affiché sur le parent inclut la somme de toutes ses composantes** (en gras) — vous voyez le coût réel de l'article complet d'un coup d'œil. Cliquez le triangle pour expand/collapse : à l'expand, le total revient au montant individuel du parent. Une checkbox dans l'en-tête de la pièce permet de **tout montrer** d'un coup.
 
 #### Dimensions
 

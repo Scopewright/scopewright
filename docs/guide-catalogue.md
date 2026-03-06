@@ -656,6 +656,7 @@ Les enfants cascade sont **masques par defaut** pour reduire le bruit visuel. Un
 - **Badge** `(+N)` dans `.cell-total` quand collapse → disparait quand expanded
 - **Checkbox** par piece dans le header → `Montrer les composantes` → force tous les enfants visibles
 - **Etat** : memoire seulement (`_cascadeExpanded`), pas persiste en DB — reset a collapse au chargement
+- **Total agrege** : quand collapse, la cellule total du parent affiche la somme parent + tous les enfants (texte bold navy). Se met a jour automatiquement quand un enfant change (dims, qty, override). Revient au total individuel a l'expand
 - Les calculs, saves, et propagation installation **fonctionnent normalement** sur les enfants masques
 
 ### Propagation installation

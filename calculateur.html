@@ -5484,6 +5484,10 @@
         .show-all-cascade .calc-row.cascade-child { display: grid; }
         .show-all-cascade .btn-cascade-toggle { display: none !important; }
         .show-all-cascade .cascade-count-badge { display: none; }
+        /* ── Aggregate total on collapsed parent ── */
+        .calc-row.aggregate-total .cell-total {
+            color: var(--sw-navy, #0B1220); font-weight: 600;
+        }
         /* ── Cascade locked (manual override) ── */
         .calc-row.cascade-locked {
             border-left: 3px solid #E8A84C !important;
@@ -11048,6 +11052,7 @@
                 }
             });
             updateCascadeChildBadge(parentRowId);
+            updateCollapsedParentTotal(parentRowId);
         }
 
         function updateCascadeChildBadge(parentRowId) {
@@ -11085,22 +11090,69 @@
             var toggleBtn = document.getElementById(parentRowId + '-cascade-toggle');
             if (toggleBtn) toggleBtn.classList.toggle('expanded', expanded);
             if (parentRow) parentRow.classList.toggle('cascade-expanded', expanded);
+            updateCollapsedParentTotal(parentRowId);
+        }
+
+        /**
+         * Update parent's .cell-total to show aggregate (parent + children) when collapsed,
+         * or restore individual total when expanded. Purely visual — no calc logic touched.
+         */
+        function updateCollapsedParentTotal(parentRowId) {
+            var parentRow = document.getElementById(parentRowId);
+            if (!parentRow || !parentRow.classList.contains('cascade-parent-row')) return;
+            var totalEl = document.getElementById(parentRowId + '-total');
+            if (!totalEl) return;
+            var badge = document.getElementById(parentRowId + '-cascade-badge');
+
+            // Check global show-all — if active, always show individual
+            var container = parentRow.closest('.furniture-group');
+            var showAll = container && container.classList.contains('show-all-cascade');
+
+            if (_cascadeExpanded[parentRowId] || showAll) {
+                // Expanded or show-all: restore individual total
+                if (parentRow.dataset.individualTotal != null) {
+                    totalEl.textContent = parentRow.dataset.individualTotal;
+                }
+                parentRow.classList.remove('aggregate-total');
+                return;
+            }
+
+            // Collapsed: compute aggregate
+            var children = findCascadeChildRows(parentRowId);
+            if (children.length === 0) return;
+            var parentVal = getRowTotal(parentRow);
+            var sum = parentVal;
+            children.forEach(function(child) {
+                sum += getRowTotal(child);
+            });
+            // Store individual total for restore on expand
+            parentRow.dataset.individualTotal = totalEl.textContent;
+            totalEl.textContent = formatPrice(sum);
+            parentRow.classList.add('aggregate-total');
+            // Update badge to include aggregate hint
+            if (badge) badge.textContent = '(+' + children.length + ')';
         }
 
         function toggleShowAllCascade(groupId, checked) {
             var group = document.getElementById(groupId);
             if (!group) return;
             group.classList.toggle('show-all-cascade', checked);
-            if (!checked) {
-                // Restore per-parent state
-                Object.keys(cascadeParentMap).forEach(function(childId) {
-                    var parentId = cascadeParentMap[childId];
-                    var parentRow = document.getElementById(parentId);
-                    if (parentRow && parentRow.dataset.group === groupId) {
+            // Update all parents in this group
+            var _seenParents = {};
+            Object.keys(cascadeParentMap).forEach(function(childId) {
+                var parentId = cascadeParentMap[childId];
+                if (_seenParents[parentId]) return;
+                var parentRow = document.getElementById(parentId);
+                if (parentRow && parentRow.dataset.group === groupId) {
+                    _seenParents[parentId] = true;
+                    if (!checked) {
                         applyCascadeVisibility(parentId);
+                    } else {
+                        // Show-all: restore individual totals
+                        updateCollapsedParentTotal(parentId);
                     }
-                });
-            }
+                }
+            });
         }
 
         function toggleRowInstallation(rowId) {
@@ -12344,6 +12396,14 @@
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
 
+            // Store individual total for aggregate display, then update collapsed parent
+            var _totalEl = document.getElementById(rowId + '-total');
+            if (_totalEl) row.dataset.individualTotal = _totalEl.textContent;
+            var _parentOfThis = cascadeParentMap[rowId];
+            if (_parentOfThis && !_cascadeExpanded[_parentOfThis]) {
+                updateCollapsedParentTotal(_parentOfThis);
+            }
+
             // Sauvegarder dans Supabase (debounce)
             if (itemMap[rowId]) {
                 debouncedSaveItem(rowId, row);
@@ -12554,6 +12614,7 @@
                         delete _cascadeExpanded[_removedParent];
                     }
                     updateCascadeChildBadge(_removedParent);
+                    updateCollapsedParentTotal(_removedParent);
                 }
                 if (groupId) {
                     updateGroupSubtotal(groupId);

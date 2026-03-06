@@ -498,6 +498,8 @@ Les enfants cascade sont **masqués par défaut** pour réduire le bruit visuel 
 
 **État** : `_cascadeExpanded[parentRowId]` en mémoire. Pas de persistance DB — reset à collapsé au chargement.
 
+**Total agrégé** : quand un parent est collapsé, sa cellule `.cell-total` affiche la somme du parent + tous ses enfants directs (classe `.aggregate-total`, texte bold navy). `updateCollapsedParentTotal(parentRowId)` lit les totaux via `getRowTotal` (lecture pure, pas de side effects). Le total individuel est stocké dans `dataset.individualTotal` pour restauration à l'expand. Points d'appel : `toggleCascadeChildren`, `applyCascadeVisibility`, `updateRow` (enfant → parent collapsé), `removeRow`, `toggleShowAllCascade`.
+
 **Invariants préservés** : `getRowTotal`, `computeRentabilityData`, `debouncedSaveItem`, `propagateInstallationToCascadeChildren` opèrent sur les éléments DOM par ID, pas par visibilité — fonctionnent normalement sur enfants masqués.
 
 ### 3.10.1 Anti-lignes vides

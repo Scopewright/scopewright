@@ -2088,7 +2088,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Classification</label>
-                        <select class="form-input" id="editItemType" onchange="document.getElementById('dimsConfigGroup').style.display=this.value==='fabrication'?'':'none'">
+                        <select class="form-input" id="editItemType" onchange="document.getElementById('dimsConfigGroup').style.display=(this.value==='fabrication'||document.getElementById('editDimL').checked||document.getElementById('editDimH').checked||document.getElementById('editDimP').checked)?'':'none'">
                             <option value="">&mdash; Non class&eacute; &mdash;</option>
                             <option value="fabrication">Fabrication</option>
                             <option value="materiau">Mat&eacute;riau</option>
@@ -3881,7 +3881,7 @@
             document.getElementById('editDimL').checked = dc.l !== false;
             document.getElementById('editDimH').checked = dc.h !== false;
             document.getElementById('editDimP').checked = dc.p !== false;
-            document.getElementById('dimsConfigGroup').style.display = (item.item_type === 'fabrication') ? '' : 'none';
+            document.getElementById('dimsConfigGroup').style.display = (item.item_type === 'fabrication' || item.dims_config) ? '' : 'none';
             document.getElementById('editDescription').value = item.description;
             document.getElementById('editType').value = item.type;
             document.getElementById('editPrice').value = item.price != null ? item.price : '';
@@ -5717,9 +5717,12 @@
                 const payload = {
                     category: document.getElementById('editCategory').value,
                     item_type: document.getElementById('editItemType').value || null,
-                    dims_config: document.getElementById('editItemType').value === 'fabrication'
-                        ? { l: document.getElementById('editDimL').checked, h: document.getElementById('editDimH').checked, p: document.getElementById('editDimP').checked }
-                        : null,
+                    dims_config: (function() {
+                        var dl = document.getElementById('editDimL').checked;
+                        var dh = document.getElementById('editDimH').checked;
+                        var dp = document.getElementById('editDimP').checked;
+                        return (dl || dh || dp) ? { l: dl, h: dh, p: dp } : null;
+                    })(),
                     description: document.getElementById('editDescription').value,
                     type: document.getElementById('editType').value,
                     price: priceVal !== '' ? parseFloat(priceVal) : null,

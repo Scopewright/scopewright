@@ -12577,7 +12577,7 @@
             // Auto-quantité : si l'article a calculation_rule_ai.formula ou type pi²/linéaire
             if (selectedId && selectedId !== '__AJOUT__' && selectedId !== '__PROPOSER__') {
                 var formulaItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
-                if (formulaItem && formulaItem.item_type === 'fabrication') {
+                if (formulaItem && (formulaItem.item_type === 'fabrication' || formulaItem.dims_config)) {
                     var formula = formulaItem.calculation_rule_ai && formulaItem.calculation_rule_ai.formula;
                     // Fallback par type d'unité si pas de formule explicite
                     if (!formula && formulaItem.type === 'pi\u00b2') formula = 'L * H / 144';

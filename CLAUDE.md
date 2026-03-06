@@ -428,7 +428,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`
 
-**Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables.
+**Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables. Le guard `formula auto-qty` est aussi étendu : `calculation_rule_ai` est évalué pour tout article avec `dims_config` (pas seulement FAB). La modale catalogue sauvegarde `dims_config` pour tout type d'article si au moins une checkbox dim est cochée (ne force plus `null` pour les non-FAB).
 
 **Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) dans `tests/cascade-engine.test.js`
 
@@ -658,8 +658,8 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 | Fichier | Rôle |
 |---------|------|
 | `tests/cascade-engine.test.js` | 259 assertions en 26 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 16 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
-| `tests/fixtures/catalogue.js` | 18 articles catalogue réalistes (7 FAB + 11 MAT) |
+| `tests/cascade-helpers.js` | 18 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/fixtures/catalogue.js` | 20 articles catalogue réalistes (8 FAB + 12 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes

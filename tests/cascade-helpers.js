@@ -333,6 +333,20 @@ function evaluateLaborModifiers(item, vars, log) {
     return null;
 }
 
+// ── checkMaterialCtxOverlap (calculateur.html — inline in executeCascade) ──
+// Checks keyword overlap between materialCtx.chosenClientText and a resolved item's client_text.
+// Returns true if there is at least 1 common word (length > 2), false if 0 common words.
+// Used to filter out $match: resolutions that are irrelevant to the sibling $default: material.
+
+function checkMaterialCtxOverlap(materialCtxClientText, itemClientText) {
+    if (!materialCtxClientText || !itemClientText) return true; // no filter if missing
+    var ctxWords = materialCtxClientText.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿçœæ0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+    var itemWords = itemClientText.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿçœæ0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+    if (ctxWords.length === 0 || itemWords.length === 0) return true; // no meaningful words → no filter
+    var common = ctxWords.filter(function(w) { return itemWords.indexOf(w) !== -1; });
+    return common.length > 0;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -353,6 +367,7 @@ if (typeof module !== 'undefined' && module.exports) {
         isRuleOverridden: isRuleOverridden,
         findExistingChildForDynamicRule: findExistingChildForDynamicRule,
         computeChildDims: computeChildDims,
-        evaluateLaborModifiers: evaluateLaborModifiers
+        evaluateLaborModifiers: evaluateLaborModifiers,
+        checkMaterialCtxOverlap: checkMaterialCtxOverlap
     };
 }

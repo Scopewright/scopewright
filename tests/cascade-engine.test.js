@@ -70,6 +70,7 @@ var isRuleOverridden = helpers.isRuleOverridden;
 var findExistingChildForDynamicRule = helpers.findExistingChildForDynamicRule;
 var computeChildDims = helpers.computeChildDims;
 var MATCH_STOP_WORDS = helpers.MATCH_STOP_WORDS;
+var checkMaterialCtxOverlap = helpers.checkMaterialCtxOverlap;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
 var ROOM_DM = fixturesDm.ROOM_DM;
@@ -1096,6 +1097,53 @@ describe('GROUP 19 — evaluateLaborModifiers — integration ST-0006', function
         // ST-0006 base: PANNEAU MÉLAMINE = 5.20, factor 1.20 → 6.24
         var effectiveCost = Math.round(ST0006.material_costs['PANNEAU MÉLAMINE'] * result.material_factor['PANNEAU MÉLAMINE'] * 100) / 100;
         assertApprox(effectiveCost, 6.24, 0.01, 'material cost with factor');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 20: checkMaterialCtxOverlap — keyword-overlap filter for $match:
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 20 — checkMaterialCtxOverlap', function() {
+    it('null materialCtx → true (no filter)', function() {
+        assertEqual(checkMaterialCtxOverlap(null, 'laque polyuréthane'), true);
+    });
+
+    it('null item client_text → true (no filter)', function() {
+        assertEqual(checkMaterialCtxOverlap('mélamine blanche', null), true);
+    });
+
+    it('mélamine vs laque polyuréthane → false (0 common words)', function() {
+        assertEqual(checkMaterialCtxOverlap('mélamine blanche thermofusionnée 805', 'laque au polyuréthane clair'), false);
+    });
+
+    it('mélamine vs vernis huile → false (0 common words)', function() {
+        assertEqual(checkMaterialCtxOverlap('mélamine blanche thermofusionnée', 'vernis huile naturelle'), false);
+    });
+
+    it('placage chêne blanc vs bandes chêne blanc → true (chêne, blanc)', function() {
+        assertEqual(checkMaterialCtxOverlap('placage de chêne blanc FC', 'bandes de chêne blanc FC'), true);
+    });
+
+    it('placage noyer noir vs laque polyuréthane → false', function() {
+        assertEqual(checkMaterialCtxOverlap('placage de noyer noir FC', 'laque au polyuréthane clair'), false);
+    });
+
+    it('chêne blanc vs chants PVC → false (no common words > 2 chars)', function() {
+        assertEqual(checkMaterialCtxOverlap('placage de chêne blanc FC', 'chants PVC assortis'), false);
+    });
+
+    it('same text → true', function() {
+        assertEqual(checkMaterialCtxOverlap('laque polyuréthane claire', 'laque polyuréthane claire'), true);
+    });
+
+    it('short words (<=2 chars) are ignored', function() {
+        // "de" and "FC" are <=2 chars, should not count as common
+        assertEqual(checkMaterialCtxOverlap('de FC', 'de FC'), true); // both empty after filter → true (no words to compare = no filter)
+    });
+
+    it('empty strings → true (no filter)', function() {
+        assertEqual(checkMaterialCtxOverlap('', ''), true);
     });
 });
 

@@ -181,6 +181,8 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 5. **Locked children matching** : dans la boucle des règles, les enfants locked sont matchés par `cascadeRuleTarget` ou `catalogueId` — empêche la création de doublons
 6. **Frères** : les autres enfants actifs sont re-résolus avec le nouveau materialCtx. Si la résolution échoue (ex: mélamine → pas de finition), l'enfant frère est orpheliné et supprimé
 
+**Filtre materialCtx sur `$match:`** : après résolution d'un `$match:`, si `materialCtx._updatedBySiblingDefault` est vrai (i.e. le `materialCtx.chosenClientText` a été propagé par un `$default:` frère, pas le ctx initial du FAB), vérifie qu'il y a au moins 1 mot-clé en commun (longueur > 2) entre `materialCtx.chosenClientText` et le `client_text` de l'article résolu. 0 mots en commun → résolution rejetée → pas de ligne créée. Ex: materialCtx "mélamine blanche" vs résolu "laque polyuréthane" → 0 commun → rejeté. Fonction testable : `checkMaterialCtxOverlap(ctxText, itemText)` dans `cascade-helpers.js`
+
 **Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :
 - **Pas de ligne enfant créée** — la règle est simplement sautée (`continue`)
 - **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer
@@ -616,14 +618,14 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 123 assertions en 14 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 185 assertions en 20 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 14 articles catalogue réalistes (4 FAB + 10 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkMaterialCtxOverlap`
 
 ### Synchronisation
 
@@ -678,6 +680,9 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] `materialCtx` pré-peuplé depuis le DM du parent FAB racine
 - [ ] `materialCtx` propagé parent → enfant → petit-enfant (3 niveaux)
 - [ ] `materialCtx` disambiguë un DM multi-entrées, mais ne surcharge pas un DM unique
+- [ ] `$match:` filtre materialCtx : "mélamine" vs "laque" → 0 mots communs → rejeté
+- [ ] `$match:` filtre materialCtx : "chêne blanc" vs "bandes chêne blanc" → mots communs → accepté
+- [ ] Filtre ne s'applique pas quand materialCtx est initial (pas de `_updatedBySiblingDefault`)
 
 ### Guard dimensions
 - [ ] FAB sans L/H/P → cascade bloquée, ask affiché

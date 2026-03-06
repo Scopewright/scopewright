@@ -248,6 +248,15 @@ Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-conta
 - `.dm-blocked` si DM requis manquants (bloque l'ajout)
 - AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
+### Enfants cascade manuels
+
+Ajout manuel d'articles enfants sous un parent FAB, en dehors du moteur cascade automatique.
+- **`addRow(groupId, { parentRowId })`** : crée un enfant `cascade-child` + `cascade-locked` dès la création. Inséré après les enfants cascade existants du parent. Hérite le tag du parent
+- **Persistance** : `createItem` envoie `parent_item_id` (UUID Supabase via `itemMap`) + `cascade_locked: true` en DB
+- **Protection cascade** : les enfants manuels (`cascade-locked`) ne sont jamais touchés, supprimés ou re-résolus par `executeCascade`
+- **AI tool `add_catalogue_item`** : accepte `parent_item_id` (UUID Supabase). Reverse lookup via `itemMap[rowId] = UUID` pour trouver le `rowId` DOM du parent
+- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` + `itemId` (UUID Supabase) sur les lignes FAB parentes, permettant à l'AI de cibler un parent pour y ajouter des enfants
+
 ### Override par ligne (prix, MO, matériaux)
 
 Ajustements par ligne, par soumission, sans modifier le catalogue. Stocké dans `room_items` (JSONB/NUMERIC).

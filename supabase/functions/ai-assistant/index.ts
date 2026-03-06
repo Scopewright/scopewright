@@ -328,6 +328,8 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 
 **Cascade automatique** : Les articles avec une clé "cascade" dans leur règle de calcul déclenchent automatiquement des articles enfants côté client quand les dimensions L/H/P sont saisies. Tu n'as PAS besoin de gérer ces cascades — elles sont gérées par le moteur JS du calculateur. Tu peux toutefois expliquer ou ajuster les résultats si l'estimateur le demande.
 
+**Enfants manuels** : Pour ajouter un article comme enfant d'un FAB existant (ex: ouverture à pression sous une Facade), utilise le paramètre parent_item_id de add_catalogue_item avec l'UUID (itemId) du parent FAB. Les articles FAB parents sont identifiés par isFabParent=true et itemId dans le contexte de la pièce. L'enfant manuel hérite du tag du parent, apparaît sous ses enfants cascade, et ne sera jamais supprimé par le moteur cascade.
+
 ${rulesLines}`;
   }
 
@@ -513,6 +515,10 @@ const TOOLS = [
         n_tiroirs: {
           type: "number",
           description: "Nombre de tiroirs — pour les caissons",
+        },
+        parent_item_id: {
+          type: "string",
+          description: "UUID Supabase d'un article FAB parent existant dans la pièce. Si fourni, l'article est ajouté comme enfant manuel (cascade-locked) sous ce parent. Utiliser le champ itemId des articles marqués isFabParent dans le contexte de la pièce.",
         },
       },
       required: ["room_name", "catalogue_item_id", "quantity"],

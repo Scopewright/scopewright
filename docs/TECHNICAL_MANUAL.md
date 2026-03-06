@@ -514,7 +514,17 @@ Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cas
 - **CSS** : `.cascade-manual-edit` — bordure gauche 2px indigo `#6366f1`, fond subtil. Bouton ↺ (`.btn-revert-manual`) visible uniquement quand actif
 - **Guard** : `scheduleCascade` retourne immédiatement pour les lignes `cascade-child` — empêche les enfants de déclencher leur propre cascade (évite la modale DM intempestive)
 
-### 3.10.2 Anti-lignes vides
+### 3.10.2 Enfants cascade manuels
+
+En plus des enfants générés automatiquement par les règles `cascade`, un utilisateur (ou l'AI) peut ajouter manuellement des articles enfants sous un parent FAB.
+
+- **Création** : `addRow(groupId, { parentRowId })` — crée une ligne `cascade-child` + `cascade-locked` dès la création. L'enfant est inséré dans le DOM après les enfants cascade existants du parent via `insertAfterLastChild(parentRowId, newRow)`. Le tag du parent est hérité automatiquement
+- **Persistance DB** : `createItem` envoie `parent_item_id` (UUID Supabase, résolu via `itemMap[parentRowId]`) et `cascade_locked: true`. L'enfant apparaît dans `cascadeParentMap` comme tout autre enfant cascade
+- **Protection moteur** : `executeCascade` sépare les enfants en `locked` vs `active` au début de la boucle. Les enfants `cascade-locked` (manuels ou verrouillés par changement utilisateur) sont **totalement ignorés** — pas de mise à jour de quantité, pas de suppression comme orphelin, pas de re-résolution
+- **AI tool** : `add_catalogue_item` accepte un paramètre optionnel `parent_item_id` (UUID Supabase). Le handler fait un reverse lookup `Object.entries(itemMap)` pour trouver le `rowId` DOM correspondant, puis appelle `addRow(groupId, { parentRowId: rowId })`
+- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` et `itemId` (UUID Supabase via `itemMap`) sur chaque ligne FAB parente, permettant à l'AI de cibler un parent spécifique
+
+### 3.10.3 Anti-lignes vides
 
 3 gardes empêchent les lignes sans article de persister :
 

@@ -665,6 +665,15 @@ Les enfants cascade sont **masques par defaut** pour reduire le bruit visuel. Un
 
 Quand l'utilisateur modifie la quantite ou le prix d'un enfant cascade, un indicateur visuel (bordure indigo, classe `.cascade-manual-edit`) signale l'ecart avec les valeurs calculees. Un bouton ↺ permet de revenir aux valeurs cascade et re-declenche la cascade du parent. Les enfants cascade ne peuvent **jamais** declencher leur propre cascade (guard dans `scheduleCascade`).
 
+### Enfants cascade manuels
+
+En plus des enfants generes automatiquement par les regles cascade, il est possible d'ajouter manuellement des enfants sous un parent FAB :
+
+- **Creation** : `addRow(groupId, { parentRowId })` cree une ligne `cascade-child` + `cascade-locked` des la creation. L'enfant est insere apres les enfants cascade existants du parent et herite son tag
+- **Persistance** : `parent_item_id` (UUID Supabase) + `cascade_locked: true` envoyes dans `createItem`
+- **Protection** : `executeCascade` ignore completement les enfants `cascade-locked` — pas de mise a jour, pas de suppression, pas de re-resolution
+- **AI** : le tool `add_catalogue_item` accepte `parent_item_id` (UUID). `collectRoomDetail` expose `isFabParent: true` + `itemId` sur les parents FAB pour que l'AI puisse cibler un parent
+
 ### Propagation installation
 
 `toggleRowInstallation` → `propagateInstallationToCascadeChildren(parentRowId, checked)` : quand l'utilisateur coche/decoche l'installation sur un article parent, le toggle est propage recursivement a tous les enfants cascade via `findCascadeChildren`. Sauvegarde DB immediate, `skipCascade: true`.

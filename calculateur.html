@@ -1124,6 +1124,11 @@
                         materialCosts: item.material_costs || {},
                         dims: catDims
                     };
+                    // Expose FAB parents with Supabase UUID for AI parent_item_id
+                    if (item.item_type === 'fabrication' && row.classList.contains('cascade-parent-row') && itemMap[row.id]) {
+                        rowData.isFabParent = true;
+                        rowData.itemId = itemMap[row.id]; // Supabase UUID
+                    }
                     if (item.instruction) rowData.instruction = item.instruction;
                     var ovCtx = _rowOverrides[row.id];
                     if (ovCtx) {
@@ -1970,7 +1975,18 @@
                 if (!input.catalogue_item_id || !CATALOGUE_DATA.find(function(c) { return c.id === input.catalogue_item_id; })) {
                     return { error: 'Article introuvable dans le catalogue: ' + (input.catalogue_item_id || '(vide)') };
                 }
-                var rowId = addRow(gid, { staggerIndex: input._staggerIndex || 0, skipFocus: true });
+                // Resolve parent_item_id (Supabase UUID) → DOM rowId for parentRowId opt
+                var _parentRowId = null;
+                if (input.parent_item_id) {
+                    // Reverse lookup: itemMap[rowId] = supabaseUUID → find rowId for this UUID
+                    _parentRowId = Object.keys(itemMap).find(function(k) { return itemMap[k] === input.parent_item_id; });
+                    if (!_parentRowId) return { error: 'Parent introuvable (UUID): ' + input.parent_item_id };
+                    var parentRow = document.getElementById(_parentRowId);
+                    if (!parentRow || parentRow.dataset.group !== gid) return { error: 'Le parent n\u2019est pas dans la pièce ' + input.room_name };
+                }
+                var addOpts = { staggerIndex: input._staggerIndex || 0, skipFocus: true };
+                if (_parentRowId) addOpts.parentRowId = _parentRowId;
+                var rowId = addRow(gid, addOpts);
                 if (!rowId) return { error: 'Impossible d\u2019ajouter — configurez d\u2019abord les matériaux par défaut de cette pièce.' };
                 // Wait for Supabase item creation (async in addRow) before updating
                 var waitAttempts = 0;
@@ -2055,7 +2071,18 @@
                             saveFields.markup = 0;
                         }
                     }
-                    if (input.tag) saveFields.tag = input.tag.toUpperCase();
+                    var effectiveTag = input.tag ? input.tag.toUpperCase() : null;
+                    // Manual child inherits parent tag if none specified
+                    if (!effectiveTag && _parentRowId) {
+                        var _pTagI = document.getElementById(_parentRowId + '-tag');
+                        if (_pTagI && _pTagI.value) effectiveTag = _pTagI.value;
+                    }
+                    if (effectiveTag) saveFields.tag = effectiveTag;
+                    // Persist parent link + locked flag for manual cascade children
+                    if (_parentRowId && itemMap[_parentRowId]) {
+                        saveFields.parent_item_id = itemMap[_parentRowId];
+                        saveFields.cascade_locked = true;
+                    }
                     saveFields.length_in = input.length ? parseFloat(input.length) || null : null;
                     saveFields.height_in = input.height ? parseFloat(input.height) || null : null;
                     saveFields.depth_in = input.depth ? parseFloat(input.depth) || null : null;
@@ -2069,7 +2096,7 @@
                 }
 
                 // 8) Save tag propagation (after DB save)
-                if (input.tag) saveRowTag(rowId);
+                if (effectiveTag) saveRowTag(rowId);
 
                 // 9) Immediate cascade (bypass scheduleCascade global debounce)
                 if (select && select.value && select.value !== '__PROPOSER__' && select.value !== '__AJOUT__') {
@@ -2088,7 +2115,14 @@
                 // 10) Process constraints + update totals
                 if (select && select.value) processConstraints(rowId);
                 updateGrandTotal();
-                return { success: true, rowId: rowId, room: input.room_name, tag: input.tag || null };
+                // 11) Update parent cascade visibility (badge, toggle, collapsed total)
+                if (_parentRowId) {
+                    applyCascadeVisibility(_parentRowId);
+                    updateCollapsedParentTotal(_parentRowId);
+                }
+                var result = { success: true, rowId: rowId, room: input.room_name, tag: effectiveTag || null };
+                if (_parentRowId) result.parent_item_id = input.parent_item_id;
+                return result;
             }
             case 'modify_item': {
                 var gid = findGroupIdByName(input.room_name);
@@ -11477,8 +11511,8 @@
 
         function addRow(groupId, opts) {
             opts = opts || {};
-            // Block new items if required DMs are missing (skip for existing/cascade/loading)
-            if (!opts.existingId && !opts.cascade && !opts.skipSave) {
+            // Block new items if required DMs are missing (skip for existing/cascade/loading/manual child)
+            if (!opts.existingId && !opts.cascade && !opts.parentRowId && !opts.skipSave) {
                 var missingDm = getMissingRequiredDm(groupId);
                 if (missingDm.length > 0) {
                     showToast('Configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut (' + missingDm.join(', ') + ')');
@@ -11540,6 +11574,27 @@
                 if (ovBtn) ovBtn.style.display = 'none';
             }
 
+            // Manual cascade child (added by user/AI under an existing parent)
+            if (opts.parentRowId) {
+                row.classList.add('cascade-child', 'cascade-locked');
+                var tagEl2 = document.getElementById(rowId + '-tag');
+                if (tagEl2) tagEl2.readOnly = true;
+                cascadeParentMap[rowId] = opts.parentRowId;
+                // Inherit tag from parent
+                var parentTagInput = document.getElementById(opts.parentRowId + '-tag');
+                if (parentTagInput && parentTagInput.value) {
+                    var childTagInput = document.getElementById(rowId + '-tag');
+                    if (childTagInput) childTagInput.value = parentTagInput.value;
+                }
+                // Position after last existing child of parent
+                var parentChildren = findCascadeChildRows(opts.parentRowId);
+                if (parentChildren.length > 0) {
+                    opts.afterRowId = parentChildren[parentChildren.length - 1].id;
+                } else {
+                    opts.afterRowId = opts.parentRowId;
+                }
+            }
+
             // Position cascade children directly after their parent (or after last sibling)
             if (opts.afterRowId) {
                 var afterEl = document.getElementById(opts.afterRowId);
@@ -11571,7 +11626,12 @@
                 itemMap[rowId] = opts.existingId;
             } else if (currentSubmission && roomMap[groupId] && !opts.skipSave) {
                 const sortOrder = container.querySelectorAll('.calc-row').length;
-                createItem(roomMap[groupId], { sort_order: sortOrder }).then(item => {
+                var createPayload = { sort_order: sortOrder };
+                if (opts.parentRowId && itemMap[opts.parentRowId]) {
+                    createPayload.parent_item_id = itemMap[opts.parentRowId];
+                    createPayload.cascade_locked = true;
+                }
+                createItem(roomMap[groupId], createPayload).then(item => {
                     if (item) itemMap[rowId] = item.id;
                 });
             }
@@ -11580,7 +11640,7 @@
             updateRoomDmBadge(groupId);
 
             // Auto-nettoyage : si la ligne est toujours vide 2s après blur du combobox, la supprimer
-            if (!opts.existingId && !opts.cascade) {
+            if (!opts.existingId && !opts.cascade && !opts.parentRowId) {
                 var cbInput = document.getElementById(rowId + '-cb');
                 if (cbInput) {
                     cbInput.addEventListener('blur', function onEmptyBlur() {

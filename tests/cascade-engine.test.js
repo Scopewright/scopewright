@@ -1657,6 +1657,115 @@ describe('GROUP 25 — MAT with dims_config + labor_modifiers', function() {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 26 — parseFraction (dims input parser)
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 26 — parseFraction', function() {
+    var parseFraction = helpers.parseFraction;
+
+    // Plain numbers
+    it('integer "24" → 24', function() {
+        assertEqual(parseFraction('24'), 24);
+    });
+
+    it('decimal "0.75" → 0.75', function() {
+        assertEqual(parseFraction('0.75'), 0.75);
+    });
+
+    it('decimal "23.625" → 23.625', function() {
+        assertEqual(parseFraction('23.625'), 23.625);
+    });
+
+    // Simple fractions
+    it('"3/4" → 0.75', function() {
+        assertEqual(parseFraction('3/4'), 0.75);
+    });
+
+    it('"1/2" → 0.5', function() {
+        assertEqual(parseFraction('1/2'), 0.5);
+    });
+
+    it('"5/8" → 0.625', function() {
+        assertEqual(parseFraction('5/8'), 0.625);
+    });
+
+    it('"1/4" → 0.25', function() {
+        assertEqual(parseFraction('1/4'), 0.25);
+    });
+
+    // Mixed fractions with space
+    it('"1 1/2" → 1.5', function() {
+        assertEqual(parseFraction('1 1/2'), 1.5);
+    });
+
+    it('"23 5/8" → 23.625', function() {
+        assertEqual(parseFraction('23 5/8'), 23.625);
+    });
+
+    it('"36 3/4" → 36.75', function() {
+        assertEqual(parseFraction('36 3/4'), 36.75);
+    });
+
+    // Mixed fractions with dash
+    it('"1-3/4" → 1.75', function() {
+        assertEqual(parseFraction('1-3/4'), 1.75);
+    });
+
+    it('"23-5/8" → 23.625', function() {
+        assertEqual(parseFraction('23-5/8'), 23.625);
+    });
+
+    // Edge cases
+    it('null → null', function() {
+        assertEqual(parseFraction(null), null);
+    });
+
+    it('empty string → null', function() {
+        assertEqual(parseFraction(''), null);
+    });
+
+    it('"  " whitespace only → null', function() {
+        assertEqual(parseFraction('   '), null);
+    });
+
+    it('division by zero "3/0" → null', function() {
+        assertEqual(parseFraction('3/0'), null);
+    });
+
+    it('division by zero mixed "1 3/0" → null', function() {
+        assertEqual(parseFraction('1 3/0'), null);
+    });
+
+    it('invalid "abc" → null', function() {
+        assertEqual(parseFraction('abc'), null);
+    });
+
+    it('invalid "12x" → null', function() {
+        assertEqual(parseFraction('12x'), null);
+    });
+
+    it('"0" → 0', function() {
+        assertEqual(parseFraction('0'), 0);
+    });
+
+    it('whitespace trimmed " 3/4 " → 0.75', function() {
+        assertEqual(parseFraction(' 3/4 '), 0.75);
+    });
+
+    it('negative integer "-5" → -5', function() {
+        assertEqual(parseFraction('-5'), -5);
+    });
+
+    it('common woodworking: "15/16" → 0.9375', function() {
+        assertApprox(parseFraction('15/16'), 0.9375, 0.0001);
+    });
+
+    it('"48 1/4" → 48.25', function() {
+        assertEqual(parseFraction('48 1/4'), 48.25);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

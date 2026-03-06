@@ -407,6 +407,30 @@ function checkDefaultItemMatchCategory(defaultItem, matchCategory) {
     return hasRelation;
 }
 
+// ── parseFraction (calculateur.html ~line 3044) ──
+// Parse fractional input to decimal. Formats: "3/4", "1 1/2", "23 5/8", "1-3/4".
+
+function parseFraction(str) {
+    if (str == null) return null;
+    var s = String(str).trim();
+    if (!s) return null;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+    var m = s.match(/^(-?\d+)\s*\/\s*(\d+)$/);
+    if (m) {
+        var d = parseInt(m[2], 10);
+        return d === 0 ? null : parseInt(m[1], 10) / d;
+    }
+    m = s.match(/^(-?\d+)[\s\-]+(\d+)\s*\/\s*(\d+)$/);
+    if (m) {
+        var whole = parseInt(m[1], 10);
+        var num = parseInt(m[2], 10);
+        var den = parseInt(m[3], 10);
+        if (den === 0) return null;
+        return whole + (whole < 0 ? -1 : 1) * num / den;
+    }
+    return null;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -428,6 +452,7 @@ if (typeof module !== 'undefined' && module.exports) {
         findExistingChildForDynamicRule: findExistingChildForDynamicRule,
         computeChildDims: computeChildDims,
         evaluateLaborModifiers: evaluateLaborModifiers,
-        checkDefaultItemMatchCategory: checkDefaultItemMatchCategory
+        checkDefaultItemMatchCategory: checkDefaultItemMatchCategory,
+        parseFraction: parseFraction
     };
 }

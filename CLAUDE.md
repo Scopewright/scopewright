@@ -432,6 +432,16 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) dans `tests/cascade-engine.test.js`
 
+### Parser fractions dims (`parseFraction`)
+
+Les inputs dims (L, H, P) acceptent les fractions en plus des décimaux. Au `blur`, la valeur est convertie automatiquement en décimal via `parseFraction(str)`.
+
+**Formats supportés** : `3/4` → 0.75, `1 1/2` → 1.5, `23 5/8` → 23.625, `1-3/4` → 1.75. Les décimaux normaux passent inchangés. Les valeurs invalides retournent `null` (pas de modification).
+
+**Implémentation** : inputs dims sont `type="text" inputmode="decimal"` (pas `type="number"` — ne supporte pas les `/`). Le blur handler appelle `parseFraction`, remplace la valeur si convertie, puis `updateRow` + `scheduleCascade`.
+
+**Tests** : groupe 26 dans `tests/cascade-engine.test.js`
+
 ### Dupliquer un article (catalogue)
 
 Bouton "Dupliquer" dans la modale d'édition (`openEditModal`), à côté de "Supprimer". `duplicateItem()` INSERT un nouvel article avec toutes les données copiées (description, category, item_type, price, labor/material, rules, client_text, dims_config, loss_override_pct, etc.) sauf : `is_default` forcé à false, `status` forcé à "pending". Le code ST-XXXX est auto-généré par le trigger DB. Composantes fournisseur et médias ne sont PAS copiés. Après INSERT, la modale se rouvre sur le nouvel article.
@@ -647,14 +657,14 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 235 assertions en 25 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/cascade-engine.test.js` | 259 assertions en 26 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 16 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 18 articles catalogue réalistes (7 FAB + 11 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`
 
 ### Synchronisation
 

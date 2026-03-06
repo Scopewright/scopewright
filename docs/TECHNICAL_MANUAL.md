@@ -262,6 +262,8 @@ Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Foncti
 
 **Dims sur MAT** : le guard `showDims` dans `updateRow` accepte tout article avec `dims_config` explicite (pas seulement les FAB). Un MAT avec `dims_config: {l:true, h:true, p:true}` et `labor_modifiers` affiche les champs dims L×H×P pour que les conditions barèmes puissent être évaluées.
 
+**Parser fractions** : les inputs dims (L, H, P) sont `type="text" inputmode="decimal"` et acceptent les fractions (`3/4`, `1 1/2`, `23 5/8`, `1-3/4`). Au blur, `parseFraction(str)` convertit en décimal. Les décimaux normaux passent inchangés, les valeurs invalides retournent `null` (pas de modification). Le moteur reçoit toujours un décimal via `parseFloat(inp.value)`.
+
 **Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`.
 
 **Persistance** : `debouncedSaveItem()` écrit `labor_auto_modifier` JSONB. `openSubmission()` restaure dans `_rowOverrides`. `saveOverrides()` ne touche que les champs manuels. CSS `.has-auto-modifier` (gear icon).
@@ -1282,8 +1284,8 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 235 assertions en 25 groupes |
-| `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 259 assertions en 26 groupes |
+| `tests/cascade-helpers.js` | 17 fonctions pures + constante `MATCH_STOP_WORDS` |
 | `tests/fixtures/catalogue.js` | 18 articles réalistes (ST-0001 à ST-0060 + ST-0005 à ST-0008 + ST-0045 + ST-0051) : 7 FAB + 11 MAT |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
 

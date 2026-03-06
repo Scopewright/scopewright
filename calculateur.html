@@ -1140,21 +1140,6 @@
             }
         });
 
-        // DEBUG — temporary log for isFabParent investigation (remove after)
-        var _fabParents = items.filter(function(it) { return it.isFabParent; });
-        console.log('[collectRoomDetail] groupId=' + groupId + ' | items=' + items.length + ' | FAB parents:', _fabParents.map(function(it) {
-            return { catalogueId: it.catalogueId, description: it.description, itemId: it.itemId, tag: it.tag };
-        }));
-        // Also log all items with item_type check for diagnosis
-        group.querySelectorAll('.calc-row').forEach(function(row) {
-            var sel = row.querySelector('.item-select');
-            if (!sel || !sel.value || sel.value === '__PROPOSER__' || sel.value === '__AJOUT__') return;
-            var catItem = CATALOGUE_DATA.find(function(i) { return i.id === sel.value; });
-            if (catItem && catItem.item_type === 'fabrication') {
-                console.log('[collectRoomDetail] FAB row:', row.id, '| catalogueId:', sel.value, '| item_type:', catItem.item_type, '| itemMap:', itemMap[row.id] || 'MISSING', '| cascade-child:', row.classList.contains('cascade-child'));
-            }
-        });
-
         // Compute rentability inline (same logic as openRentab but returns data)
         var rentab = computeRentabilityData('room', groupId);
 

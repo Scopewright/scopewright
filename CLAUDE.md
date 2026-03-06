@@ -255,7 +255,7 @@ Ajout manuel d'articles enfants sous un parent FAB, en dehors du moteur cascade 
 - **Persistance** : `createItem` envoie `parent_item_id` (UUID Supabase via `itemMap`) + `cascade_locked: true` en DB
 - **Protection cascade** : les enfants manuels (`cascade-locked`) ne sont jamais touchés, supprimés ou re-résolus par `executeCascade`
 - **AI tool `add_catalogue_item`** : accepte `parent_item_id` (UUID Supabase). Reverse lookup via `itemMap[rowId] = UUID` pour trouver le `rowId` DOM du parent
-- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` + `itemId` (UUID Supabase) sur **tout** article `item_type === 'fabrication'` (pas seulement ceux avec enfants cascade). Ces champs sont **inclus dans le slim mapping** de `collectAiContext` (mode non-calcul) pour que l'AI ait toujours accès aux UUID parents
+- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` + `itemId` (UUID Supabase) sur **tout** article `item_type === 'fabrication'`. Ces champs sont **inclus dans le slim mapping** de `collectAiContext` ET **rendus dans le prompt texte** de l'edge function (`[FAB parent itemId=UUID]` sur la ligne d'article) pour que l'AI ait accès aux UUID parents
 - **Fallback interdit** : le prompt système interdit à l'AI d'ajouter en racine silencieusement quand le parent ciblé n'est pas trouvé — elle doit signaler et demander clarification
 
 ### Override par ligne (prix, MO, matériaux)

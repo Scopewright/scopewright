@@ -522,7 +522,7 @@ En plus des enfants générés automatiquement par les règles `cascade`, un uti
 - **Persistance DB** : `createItem` envoie `parent_item_id` (UUID Supabase, résolu via `itemMap[parentRowId]`) et `cascade_locked: true`. L'enfant apparaît dans `cascadeParentMap` comme tout autre enfant cascade
 - **Protection moteur** : `executeCascade` sépare les enfants en `locked` vs `active` au début de la boucle. Les enfants `cascade-locked` (manuels ou verrouillés par changement utilisateur) sont **totalement ignorés** — pas de mise à jour de quantité, pas de suppression comme orphelin, pas de re-résolution
 - **AI tool** : `add_catalogue_item` accepte un paramètre optionnel `parent_item_id` (UUID Supabase). Le handler fait un reverse lookup `Object.entries(itemMap)` pour trouver le `rowId` DOM correspondant, puis appelle `addRow(groupId, { parentRowId: rowId })`
-- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` et `itemId` (UUID Supabase via `itemMap`) sur **tout** article `item_type === 'fabrication'`. Ces champs sont préservés dans le **slim mapping** de `collectAiContext` (mode non-calcul) — sans cela, le slim rebuild supprimait `isFabParent`/`itemId`. Règle prompt : fallback racine interdit si parent introuvable
+- **Contexte AI** : `collectRoomDetail` expose `isFabParent: true` et `itemId` (UUID Supabase via `itemMap`) sur **tout** article `item_type === 'fabrication'`. Trois niveaux de propagation : (1) JSON payload via slim mapping, (2) **prompt texte** via `[FAB parent itemId=UUID]` dans `itemsStr` de l'edge function, (3) règle prompt : fallback racine interdit si parent introuvable
 
 ### 3.10.3 Anti-lignes vides
 

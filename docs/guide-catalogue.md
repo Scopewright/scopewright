@@ -640,6 +640,7 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
 | `opts.skipCascade` | Toggle installation | Empeche le toggle installation de declencher une cascade |
 | `cascade_suppressed` | Suppression manuelle enfant | Memorise les enfants supprimes, empeche la regeneration |
 | Anti-lignes vides | `debouncedSaveItem`, `addRow` blur, `openSubmission` | 3 gardes empechent les lignes sans article de persister |
+| Tri topologique | `openSubmission` | Tri defensif des items charges : parents toujours avant leurs enfants, meme si `sort_order` DB est corrompu |
 
 ### Propagation installation
 

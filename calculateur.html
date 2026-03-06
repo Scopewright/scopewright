@@ -17952,6 +17952,30 @@
                         var validItems = room.room_items.filter(function(item) {
                             return item.catalogue_item_id || item.item_type === 'custom';
                         });
+                        // Topological sort: parents always before their children.
+                        // Preserves sort_order within same level.
+                        var _itemById = {};
+                        validItems.forEach(function(it) { _itemById[it.id] = it; });
+                        var _roots = validItems.filter(function(it) { return !it.parent_item_id || !_itemById[it.parent_item_id]; });
+                        _roots.sort(function(a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });
+                        var _childrenOf = {};
+                        validItems.forEach(function(it) {
+                            if (it.parent_item_id && _itemById[it.parent_item_id]) {
+                                if (!_childrenOf[it.parent_item_id]) _childrenOf[it.parent_item_id] = [];
+                                _childrenOf[it.parent_item_id].push(it);
+                            }
+                        });
+                        Object.keys(_childrenOf).forEach(function(pid) {
+                            _childrenOf[pid].sort(function(a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });
+                        });
+                        var _sorted = [];
+                        function _addWithChildren(item) {
+                            _sorted.push(item);
+                            var ch = _childrenOf[item.id];
+                            if (ch) ch.forEach(_addWithChildren);
+                        }
+                        _roots.forEach(_addWithChildren);
+                        validItems = _sorted;
                         var _loadedCascadeItems = []; // pour la 2e passe
                         validItems.forEach(item => {
                             var isCascade = !!item.parent_item_id;

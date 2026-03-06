@@ -490,6 +490,7 @@ Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant
 1. **`debouncedSaveItem`** : si le `select.value` est vide, `return` immédiat — rien n'est écrit en DB
 2. **`addRow` blur listener** : pour les nouvelles lignes (pas `existingId`, pas `cascade`), un listener `blur` one-shot sur le combobox appelle `removeRow` après 2 secondes si aucun article n'est sélectionné
 3. **`openSubmission` filtre** : au chargement, `room.room_items` est filtré par `catalogue_item_id || item_type === 'custom'` — les lignes fantômes legacy sont ignorées
+4. **`openSubmission` tri topologique** : après filtrage, les items sont triés pour que chaque parent précède ses enfants (`_addWithChildren` récursif). Les roots sont triés par `sort_order`, puis chaque root est suivi de ses children (eux aussi triés par `sort_order`). Prévient l'affichage d'enfants cascade avant leur parent même si `sort_order` en DB est corrompu
 
 ### 3.11 Override par ligne (prix, MO, matériaux)
 

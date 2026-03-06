@@ -644,6 +644,8 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
 | Debounce 400ms | `scheduleCascade` | Evite les cascades en rafale |
 | `opts.skipCascade` | Toggle installation | Empeche le toggle installation de declencher une cascade |
 | `cascade_suppressed` | Suppression manuelle enfant | Memorise les enfants supprimes, empeche la regeneration |
+| `cascade-child` guard | `scheduleCascade` | Les enfants cascade ne declenchent jamais leur propre cascade |
+| Manual-edit indicator | `checkCascadeManualEdit` | Detecte qty/prix modifies manuellement sur enfants cascade, bouton ↺ revert |
 | Anti-lignes vides | `debouncedSaveItem`, `addRow` blur, `openSubmission` | 3 gardes empechent les lignes sans article de persister |
 | Tri topologique | `openSubmission` | Tri defensif des items charges : parents toujours avant leurs enfants, meme si `sort_order` DB est corrompu |
 | Collapse enfants | `cascade-child` display:none par defaut | Enfants masques, triangle ▶ sur parent, badge (+N), checkbox globale par piece |
@@ -658,6 +660,10 @@ Les enfants cascade sont **masques par defaut** pour reduire le bruit visuel. Un
 - **Etat** : memoire seulement (`_cascadeExpanded`), pas persiste en DB — reset a collapse au chargement
 - **Total agrege** : quand collapse, la cellule total du parent affiche la somme parent + **tous les descendants** recursivement (texte bold navy). Se met a jour automatiquement quand un descendant change (dims, qty, override) — remonte toute la chaine d'ancetres. Revient au total individuel a l'expand
 - Les calculs, saves, et propagation installation **fonctionnent normalement** sur les enfants masques
+
+### Modification manuelle enfants cascade
+
+Quand l'utilisateur modifie la quantite ou le prix d'un enfant cascade, un indicateur visuel (bordure indigo, classe `.cascade-manual-edit`) signale l'ecart avec les valeurs calculees. Un bouton ↺ permet de revenir aux valeurs cascade et re-declenche la cascade du parent. Les enfants cascade ne peuvent **jamais** declencher leur propre cascade (guard dans `scheduleCascade`).
 
 ### Propagation installation
 

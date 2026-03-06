@@ -157,9 +157,9 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
 - Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent. `openSubmission` applique un **tri topologique** défensif (`_addWithChildren`) pour garantir que les parents précèdent toujours leurs enfants, même si `sort_order` en DB est corrompu
-- Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms, `opts.skipCascade` (voir règle ci-dessous)
+- Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms, `opts.skipCascade` (voir règle ci-dessous), `scheduleCascade` guard cascade-child (les enfants cascade ne déclenchent jamais leur propre cascade — `if (row.classList.contains('cascade-child')) return`)
 - **Propagation installation** : `toggleRowInstallation` → `propagateInstallationToCascadeChildren(parentRowId, checked)` — récursif, propage le cocher/décocher à tous les enfants cascade (via `findCascadeChildren`), sauvegarde DB, `skipCascade: true`
-- **Règle `skipCascade`** : toute fonction qui appelle `updateRow()` et qui N'EST PAS un changement de dimensions (L/H/P), de n_tablettes/n_partitions/n_portes/n_tiroirs, ou d'article catalogue DOIT passer `{ skipCascade: true }`. Fonctions corrigées : `saveOverrides`, `clearOverrides`, `refreshGroupRows` (modificateurs %), AI tools `update_submission_line` et `modify_item` (sans changement dims). `applyChildDims` utilise aussi `skipCascade: true` (l'enfant ne doit pas re-déclencher la cascade du parent)
+- **Règle `skipCascade`** : toute fonction qui appelle `updateRow()` et qui N'EST PAS un changement de dimensions (L/H/P), de n_tablettes/n_partitions/n_portes/n_tiroirs, ou d'article catalogue DOIT passer `{ skipCascade: true }`. Fonctions corrigées : `saveOverrides`, `clearOverrides`, `refreshGroupRows` (modificateurs %), AI tools `update_submission_line` et `modify_item` (sans changement dims). `applyChildDims` utilise aussi `skipCascade: true` (l'enfant ne doit pas re-déclencher la cascade du parent). **Note** : `revertCascadeManualEdit` appelle `scheduleCascade` sur le **parent** (pas l'enfant) pour une re-cascade cohérente
 - **Anti-lignes vides** : 3 gardes — (a) `debouncedSaveItem` skip les lignes sans article (`return` si select vide), (b) `addRow` attache un `blur` listener one-shot sur le combobox → `removeRow` après 2s si toujours vide, (c) `openSubmission` filtre les items sans `catalogue_item_id` ni `item_type=custom` avant rendu
 - **Guard `ask` completeness** : si l'article déclare `calculation_rule_ai.ask` (ex: `["L","H"]`), la cascade ne se déclenche qu'une fois les variables listées remplies. Appliqué uniquement à `depth === 0` (FAB racine). **Seuils** : `L`/`H`/`P`/`QTY` doivent être **> 0** (dimensions physiques). `N_TABLETTES`/`N_PARTITIONS`/`N_PORTES`/`N_TIROIRS` doivent seulement être **définis** (`!= null`) — 0 est valide (caisson sans tablettes/partitions/portes/tiroirs). **Fallback** : si `ask` absent ET `dims_config` **explicitement défini** sur l'article, inféré depuis `dims_config` (ex: `{l:true, h:true}` → `["L","H"]`). Sans `dims_config` explicite, pas d'inférence. Mapping : `L`/`LARGEUR`, `H`/`HAUTEUR`, `P`/`PROFONDEUR`, `QTY`/`QUANTITÉ`, `N_TABLETTES`/`TABLETTES`, `N_PARTITIONS`/`PARTITIONS`, `N_PORTES`/`PORTES`, `N_TIROIRS`/`TIROIRS`
 - **Validation target** : après résolution (`resolveCascadeTarget`), le target est vérifié dans `CATALOGUE_DATA`. Si l'ID n'existe pas dans le catalogue, traité comme résolution échouée (empêche la création de lignes vides)
@@ -206,6 +206,15 @@ Quand un utilisateur supprime manuellement un enfant cascade, l'ID catalogue est
 - **UI** : bouton `⊘` (`.btn-suppressed-cascade`) visible seulement si suppressions actives, dropdown de restauration (`openSuppressedMenu`)
 - **Restauration** : `restoreSuppressedCascade(parentRowId, catId)` retire l'ID de la liste et re-exécute la cascade
 - **Migration** : `sql/cascade_suppressed.sql` — `ALTER TABLE room_items ADD COLUMN cascade_suppressed JSONB`
+
+### Indicateur modification manuelle cascade (`cascade-manual-edit`)
+
+Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cascade, un indicateur visuel signale l'écart avec les valeurs calculées par le moteur.
+- **Stockage source** : `dataset.cascadeQty` et `dataset.cascadeUnitPrice` — écrits par `executeCascade` sur chaque enfant (nouveau ou existant) avec les valeurs calculées par le moteur
+- **Détection** : `checkCascadeManualEdit(rowId)` — compare qty/prix courants avec `cascadeQty`/`cascadeUnitPrice`, toggle `.cascade-manual-edit` sur la ligne. Appelé à la fin de chaque `updateRow` pour les enfants cascade
+- **Revert** : `revertCascadeManualEdit(rowId)` — restaure `cascadeQty`, supprime `price_override`, retire `.cascade-manual-edit`, puis appelle `scheduleCascade` sur le **parent** (`cascadeParentMap[rowId]`) pour re-cascade complète
+- **CSS** : `.cascade-manual-edit` — bordure gauche 2px solid `#6366f1` (indigo), fond subtil indigo. `.btn-revert-manual` — bouton ↺ dans `.cell-remove`, visible uniquement quand `.cascade-manual-edit` actif
+- **UI** : bouton ↺ ajouté dans le template de ligne `.cell-remove`, avant `btn-remove`
 
 ### Matériaux par défaut (DM)
 
@@ -704,6 +713,12 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] `child_dims` + `n_portes=2` → 2 lignes enfants distinctes (qty=1 chacune), pas 1 ligne qty=2
 - [ ] `n_portes` passe de 3 à 2 → 3e enfant supprimé (orphan cleanup)
 - [ ] Recharger soumission → `cascadeChildIndex` reconstruit, re-cascade stable
+
+### Modification manuelle enfants cascade
+- [ ] Changer la qty d'un enfant cascade → bordure indigo `.cascade-manual-edit` + bouton ↺ visible
+- [ ] Changer le prix (override) d'un enfant cascade → même indicateur
+- [ ] Cliquer ↺ → qty/prix restaurés aux valeurs cascade, `.cascade-manual-edit` retiré, re-cascade du parent
+- [ ] Changer la qty d'un enfant cascade → PAS de modale DM (guard `scheduleCascade` sur `cascade-child`)
 
 ### Barèmes et modificateurs
 - [ ] Article avec `labor_modifiers` + L > seuil → popover affiche colonne Auto avec valeurs factorisées

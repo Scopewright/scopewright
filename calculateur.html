@@ -4496,6 +4496,17 @@
                     } else if (itemChanged) {
                         updateRow(existing.rowId);
                     }
+                    // Store cascade source values for manual-edit detection
+                    childRow.dataset.cascadeQty = String(instanceQty);
+                    var _csEi = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                    if (_csEi) {
+                        var _csInst = document.getElementById(existing.rowId + '-install');
+                        var _csIncl = _csInst ? _csInst.checked : true;
+                        var _csPrice = computeComposedPrice(_csEi, _csIncl);
+                        childRow.dataset.cascadeUnitPrice = String(_csPrice !== null ? _csPrice : (_csEi.price || 0));
+                    }
+                    // Clear manual-edit flag if values match cascade
+                    checkCascadeManualEdit(existing.rowId);
                     // Sync tag from parent
                     var childTagSync = document.getElementById(existing.rowId + '-tag');
                     if (childTagSync && childTagSync.value !== parentTag) {
@@ -4560,6 +4571,18 @@
                 if (childSelect) childSelect.value = resolvedTarget;
                 var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
                 if (childQtyInput) childQtyInput.value = instanceQty;
+
+                // Store cascade source values for manual-edit detection
+                if (childRow2) {
+                    childRow2.dataset.cascadeQty = String(instanceQty);
+                    var _csNi = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                    if (_csNi) {
+                        var _csNcb = document.getElementById(newRowId + '-install');
+                        var _csNinst = _csNcb ? _csNcb.checked : true;
+                        var _csNp = computeComposedPrice(_csNi, _csNinst);
+                        childRow2.dataset.cascadeUnitPrice = String(_csNp !== null ? _csNp : (_csNi.price || 0));
+                    }
+                }
 
                 // Hériter le tag du parent (toujours, même si vide)
                 var childTagInput = document.getElementById(newRowId + '-tag');
@@ -4774,6 +4797,8 @@
         // Check eligibility: row must have cascade rules or existing children
         var row = document.getElementById(rowId);
         if (!row) return;
+        // Cascade children must never trigger their own cascade
+        if (row.classList.contains('cascade-child')) return;
         var sel = row.querySelector('.item-select');
         var selVal = sel ? sel.value : '';
         if (!selVal || selVal === '__PROPOSER__' || selVal === '__AJOUT__') return;
@@ -5500,6 +5525,19 @@
         .calc-row.aggregate-total .cell-total {
             color: var(--sw-navy, #0B1220); font-weight: 600;
         }
+        /* ── Cascade manual-edit indicator (child qty/price modified) ── */
+        .calc-row.cascade-manual-edit {
+            border-left: 2px solid #6366f1;
+            background: rgba(99, 102, 241, 0.03);
+        }
+        .btn-revert-manual {
+            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            color: #6366f1; cursor: pointer; border-radius: 4px; font-size: 14px;
+            align-items: center; justify-content: center; flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .btn-revert-manual:hover { background: rgba(99, 102, 241, 0.10); }
+        .cascade-manual-edit .btn-revert-manual { display: inline-flex; }
         /* ── Cascade locked (manual override) ── */
         .calc-row.cascade-locked {
             border-left: 3px solid #E8A84C !important;
@@ -11113,6 +11151,60 @@
             updateCascadeChildBadge(parentRowId);
         }
 
+        /**
+         * Check if a cascade child's qty or unit_price differs from cascade source values.
+         * Toggles .cascade-manual-edit class accordingly.
+         */
+        function checkCascadeManualEdit(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row || !row.classList.contains('cascade-child')) return;
+            var cascadeQty = row.dataset.cascadeQty;
+            var cascadeUnitPrice = row.dataset.cascadeUnitPrice;
+            if (cascadeQty == null && cascadeUnitPrice == null) return;
+            var qtyInput = row.querySelector('.qty-input');
+            var currentQty = qtyInput ? parseFloat(qtyInput.value) || 0 : 0;
+            var qtyDiff = cascadeQty != null && Math.abs(currentQty - parseFloat(cascadeQty)) > 0.001;
+            // For price, compare with override if present, otherwise catalogue price shown
+            var ov = _rowOverrides[rowId];
+            var priceDiff = false;
+            if (cascadeUnitPrice != null && ov && ov.price != null) {
+                priceDiff = Math.abs(ov.price - parseFloat(cascadeUnitPrice)) > 0.01;
+            }
+            if (qtyDiff || priceDiff) {
+                row.classList.add('cascade-manual-edit');
+            } else {
+                row.classList.remove('cascade-manual-edit');
+            }
+        }
+
+        /**
+         * Revert a cascade child to its cascade-calculated values by re-cascading the parent.
+         */
+        function revertCascadeManualEdit(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            // Restore qty from cascade source
+            if (row.dataset.cascadeQty != null) {
+                var qtyInput = row.querySelector('.qty-input');
+                if (qtyInput) qtyInput.value = row.dataset.cascadeQty;
+            }
+            // Clear price override if it was manual
+            if (_rowOverrides[rowId] && _rowOverrides[rowId].price != null) {
+                delete _rowOverrides[rowId].price;
+                var ovk = Object.keys(_rowOverrides[rowId]);
+                if (ovk.length === 0 || (ovk.length === 1 && ovk[0] === 'laborAuto') || ovk.every(function(k) { return k === 'laborAuto' || k === 'materialAuto' || k === 'autoLabel'; })) {
+                    // Keep auto modifiers, clear only manual
+                }
+            }
+            row.classList.remove('cascade-manual-edit');
+            updateRow(rowId, { skipCascade: true });
+            // Re-cascade the parent to restore full coherence
+            var parentRowId = cascadeParentMap[rowId];
+            if (parentRowId) {
+                scheduleCascade(parentRowId, true);
+            }
+        }
+
         function applyCascadeVisibility(parentRowId) {
             // Check global show-all for this group
             var parentRow = document.getElementById(parentRowId);
@@ -11431,6 +11523,7 @@
                 </div>
                 <div class="cell-total" id="${rowId}-total">0,00 $<span class="cascade-count-badge" id="${rowId}-cascade-badge"></span></div>
                 <div class="cell-remove">
+                    <button class="btn-revert-manual" onclick="revertCascadeManualEdit('${rowId}')" title="Restaurer la valeur cascade">&#8634;</button>
                     <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
                 </div>
             `;
@@ -12458,6 +12551,9 @@
                 }
                 _ancestor = cascadeParentMap[_ancestor];
             }
+
+            // Check cascade manual-edit indicator for cascade children
+            checkCascadeManualEdit(rowId);
 
             // Sauvegarder dans Supabase (debounce)
             if (itemMap[rowId]) {

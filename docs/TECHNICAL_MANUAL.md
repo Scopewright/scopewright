@@ -466,6 +466,7 @@ Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant
 | Profondeur max | `depth >= 3` | Empêche les boucles infinies |
 | Re-entrance | `_cascadeRunning` | Un seul cascade actif à la fois. `_pendingCascadeRowId` queue 1 cascade |
 | Chargement | `_isLoadingSubmission` | Toutes les cascades dropped pendant `openSubmission()` |
+| Cascade-child guard | `scheduleCascade` | Les enfants cascade (`cascade-child`) ne déclenchent jamais leur propre cascade — `return` immédiat |
 | Debounce | `scheduleCascade` | 400ms (sauf `immediate=true`) |
 | Ask completeness | `calculation_rule_ai.ask` | Depth 0 uniquement. L/H/P/QTY doivent être > 0. n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 valide). Fallback : inféré depuis `dims_config` si `ask` absent |
 | Polling | `while (!itemMap[row] && attempts < 50)` | Attend que la création DB se termine (80ms × 50 = 4s max) |
@@ -502,7 +503,17 @@ Les enfants cascade sont **masqués par défaut** pour réduire le bruit visuel 
 
 **Invariants préservés** : `getRowTotal`, `computeRentabilityData`, `debouncedSaveItem`, `propagateInstallationToCascadeChildren` opèrent sur les éléments DOM par ID, pas par visibilité — fonctionnent normalement sur enfants masqués.
 
-### 3.10.1 Anti-lignes vides
+### 3.10.1 Indicateur modification manuelle cascade
+
+Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cascade, un indicateur visuel signale l'écart avec les valeurs calculées par le moteur.
+
+- **Source** : `dataset.cascadeQty` et `dataset.cascadeUnitPrice` stockés par `executeCascade` sur chaque enfant (nouveau ou existant)
+- **Détection** : `checkCascadeManualEdit(rowId)` compare qty/prix courants avec les valeurs source, toggle `.cascade-manual-edit`. Appelé à la fin de chaque `updateRow` pour les `cascade-child`
+- **Revert** : `revertCascadeManualEdit(rowId)` restaure qty, supprime `price_override`, retire `.cascade-manual-edit`, puis `scheduleCascade` sur le **parent** (`cascadeParentMap[rowId]`)
+- **CSS** : `.cascade-manual-edit` — bordure gauche 2px indigo `#6366f1`, fond subtil. Bouton ↺ (`.btn-revert-manual`) visible uniquement quand actif
+- **Guard** : `scheduleCascade` retourne immédiatement pour les lignes `cascade-child` — empêche les enfants de déclencher leur propre cascade (évite la modale DM intempestive)
+
+### 3.10.2 Anti-lignes vides
 
 3 gardes empêchent les lignes sans article de persister :
 

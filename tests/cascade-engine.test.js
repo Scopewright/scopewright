@@ -1036,6 +1036,43 @@ describe('GROUP 18 — evaluateLaborModifiers — formulas', function() {
         // No labor_minutes on item → cannot expand → null
         assertEqual(result.labor_factor, null);
     });
+
+    it('empty-key labor_factor {"": 1.25} → expanded to all departments', function() {
+        var item = {
+            labor_minutes: { 'Assemblage': 40, 'Machinage': 60 },
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 0', label: 'Test', labor_factor: { '': 1.25 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        assert(result !== null, 'should match');
+        assertEqual(result.labor_factor['Assemblage'], 1.25);
+        assertEqual(result.labor_factor['Machinage'], 1.25);
+        assertEqual(Object.keys(result.labor_factor).length, 2);
+    });
+
+    it('empty-key material_factor {"": 1.10} → expanded to all categories', function() {
+        var item = {
+            material_costs: { 'PANNEAU MÉLAMINE': 5.20, 'QUINCAILLERIE': 0.15 },
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 0', label: 'Test', material_factor: { '': 1.10 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        assert(result !== null, 'should match');
+        assertEqual(result.material_factor['PANNEAU MÉLAMINE'], 1.10);
+        assertEqual(result.material_factor['QUINCAILLERIE'], 1.10);
+    });
+
+    it('empty-key labor_factor without labor_minutes → null', function() {
+        var item = {
+            labor_modifiers: { modifiers: [
+                { condition: 'L > 0', label: 'Test', labor_factor: { '': 1.5 } }
+            ]}
+        };
+        var result = evaluateLaborModifiers(item, { L: 10 });
+        assertEqual(result.labor_factor, null);
+    });
 });
 
 // GROUP 19 — evaluateLaborModifiers — integration with ST-0006

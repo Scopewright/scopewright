@@ -310,7 +310,7 @@ function evaluateLaborModifiers(item, vars, log) {
         if (!m.condition) continue;
         var result = evalFormula(m.condition, vars, log);
         if (result) {
-            // Normalize scalar factor → per-key object
+            // Normalize scalar/empty-key factor → per-key object
             var lf = m.labor_factor || null;
             if (typeof lf === 'number') {
                 if (item.labor_minutes && Object.keys(item.labor_minutes).length > 0) {
@@ -319,12 +319,28 @@ function evaluateLaborModifiers(item, vars, log) {
                     lf = lfObj;
                 } else { lf = null; }
             }
+            if (lf && typeof lf === 'object' && lf[''] != null) {
+                var lfVal = lf[''];
+                if (item.labor_minutes && Object.keys(item.labor_minutes).length > 0) {
+                    var lfObj2 = {};
+                    Object.keys(item.labor_minutes).forEach(function(d) { lfObj2[d] = lfVal; });
+                    lf = lfObj2;
+                } else { lf = null; }
+            }
             var mf = m.material_factor || null;
             if (typeof mf === 'number') {
                 if (item.material_costs && Object.keys(item.material_costs).length > 0) {
                     var mfObj = {};
                     Object.keys(item.material_costs).forEach(function(c) { mfObj[c] = mf; });
                     mf = mfObj;
+                } else { mf = null; }
+            }
+            if (mf && typeof mf === 'object' && mf[''] != null) {
+                var mfVal = mf[''];
+                if (item.material_costs && Object.keys(item.material_costs).length > 0) {
+                    var mfObj2 = {};
+                    Object.keys(item.material_costs).forEach(function(d) { mfObj2[d] = mfVal; });
+                    mf = mfObj2;
                 } else { mf = null; }
             }
             return { labor_factor: lf, material_factor: mf, label: m.label || m.condition };

@@ -386,7 +386,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 ```
 
 - **`condition`** : expression évaluée par `evalFormula` (variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
-- **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau. Accepte un objet `{dept: multiplier}` ou un **nombre scalaire** (appliqué à tous les départements/catégories). 1.0 = base, 1.25 = +25%
+- **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau. 3 formats acceptés : objet `{dept: multiplier}`, **nombre scalaire** (appliqué à tous), ou **objet clé vide** `{"": multiplier}` (AI génère parfois ce format, normalisé en per-key). 1.0 = base, 1.25 = +25%
 - **First-match** : premier modificateur dont la condition est vraie gagne (pas cumulatif)
 - **Hierarchie d'override** : `price` (override global) > `labor/material` (override manuel) > `laborAuto/materialAuto` (barèmes auto) > valeurs catalogue
 - **Ordre d'exécution dans `updateRow`** : les barèmes sont évalués **après** la section dims (pour que les inputs L/H/P existent dans le DOM) et après l'auto-quantité. Le bloc est déféré via `row._baremeItem` puis exécuté avant `updateGroupSubtotal`
@@ -618,7 +618,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 185 assertions en 20 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 188 assertions en 20 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 14 articles catalogue réalistes (4 FAB + 10 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

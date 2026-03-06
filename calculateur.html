@@ -1431,6 +1431,7 @@
                 if (it.catalogueId) slim.catalogueId = it.catalogueId;
                 if (it.dims) slim.dims = it.dims;
                 if (it.overrides) slim.overrides = it.overrides;
+                if (it.isFabParent) { slim.isFabParent = true; slim.itemId = it.itemId; }
                 return slim;
             });
             delete focusDetail.rentability;

@@ -5487,21 +5487,19 @@
             grid-template-columns: 30px 55px 1fr 90px 90px 280px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 0 10px;
-            min-height: 40px;
+            min-height: 36px;
             align-items: center;
-            border-bottom: 1px solid #F3F4F6;
+            border-bottom: none;
             background: var(--sw-surface);
-            transition: background-color 0.15s ease;
+            transition: background-color 0.1s ease;
         }
         .calc-row.cascade-child {
-            border-left: 2px solid var(--stele-green, #4b6050);
             margin-left: 0;
-            min-height: 32px;
-            background: #FAFAFA;
+            min-height: 28px;
+            background: var(--sw-surface);
             display: none; /* collapsed by default */
         }
-        .calc-row.cascade-child:hover { background: #F5F6F7; }
-        .calc-row.cascade-child .cell-article { padding-left: 24px; }
+        .calc-row.cascade-child .cell-article { padding-left: 20px; }
         .calc-row.cascade-child .combobox-input,
         .calc-row.cascade-child .cell-code,
         .calc-row.cascade-child .cell-type,
@@ -5509,7 +5507,7 @@
         .calc-row.cascade-child .cell-dims input,
         .calc-row.cascade-child .qty-input,
         .calc-row.cascade-child .cell-unit-price,
-        .calc-row.cascade-child .cell-total { font-size: 12px; color: #6B7280; }
+        .calc-row.cascade-child .cell-total { font-size: 11px; color: #9CA3AF; }
         .calc-row.cascade-child.cascade-visible { display: grid; }
         /* ── Cascade toggle triangle ── */
         .btn-cascade-toggle {
@@ -5603,7 +5601,7 @@
         .suppressed-menu-item .sup-restore:hover { background: #f1f5f9; }
 
         /* ── Per-line override button & popover ── */
-        .cell-unit-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 13px; color: var(--sw-text); font-variant-numeric: tabular-nums; }
+        .cell-unit-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--sw-text-2, #64748B); font-variant-numeric: tabular-nums; }
         .upx { flex: 1; text-align: right; }
         .btn-ov {
             display: none; width: 20px; height: 20px; border: none; background: transparent;
@@ -5708,22 +5706,19 @@
         .cm-btn-secondary:hover { background: #e2e8f0; }
 
         .cell-tag input {
-            width: 100%; padding: 3px 6px; font-size: 10px;
+            width: 100%; padding: 2px 4px; font-size: 9px;
             font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-            border: 1px solid transparent; border-radius: 4px;
-            text-align: center; text-transform: uppercase; font-weight: 600;
-            color: var(--sw-navy); background: transparent;
+            border: 1px solid transparent; border-radius: 3px;
+            text-align: center; text-transform: uppercase; font-weight: 500;
+            color: var(--sw-muted, #94A3B8); background: transparent;
+            letter-spacing: 0.05em;
             transition: border-color 0.15s, background-color 0.15s;
         }
-        .cell-tag input:hover { border-color: #E5E7EB; background: var(--sw-surface); }
-        .cell-tag input:focus { border-color: var(--sw-navy); background: var(--sw-surface); outline: none; }
+        .cell-tag input:hover { border-color: #E5E7EB; }
+        .cell-tag input:focus { border-color: var(--sw-navy); outline: none; }
         .cell-tag input::placeholder { color: #D4D4D4; font-weight: 400; }
-        /* Tag pill style when filled (pure CSS — :not(:placeholder-shown)) */
         .cell-tag input:not(:placeholder-shown) {
-            background: #EEF2FF; border-color: #EEF2FF; color: var(--sw-navy);
-        }
-        .cell-tag input:not(:placeholder-shown):focus {
-            border-color: var(--sw-navy); background: #EEF2FF;
+            color: var(--sw-text-2, #64748B);
         }
         /* Cascade children: tag hidden */
         .cascade-child .cell-tag input {
@@ -5746,7 +5741,8 @@
         .combobox-input:hover { border-color: #E5E7EB; background: var(--sw-surface); }
         .combobox-input:focus { border-color: var(--sw-navy); background: var(--sw-surface); outline: none; }
         .combobox-input::placeholder { color: #C8CED6; }
-        .combobox-input.has-value { font-weight: 500; color: var(--sw-navy); }
+        .combobox-input.has-value { font-weight: 600; color: var(--sw-text, #0F172A); }
+        .cascade-child .combobox-input.has-value { font-weight: 400; color: #9CA3AF; }
         .btn-edit-cat {
             flex-shrink: 0; width: 22px; height: 22px; border: none; background: none;
             cursor: pointer; font-size: 12px; color: #94a3b8; border-radius: 4px;
@@ -5818,7 +5814,7 @@
         .total-pulse {
             animation: totalPulse 300ms ease-out;
         }
-        .calc-row:hover { background: #FAFBFC; }
+        .calc-row:hover { background: #FAFBFD; }
 
         .btn-add {
             width: 20px;
@@ -5886,20 +5882,15 @@
             background: var(--sw-surface);
         }
 
-        .cell-code, .cell-type {
-            font-size: 11px;
-            color: var(--sw-text);
-        }
-
         .cell-code {
             font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--sw-muted, #94A3B8);
             position: relative;
             cursor: help;
         }
 
-        .cell-type { text-align: center; color: var(--sw-muted); }
+        .cell-type { text-align: center; font-size: 10px; color: var(--sw-muted); }
 
         .cell-dims {
             display: flex;
@@ -5989,18 +5980,19 @@
 
         .qty-input {
             width: 100%;
-            padding: 4px 8px;
-            font-size: 13px;
+            padding: 3px 6px;
+            font-size: 12px;
             font-family: inherit;
             border: 1px solid transparent;
             border-radius: 6px;
             text-align: center;
             background: transparent;
+            color: var(--sw-text-2, #64748B);
             font-variant-numeric: tabular-nums;
             transition: border-color 0.15s, background-color 0.15s;
         }
-        .qty-input:hover { border-color: #E5E7EB; background: var(--sw-surface); }
-        .qty-input:focus { outline: none; border-color: var(--sw-navy); background: var(--sw-surface); }
+        .qty-input:hover { border-color: #E5E7EB; }
+        .qty-input:focus { outline: none; border-color: var(--sw-navy); }
 
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -6263,11 +6255,13 @@
             justify-content: center;
         }
         .install-toggle-row input[type="checkbox"] {
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             cursor: pointer;
             accent-color: var(--sw-navy);
+            opacity: 0.65;
         }
+        .install-toggle-row input[type="checkbox"]:checked { opacity: 0.85; }
 
         .btn-remove-group {
             padding: 5px 12px;

@@ -195,7 +195,9 @@ Par exemple, ajouter un **Caisson standard** avec L=24", H=36" :
 
 Les composantes sont indentées sous l'article parent et leurs quantités sont calculées par les formules de l'article. Les quantités distinguent automatiquement les constantes (ex: "4 vis par caisson") des formules dimensionnelles (ex: "surface L×H/144") — pas de risque de doublement quand vous avez plusieurs unités du même article.
 
-**Cohérence matériau** : quand le système résout le panneau vers mélamine, toutes les composantes associées (bande de chant, finition) sont automatiquement résolues dans le même contexte matériau. Pas besoin de vérifier manuellement la cohérence.
+**Cohérence matériau** : quand le système résout le panneau vers mélamine, toutes les composantes associées (bande de chant, finition) sont automatiquement résolues dans le même contexte matériau. Pas besoin de vérifier manuellement la cohérence. Par exemple, mélamine ne reçoit pas de finition laque (le système le sait et n'en crée pas).
+
+**Collapse des composantes** : les composantes sont **masquées par défaut** pour garder le calculateur lisible. Chaque parent affiche un triangle ▶ et un badge **(+3)** indiquant le nombre de composantes cachées. Cliquez le triangle pour expand/collapse les composantes d'un article. Une checkbox dans l'en-tête de la pièce permet de **tout montrer** d'un coup.
 
 #### Dimensions
 
@@ -204,9 +206,13 @@ Les articles de fabrication affichent des champs de dimensions :
 - **H** — Hauteur (pouces)
 - **P** — Profondeur (pouces)
 
-Pour les caissons, deux champs supplémentaires apparaissent :
+Pour les caissons, quatre champs supplémentaires apparaissent :
 - **Tab.** — Nombre de tablettes
 - **Part.** — Nombre de partitions
+- **Port.** — Nombre de portes (déclenche la cascade des façades)
+- **Tir.** — Nombre de tiroirs (déclenche la cascade des façades de tiroirs)
+
+**Note** : 0 est une valeur valide (caisson sans tablettes, sans portes, etc.). Laissez le champ vide si vous ne connaissez pas encore la valeur — le système attendra avant de générer les composantes.
 
 La quantité est calculée automatiquement selon le type d'unité :
 - **pi²** : L × H / 144
@@ -348,18 +354,28 @@ Le bouton **Rentabilité** dans la barre d'outils ouvre une vue détaillée :
 Pour ajuster le prix, la main-d'œuvre ou les coûts matériaux d'une ligne **sans modifier le catalogue** :
 
 1. **Survolez** la cellule prix d'un article → une icône ⚙ apparaît
-2. **Cliquez** sur ⚙ → un panneau s'ouvre avec trois sections :
-   - **Prix de vente** — Entrez un prix fixe qui remplace entièrement le prix calculé
-   - **Main-d'œuvre** — Ajustez les minutes par département (ex: ébénisterie, installation)
-   - **Coûts matériaux** — Ajustez les coûts par catégorie de dépense
-3. **Référence catalogue** — Chaque champ montre la valeur originale du catalogue en gris
+2. **Cliquez** sur ⚙ → un panneau s'ouvre avec 3 colonnes :
+   - **Cat** — Valeur catalogue (référence, non modifiable)
+   - **Auto** — Valeur auto-calculée par les barèmes (si un barème est actif, sinon vide)
+   - **Manuel** — Votre override. Laissez vide pour garder la valeur Auto ou Catalogue
+3. **Prix de vente** — En haut du panneau. Entrez un prix fixe qui remplace tout le calcul
 4. **Appliquer** — Enregistre les ajustements. La ligne affiche un indicateur violet
+
+**Hiérarchie** : pour chaque département, le système prend votre valeur Manuel si elle est définie, sinon la valeur Auto (barème), sinon la valeur Catalogue. Un override Manuel sur "Gestion" ne touche pas aux valeurs Auto des autres départements.
 
 Les ajustements sont **locaux à cette soumission** — ils ne modifient pas l'article dans le catalogue. Si vous changez l'article sélectionné sur la ligne, les ajustements sont automatiquement supprimés.
 
-Le bouton **Réinitialiser** dans le panneau supprime tous les ajustements et revient aux valeurs du catalogue.
+Le bouton **Réinitialiser** dans le panneau supprime les ajustements manuels (les valeurs Auto restent).
 
-**Note technique** : les ajustements de main-d'œuvre et matériaux se combinent avec les valeurs du catalogue (fusion). Le prix de vente fixe remplace complètement le calcul du prix composé. Les composantes générées automatiquement n'ont pas de bouton d'ajustement.
+### Barèmes automatiques
+
+Les articles avec des **barèmes** ajustent automatiquement leurs temps de main-d'œuvre et coûts matériaux selon les dimensions. Par exemple :
+- Caisson > 36 po → +25% machinage
+- Caisson > 48 po → +50% machinage + 20% panneaux
+
+Les barèmes sont définis sur l'article dans le catalogue (section "Barèmes et modificateurs", visible admin uniquement). Quand un barème est actif, une icône ⚙ bleue apparaît à côté du prix, et le panneau d'ajustement affiche les valeurs auto-calculées dans la colonne **Auto**.
+
+Les barèmes se recalculent automatiquement quand vous changez les dimensions. Vous pouvez toujours surcharger avec un override Manuel.
 
 ### Filtres et navigation
 
@@ -457,9 +473,15 @@ Glissez-déposez des images ou PDF. Chaque média peut recevoir des tags :
 - **Technique** — Documentation technique
 - **Dessin** — Schéma ou plan
 
-### Instructions AI du catalogue
+#### Sauvegarder
 
-C'est ici que la puissance de Scopewright se révèle. Chaque article de fabrication peut avoir des **instructions AI** qui définissent ses composantes automatiques.
+Cliquez **Sauvegarder** en bas de la modale. La modale **reste ouverte** après la sauvegarde — un toast "Sauvegardé ✓" confirme l'enregistrement. Fermez manuellement avec Annuler, le X, ou Escape.
+
+Le bouton **Dupliquer** crée une copie de l'article (nouveau code ST-XXXX, statut "en attente"). Les composantes fournisseur et les médias ne sont pas copiés.
+
+### Règles de cascade (anciennement "Instructions AI")
+
+C'est ici que la puissance de Scopewright se révèle. Chaque article de fabrication peut avoir des **règles de cascade** qui définissent ses composantes automatiques.
 
 #### Comment ça fonctionne
 
@@ -473,9 +495,29 @@ C'est ici que la puissance de Scopewright se révèle. Chaque article de fabrica
 
 #### Types de règles
 
-- **Matériau par défaut** — Utilise le matériau configuré dans les matériaux par défaut de la pièce (ex: le panneau sera en mélamine si le groupe « Caisson » est configuré en mélamine)
-- **Correspondance par catégorie** — Trouve l'article qui correspond à la catégorie de dépense dans les matériaux configurés (ex: bande de chant assortie au panneau)
+- **Matériau par défaut** (`$default:`) — Utilise le matériau configuré dans les matériaux par défaut de la pièce (ex: le panneau sera en mélamine si le groupe « Caisson » est configuré en mélamine)
+- **Correspondance par catégorie** (`$match:`) — Trouve l'article qui correspond à la catégorie de dépense dans les matériaux configurés (ex: bande de chant assortie au panneau). Le système vérifie automatiquement la cohérence : si le panneau résolu est en mélamine, les composantes incompatibles (ex: finition laque) sont exclues silencieusement
 - **Article spécifique** — Ajoute toujours le même article (ex: ST-0042 pour les pieds de meuble)
+
+#### Dimensions calculées des enfants
+
+Les règles cascade peuvent inclure des **formules de dimensions** pour les enfants. Par exemple, une façade de porte peut avoir `L = (L / n_portes) - 0.125` et `H = H - 0.25`. Les dimensions de l'enfant sont recalculées automatiquement quand les dimensions du parent changent.
+
+### Barèmes et modificateurs (admin)
+
+Les barèmes ajustent automatiquement les temps de main-d'œuvre et coûts matériaux selon les dimensions de l'article. Cette section est visible uniquement pour les administrateurs dans la modale d'édition du catalogue.
+
+#### Comment ça fonctionne
+
+1. Écrivez une **explication** des ajustements dimensionnels en langage naturel :
+
+   > « Largeur > 36 po → +25% machinage. Largeur > 48 po → +50% machinage et +20% panneaux. »
+
+2. Cliquez le **bouton AI** — le système génère le JSON structuré des barèmes
+
+3. Dans le calculateur, quand l'estimateur entre les dimensions, les ajustements s'appliquent automatiquement
+
+Le premier barème dont la condition est vraie est appliqué (pas de cumul). Les valeurs ajustées apparaissent dans la colonne **Auto** du popover d'override.
 
 ### Assistant catalogue
 
@@ -786,6 +828,8 @@ L'administration contient un **dropdown de 12+ assistants AI** dont vous pouvez 
 | Description AI | La génération des descriptions de meubles |
 | Import composantes | L'extraction des composantes fournisseur |
 | Assistant approbation | La révision automatique des soumissions |
+| Règles de cascade | La génération des règles cascade (JSON) |
+| Barèmes et modificateurs | La génération des barèmes dimensionnels (JSON) |
 
 Pour chaque assistant, vous pouvez **modifier le prompt** (les instructions). Laissez vide pour utiliser le prompt par défaut. Vos modifications sont sauvegardées et prennent effet immédiatement.
 

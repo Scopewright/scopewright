@@ -410,3 +410,40 @@
 - `unit_price` en DB reflète le prix effectif (avec overrides) pour compatibilité `quote.html`
 - Le changement d'article catalogue reset automatiquement les overrides
 - Les cascade children n'ont pas de bouton override (ajustements post-cascade uniquement)
+
+## DEC-021 — Barèmes automatiques (labor_modifiers) séparés des règles cascade
+
+**Date** : 2026-03-06
+
+**Contexte** : Les ajustements dimensionnels (ex: caisson > 36 po → +15 min machinage) étaient faits manuellement via le popover d'override. L'estimateur devait se rappeler les barèmes par cœur.
+
+**Décision** : Système `labor_modifiers` séparé de `calculation_rule_ai`. Section dédiée dans la modale catalogue (admin only). Structure JSON avec `condition` (expression evalFormula) + `labor_factor`/`material_factor` (multiplicateurs). First-match (premier modificateur vrai gagne). Évalué inline dans `updateRow()` à chaque changement dims. 3 formats acceptés (objet par département, scalaire, clé vide). Popover 3 colonnes (Cat/Auto/Manuel). Hiérarchie per-département : manual > auto-factored > catalogue.
+
+**Alternatives considérées** :
+- **Intégrer dans `calculation_rule_ai`** : surchargerait les règles cascade avec des données de pricing. Mélange de responsabilités — les barèmes sont du pricing, les cascades sont de la composition.
+- **Formules dans `labor_minutes` directement** : pas de séparation base/ajustement. Impossible de voir l'ajustement séparé de la base.
+- **Barèmes cumulatifs** : plus complexe, ambiguïté dans l'ordre d'application. First-match est simple et prévisible.
+
+**Conséquences** :
+- L'estimateur voit automatiquement les ajustements sans intervention
+- Les barèmes sont documentés sur chaque article (pas dans la tête des estimateurs)
+- L'override manuel reste possible et gagne sur l'auto
+- AI peut générer les barèmes depuis une description en langage naturel
+
+## DEC-022 — Collapse enfants cascade (masqués par défaut)
+
+**Date** : 2026-03-06
+
+**Contexte** : 3 caissons génèrent 20+ lignes cascade, rendant le calculateur difficile à lire. L'estimateur ne s'intéresse aux composantes que ponctuellement.
+
+**Décision** : Enfants masqués par défaut (`display: none`). Triangle ▶ sur le parent pour expand/collapse. Badge `(+N)` quand collapsé. Checkbox globale par pièce. État en mémoire uniquement (pas persisté en DB — reset au chargement). CSS `.show-all-cascade` sur le groupe pour la checkbox globale.
+
+**Alternatives considérées** :
+- **Persistance en DB** : ajoute de la complexité pour une préférence visuelle transitoire. Le reset au chargement est acceptable.
+- **Collapse global** (une seule checkbox pour toute la soumission) : l'estimateur peut vouloir voir les composantes d'un meuble mais pas d'un autre.
+- **Groupement visuel sans collapse** (indentation + bordure seulement) : l'état actuel avant ce fix — trop de lignes.
+
+**Conséquences** :
+- Le calculateur est visuellement propre par défaut (3 lignes au lieu de 20)
+- Les calculs, saves, et propagation installation fonctionnent sur les enfants masqués
+- L'estimateur peut inspecter les composantes à la demande

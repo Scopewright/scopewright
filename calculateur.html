@@ -11258,10 +11258,8 @@
             var showAll = container && container.classList.contains('show-all-cascade');
 
             if (_cascadeExpanded[parentRowId] || showAll) {
-                // Expanded or show-all: restore individual total
-                if (parentRow.dataset.individualTotal != null) {
-                    totalEl.textContent = parentRow.dataset.individualTotal;
-                }
+                // Expanded or show-all: restore individual total (always recalculate)
+                totalEl.textContent = formatPrice(getRowTotal(parentRow));
                 parentRow.classList.remove('aggregate-total');
                 return;
             }
@@ -11273,8 +11271,6 @@
             descendants.forEach(function(desc) {
                 sum += getRowTotal(desc);
             });
-            // Store individual total for restore on expand
-            parentRow.dataset.individualTotal = totalEl.textContent;
             totalEl.textContent = formatPrice(sum);
             parentRow.classList.add('aggregate-total');
             // Badge shows direct children count
@@ -12546,9 +12542,7 @@
             if (groupId) updateGroupSubtotal(groupId);
             updateGrandTotal();
 
-            // Store individual total for aggregate display, then update collapsed ancestors
-            var _totalEl = document.getElementById(rowId + '-total');
-            if (_totalEl) row.dataset.individualTotal = _totalEl.textContent;
+            // Update collapsed ancestors' aggregate totals
             var _ancestor = cascadeParentMap[rowId];
             while (_ancestor) {
                 if (!_cascadeExpanded[_ancestor]) {

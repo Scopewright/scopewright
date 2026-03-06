@@ -1124,8 +1124,8 @@
                         materialCosts: item.material_costs || {},
                         dims: catDims
                     };
-                    // Expose FAB parents with Supabase UUID for AI parent_item_id
-                    if (item.item_type === 'fabrication' && row.classList.contains('cascade-parent-row') && itemMap[row.id]) {
+                    // Expose all FAB items as potential parents for AI manual children
+                    if (item.item_type === 'fabrication' && itemMap[row.id]) {
                         rowData.isFabParent = true;
                         rowData.itemId = itemMap[row.id]; // Supabase UUID
                     }

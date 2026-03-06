@@ -11860,12 +11860,12 @@
                 var dept = t.department;
                 var catVal = laborMins[dept] || 0;
                 var autoFactor = ov.laborAuto && ov.laborAuto[dept] != null ? ov.laborAuto[dept] : null;
-                var autoVal = autoFactor ? Math.round(catVal * autoFactor) : null;
+                var autoVal = autoFactor != null ? Math.round(catVal * autoFactor) : null;
                 var ovVal = ov.labor && ov.labor[dept] != null ? ov.labor[dept] : '';
-                if (catVal > 0 || ovVal !== '' || autoVal) {
+                if (catVal > 0 || ovVal !== '' || autoVal != null) {
                     laborRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(dept) + '</span>';
                     laborRows += '<span class="ov-ref">Cat: ' + catVal + '</span>';
-                    laborRows += '<span class="ov-auto' + (autoVal ? ' ov-auto-active' : '') + '">' + (autoVal != null ? autoVal : '\u2014') + '</span>';
+                    laborRows += '<span class="ov-auto' + (autoVal != null && autoVal !== catVal ? ' ov-auto-active' : '') + '">' + (autoVal != null ? autoVal : '\u2014') + '</span>';
                     laborRows += '<input type="number" class="ov-inp" data-ov-labor="' + escapeAttr(dept) + '" step="1" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
                 }
             });
@@ -11881,12 +11881,12 @@
             expenseCategories.forEach(function(c) {
                 var catVal = matCosts[c.name] || 0;
                 var matAutoFactor = ov.materialAuto && ov.materialAuto[c.name] != null ? ov.materialAuto[c.name] : null;
-                var matAutoVal = matAutoFactor ? Math.round(catVal * matAutoFactor * 100) / 100 : null;
+                var matAutoVal = matAutoFactor != null ? Math.round(catVal * matAutoFactor * 100) / 100 : null;
                 var ovVal = ov.material && ov.material[c.name] != null ? ov.material[c.name] : '';
-                if (catVal > 0 || ovVal !== '' || matAutoVal) {
+                if (catVal > 0 || ovVal !== '' || matAutoVal != null) {
                     matRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(c.name) + '</span>';
                     matRows += '<span class="ov-ref">Cat: ' + formatPrice(catVal) + '</span>';
-                    matRows += '<span class="ov-auto' + (matAutoVal ? ' ov-auto-active' : '') + '">' + (matAutoVal != null ? formatPrice(matAutoVal) : '\u2014') + '</span>';
+                    matRows += '<span class="ov-auto' + (matAutoVal != null && matAutoVal !== catVal ? ' ov-auto-active' : '') + '">' + (matAutoVal != null ? formatPrice(matAutoVal) : '\u2014') + '</span>';
                     matRows += '<input type="number" class="ov-inp" data-ov-mat="' + escapeAttr(c.name) + '" step="0.01" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
                 }
             });
@@ -12644,9 +12644,9 @@
                         n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
                         n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
                     };
-                    console.log('[BAREMES] evaluating for', _bItem.id, 'vars:', JSON.stringify(_almVars));
+                    console.log('[BAREMES] evaluating for', _bItem.id, 'vars:', JSON.stringify(_almVars), 'labor_minutes:', JSON.stringify(_bItem.labor_minutes));
                     var autoModResult = evaluateLaborModifiers(_bItem, _almVars);
-                    console.log('[BAREMES] result:', autoModResult);
+                    console.log('[BAREMES] result:', JSON.stringify(autoModResult));
                     if (autoModResult) {
                         if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
                         _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;
@@ -12703,7 +12703,7 @@
                     var totalElB = document.getElementById(rowId + '-total');
                     var qtyB = parseFloat(qtyInput.value) || 0;
                     if (totalElB) totalElB.textContent = formatPrice(effectivePriceB * qtyB * multB);
-                    console.log('[BAREMES] price updated:', effectivePriceB, '× qty', qtyB, '=', effectivePriceB * qtyB * multB);
+                    console.log('[BAREMES] price updated:', effectivePriceB, '× qty', qtyB, '=', effectivePriceB * qtyB * multB, 'laborAuto:', JSON.stringify(_rowOverrides[rowId] && _rowOverrides[rowId].laborAuto));
                 } else if (_bItem) {
                     // Item exists but has no labor_modifiers — clear any stale auto overrides
                     if (_rowOverrides[rowId] && (_rowOverrides[rowId].laborAuto || _rowOverrides[rowId].materialAuto)) {

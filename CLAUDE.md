@@ -424,7 +424,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, label}` ou null. **Fallback** : lit `item.labor_modifiers` (colonne DB séparée) en priorité, puis `item.calculation_rule_ai.labor_modifiers` si absent — permet aux articles MAT d'avoir leurs barèmes dans `calculation_rule_ai` sans colonne dédiée. Appelé **inline** dans `updateRow()` à chaque appel (pas de pattern deferred) — lookup direct via `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque changement de dimensions. **Normalisation clé vide** : `labor_factor: {"": 1.25}` (généré par l'AI) est expandé à tous les départements MO de l'article
 
-**Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif.
+**Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif. **Important** : les valeurs `autoFactor`/`autoVal` sont des nombres — utiliser `!= null` (pas de truthy check) pour les conditionnels, sinon facteur `0` est traité comme absent. Classe `ov-auto-active` appliquée seulement quand `autoVal !== catVal`
 
 **AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`. **AI merge protection** dans `aiCalcRuleGenerate()` : quand l'AI régénère le JSON `calculation_rule_ai`, les clés `ask`, `override_children`, `child_dims`, `labor_modifiers` sont préservées depuis le JSON existant si l'AI ne les retourne pas
 

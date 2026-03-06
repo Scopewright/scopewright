@@ -266,7 +266,7 @@ Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Foncti
 
 **Parser fractions** : les inputs dims (L, H, P) sont `type="text" inputmode="decimal"` et acceptent les fractions (`3/4`, `1 1/2`, `23 5/8`, `1-3/4`). Au blur, `parseFraction(str)` convertit en décimal. Les décimaux normaux passent inchangés, les valeurs invalides retournent `null` (pas de modification). Le moteur reçoit toujours un décimal via `parseFloat(inp.value)`.
 
-**Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`.
+**Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`. **Important** : les valeurs `autoFactor`/`autoVal` sont numériques — les conditionnels utilisent `!= null` (pas de truthy check) pour gérer correctement le cas facteur `0`. Classe `ov-auto-active` seulement quand `autoVal !== catVal`.
 
 **Persistance** : `debouncedSaveItem()` écrit `labor_auto_modifier` JSONB. `openSubmission()` restaure dans `_rowOverrides`. `saveOverrides()` ne touche que les champs manuels. CSS `.has-auto-modifier` (gear icon).
 

@@ -330,6 +330,8 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 
 **Enfants manuels** : Pour ajouter un article comme enfant d'un FAB existant (ex: ouverture à pression sous une Facade), utilise le paramètre parent_item_id de add_catalogue_item avec l'UUID (itemId) du parent FAB. Les articles FAB parents sont identifiés par isFabParent=true et itemId dans le contexte de la pièce. L'enfant manuel hérite du tag du parent, apparaît sous ses enfants cascade, et ne sera jamais supprimé par le moteur cascade. **IMPORTANT** : si l'estimateur demande d'ajouter un article sous un parent FAB mais qu'aucun article avec isFabParent=true et un itemId correspondant n'est trouvé dans le contexte, ne JAMAIS ajouter l'article en racine silencieusement — signaler explicitement que le parent n'est pas identifiable et demander clarification.
 
+**Suppression d'articles** : Utilise remove_item avec l'UUID (itemId) de l'article à supprimer. Chaque article a un itemId dans le contexte de la pièce. Si l'article est un parent FAB avec des enfants cascade, TOUS les enfants seront supprimés aussi — préviens toujours l'utilisateur avant de confirmer. Pour REMPLACER un article, supprime l'ancien d'abord, puis ajoute le nouveau. Ne JAMAIS deviner un itemId — utilise uniquement ceux visibles dans le contexte.
+
 ${rulesLines}`;
   }
 
@@ -388,7 +390,7 @@ Sous-total (avant rabais) : ${context.subtotalBeforeDiscount || context.grandTot
   if (context.focusRoomDetail) {
     const f = context.focusRoomDetail;
     const itemsStr = (f.items || []).map((it: any, i: number) =>
-      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}× ${it.unitPrice}$ = ${it.lineTotal}$${it.isFabParent ? ' [FAB parent itemId=' + it.itemId + ']' : ''}`
+      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}× ${it.unitPrice}$ = ${it.lineTotal}$${it.itemId ? ' [itemId=' + it.itemId + ']' : ''}${it.isFabParent ? ' [FAB parent]' : ''}`
     ).join("\n");
     dynamicParts += `\n\n## Pièce en focus : ${f.name}
 Installation: ${f.installationIncluded ? 'Oui' : 'Non'}
@@ -522,6 +524,25 @@ const TOOLS = [
         },
       },
       required: ["room_name", "catalogue_item_id", "quantity"],
+    },
+  },
+  {
+    name: "remove_item",
+    description:
+      "Supprime un article d'une pièce. Si l'article est un parent FAB avec des enfants cascade, TOUS les enfants seront supprimés aussi — prévenir l'utilisateur avant d'appeler. N'APPELER QUE si l'utilisateur a CONFIRMÉ la suppression.",
+    input_schema: {
+      type: "object",
+      properties: {
+        room_name: {
+          type: "string",
+          description: "Nom de la pièce contenant l'article",
+        },
+        item_id: {
+          type: "string",
+          description: "UUID Supabase de l'article à supprimer (champ itemId dans le contexte de la pièce)",
+        },
+      },
+      required: ["room_name", "item_id"],
     },
   },
   {

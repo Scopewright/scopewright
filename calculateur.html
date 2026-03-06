@@ -1124,10 +1124,13 @@
                         materialCosts: item.material_costs || {},
                         dims: catDims
                     };
-                    // Expose all FAB items as potential parents for AI manual children
-                    if (item.item_type === 'fabrication' && itemMap[row.id]) {
-                        rowData.isFabParent = true;
+                    // Expose Supabase UUID on all items (for AI tools: remove_item, etc.)
+                    if (itemMap[row.id]) {
                         rowData.itemId = itemMap[row.id]; // Supabase UUID
+                    }
+                    // Mark FAB items as potential parents for AI manual children
+                    if (item.item_type === 'fabrication') {
+                        rowData.isFabParent = true;
                     }
                     if (item.instruction) rowData.instruction = item.instruction;
                     var ovCtx = _rowOverrides[row.id];
@@ -1431,7 +1434,8 @@
                 if (it.catalogueId) slim.catalogueId = it.catalogueId;
                 if (it.dims) slim.dims = it.dims;
                 if (it.overrides) slim.overrides = it.overrides;
-                if (it.isFabParent) { slim.isFabParent = true; slim.itemId = it.itemId; }
+                if (it.itemId) slim.itemId = it.itemId;
+                if (it.isFabParent) slim.isFabParent = true;
                 return slim;
             });
             delete focusDetail.rentability;
@@ -1752,6 +1756,8 @@
                     return 'Écrire la description de **' + (tc.input.room_name || '?') + '**';
                 case 'add_catalogue_item':
                     return 'Ajouter **' + (tc.input.catalogue_item_id || '?') + '** × ' + (tc.input.quantity || 1) + ' à **' + (tc.input.room_name || '?') + '**';
+                case 'remove_item':
+                    return 'Supprimer article [itemId=' + (tc.input.item_id || '?').slice(0, 8) + '…] de **' + (tc.input.room_name || '?') + '**';
                 case 'modify_item':
                     var modParts = [];
                     if (tc.input.changes) {
@@ -1862,11 +1868,11 @@
     // ── Auto-execute tools when user already confirmed via text ──
     async function autoExecutePendingTools() {
         if (!aiPendingToolCalls) return;
-        // Block auto-execution for submission line overrides — force manual confirmation
-        var hasLineOverride = aiPendingToolCalls.tools.some(function(tc) {
-            return tc.name === 'update_submission_line';
+        // Block auto-execution for destructive/override tools — force manual confirmation
+        var hasBlockedTool = aiPendingToolCalls.tools.some(function(tc) {
+            return tc.name === 'update_submission_line' || tc.name === 'remove_item';
         });
-        if (hasLineOverride) {
+        if (hasBlockedTool) {
             appendAiMessage('confirm', formatPendingActions(aiPendingToolCalls.tools));
             saveAiChatMessage('assistant', '[Actions proposées - confirmation obligatoire pour override ligne]', []);
             return;
@@ -1924,6 +1930,7 @@
         switch (name) {
             case 'write_description': return 'Description mise à jour : ' + (input.room_name || '');
             case 'add_catalogue_item': return 'Article ajouté : ' + (input.catalogue_item_id || '') + ' × ' + (input.quantity || 1);
+            case 'remove_item': return 'Article supprimé de ' + (input.room_name || '');
             case 'modify_item': return 'Ligne ' + input.item_index + ' modifiée dans ' + (input.room_name || '');
             case 'analyze_rentability': return 'Analyse de rentabilité effectuée';
             case 'suggest_items': return 'Recherche catalogue effectuée';
@@ -1937,7 +1944,7 @@
     // ── Tool execution (client-side) ──
     async function executeAiTool(name, input) {
         // Block write operations on locked submissions
-        var _writeOps = ['write_description', 'add_catalogue_item', 'modify_item', 'update_catalogue_item', 'update_submission_line'];
+        var _writeOps = ['write_description', 'add_catalogue_item', 'remove_item', 'modify_item', 'update_catalogue_item', 'update_submission_line'];
         if (_writeOps.indexOf(name) !== -1 &&
             typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) {
             return { error: 'Soumission verrouillée — modification impossible' };
@@ -2123,6 +2130,23 @@
                 }
                 var result = { success: true, rowId: rowId, room: input.room_name, tag: effectiveTag || null };
                 if (_parentRowId) result.parent_item_id = input.parent_item_id;
+                return result;
+            }
+            case 'remove_item': {
+                var gid = findGroupIdByName(input.room_name);
+                if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
+                // Reverse lookup: itemMap[rowId] = supabaseUUID → find rowId for this UUID
+                var targetRowId = Object.keys(itemMap).find(function(k) { return itemMap[k] === input.item_id; });
+                if (!targetRowId) return { error: 'Article introuvable (UUID): ' + input.item_id };
+                var targetRow = document.getElementById(targetRowId);
+                if (!targetRow || targetRow.dataset.group !== gid) return { error: 'L\'article n\'est pas dans la pièce ' + input.room_name };
+                // Gather info for response
+                var targetSelect = targetRow.querySelector('.item-select');
+                var targetDesc = targetSelect ? (targetSelect.options[targetSelect.selectedIndex] || {}).text || targetSelect.value : '';
+                var childCount = findCascadeChildren(targetRowId).length;
+                removeRow(targetRowId);
+                var result = { success: true, room: input.room_name, description: targetDesc };
+                if (childCount > 0) result.children_removed = childCount;
                 return result;
             }
             case 'modify_item': {

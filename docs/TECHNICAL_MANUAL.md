@@ -745,6 +745,7 @@ calculateur.html                    ai-assistant Edge Function
 | `analyze_rentability` | Confirmation requise | Analyse de rentabilité : prix de vente, coûts, marges, heures par département |
 | `write_description` | Confirmation requise | Écrit/réécrit la description client d'une pièce en HTML formaté Stele |
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions (L/H/P) et variables caisson (n_tablettes, n_partitions, n_portes, n_tiroirs) optionnelles |
+| `remove_item` | Confirmation obligatoire | Supprime un article d'une pièce via `item_id` (UUID Supabase). Si parent FAB avec enfants cascade, tous les enfants sont supprimés aussi. **Jamais auto-exécuté** (destructif) |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P, n_tablettes, n_partitions, n_portes, n_tiroirs) |
 | `update_catalogue_item` | Auto après confirmation | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. Auto-exécuté après confirmation conversationnelle |
 | `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. Retourne `catalogue_base` + `effective_overrides` pour vérification. **Jamais auto-exécuté** |

@@ -557,9 +557,11 @@ Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le ca
 
 **Exclusions** : pas de bouton override sur les cascade children. Boutons désactivés quand soumission verrouillée (`setEditable`).
 
+**Undo stack** : `_undoStack[]` (max 10 entrées). Après suppression ou modification d'overrides, un snapshot est poussé dans le stack. Bouton flottant `↩ Annuler` (bas gauche, class `.undo-btn`) apparaît 8 secondes après une action destructive. `executeUndo()` restaure le dernier état : recrée la ligne (delete) ou restaure les overrides précédents (override). Stack vidé à chaque `openSubmission`.
+
 ### 3.12 Edge cases et limitations
 
-1. **`$match:` non re-cascadé sur changement DM** : `reprocessDefaultCascades()` ne gère que les cibles `$default:`. Les `$match:` ne sont pas recalculés quand on change un matériau par défaut — seul un re-trigger manuel de la cascade du parent le fait.
+1. **`$match:` re-cascadé sur changement DM** : `reprocessDefaultCascades()` gère les cibles `$default:` ET `$match:` (line ~4155). Le `matchDefaults` cache et `dmChoiceCache` sont invalidés avant re-cascade.
 2. **Cascade max 3 niveaux** : Suffisant pour la plupart des cas (FAB → matériau → sous-composant), mais des structures plus profondes seraient tronquées.
 3. **Polling wait limité à 4 secondes** : Si la création DB est plus lente (connexion faible), le cascade peut échouer avec "Timeout création ligne".
 4. **Singulier/pluriel dans le fuzzy match** : Normalisé via regex `([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)` qui strip les s/x finaux.
@@ -1272,7 +1274,7 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 201 assertions en 25 groupes |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 215 assertions en 23 groupes |
 | `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
 | `tests/fixtures/catalogue.js` | 17 articles réalistes (ST-0001 à ST-0060 + ST-0005 + ST-0007 + ST-0045) : 7 FAB avec cascade rules, 10 MAT avec `material_costs` |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |

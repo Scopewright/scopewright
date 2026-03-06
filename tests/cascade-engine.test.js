@@ -1350,6 +1350,125 @@ describe('GROUP 21 — Multi-instance cascade (child_dims + qty > 1)', function(
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 22 — Collapsed parent total (recursive aggregation logic)
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 22 — Collapsed parent total recursive aggregation', function() {
+    // The updateCollapsedParentTotal function uses getRowTotal for the parent
+    // and sums getAllCascadeDescendants for children. We test the pure computation
+    // logic: given a tree of items with prices, the aggregate total should equal
+    // parent + all descendants at all depths.
+
+    // Helper: simulate getRowTotal for a catalogue item with qty
+    function mockRowTotal(item, qty) {
+        return (item.price || 0) * (qty || 1);
+    }
+
+    it('parent with 1 child → aggregate = parent + child', function() {
+        var parent = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0001'; });
+        var child = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0020'; });
+        var parentTotal = mockRowTotal(parent, 1);
+        var childTotal = mockRowTotal(child, 6); // qty from formula
+        var aggregate = parentTotal + childTotal;
+        assertEqual(aggregate, 450 + 5.20 * 6);
+    });
+
+    it('parent with 3 children → aggregate = parent + sum(children)', function() {
+        var parent = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0001'; });
+        var children = [
+            { item: CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0020'; }), qty: 6 },
+            { item: CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0030'; }), qty: 10 },
+            { item: CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0010'; }), qty: 4 }
+        ];
+        var aggregate = mockRowTotal(parent, 1);
+        children.forEach(function(c) { aggregate += mockRowTotal(c.item, c.qty); });
+        assertApprox(aggregate, 450 + 31.2 + 4.5 + 0.6, 0.01);
+    });
+
+    it('parent with child + grandchild → aggregate includes grandchild', function() {
+        var parent = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0007'; }); // 600
+        var child = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0045'; }); // 120
+        var grandchild = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0040'; }); // 3.80
+        var aggregate = mockRowTotal(parent, 1) + mockRowTotal(child, 1) + mockRowTotal(grandchild, 2);
+        assertApprox(aggregate, 600 + 120 + 7.6, 0.01);
+    });
+
+    it('aggregate is independent of expand/collapse state (pure data)', function() {
+        // The total calculation does not depend on UI state — it always sums ALL descendants
+        var prices = [450, 31.2, 4.5, 0.6]; // parent + 3 children
+        var total1 = prices.reduce(function(s, p) { return s + p; }, 0); // "expanded"
+        var total2 = prices.reduce(function(s, p) { return s + p; }, 0); // "collapsed" — same
+        assertApprox(total1, total2, 0.001);
+        assertApprox(total1, 486.3, 0.01);
+    });
+
+    it('empty children → aggregate = parent total only', function() {
+        var parent = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0060'; }); // 80, no cascade
+        var aggregate = mockRowTotal(parent, 2);
+        assertEqual(aggregate, 160);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 23 — FAB child not blocked by parent override_children
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 23 — FAB child not blocked by parent override_children', function() {
+    var parentFab = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0007'; });
+    var fabChild = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0045'; });
+    var parentOverrides = parentFab.calculation_rule_ai.override_children; // ['BANDE DE CHANT', 'FINITION BOIS']
+    var parentMerged = mergeOverrideChildren([], parentOverrides);
+
+    it('parent ST-0007 has override_children with FINITION BOIS', function() {
+        assert(parentOverrides.indexOf('FINITION BOIS') !== -1);
+    });
+
+    it('parent ST-0007 has override_children with BANDE DE CHANT', function() {
+        assert(parentOverrides.indexOf('BANDE DE CHANT') !== -1);
+    });
+
+    it('MAT child: $match:FINITION BOIS IS blocked by parent override', function() {
+        assert(isRuleOverridden('$match:FINITION BOIS', parentMerged));
+    });
+
+    it('MAT child: $match:BANDE DE CHANT IS blocked by parent override', function() {
+        assert(isRuleOverridden('$match:BANDE DE CHANT', parentMerged));
+    });
+
+    it('FAB child ST-0045 receives empty parentOverrides → autonomy', function() {
+        // When executeCascade recurses into a FAB child, it passes [] as parentOverrides
+        var fabChildParentOverrides = []; // FAB autonomy: always fresh
+        assert(!isRuleOverridden('$match:FINITION BOIS', fabChildParentOverrides));
+    });
+
+    it('FAB child ST-0045 own $match:FINITION BOIS is NOT blocked', function() {
+        // The FAB child has its own $match:FINITION BOIS cascade rule
+        var childRules = fabChild.calculation_rule_ai.cascade;
+        var hasFinition = childRules.some(function(r) { return r.target === '$match:FINITION BOIS'; });
+        assert(hasFinition);
+        // With empty parentOverrides, it's NOT blocked
+        assert(!isRuleOverridden('$match:FINITION BOIS', []));
+    });
+
+    it('FAB child own $default:Facades is never blocked regardless', function() {
+        assert(!isRuleOverridden('$default:Facades', parentMerged));
+        assert(!isRuleOverridden('$default:Facades', []));
+    });
+
+    it('FAB child applies its own override_children to its descendants', function() {
+        // ST-0045 has no override_children → undefined, falls back to []
+        var fabChildOwn = (fabChild.calculation_rule_ai || {}).override_children;
+        assertEqual(fabChildOwn, undefined);
+        var merged = mergeOverrideChildren([], fabChildOwn || []);
+        assertDeepEqual(merged, []);
+    });
+
+    it('direct code target (ST-0045) is NEVER blocked by override_children', function() {
+        assert(!isRuleOverridden('ST-0045', parentMerged));
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

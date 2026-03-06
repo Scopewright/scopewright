@@ -223,9 +223,9 @@ Les composants catalogue sont sauvés en supprimant TOUS les existants puis en i
 
 ### 3.3 Edge cases dans le moteur de cascade
 
-**[BUG-08] MOYEN — `$match:` pas re-cascadé sur changement DM**
+**[BUG-08] ~~MOYEN~~ CORRIGÉ — `$match:` re-cascadé sur changement DM**
 
-`reprocessDefaultCascades()` ne gère que les cibles `$default:`. Quand un matériau par défaut change, les enfants `$match:` ne sont PAS recalculés. L'utilisateur doit manuellement re-trigger la cascade du parent (modifier une dimension, par exemple).
+`reprocessDefaultCascades()` gère les cibles `$default:` ET `$match:` (line ~4155, condition `c.target.startsWith('$match:')`). Le `matchDefaults` cache et `dmChoiceCache` sont invalidés avant re-cascade. Les enfants `$match:` sont correctement recalculés quand un matériau par défaut change.
 
 **[BUG-09] FAIBLE — `dmChoiceCache` persiste entre les pièces**
 
@@ -546,7 +546,7 @@ L'application nécessite une connexion internet permanente. Aucun cache de requ�
 | RI-01 | ~~**`authenticatedFetch` dupliqué**~~ **FAIT** (ARCH-03) | ~~Divergence entre fichiers~~ | ~~Moyen~~ | Extrait dans `shared/auth.js` (2026-03-02) |
 | RI-02 | **Employees accessible via anon** (SEC-03) | Emails employés exposés | Faible | Créer une RPC `get_employee_email(name)` au lieu d'une query directe |
 | RI-03 | **Prix composé vs manuel inconsistant** (BUG-04) | Confusion utilisateur, erreurs de pricing | Moyen | Documenter la priorité et l'afficher clairement dans l'UI |
-| RI-04 | **`$match:` pas re-cascadé sur changement DM** (BUG-08) | Matériaux incorrects après changement de DM | Moyen | Étendre `reprocessDefaultCascades` pour aussi relancer les cascades avec `$match:` |
+| RI-04 | ~~**`$match:` pas re-cascadé sur changement DM** (BUG-08)~~ CORRIGÉ | ~~Matériaux incorrects après changement de DM~~ | ~~Moyen~~ | `reprocessDefaultCascades` gère déjà `$match:` (line ~4155) |
 | RI-05 | **Pas de pagination `loadProjects`** (PERF-01) | Lenteur avec 500+ projets | Moyen | Ajouter `limit=50` + pagination infinite scroll |
 | RI-06 | **Token révocation** (SEC-06) | Impossible d'invalider un lien compromis | Faible | Ajouter un bouton "Révoquer" dans le workflow (DELETE du token) |
 | RI-07 | **Signature perdue au resize** (BUG-14) | Client mobile perd sa signature en tournant le téléphone | Faible | Sauvegarder le contenu du canvas avant resize et le restaurer après |

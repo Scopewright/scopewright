@@ -271,6 +271,7 @@ Ajustements par ligne, par soumission, sans modifier le catalogue. Stocké dans 
 - **Reset** : changement d'article → overrides supprimés. Bouton "Réinitialiser" dans le popover
 - **Cascade children** : pas de bouton override (masqué dans `addRow` si `opts.cascade`)
 - **AI tool** : `update_submission_line` — jamais auto-exécuté, simulation obligatoire. Migration : `sql/line_overrides.sql`
+- **Undo stack** : `_undoStack[]` (max 10 entrées) — snapshot avant suppression ou modification d'overrides. Bouton flottant `↩ Annuler` (bas gauche, 8s auto-hide) après toute action destructive. `executeUndo()` restaure le dernier état (recrée la ligne pour delete, restaure les overrides pour override). Stack vidé à chaque changement de soumission
 
 ### Dropdown combobox articles
 
@@ -643,7 +644,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 201 assertions en 25 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 215 assertions en 23 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 16 articles catalogue réalistes (6 FAB + 10 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

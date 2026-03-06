@@ -202,7 +202,7 @@ async function loadPromptOverride(supabase: any, key: string = "ai_prompt_estima
   }
 }
 
-function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = []): string {
+function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = [], messages: any[] = []): string {
   // Use override or default for the static instructions
   let staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
@@ -335,16 +335,26 @@ Ne jamais inventer une formule. Si un article n'a pas de règle de calcul, deman
 ${rulesLines}`;
   }
 
-  // Cascade diagnostic instructions
-  dynamicParts += `\n\n## Diagnostic cascade
+  // Cascade diagnostic instructions (conditional — only when cascade context detected)
+  if (context.cascadeDiagnostic) {
+    dynamicParts += `\n\n## Diagnostic cascade
 Quand un utilisateur signale un problème de cascade (enfants manquants, doublons, mauvais matériau) :
 1. Les logs du moteur cascade sont inclus automatiquement dans ton contexte (section "Logs cascade")
 2. Lis les logs pour identifier la cause : résolution échouée ($default/$match), DM manquant, suppression utilisateur, guard dimensions, etc.
 3. Explique le problème en termes simples (pas de jargon technique)
 4. Propose une solution concrète : configurer un DM, ajuster une règle, restaurer un enfant supprimé`;
+  }
 
-  // Catalogue modification instructions
-  dynamicParts += `\n\n## Modification catalogue (tool update_catalogue_item)
+  // Catalogue modification instructions (conditional — only when edit context detected)
+  const userMsg = (messages || []).filter((m: any) => m.role === 'user').map((m: any) => {
+    if (typeof m.content === 'string') return m.content;
+    if (Array.isArray(m.content)) return m.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join(' ');
+    return '';
+  }).join(' ').toLowerCase();
+  const needsCatModInstr = /modifi|chang|ajust|prix|coût|minute|override|catalogue|labor|material/i.test(userMsg);
+
+  if (needsCatModInstr || context.calculationRules?.length > 0) {
+    dynamicParts += `\n\n## Modification catalogue (tool update_catalogue_item)
 Tu peux modifier certains champs d'articles du catalogue : price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct.
 Flux OBLIGATOIRE :
 1. D'abord PROPOSER les modifications en texte (simulation) — montrer avant/après
@@ -354,8 +364,7 @@ Flux OBLIGATOIRE :
 5. Le paramètre "reason" est OBLIGATOIRE — résume pourquoi la modification est faite
 Champs INTERDITS (sécurité) : id, category, description, client_text, type, status, is_default, sort_order — ces champs ne sont pas modifiables par cet outil.`;
 
-  // Per-line override instructions
-  dynamicParts += `\n\n## Ajustement par ligne (tool update_submission_line)
+    dynamicParts += `\n\n## Ajustement par ligne (tool update_submission_line)
 Tu peux ajuster les minutes MO, coûts matériaux ou prix de vente d'une ligne DANS la soumission, sans modifier le catalogue.
 Cas d'usage : meuble plus complexe que la normale, prix négocié, matériau plus cher pour cette dimension, instruction de l'article catalogue.
 Flux OBLIGATOIRE :
@@ -366,6 +375,7 @@ Flux OBLIGATOIRE :
 5. Le paramètre "reason" est OBLIGATOIRE
 IMPORTANT : price override remplace entièrement le prix composé. labor_minutes/material_costs override se fusionnent avec les valeurs catalogue (Object.assign) et le prix est recalculé.
 Le résultat du tool contient catalogue_base (labor_minutes et material_costs catalogue) et effective_overrides (valeurs effectives après fusion). Utilise-les pour vérifier ton calcul dans ta réponse.`;
+  }
 
   // Project context
   dynamicParts += `\n\n## Contexte actuel
@@ -782,7 +792,7 @@ serve(async (req) => {
 
     if (effectiveKey === "ai_prompt_estimateur") {
       // Estimateur: full buildSystemPrompt with project/room/tag context
-      systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings);
+      systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings, messages || []);
       // Inject catalogue summary into context if provided
       if (context?.catalogueSummary) {
         systemPrompt += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles PAR DÉFAUT de l'atelier — utilise-les en priorité sauf indication contraire de l'estimateur. Les articles sans ★ sont des alternatives disponibles mais non privilégiées.\n${context.catalogueSummary}`;

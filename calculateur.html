@@ -92,6 +92,8 @@
     var SUPPLIER_COMPANIES = [];     // [{id, name}] from companies where company_type='Fournisseurs'
     var _customItemDataMap = {};     // { rowId: { description, unit_price, markup, custom_data } }
     var _rowOverrides = {};          // { rowId: { labor: {dept: mins}, material: {cat: cost}, price: number|null } }
+    var _undoStack = [];             // max 10 entries: { type, data, timestamp }
+    var _undoTimer = null;           // timer for auto-hide undo button
     var _cimRowId = null;            // rowId being edited in custom item modal
     var _cimAttachments = [];        // [{path, name, type, size, isNew, file}]
     var _cimAttachmentsToDelete = []; // storage paths to delete on save
@@ -5723,6 +5725,22 @@
         @keyframes ctToastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .constraint-toast.ct-out { animation: ctToastOut 0.2s ease forwards; }
         @keyframes ctToastOut { to { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+        /* ── Undo button (floating, bottom-left) ── */
+        .undo-btn {
+            position: fixed; bottom: 24px; left: 24px; z-index: 9998;
+            display: flex; align-items: center; gap: 6px;
+            background: var(--sw-navy, #0B1220); color: #fff;
+            font-size: 13px; font-weight: 500; padding: 8px 16px;
+            border: none; border-radius: 10px; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            opacity: 0; pointer-events: none;
+            transform: translateY(8px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .undo-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        .undo-btn:hover { background: var(--sw-navy-hover, #080E18); }
+        .undo-btn .undo-icon { font-size: 15px; }
+        .undo-btn .undo-label { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .calc-row.constraint-added { border-left: 2px solid #1565C0; background: #f0f7ff; }
         .constraint-badge {
             font-size: 9px; background: #dbeafe; color: #1565C0;
@@ -11855,6 +11873,9 @@
         }
 
         function saveOverrides(rowId) {
+            // Snapshot previous overrides for undo
+            var prevOv = _rowOverrides[rowId] ? JSON.parse(JSON.stringify(_rowOverrides[rowId])) : null;
+
             var item = null;
             var row = document.getElementById(rowId);
             if (row) {
@@ -11904,6 +11925,13 @@
                 _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, autoLabel: existing.autoLabel };
                 if (!existing.laborAuto && !existing.materialAuto) delete _rowOverrides[rowId];
                 if (row) row.classList.remove('has-override');
+            }
+
+            // Push undo if overrides actually changed
+            var newOv = _rowOverrides[rowId] || null;
+            var changed = JSON.stringify(prevOv) !== JSON.stringify(newOv);
+            if (changed) {
+                pushUndo('override', { rowId: rowId, previousOverrides: prevOv }, 'Override modifié');
             }
 
             updateRow(rowId, { skipCascade: true });
@@ -12806,7 +12834,17 @@
             });
         }
 
-        function removeRow(rowId) {
+        function removeRow(rowId, opts) {
+            opts = opts || {};
+            // Snapshot for undo (only for manual deletions, not cascade-driven)
+            if (!_cascadeRunning && !opts._fromUndo) {
+                var snap = snapshotRow(rowId);
+                if (snap && snap.catalogueItemId && snap.catalogueItemId !== '__PROPOSER__' && snap.catalogueItemId !== '__AJOUT__') {
+                    var catItem = CATALOGUE_DATA.find(function(i) { return i.id === snap.catalogueItemId; });
+                    var label = catItem ? catItem.description : snap.catalogueItemId;
+                    pushUndo('delete', snap, 'Suppr. ' + (label || '').substring(0, 30));
+                }
+            }
             // If user manually deletes a cascade child, suppress it on parent
             if (!_cascadeRunning && cascadeParentMap[rowId]) {
                 var parentRowId = cascadeParentMap[rowId];
@@ -12858,6 +12896,199 @@
                     updateRoomDmBadge(groupId);
                 }
                 updateGrandTotal();
+            }
+        }
+
+        // ── Undo stack ──
+        function snapshotRow(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return null;
+            var select = row.querySelector('.item-select');
+            var qtyInput = row.querySelector('.qty-input');
+            var tagInput = document.getElementById(rowId + '-tag');
+            var dimL = document.getElementById(rowId + '-dim-l');
+            var dimH = document.getElementById(rowId + '-dim-h');
+            var dimP = document.getElementById(rowId + '-dim-p');
+            var nTab = document.getElementById(rowId + '-n-tab');
+            var nPart = document.getElementById(rowId + '-n-part');
+            var nPorte = document.getElementById(rowId + '-n-porte');
+            var nTiroir = document.getElementById(rowId + '-n-tiroir');
+            var installCb = document.getElementById(rowId + '-install');
+            return {
+                rowId: rowId,
+                groupId: row.dataset.group,
+                roomId: roomMap[row.dataset.group] || null,
+                supabaseId: itemMap[rowId] || null,
+                catalogueItemId: select ? select.value : null,
+                quantity: qtyInput ? parseFloat(qtyInput.value) || 0 : 0,
+                tag: tagInput ? tagInput.value : null,
+                dims: {
+                    l: dimL ? parseFloat(dimL.value) || null : null,
+                    h: dimH ? parseFloat(dimH.value) || null : null,
+                    p: dimP ? parseFloat(dimP.value) || null : null
+                },
+                caisson: {
+                    n_tablettes: nTab ? parseInt(nTab.value) : null,
+                    n_partitions: nPart ? parseInt(nPart.value) : null,
+                    n_portes: nPorte ? parseInt(nPorte.value) : null,
+                    n_tiroirs: nTiroir ? parseInt(nTiroir.value) : null
+                },
+                parentRowId: cascadeParentMap[rowId] || null,
+                parentSupabaseId: cascadeParentMap[rowId] ? (itemMap[cascadeParentMap[rowId]] || null) : null,
+                isCascadeChild: row.classList.contains('cascade-child'),
+                isCascadeLocked: row.classList.contains('cascade-locked'),
+                overrides: _rowOverrides[rowId] ? JSON.parse(JSON.stringify(_rowOverrides[rowId])) : null,
+                installationIncluded: installCb ? installCb.checked : true
+            };
+        }
+
+        function pushUndo(type, data, label) {
+            _undoStack.push({ type: type, data: data, label: label, ts: Date.now() });
+            if (_undoStack.length > 10) _undoStack.shift();
+            showUndoButton(label);
+        }
+
+        function showUndoButton(label) {
+            var btn = document.getElementById('undoBtn');
+            if (!btn) return;
+            var labelEl = btn.querySelector('.undo-label');
+            if (labelEl) labelEl.textContent = label || 'Annuler';
+            btn.classList.add('visible');
+            if (_undoTimer) clearTimeout(_undoTimer);
+            _undoTimer = setTimeout(function() {
+                btn.classList.remove('visible');
+                _undoTimer = null;
+            }, 8000);
+        }
+
+        function hideUndoButton() {
+            var btn = document.getElementById('undoBtn');
+            if (btn) btn.classList.remove('visible');
+            if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+        }
+
+        async function executeUndo() {
+            if (_undoStack.length === 0) return;
+            var entry = _undoStack.pop();
+            hideUndoButton();
+            switch (entry.type) {
+                case 'delete': {
+                    var d = entry.data;
+                    if (!d.groupId || !d.roomId) break;
+                    var addOpts = { skipFocus: true };
+                    if (d.parentRowId) addOpts.parentRowId = d.parentRowId;
+                    var rowId = addRow(d.groupId, addOpts);
+                    if (!rowId) break;
+                    // Wait for Supabase item creation
+                    var w = 0;
+                    while (!itemMap[rowId] && w < 50) { await new Promise(function(r) { setTimeout(r, 100); }); w++; }
+                    if (!itemMap[rowId]) break;
+                    // Set catalogue item
+                    if (d.catalogueItemId && d.catalogueItemId !== '__PROPOSER__' && d.catalogueItemId !== '__AJOUT__') {
+                        var row = document.getElementById(rowId);
+                        var select = row ? row.querySelector('.item-select') : null;
+                        if (select) select.value = d.catalogueItemId;
+                        syncComboboxDisplay(rowId);
+                    }
+                    // Set quantity
+                    var qtyInput = document.getElementById(rowId + '-qty');
+                    if (qtyInput && d.quantity) qtyInput.value = d.quantity;
+                    // Set tag
+                    if (d.tag) {
+                        var tagInput = document.getElementById(rowId + '-tag');
+                        if (tagInput) tagInput.value = d.tag;
+                    }
+                    // Set dims datasets
+                    var dimsEl = document.getElementById(rowId + '-dims');
+                    if (dimsEl && d.dims) {
+                        if (d.dims.l) dimsEl.dataset.l = d.dims.l;
+                        if (d.dims.h) dimsEl.dataset.h = d.dims.h;
+                        if (d.dims.p) dimsEl.dataset.p = d.dims.p;
+                    }
+                    if (dimsEl && d.caisson) {
+                        if (d.caisson.n_tablettes != null) dimsEl.dataset.tab = d.caisson.n_tablettes;
+                        if (d.caisson.n_partitions != null) dimsEl.dataset.part = d.caisson.n_partitions;
+                        if (d.caisson.n_portes != null) dimsEl.dataset.porte = d.caisson.n_portes;
+                        if (d.caisson.n_tiroirs != null) dimsEl.dataset.tiroir = d.caisson.n_tiroirs;
+                    }
+                    // updateRow to create dim inputs
+                    updateRow(rowId);
+                    // Set actual dim values
+                    if (d.dims) {
+                        if (d.dims.l) { var el = document.getElementById(rowId + '-dim-l'); if (el) el.value = d.dims.l; }
+                        if (d.dims.h) { var el2 = document.getElementById(rowId + '-dim-h'); if (el2) el2.value = d.dims.h; }
+                        if (d.dims.p) { var el3 = document.getElementById(rowId + '-dim-p'); if (el3) el3.value = d.dims.p; }
+                    }
+                    if (d.caisson) {
+                        if (d.caisson.n_tablettes != null) { var el4 = document.getElementById(rowId + '-n-tab'); if (el4) el4.value = d.caisson.n_tablettes; }
+                        if (d.caisson.n_partitions != null) { var el5 = document.getElementById(rowId + '-n-part'); if (el5) el5.value = d.caisson.n_partitions; }
+                        if (d.caisson.n_portes != null) { var el6 = document.getElementById(rowId + '-n-porte'); if (el6) el6.value = d.caisson.n_portes; }
+                        if (d.caisson.n_tiroirs != null) { var el7 = document.getElementById(rowId + '-n-tiroir'); if (el7) el7.value = d.caisson.n_tiroirs; }
+                    }
+                    // Set installation
+                    var installCb = document.getElementById(rowId + '-install');
+                    if (installCb) installCb.checked = d.installationIncluded;
+                    // Restore overrides
+                    if (d.overrides) _rowOverrides[rowId] = d.overrides;
+                    // Immediate save
+                    if (itemMap[rowId] && d.catalogueItemId) {
+                        var catItem = CATALOGUE_DATA.find(function(i) { return i.id === d.catalogueItemId; });
+                        if (catItem) {
+                            var composed = computeComposedPrice(catItem, d.installationIncluded);
+                            var saveFields = {
+                                item_type: 'catalogue',
+                                catalogue_item_id: catItem.id,
+                                description: catItem.description,
+                                unit_type: catItem.type || '',
+                                unit_price: composed !== null ? composed : (catItem.price || 0),
+                                quantity: d.quantity || 0,
+                                markup: 0
+                            };
+                            if (d.tag) saveFields.tag = d.tag;
+                            if (d.dims) {
+                                saveFields.length_in = d.dims.l || null;
+                                saveFields.height_in = d.dims.h || null;
+                                saveFields.depth_in = d.dims.p || null;
+                            }
+                            if (d.overrides) {
+                                if (d.overrides.labor) saveFields.labor_override = d.overrides.labor;
+                                if (d.overrides.material) saveFields.material_override = d.overrides.material;
+                                if (d.overrides.price != null) saveFields.price_override = d.overrides.price;
+                            }
+                            if (d.parentRowId && itemMap[d.parentRowId]) {
+                                saveFields.parent_item_id = itemMap[d.parentRowId];
+                                saveFields.cascade_locked = true;
+                            }
+                            await updateItem(itemMap[rowId], saveFields);
+                        }
+                    }
+                    if (d.tag) saveRowTag(rowId);
+                    updateRow(rowId, { skipCascade: true });
+                    updateGrandTotal();
+                    showConstraintToast('Article restauré');
+                    break;
+                }
+                case 'override': {
+                    var d = entry.data;
+                    var rowId = d.rowId;
+                    if (d.previousOverrides) {
+                        _rowOverrides[rowId] = JSON.parse(JSON.stringify(d.previousOverrides));
+                    } else {
+                        delete _rowOverrides[rowId];
+                    }
+                    updateRow(rowId, { skipCascade: true });
+                    if (itemMap[rowId]) {
+                        var ov = _rowOverrides[rowId];
+                        updateItem(itemMap[rowId], {
+                            labor_override: ov && ov.labor ? ov.labor : null,
+                            material_override: ov && ov.material ? ov.material : null,
+                            price_override: ov && ov.price != null ? ov.price : null
+                        });
+                    }
+                    updateGrandTotal();
+                    showConstraintToast('Override annulé');
+                    break;
+                }
             }
         }
 
@@ -18288,6 +18519,8 @@
             dmChoiceCache = {};
             _pendingMaterialCtx = {};
             _rowOverrides = {};
+            _undoStack = [];
+            hideUndoButton();
             roomDescEN = {};
             roomDescHTML = {};
             resetAiChat();
@@ -21505,6 +21738,12 @@
         <iframe id="catEditIframe" class="cat-edit-iframe" src="about:blank"></iframe>
     </div>
 </div>
+
+<!-- Undo button (floating) -->
+<button class="undo-btn" id="undoBtn" onclick="executeUndo()">
+    <span class="undo-icon">↩</span>
+    <span class="undo-label">Annuler</span>
+</button>
 
 </body>
 </html>

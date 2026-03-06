@@ -347,9 +347,11 @@ Les baremes appliquent des **facteurs multiplicateurs** automatiques sur les min
 ### Hierarchie d'override dans le calculateur
 
 1. **Prix global** (`ov.price`) — override total, ignore tout le reste
-2. **Manuel** (`ov.labor`, `ov.material`) — override par departement/categorie via popover
-3. **Auto** (`ov.laborAuto`, `ov.materialAuto`) — baremes auto-evalues
-4. **Catalogue** — valeurs de base si aucun override
+2. **Per-departement/categorie** (manual et auto ne sont **pas mutuellement exclusifs**) :
+   - Pour chaque dept MO : `manual` si defini, sinon `auto-factored` (catalogue × facteur), sinon `catalogue`
+   - Pour chaque cat materiau : idem
+   - Un override manuel sur Gestion preserve les valeurs auto-factorisees d'Assemblage et Installation
+3. **Catalogue** — valeurs de base si aucun override ni bareme
 
 ### Popover 3 colonnes
 

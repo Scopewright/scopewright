@@ -252,7 +252,7 @@ Ajustements automatiques de prix basés sur les dimensions. Section séparée de
 
 **Ordre d'exécution** : dans `updateRow()`, les barèmes sont évalués **inline** après la section dims et auto-quantité, par lookup direct de `selectedId` → `CATALOGUE_DATA`. Pas de pattern deferred — réévalue à chaque appel `updateRow` (y compris changement de dimensions).
 
-**Hiérarchie d'override (3 tiers)** : `ov.price` > `ov.labor/material` (manuel) > `ov.laborAuto/materialAuto` (auto) > valeurs catalogue.
+**Hiérarchie d'override per-département** : `ov.price` remplace tout. Sinon, pour chaque département/catégorie : `manual` si défini, sinon `auto-factored` (catalogue × facteur barème), sinon `catalogue`. Les tiers manual et auto ne sont **pas mutuellement exclusifs** — un override manuel sur Gestion préserve les valeurs auto-factorisées d'Assemblage et Installation. Même logique dans `updateRow`, `getRowTotal`, et `computeRentabilityData`.
 
 **Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`.
 
@@ -505,7 +505,7 @@ Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le ca
 
 **Calcul** :
 1. Si `price_override` est défini → utilisé directement, bypasse `computeComposedPrice`
-2. Si `labor_override` ou `material_override` → fusionné avec les valeurs catalogue via `Object.assign({}, item.labor_minutes, ov.labor)`, puis recalculé via `computeComposedPrice(merged, includeInstall)`
+2. Si `labor_override`, `material_override`, `laborAuto` ou `materialAuto` → catalogue × auto factors → overlay manual → `computeComposedPrice(merged, includeInstall)`. Per-département : manual gagne si défini, sinon auto-factorisé, sinon catalogue
 3. `debouncedSaveItem` sauvegarde le prix effectif dans `unit_price` (compatibilité `quote.html`)
 
 **Rentabilité** : `computeRentabilityData` utilise les overrides. `price_override` → montant flat (comme `__AJOUT__`), pas de décomposition MO/matériaux.

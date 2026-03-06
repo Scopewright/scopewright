@@ -1207,8 +1207,25 @@
                 return;
             }
 
-            var laborMinutes = ov && ov.labor ? Object.assign({}, item.labor_minutes || {}, ov.labor) : (item.labor_minutes || {});
-            var materialCosts = ov && ov.material ? Object.assign({}, item.material_costs || {}, ov.material) : (item.material_costs || {});
+            // Build effective values: catalogue → auto factors → manual override
+            var laborMinutes = Object.assign({}, item.labor_minutes || {});
+            if (ov && ov.laborAuto) {
+                Object.keys(ov.laborAuto).forEach(function(dept) {
+                    if (laborMinutes[dept] != null) laborMinutes[dept] = Math.round(laborMinutes[dept] * ov.laborAuto[dept]);
+                });
+            }
+            if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);
+            var materialCosts = Object.assign({}, item.material_costs || {});
+            if (ov && ov.materialAuto) {
+                Object.keys(ov.materialAuto).forEach(function(cat) {
+                    var v = materialCosts[cat];
+                    if (v != null) {
+                        if (typeof v === 'number') materialCosts[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
+                        else if (v && v.cost != null) materialCosts[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
+                    }
+                });
+            }
+            if (ov && ov.material) Object.assign(materialCosts, ov.material);
 
             tauxHoraires.forEach(function(t) {
                 var dept = t.department;
@@ -12130,44 +12147,34 @@
                         row.classList.remove('has-auto-modifier');
                     }
 
-                    // Per-line override (hierarchy: price > manual labor/material > auto labor/material)
+                    // Per-line override (hierarchy per dept: manual > auto-factored > catalogue)
                     var effectivePriceB = _bPrice;
                     var ov = _rowOverrides[rowId];
                     if (ov && ov.price != null) {
                         effectivePriceB = ov.price;
-                    } else if (ov && (ov.labor || ov.material)) {
-                        var merged = Object.assign({}, _bItem, {
-                            labor_minutes: Object.assign({}, _bItem.labor_minutes || {}, ov.labor || {}),
-                            material_costs: Object.assign({}, _bItem.material_costs || {}, ov.material || {})
-                        });
+                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto)) {
+                        // Start with catalogue, apply auto factors, then overlay manual
+                        var _mLabor = Object.assign({}, _bItem.labor_minutes || {});
+                        if (ov.laborAuto) {
+                            Object.keys(ov.laborAuto).forEach(function(dept) {
+                                if (_mLabor[dept] != null) _mLabor[dept] = Math.round(_mLabor[dept] * ov.laborAuto[dept]);
+                            });
+                        }
+                        if (ov.labor) Object.assign(_mLabor, ov.labor);
+                        var _mMat = Object.assign({}, _bItem.material_costs || {});
+                        if (ov.materialAuto) {
+                            Object.keys(ov.materialAuto).forEach(function(cat) {
+                                var val = _mMat[cat];
+                                if (val != null) {
+                                    if (typeof val === 'number') _mMat[cat] = Math.round(val * ov.materialAuto[cat] * 100) / 100;
+                                    else if (val && val.cost != null) _mMat[cat] = Object.assign({}, val, { cost: Math.round(val.cost * ov.materialAuto[cat] * 100) / 100 });
+                                }
+                            });
+                        }
+                        if (ov.material) Object.assign(_mMat, ov.material);
+                        var merged = Object.assign({}, _bItem, { labor_minutes: _mLabor, material_costs: _mMat });
                         var mc = computeComposedPrice(merged, _bInstall);
                         if (mc !== null) effectivePriceB = mc;
-                    } else if (ov && (ov.laborAuto || ov.materialAuto)) {
-                        var autoMerged = Object.assign({}, _bItem);
-                        if (ov.laborAuto) {
-                            autoMerged.labor_minutes = Object.assign({}, _bItem.labor_minutes || {});
-                            Object.keys(ov.laborAuto).forEach(function(dept) {
-                                if (autoMerged.labor_minutes[dept] != null) {
-                                    autoMerged.labor_minutes[dept] = Math.round(autoMerged.labor_minutes[dept] * ov.laborAuto[dept]);
-                                }
-                            });
-                        }
-                        if (ov.materialAuto) {
-                            autoMerged.material_costs = Object.assign({}, _bItem.material_costs || {});
-                            Object.keys(ov.materialAuto).forEach(function(cat) {
-                                var val = autoMerged.material_costs[cat];
-                                if (val != null) {
-                                    if (typeof val === 'number') {
-                                        autoMerged.material_costs[cat] = Math.round(val * ov.materialAuto[cat] * 100) / 100;
-                                    } else if (val && val.cost != null) {
-                                        autoMerged.material_costs[cat] = Object.assign({}, val, { cost: Math.round(val.cost * ov.materialAuto[cat] * 100) / 100 });
-                                    }
-                                }
-                            });
-                        }
-                        var amc = computeComposedPrice(autoMerged, _bInstall);
-                        console.log('[BAREMES] tier 3: composedPrice:', amc, '(base:', _bPrice, ')');
-                        if (amc !== null) effectivePriceB = amc;
                     }
                     // Update price display with barème-adjusted price
                     var rowGroupB = row.closest('.furniture-group');
@@ -12426,37 +12433,32 @@
                     var includeInstall = installCb ? installCb.checked : true;
                     var composed = computeComposedPrice(item, includeInstall);
                     var eff = composed !== null ? composed : (item.price || 0);
-                    // Per-line override (hierarchy: price > manual > auto)
+                    // Per-line override (hierarchy per dept: manual > auto-factored > catalogue)
                     var ov = _rowOverrides[row.id];
                     if (ov && ov.price != null) {
                         eff = ov.price;
-                    } else if (ov && (ov.labor || ov.material)) {
-                        var merged = Object.assign({}, item, {
-                            labor_minutes: Object.assign({}, item.labor_minutes || {}, ov.labor || {}),
-                            material_costs: Object.assign({}, item.material_costs || {}, ov.material || {})
-                        });
-                        var mc = computeComposedPrice(merged, includeInstall);
-                        if (mc !== null) eff = mc;
-                    } else if (ov && (ov.laborAuto || ov.materialAuto)) {
-                        var autoM = Object.assign({}, item);
+                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto)) {
+                        var _gLabor = Object.assign({}, item.labor_minutes || {});
                         if (ov.laborAuto) {
-                            autoM.labor_minutes = Object.assign({}, item.labor_minutes || {});
                             Object.keys(ov.laborAuto).forEach(function(dept) {
-                                if (autoM.labor_minutes[dept] != null) autoM.labor_minutes[dept] = Math.round(autoM.labor_minutes[dept] * ov.laborAuto[dept]);
+                                if (_gLabor[dept] != null) _gLabor[dept] = Math.round(_gLabor[dept] * ov.laborAuto[dept]);
                             });
                         }
+                        if (ov.labor) Object.assign(_gLabor, ov.labor);
+                        var _gMat = Object.assign({}, item.material_costs || {});
                         if (ov.materialAuto) {
-                            autoM.material_costs = Object.assign({}, item.material_costs || {});
                             Object.keys(ov.materialAuto).forEach(function(cat) {
-                                var v = autoM.material_costs[cat];
+                                var v = _gMat[cat];
                                 if (v != null) {
-                                    if (typeof v === 'number') autoM.material_costs[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
-                                    else if (v && v.cost != null) autoM.material_costs[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
+                                    if (typeof v === 'number') _gMat[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
+                                    else if (v && v.cost != null) _gMat[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
                                 }
                             });
                         }
-                        var amc = computeComposedPrice(autoM, includeInstall);
-                        if (amc !== null) eff = amc;
+                        if (ov.material) Object.assign(_gMat, ov.material);
+                        var merged = Object.assign({}, item, { labor_minutes: _gLabor, material_costs: _gMat });
+                        var mc = computeComposedPrice(merged, includeInstall);
+                        if (mc !== null) eff = mc;
                     }
                     return eff * qty;
                 }

@@ -185,7 +185,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 
 **Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :
 - **Pas de ligne enfant créée** — la règle est simplement sautée (`continue`)
-- **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer
+- **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer. **Exception** : si le `$match:` a été rejeté par le filtre `materialCtx` (0 mots en commun), **pas de toast** — c'est un comportement voulu (ex: mélamine pré-finie n'a pas besoin de FINITION BOIS)
 - **Console warn** avec détail technique (target, groupId, DM disponibles)
 - `getDefaultMaterialKeywords` n'a **pas de fallback "first-available"** — si aucun DM ne correspond à la catégorie, retourne null (évite de sélectionner un article non pertinent)
 

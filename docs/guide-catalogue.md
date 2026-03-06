@@ -620,7 +620,7 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
    - Verifie `override_children` (categories surchargees par un ancetre)
    - Resout le target (`$default:`, `$match:`, ou code direct) — async pour `$match:`
    - **Apres `$default:`** : propage le `client_text` resolu dans `materialCtx.chosenClientText` (3 points de sortie : cache hit, candidat unique, modale technique). Marque `materialCtx._updatedBySiblingDefault = true`
-   - **Filtre `$match:` post-resolution** : si `materialCtx._updatedBySiblingDefault` est vrai, verifie keyword overlap entre `materialCtx.chosenClientText` et le `client_text` de l'article resolu. 0 mots communs (>2 chars) → resolution rejetee. Ex: materialCtx "melamine blanche" vs "laque polyurethane" → 0 commun → pas de ligne creee
+   - **Filtre `$match:` post-resolution** : si `materialCtx._updatedBySiblingDefault` est vrai, verifie keyword overlap entre `materialCtx.chosenClientText` et le `client_text` de l'article resolu. 0 mots communs (>2 chars) → resolution rejetee silencieusement (**pas de toast** — comportement voulu, pas une erreur). Ex: materialCtx "melamine blanche" vs "laque polyurethane" → 0 commun → pas de ligne creee, pas de toast
    - Evalue la condition (si presente)
    - Evalue la quantite : **constante** (× `rootQty`) ou **formule dimensionnelle** (resultat total, pas de multiplication)
    - Si l'enfant existe deja → met a jour la quantite

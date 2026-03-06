@@ -4313,6 +4313,7 @@
             // verify the resolved $match: item shares at least 1 keyword with the materialCtx.
             // This prevents e.g. "FINITION BOIS" from resolving to "laque polyuréthane"
             // when materialCtx says "mélamine" (0 words in common → rejected).
+            var _rejectedByMaterialCtxFilter = false;
             if (resolvedTarget && rule.target.startsWith('$match:') && materialCtx && materialCtx._updatedBySiblingDefault && materialCtx.chosenClientText) {
                 var _mctxItem = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
                 if (_mctxItem && _mctxItem.client_text) {
@@ -4325,11 +4326,17 @@
                         if (_commonWords.length === 0) {
                             cascadeLog('info', '$match: materialCtx filter REJECTED "' + _mctxItem.client_text + '" — 0 common words with materialCtx "' + materialCtx.chosenClientText + '"');
                             resolvedTarget = null;
+                            _rejectedByMaterialCtxFilter = true;
                         } else {
                             cascadeLog('info', '$match: materialCtx filter OK "' + _mctxItem.client_text + '" — common: ' + _commonWords.join(', '));
                         }
                     }
                 }
+            }
+            if (!resolvedTarget && _rejectedByMaterialCtxFilter) {
+                // Silently skip — materialCtx filter rejection is expected behavior
+                // (e.g. mélamine doesn't need FINITION BOIS)
+                continue;
             }
             if (!resolvedTarget) {
                 var parentDesc = catItem ? (catItem.client_text || catItem.description || selectedId) : selectedId;

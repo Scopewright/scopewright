@@ -365,6 +365,7 @@ Mécanisme pour empêcher la duplication de matériaux cascade à différentes p
 - Le parent déclare quelles catégories de dépense il gère lui-même
 - Les overrides sont propagés à tous les descendants via le paramètre `parentOverrides`
 - Les règles `$match:` dont la catégorie est dans `mergedOverrides` sont sautées avec un log console
+- **Autonomie FAB** : à la récursion (ligne ~4644), si l'enfant est un FAB (`item_type === 'fabrication'`), `mergedOverrides` est remplacé par `[]`. Les FAB enfants sont autonomes — leur propre `override_children` s'applique à leurs descendants via le mécanisme normal `mergedOverrides = [].concat(ownOverrides)`
 
 ### 3.5 `materialCtx` (contexte matériau cascade)
 
@@ -1260,9 +1261,9 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 148 assertions en 16 groupes |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 201 assertions en 25 groupes |
 | `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
-| `tests/fixtures/catalogue.js` | 15 articles réalistes (ST-0001 à ST-0060 + ST-0005) : 5 FAB avec cascade rules, 10 MAT avec `material_costs` |
+| `tests/fixtures/catalogue.js` | 17 articles réalistes (ST-0001 à ST-0060 + ST-0005 + ST-0007 + ST-0045) : 7 FAB avec cascade rules, 10 MAT avec `material_costs` |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
 
 ### 14.3 Fonctions extraites
@@ -1293,7 +1294,7 @@ node tests/cascade-engine.test.js
 4. **computeCascadeQty** (9) — constante × rootQty, formule = total (pas × rootQty), résultat ≤0
 5. **mergeOverrideChildren** (4) — vide, parent seul, own seul, concat
 6. **isRuleOverridden** (7) — $match bloqué/non-bloqué, $default jamais bloqué, code direct jamais bloqué
-7. **override_children integration** (6) — FAB ST-0001 : propres rules passent, descendants bloqués
+7. **override_children integration** (10) — FAB ST-0001 : propres rules passent, descendants bloqués, FAB enfants autonomes (mergedOverrides reset à [])
 8. **checkAskCompleteness** (12) — complet, L=0, L absent, n_tablettes=0 valide, alias, champ inconnu
 9. **inferAskFromDimsConfig** (6) — l+h+p, l+h, vide, null
 10. **extractMatchKeywords + scoreMatchCandidates** (9) — extraction, stop words, scoring, tri

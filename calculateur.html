@@ -4641,8 +4641,18 @@
         }
 
         // Récursion : chaque enfant peut avoir ses propres règles cascade
+        // FAB children are autonomous — don't propagate ancestor overrides to them.
+        // Their own override_children will apply to their descendants via mergedOverrides
+        // inside their own executeCascade call (parentOverrides=[] + ownOverrides).
         for (var ci = 0; ci < matchedChildRowIds.length; ci++) {
-            await executeCascade(matchedChildRowIds[ci], depth + 1, mergedOverrides, materialCtx);
+            var _childRow = document.getElementById(matchedChildRowIds[ci]);
+            var _childSel = _childRow ? _childRow.querySelector('.item-select') : null;
+            var _childSelVal = _childSel ? _childSel.value : '';
+            var _childCatItem = CATALOGUE_DATA.find(function(i) { return i.id === _childSelVal; });
+            var _childOverrides = (_childCatItem && _childCatItem.item_type === 'fabrication')
+                ? [] // FAB enfant autonome — fresh start, own override_children will apply
+                : mergedOverrides;
+            await executeCascade(matchedChildRowIds[ci], depth + 1, _childOverrides, materialCtx);
         }
     }
 

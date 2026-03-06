@@ -556,7 +556,7 @@ Dans `calculation_rule_ai.cascade` :
 | `qty` | String/Number | Quantite ou formule. Par defaut `1`. **Important** : le champ s'appelle `qty`, jamais `formula`. |
 | `condition` | String/null | Formule booleenne. Si presente, la cascade ne s'execute que si la condition est vraie. |
 | `child_dims` | Object/null | Formules dimensionnelles pour l'enfant. Ex: `{ "L": "(L / n_portes) - 0.125", "H": "H - 0.25" }`. Calcule les dims L/H/P de l'enfant a partir des variables du parent. |
-| `override_children` | String[] | Categories de depense a bloquer chez les descendants. Ex: `["BANDE DE CHANT", "FINITION BOIS"]`. L'item qui declare l'override traite ses propres regles — seuls ses descendants les sautent. |
+| `override_children` | String[] | Categories de depense a bloquer chez les descendants. Ex: `["BANDE DE CHANT", "FINITION BOIS"]`. L'item qui declare l'override traite ses propres regles — seuls ses descendants les sautent. **Exception FAB** : si un enfant cascade est un FAB (`item_type === 'fabrication'`), les overrides du parent ne lui sont PAS transmis — le FAB enfant est autonome et gere ses propres categories. |
 
 **Quantites : constante vs formule**
 
@@ -633,7 +633,7 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
    - Sinon → cree une nouvelle ligne enfant
    - **Persist immediat** via `updateItem()` (bypass debounce global)
 5. Supprime les enfants orphelins (regles qui n'existent plus)
-6. Recursion jusqu'a **profondeur 3** avec `materialCtx` herite
+6. Recursion jusqu'a **profondeur 3** avec `materialCtx` herite. **Autonomie FAB** : si l'enfant est un FAB, `mergedOverrides` est reset a `[]` (le FAB gere ses propres categories de depense)
 
 ### Guards et protections
 

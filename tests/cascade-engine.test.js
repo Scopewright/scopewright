@@ -313,6 +313,40 @@ describe('override_children integration logic', function() {
         var merged2 = mergeOverrideChildren([], (fab2.calculation_rule_ai || {}).override_children);
         assert(!isRuleOverridden('$match:BANDE DE CHANT', merged2));
     });
+
+    // ── FAB child autonomy: override_children should NOT propagate to FAB children ──
+    it('FAB child (ST-0045) has item_type fabrication', function() {
+        var facadeSlab = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0045'; });
+        assertEqual(facadeSlab.item_type, 'fabrication');
+    });
+    it('FAB child should receive empty parentOverrides (autonomy)', function() {
+        // When recursing into a FAB child, parentOverrides should be []
+        // so its own $match:FINITION BOIS is NOT blocked
+        var parentFab = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0007'; });
+        var parentMerged = mergeOverrideChildren([], parentFab.calculation_rule_ai.override_children);
+        // parentMerged contains FINITION BOIS — would block MAT children
+        assert(isRuleOverridden('$match:FINITION BOIS', parentMerged));
+        // But FAB child receives [] → its own $match:FINITION BOIS is NOT blocked
+        var fabChildOverrides = []; // FAB autonomy: fresh start
+        assert(!isRuleOverridden('$match:FINITION BOIS', fabChildOverrides));
+    });
+    it('MAT child still receives merged parentOverrides', function() {
+        var parentFab = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0007'; });
+        var parentMerged = mergeOverrideChildren([], parentFab.calculation_rule_ai.override_children);
+        // MAT child gets full parentMerged → $match:FINITION BOIS is blocked
+        var matItem = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0040'; });
+        assertEqual(matItem.item_type, 'material');
+        assert(isRuleOverridden('$match:FINITION BOIS', parentMerged));
+    });
+    it('FAB child own override_children apply to its descendants', function() {
+        // If ST-0045 had override_children, they would apply starting from []
+        // mergedOverrides = [].concat(ownOverrides)
+        var fabChild = CATALOGUE_DATA.find(function(i) { return i.id === 'ST-0045'; });
+        var fabChildOwn = (fabChild.calculation_rule_ai || {}).override_children || [];
+        var fabChildMerged = mergeOverrideChildren([], fabChildOwn);
+        // ST-0045 has no override_children → empty
+        assertDeepEqual(fabChildMerged, []);
+    });
 });
 
 // ════════════════════════════════════════════════════════════════

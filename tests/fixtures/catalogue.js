@@ -211,6 +211,49 @@ var CATALOGUE_DATA = [
             ]
         },
         calculation_rule_ai: { ask: ['L', 'H', 'P'] }
+    },
+
+    // ── FAB child with own cascade rules (facade slab) ──
+    {
+        id: 'ST-0045',
+        description: 'Facade Slab',
+        client_text: 'facade slab mélamine',
+        category: 'Façades',
+        item_type: 'fabrication',
+        price: 120,
+        material_costs: {},
+        labor_minutes: { 'Ébénisterie': 30 },
+        dims_config: { l: true, h: true },
+        calculation_rule_ai: {
+            ask: ['L', 'H'],
+            cascade: [
+                { target: '$default:Facades', qty: '(L*H)/144' },
+                { target: '$match:FINITION BOIS', qty: '(L*H)/144' }
+            ]
+        }
+    },
+
+    // ── Parent FAB that cascades to a FAB child + has override_children ──
+    {
+        id: 'ST-0007',
+        description: 'Caisson avec facade slab',
+        client_text: 'caisson facade slab',
+        category: 'Caisson',
+        item_type: 'fabrication',
+        price: 600,
+        material_costs: {},
+        labor_minutes: { 'Ébénisterie': 140 },
+        dims_config: { l: true, h: true, p: true },
+        calculation_rule_ai: {
+            ask: ['L', 'H', 'P'],
+            cascade: [
+                { target: '$default:Caisson', qty: '(L*P*2+L*H*2)/144' },
+                { target: 'ST-0045', qty: '1' },
+                { target: '$match:BANDE DE CHANT', qty: '(L*2+H*2)/12' },
+                { target: '$match:FINITION BOIS', qty: '(L*H)/144' }
+            ],
+            override_children: ['BANDE DE CHANT', 'FINITION BOIS']
+        }
     }
 ];
 

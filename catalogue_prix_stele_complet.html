@@ -5163,6 +5163,33 @@
 
         var _saveValidationBypass = false;
 
+        // Find closest matching key (Levenshtein distance ≤ 5, case-insensitive)
+        function _findClosestKey(needle, haystack) {
+            if (!haystack || haystack.length === 0) return null;
+            var nLow = needle.toLowerCase();
+            var best = null, bestDist = 6;
+            for (var i = 0; i < haystack.length; i++) {
+                var hLow = haystack[i].toLowerCase();
+                if (nLow === hLow) return haystack[i]; // exact case-insensitive match
+                var d = _levenshtein(nLow, hLow);
+                if (d < bestDist) { bestDist = d; best = haystack[i]; }
+            }
+            return best;
+        }
+        function _levenshtein(a, b) {
+            var m = a.length, n = b.length;
+            var dp = [];
+            for (var i = 0; i <= m; i++) { dp[i] = [i]; }
+            for (var j = 0; j <= n; j++) { dp[0][j] = j; }
+            for (var i = 1; i <= m; i++) {
+                for (var j = 1; j <= n; j++) {
+                    dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+                        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+                }
+            }
+            return dp[m][n];
+        }
+
         /**
          * Run proactive validation before saving. Returns true if warnings were shown
          * (save should pause for user review), false if no warnings (proceed to save).
@@ -5195,6 +5222,60 @@
 
             if (!clientText) {
                 warnings.push({ level: 'info', msg: 'Pas de texte client défini. L\'article ne sera pas visible dans la présentation client.' });
+            }
+
+            // Check: labor_modifiers factor keys vs labor_minutes/material_costs keys
+            var lmRaw = document.getElementById('editLaborModAi').value.trim();
+            if (lmRaw) {
+                try {
+                    var lmJson = JSON.parse(lmRaw);
+                    var mods = lmJson && lmJson.modifiers;
+                    if (Array.isArray(mods)) {
+                        var laborKeys = Object.keys(laborMins);
+                        var matKeys = Object.keys(matCosts);
+                        // Also include zero-value departments from DOM (collectLaborMinutes filters >0)
+                        var allLaborKeys = [];
+                        var lmInputs = document.querySelectorAll('#cpMinutesBody input[type="number"]');
+                        for (var li = 0; li < lmInputs.length; li++) {
+                            allLaborKeys.push(lmInputs[li].getAttribute('data-dept'));
+                        }
+                        var allMatKeys = [];
+                        var mcInputs = document.querySelectorAll('#cpMaterialsBody input[type="number"]');
+                        for (var mi = 0; mi < mcInputs.length; mi++) {
+                            allMatKeys.push(mcInputs[mi].getAttribute('data-cat'));
+                        }
+                        // Merge: keys with values + all DOM keys (includes 0-value rows)
+                        var effectiveLaborKeys = allLaborKeys.length > 0 ? allLaborKeys : laborKeys;
+                        var effectiveMatKeys = allMatKeys.length > 0 ? allMatKeys : matKeys;
+
+                        mods.forEach(function(mod) {
+                            if (mod.labor_factor && typeof mod.labor_factor === 'object') {
+                                Object.keys(mod.labor_factor).forEach(function(k) {
+                                    if (k === '') return; // empty-key scalar, expanded at runtime
+                                    if (effectiveLaborKeys.indexOf(k) === -1) {
+                                        var suggestion = _findClosestKey(k, effectiveLaborKeys);
+                                        var msg = 'Barème "' + (mod.label || mod.condition) + '" : labor_factor "' + k + '" introuvable dans labor_minutes.';
+                                        if (suggestion) msg += ' Vouliez-vous dire "' + suggestion + '" ?';
+                                        else msg += ' Ajoutez "' + k + '" avec une valeur (même 0) dans les minutes MO.';
+                                        warnings.push({ level: 'warn', msg: msg });
+                                    }
+                                });
+                            }
+                            if (mod.material_factor && typeof mod.material_factor === 'object') {
+                                Object.keys(mod.material_factor).forEach(function(k) {
+                                    if (k === '') return;
+                                    if (effectiveMatKeys.indexOf(k) === -1) {
+                                        var suggestion = _findClosestKey(k, effectiveMatKeys);
+                                        var msg = 'Barème "' + (mod.label || mod.condition) + '" : material_factor "' + k + '" introuvable dans material_costs.';
+                                        if (suggestion) msg += ' Vouliez-vous dire "' + suggestion + '" ?';
+                                        else msg += ' Ajoutez "' + k + '" avec une valeur (même 0) dans les coûts matériaux.';
+                                        warnings.push({ level: 'warn', msg: msg });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                } catch(e) { /* JSON invalid — caught elsewhere */ }
             }
 
             if (warnings.length === 0) return false;

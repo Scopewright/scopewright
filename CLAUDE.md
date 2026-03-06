@@ -448,7 +448,7 @@ Bouton "Dupliquer" dans la modale d'édition (`openEditModal`), à côté de "Su
 
 ### Suggestions texte client (catalogue)
 
-L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save. `runSaveValidation()` affiche des avis avant sauvegarde : seuls les niveaux `error`/`warn` bloquent (bypass au 2e clic), le niveau `info` (ex: "pas de texte client") s'affiche sans bloquer.
+L'input `editClientText` dans la modale d'édition catalogue propose des suggestions en temps réel (debounce 250ms, Levenshtein ≤ 5, top 3, toutes catégories). Cliquer une suggestion remplace le texte. Pas de warning doublon au save. `runSaveValidation()` affiche des avis avant sauvegarde : seuls les niveaux `error`/`warn` bloquent (bypass au 2e clic), le niveau `info` (ex: "pas de texte client") s'affiche sans bloquer. **Validation barèmes** : si `labor_modifiers` est défini, chaque clé de `labor_factor`/`material_factor` est vérifiée contre les départements MO (`labor_minutes`) et catégories matériaux (`material_costs`) de l'article. Mismatch → warning `warn` avec suggestion fuzzy (Levenshtein ≤ 5) : `'Coupe' introuvable, vouliez-vous dire 'Coupe/edge' ?`
 
 ### Sauvegarde modale catalogue
 

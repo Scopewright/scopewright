@@ -270,9 +270,11 @@ Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Foncti
 
 **Persistance** : `debouncedSaveItem()` écrit `labor_auto_modifier` JSONB. `openSubmission()` restaure dans `_rowOverrides`. `saveOverrides()` ne touche que les champs manuels. CSS `.has-auto-modifier` (gear icon).
 
+**Validation au save** : `runSaveValidation()` vérifie que chaque clé de `labor_factor`/`material_factor` dans les barèmes existe dans `labor_minutes`/`material_costs` de l'article (DOM inputs, incluant valeurs 0). Mismatch → warning `warn` avec suggestion fuzzy (`_findClosestKey`, Levenshtein ≤ 5). Ex: `'Coupe' introuvable dans labor_minutes, vouliez-vous dire 'Coupe/edge' ?`. L'utilisateur peut corriger ou re-cliquer pour bypasser.
+
 **AI** : action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`.
 
-**Migration** : `sql/labor_modifiers.sql`
+**Migration** : `sql/labor_modifiers.sql`, `sql/fix_st0050_labor_minutes.sql`
 
 ---
 

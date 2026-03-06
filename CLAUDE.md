@@ -428,7 +428,9 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`
 
-**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) dans `tests/cascade-engine.test.js`
+**Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables.
+
+**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) dans `tests/cascade-engine.test.js`
 
 ### Dupliquer un article (catalogue)
 
@@ -645,9 +647,9 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 227 assertions en 24 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 235 assertions en 25 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
-| `tests/fixtures/catalogue.js` | 17 articles catalogue réalistes (7 FAB + 10 MAT) |
+| `tests/fixtures/catalogue.js` | 18 articles catalogue réalistes (7 FAB + 11 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes

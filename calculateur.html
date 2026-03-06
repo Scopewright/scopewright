@@ -12463,7 +12463,7 @@
                     showDims = true;
                 } else if (selectedId && selectedId !== '__PROPOSER__') {
                     dimItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
-                    if (dimItem && dimItem.item_type === 'fabrication') showDims = true;
+                    if (dimItem && (dimItem.item_type === 'fabrication' || dimItem.dims_config)) showDims = true;
                 }
 
                 if (showDims) {

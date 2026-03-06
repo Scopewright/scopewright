@@ -260,6 +260,8 @@ Variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs. Foncti
 
 **Hiérarchie d'override per-département** : `ov.price` remplace tout. Sinon, pour chaque département/catégorie : `manual` si défini, sinon `auto-factored` (catalogue × facteur barème), sinon `catalogue`. Les tiers manual et auto ne sont **pas mutuellement exclusifs** — un override manuel sur Gestion préserve les valeurs auto-factorisées d'Assemblage et Installation. Même logique dans `updateRow`, `getRowTotal`, et `computeRentabilityData`.
 
+**Dims sur MAT** : le guard `showDims` dans `updateRow` accepte tout article avec `dims_config` explicite (pas seulement les FAB). Un MAT avec `dims_config: {l:true, h:true, p:true}` et `labor_modifiers` affiche les champs dims L×H×P pour que les conditions barèmes puissent être évaluées.
+
 **Popover** : 3 colonnes (Cat | Auto | Manuel). Banner bleu quand barème actif. La colonne Auto affiche `catVal × factor`.
 
 **Persistance** : `debouncedSaveItem()` écrit `labor_auto_modifier` JSONB. `openSubmission()` restaure dans `_rowOverrides`. `saveOverrides()` ne touche que les champs manuels. CSS `.has-auto-modifier` (gear icon).
@@ -1280,9 +1282,9 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu |
 |---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 227 assertions en 24 groupes |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 235 assertions en 25 groupes |
 | `tests/cascade-helpers.js` | 16 fonctions pures + constante `MATCH_STOP_WORDS` |
-| `tests/fixtures/catalogue.js` | 17 articles réalistes (ST-0001 à ST-0060 + ST-0005 à ST-0008 + ST-0045) : 7 FAB avec cascade rules, 10 MAT avec `material_costs` |
+| `tests/fixtures/catalogue.js` | 18 articles réalistes (ST-0001 à ST-0060 + ST-0005 à ST-0008 + ST-0045 + ST-0051) : 7 FAB + 11 MAT |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
 
 ### 14.3 Fonctions extraites

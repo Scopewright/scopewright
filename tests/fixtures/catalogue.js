@@ -163,6 +163,27 @@ var CATALOGUE_DATA = [
         price: 7.80,
         material_costs: { 'PANNEAU PLACAGE': { cost: 7.80, qty: 1 } }
     },
+    // ── MATERIAL item with dims_config + labor_modifiers (barèmes dimensionnels MAT) ──
+    {
+        id: 'ST-0051',
+        description: 'Bois brut massif MAT',
+        client_text: 'bois brut massif',
+        category: 'Bois franc',
+        item_type: 'material',
+        price: 15.00,
+        labor_minutes: { 'Machinage': 30, 'Sablage': 20 },
+        material_costs: { 'BOIS FRANC': 12.00 },
+        dims_config: { l: true, h: true, p: true },
+        labor_modifiers: {
+            cumulative: true,
+            modifiers: [
+                { condition: 'L > 48', label: 'Largeur > 48 po', labor_factor: { 'Machinage': 1.5 } },
+                { condition: 'H > 96', label: 'Longueur > 96 po', labor_factor: { 'Sablage': 1.4 } }
+            ]
+        },
+        calculation_rule_ai: { ask: ['L', 'H', 'P'] }
+    },
+
     {
         id: 'ST-0060',
         description: 'Tablette simple',

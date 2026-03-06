@@ -1595,6 +1595,68 @@ describe('GROUP 24 — evaluateLaborModifiers — cumulative mode', function() {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 25 — MAT items with dims_config (showDims guard + barèmes)
+// ════════════════════════════════════════════════════════════════
+
+describe('GROUP 25 — MAT with dims_config + labor_modifiers', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+    var ST0051 = CATALOGUE_DATA.find(function(c) { return c.id === 'ST-0051'; });
+
+    it('ST-0051 exists as material with dims_config', function() {
+        assert(ST0051 !== undefined, 'ST-0051 must be in CATALOGUE_DATA');
+        assertEqual(ST0051.item_type, 'material');
+        assert(ST0051.dims_config != null, 'must have dims_config');
+        assert(ST0051.dims_config.l && ST0051.dims_config.h && ST0051.dims_config.p, 'L+H+P');
+    });
+
+    it('showDims guard: FAB → true', function() {
+        var item = { item_type: 'fabrication', dims_config: null };
+        var showDims = item.item_type === 'fabrication' || !!item.dims_config;
+        assertEqual(showDims, true);
+    });
+
+    it('showDims guard: MAT without dims_config → false', function() {
+        var item = { item_type: 'material' };
+        var showDims = item.item_type === 'fabrication' || !!item.dims_config;
+        assertEqual(showDims, false);
+    });
+
+    it('showDims guard: MAT with dims_config → true', function() {
+        var showDims = ST0051.item_type === 'fabrication' || !!ST0051.dims_config;
+        assertEqual(showDims, true);
+    });
+
+    it('barèmes evaluate correctly on MAT item', function() {
+        var result = evaluateLaborModifiers(ST0051, { L: 60, H: 100, P: 1.5 });
+        assert(result !== null, 'should match');
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+        assertEqual(result.labor_factor['Sablage'], 1.4);
+        assertEqual(result.label, 'Largeur > 48 po + Longueur > 96 po');
+    });
+
+    it('MAT barèmes: no match when dims below thresholds', function() {
+        var result = evaluateLaborModifiers(ST0051, { L: 30, H: 48, P: 0.75 });
+        assertEqual(result, null);
+    });
+
+    it('MAT barèmes: partial match (only L axis)', function() {
+        var result = evaluateLaborModifiers(ST0051, { L: 60, H: 48, P: 0.75 });
+        assert(result !== null);
+        assertEqual(result.labor_factor['Machinage'], 1.5);
+        assert(!result.labor_factor['Sablage'], 'Sablage not matched');
+        assertEqual(result.label, 'Largeur > 48 po');
+    });
+
+    it('MAT with ask field has ask fields', function() {
+        var askFields = ST0051.calculation_rule_ai && ST0051.calculation_rule_ai.ask;
+        assert(Array.isArray(askFields), 'ask must be array');
+        assert(askFields.indexOf('L') !== -1, 'L in ask');
+        assert(askFields.indexOf('H') !== -1, 'H in ask');
+        assert(askFields.indexOf('P') !== -1, 'P in ask');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

@@ -11874,10 +11874,13 @@
                         var composedPrice = computeComposedPrice(item, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
 
-                        // Barèmes + overrides + price display deferred after dims are ready (see below)
-                        row._baremeItem = item;
-                        row._baremeIncludeInstall = includeInstall;
-                        row._baremeBasePrice = effectivePrice;
+                        // Unit price display (base — may be overridden by barèmes below)
+                        var rowGroup0 = row.closest('.furniture-group');
+                        var mult0 = rowGroup0 ? getModifierMultiplier(rowGroup0.id) : 1;
+                        var _upx0 = document.getElementById(rowId + '-unit-price');
+                        var _upxInner0 = _upx0 ? _upx0.querySelector('.upx') : null;
+                        if (_upxInner0) _upxInner0.textContent = formatPrice(effectivePrice * mult0); else if (_upx0) _upx0.textContent = formatPrice(effectivePrice * mult0);
+                        totalEl.textContent = formatPrice(effectivePrice * qty * mult0);
                     }
                 } else {
                     codeEl.textContent = '—';
@@ -12014,99 +12017,109 @@
                 }
             }
 
-            // ── Auto labor modifiers (barèmes) — runs AFTER dims inputs exist ──
-            console.log('[BAREMES] deferred check: _baremeItem?', !!row._baremeItem, 'rowId:', rowId, 'labor_modifiers:', row._baremeItem ? JSON.stringify(row._baremeItem.labor_modifiers) : 'N/A');
-            if (row._baremeItem) {
-                var _bItem = row._baremeItem;
-                var _bInstall = row._baremeIncludeInstall;
-                var _bPrice = row._baremeBasePrice;
-                var _almL = document.getElementById(rowId + '-dim-l');
-                var _almH = document.getElementById(rowId + '-dim-h');
-                var _almP = document.getElementById(rowId + '-dim-p');
-                var _almVars = {
-                    L: _almL ? (parseFloat(_almL.value) || 0) : 0,
-                    H: _almH ? (parseFloat(_almH.value) || 0) : 0,
-                    P: _almP ? (parseFloat(_almP.value) || 0) : 0,
-                    QTY: parseFloat(qtyInput.value) || 0,
-                    n_tablettes: parseInt((document.getElementById(rowId + '-n-tab') || {}).value) || 0,
-                    n_partitions: parseInt((document.getElementById(rowId + '-n-part') || {}).value) || 0,
-                    n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
-                    n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
-                };
-                console.log('[BAREMES] evaluating for', _bItem.id, 'vars:', JSON.stringify(_almVars), 'has labor_modifiers:', !!_bItem.labor_modifiers);
-                var autoModResult = evaluateLaborModifiers(_bItem, _almVars);
-                console.log('[BAREMES] result:', autoModResult);
-                if (autoModResult) {
-                    if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
-                    _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;
-                    _rowOverrides[rowId].materialAuto = autoModResult.material_factor;
-                    _rowOverrides[rowId].autoLabel = autoModResult.label;
-                    row.classList.add('has-auto-modifier');
-                } else if (_rowOverrides[rowId]) {
-                    delete _rowOverrides[rowId].laborAuto;
-                    delete _rowOverrides[rowId].materialAuto;
-                    delete _rowOverrides[rowId].autoLabel;
-                    row.classList.remove('has-auto-modifier');
-                    if (Object.keys(_rowOverrides[rowId]).every(function(k) { return _rowOverrides[rowId][k] == null; })) {
-                        delete _rowOverrides[rowId];
+            // ── Auto labor modifiers (barèmes) — evaluate EVERY call using selectedId directly ──
+            if (selectedId && selectedId !== '__AJOUT__' && selectedId !== '__PROPOSER__') {
+                var _bItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
+                if (_bItem && _bItem.labor_modifiers) {
+                    var _bInstallCb = document.getElementById(rowId + '-install');
+                    var _bInstall = _bInstallCb ? _bInstallCb.checked : true;
+                    var _bComposed = computeComposedPrice(_bItem, _bInstall);
+                    var _bPrice = _bComposed !== null ? _bComposed : (_bItem.price || 0);
+                    var _almL = document.getElementById(rowId + '-dim-l');
+                    var _almH = document.getElementById(rowId + '-dim-h');
+                    var _almP = document.getElementById(rowId + '-dim-p');
+                    var _almVars = {
+                        L: _almL ? (parseFloat(_almL.value) || 0) : 0,
+                        H: _almH ? (parseFloat(_almH.value) || 0) : 0,
+                        P: _almP ? (parseFloat(_almP.value) || 0) : 0,
+                        QTY: parseFloat(qtyInput.value) || 0,
+                        n_tablettes: parseInt((document.getElementById(rowId + '-n-tab') || {}).value) || 0,
+                        n_partitions: parseInt((document.getElementById(rowId + '-n-part') || {}).value) || 0,
+                        n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
+                        n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
+                    };
+                    console.log('[BAREMES] evaluating for', _bItem.id, 'vars:', JSON.stringify(_almVars));
+                    var autoModResult = evaluateLaborModifiers(_bItem, _almVars);
+                    console.log('[BAREMES] result:', autoModResult);
+                    if (autoModResult) {
+                        if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
+                        _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;
+                        _rowOverrides[rowId].materialAuto = autoModResult.material_factor;
+                        _rowOverrides[rowId].autoLabel = autoModResult.label;
+                        row.classList.add('has-auto-modifier');
+                    } else if (_rowOverrides[rowId]) {
+                        delete _rowOverrides[rowId].laborAuto;
+                        delete _rowOverrides[rowId].materialAuto;
+                        delete _rowOverrides[rowId].autoLabel;
+                        row.classList.remove('has-auto-modifier');
+                        if (Object.keys(_rowOverrides[rowId]).every(function(k) { return _rowOverrides[rowId][k] == null; })) {
+                            delete _rowOverrides[rowId];
+                        }
+                    } else {
+                        row.classList.remove('has-auto-modifier');
                     }
-                } else {
-                    row.classList.remove('has-auto-modifier');
-                }
 
-                // Per-line override (hierarchy: price > manual labor/material > auto labor/material)
-                var effectivePrice = _bPrice;
-                var ov = _rowOverrides[rowId];
-                console.log('[BAREMES] override hierarchy — ov:', JSON.stringify(ov), 'basePrice:', _bPrice);
-                if (ov && ov.price != null) {
-                    effectivePrice = ov.price;
-                    console.log('[BAREMES] tier 1: price override →', effectivePrice);
-                } else if (ov && (ov.labor || ov.material)) {
-                    var merged = Object.assign({}, _bItem, {
-                        labor_minutes: Object.assign({}, _bItem.labor_minutes || {}, ov.labor || {}),
-                        material_costs: Object.assign({}, _bItem.material_costs || {}, ov.material || {})
-                    });
-                    var mc = computeComposedPrice(merged, _bInstall);
-                    if (mc !== null) effectivePrice = mc;
-                } else if (ov && (ov.laborAuto || ov.materialAuto)) {
-                    var autoMerged = Object.assign({}, _bItem);
-                    if (ov.laborAuto) {
-                        autoMerged.labor_minutes = Object.assign({}, _bItem.labor_minutes || {});
-                        Object.keys(ov.laborAuto).forEach(function(dept) {
-                            if (autoMerged.labor_minutes[dept] != null) {
-                                autoMerged.labor_minutes[dept] = Math.round(autoMerged.labor_minutes[dept] * ov.laborAuto[dept]);
-                            }
+                    // Per-line override (hierarchy: price > manual labor/material > auto labor/material)
+                    var effectivePriceB = _bPrice;
+                    var ov = _rowOverrides[rowId];
+                    if (ov && ov.price != null) {
+                        effectivePriceB = ov.price;
+                    } else if (ov && (ov.labor || ov.material)) {
+                        var merged = Object.assign({}, _bItem, {
+                            labor_minutes: Object.assign({}, _bItem.labor_minutes || {}, ov.labor || {}),
+                            material_costs: Object.assign({}, _bItem.material_costs || {}, ov.material || {})
                         });
-                    }
-                    if (ov.materialAuto) {
-                        autoMerged.material_costs = Object.assign({}, _bItem.material_costs || {});
-                        Object.keys(ov.materialAuto).forEach(function(cat) {
-                            var val = autoMerged.material_costs[cat];
-                            if (val != null) {
-                                if (typeof val === 'number') {
-                                    autoMerged.material_costs[cat] = Math.round(val * ov.materialAuto[cat] * 100) / 100;
-                                } else if (val && val.cost != null) {
-                                    autoMerged.material_costs[cat] = Object.assign({}, val, { cost: Math.round(val.cost * ov.materialAuto[cat] * 100) / 100 });
+                        var mc = computeComposedPrice(merged, _bInstall);
+                        if (mc !== null) effectivePriceB = mc;
+                    } else if (ov && (ov.laborAuto || ov.materialAuto)) {
+                        var autoMerged = Object.assign({}, _bItem);
+                        if (ov.laborAuto) {
+                            autoMerged.labor_minutes = Object.assign({}, _bItem.labor_minutes || {});
+                            Object.keys(ov.laborAuto).forEach(function(dept) {
+                                if (autoMerged.labor_minutes[dept] != null) {
+                                    autoMerged.labor_minutes[dept] = Math.round(autoMerged.labor_minutes[dept] * ov.laborAuto[dept]);
                                 }
-                            }
-                        });
+                            });
+                        }
+                        if (ov.materialAuto) {
+                            autoMerged.material_costs = Object.assign({}, _bItem.material_costs || {});
+                            Object.keys(ov.materialAuto).forEach(function(cat) {
+                                var val = autoMerged.material_costs[cat];
+                                if (val != null) {
+                                    if (typeof val === 'number') {
+                                        autoMerged.material_costs[cat] = Math.round(val * ov.materialAuto[cat] * 100) / 100;
+                                    } else if (val && val.cost != null) {
+                                        autoMerged.material_costs[cat] = Object.assign({}, val, { cost: Math.round(val.cost * ov.materialAuto[cat] * 100) / 100 });
+                                    }
+                                }
+                            });
+                        }
+                        var amc = computeComposedPrice(autoMerged, _bInstall);
+                        console.log('[BAREMES] tier 3: composedPrice:', amc, '(base:', _bPrice, ')');
+                        if (amc !== null) effectivePriceB = amc;
                     }
-                    var amc = computeComposedPrice(autoMerged, _bInstall);
-                    console.log('[BAREMES] tier 3: autoMerged labor_minutes:', JSON.stringify(autoMerged.labor_minutes), 'material_costs:', JSON.stringify(autoMerged.material_costs), 'composedPrice:', amc);
-                    if (amc !== null) effectivePrice = amc;
+                    // Update price display with barème-adjusted price
+                    var rowGroupB = row.closest('.furniture-group');
+                    var multB = rowGroupB ? getModifierMultiplier(rowGroupB.id) : 1;
+                    var _upxB = document.getElementById(rowId + '-unit-price');
+                    var _upxInnerB = _upxB ? _upxB.querySelector('.upx') : null;
+                    if (_upxInnerB) _upxInnerB.textContent = formatPrice(effectivePriceB * multB); else if (_upxB) _upxB.textContent = formatPrice(effectivePriceB * multB);
+                    var totalElB = document.getElementById(rowId + '-total');
+                    var qtyB = parseFloat(qtyInput.value) || 0;
+                    if (totalElB) totalElB.textContent = formatPrice(effectivePriceB * qtyB * multB);
+                    console.log('[BAREMES] price updated:', effectivePriceB, '× qty', qtyB, '=', effectivePriceB * qtyB * multB);
+                } else if (_bItem) {
+                    // Item exists but has no labor_modifiers — clear any stale auto overrides
+                    if (_rowOverrides[rowId] && (_rowOverrides[rowId].laborAuto || _rowOverrides[rowId].materialAuto)) {
+                        delete _rowOverrides[rowId].laborAuto;
+                        delete _rowOverrides[rowId].materialAuto;
+                        delete _rowOverrides[rowId].autoLabel;
+                        row.classList.remove('has-auto-modifier');
+                        if (Object.keys(_rowOverrides[rowId]).every(function(k) { return _rowOverrides[rowId][k] == null; })) {
+                            delete _rowOverrides[rowId];
+                        }
+                    }
                 }
-                console.log('[BAREMES] final effectivePrice:', effectivePrice, '(base was:', _bPrice, ')');
-                var rowGroup = row.closest('.furniture-group');
-                var mult = rowGroup ? getModifierMultiplier(rowGroup.id) : 1;
-                var _upx = document.getElementById(rowId + '-unit-price');
-                var _upxInner = _upx ? _upx.querySelector('.upx') : null;
-                if (_upxInner) _upxInner.textContent = formatPrice(effectivePrice * mult); else if (_upx) _upx.textContent = formatPrice(effectivePrice * mult);
-                var totalEl2 = document.getElementById(rowId + '-total');
-                var qty2 = parseFloat(qtyInput.value) || 0;
-                if (totalEl2) totalEl2.textContent = formatPrice(effectivePrice * qty2 * mult);
-                delete row._baremeItem;
-                delete row._baremeIncludeInstall;
-                delete row._baremeBasePrice;
             }
 
             const groupId = row.dataset.group;

@@ -12015,6 +12015,7 @@
             }
 
             // ── Auto labor modifiers (barèmes) — runs AFTER dims inputs exist ──
+            console.log('[BAREMES] deferred check: _baremeItem?', !!row._baremeItem, 'rowId:', rowId, 'labor_modifiers:', row._baremeItem ? JSON.stringify(row._baremeItem.labor_modifiers) : 'N/A');
             if (row._baremeItem) {
                 var _bItem = row._baremeItem;
                 var _bInstall = row._baremeIncludeInstall;

@@ -181,11 +181,11 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 5. **Locked children matching** : dans la boucle des règles, les enfants locked sont matchés par `cascadeRuleTarget` ou `catalogueId` — empêche la création de doublons
 6. **Frères** : les autres enfants actifs sont re-résolus avec le nouveau materialCtx. Si la résolution échoue (ex: mélamine → pas de finition), l'enfant frère est orpheliné et supprimé
 
-**Filtre materialCtx sur `$match:`** : après résolution d'un `$match:`, si `materialCtx._updatedBySiblingDefault` est vrai (i.e. le `materialCtx.chosenClientText` a été propagé par un `$default:` frère, pas le ctx initial du FAB), vérifie qu'il y a au moins 1 mot-clé en commun (longueur > 2) entre `materialCtx.chosenClientText` et le `client_text` de l'article résolu. 0 mots en commun → résolution rejetée → pas de ligne créée. Ex: materialCtx "mélamine blanche" vs résolu "laque polyuréthane" → 0 commun → rejeté. Fonction testable : `checkMaterialCtxOverlap(ctxText, itemText)` dans `cascade-helpers.js`. **Propagation via enfants existants** : quand `findExistingChildForDynamicRule` retrouve un enfant pour `$default:`, le `client_text` de l'enfant est propagé dans `materialCtx` avec `_updatedBySiblingDefault = true` — sinon les changements de dims ne déclenchent pas le filtre
+**Filtre catégorie sur `$match:`** : après résolution d'un `$match:`, si `materialCtx._updatedBySiblingDefault` est vrai et `materialCtx._defaultResolvedId` existe, vérifie que l'article résolu par le `$default:` frère a une **relation** avec la catégorie du `$match`. Deux checks : (1) clés `material_costs` contenant un mot de la catégorie, (2) règles cascade ciblant la même catégorie. Ex: mélamine (material_costs: `{"PANNEAU MÉLAMINE": 5}`, pas de FINITION dans costs/cascades) → `$match:FINITION BOIS` rejeté silencieusement. Placage (cascade vers `$match:FINITION BOIS`) → accepté. Fonction testable : `checkDefaultItemMatchCategory(defaultItem, matchCategory)` dans `cascade-helpers.js`. **Propagation via enfants existants** : quand `findExistingChildForDynamicRule` retrouve un enfant pour `$default:`, l'ID + `client_text` de l'enfant sont propagés dans `materialCtx` (`_defaultResolvedId`, `chosenClientText`, `_updatedBySiblingDefault = true`)
 
 **Résolution échouée** : quand `$default:` ou `$match:` ne trouve aucun article valide :
 - **Pas de ligne enfant créée** — la règle est simplement sautée (`continue`)
-- **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer. **Exception** : si le `$match:` a été rejeté par le filtre `materialCtx` (0 mots en commun), **pas de toast** — c'est un comportement voulu (ex: mélamine pré-finie n'a pas besoin de FINITION BOIS)
+- **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer. **Exception** : si le `$match:` a été rejeté par le filtre catégorie, **pas de toast** — c'est un comportement voulu (ex: mélamine n'a pas besoin de FINITION BOIS)
 - **Console warn** avec détail technique (target, groupId, DM disponibles)
 - `getDefaultMaterialKeywords` n'a **pas de fallback "first-available"** — si aucun DM ne correspond à la catégorie, retourne null (évite de sélectionner un article non pertinent)
 
@@ -625,7 +625,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkMaterialCtxOverlap`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`
 
 ### Synchronisation
 
@@ -708,3 +708,10 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] `$match:PANNEAU BOIS` + DM "Placage chêne blanc" (material_costs: {"PANNEAU MÉLAMINE": 5.2}) → détecte via mot commun "PANNEAU"
 - [ ] `effectiveExpCats` = union catégorie règle + catégories dérivées DM
 - [ ] Changement de DM → re-cascade avec nouvelles catégories effectives
+
+### Filtre catégorie $match
+- [ ] DM mélamine → `$match:FINITION BOIS` rejeté silencieusement (mélamine n'a pas FINITION dans costs/cascades)
+- [ ] DM placage → `$match:FINITION BOIS` accepté (placage a FINITION dans ses cascades)
+- [ ] DM mélamine → `$match:BANDE DE CHANT` accepté (mélamine a BANDE DE CHANT dans ses cascades)
+- [ ] Changement DM mélamine → placage → finition et bande de chant bois créées
+- [ ] Changement DM placage → mélamine → finition supprimée, bande de chant PVC remplace bois

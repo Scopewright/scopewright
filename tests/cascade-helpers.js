@@ -352,15 +352,34 @@ function evaluateLaborModifiers(item, vars, log) {
 // ── checkMaterialCtxOverlap (calculateur.html — inline in executeCascade) ──
 // Checks keyword overlap between materialCtx.chosenClientText and a resolved item's client_text.
 // Returns true if there is at least 1 common word (length > 2), false if 0 common words.
-// Used to filter out $match: resolutions that are irrelevant to the sibling $default: material.
+// Category-based filter: checks if the $default-resolved item has a relationship
+// with the $match category (via material_costs keys or cascade rules).
+// Used to filter out $match: resolutions irrelevant to the sibling $default: material.
+// e.g. mélamine (no FINITION in costs/cascades) → reject FINITION BOIS
+//      placage (has FINITION in cascades) → accept FINITION BOIS
 
-function checkMaterialCtxOverlap(materialCtxClientText, itemClientText) {
-    if (!materialCtxClientText || !itemClientText) return true; // no filter if missing
-    var ctxWords = materialCtxClientText.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿçœæ0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
-    var itemWords = itemClientText.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿçœæ0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
-    if (ctxWords.length === 0 || itemWords.length === 0) return true; // no meaningful words → no filter
-    var common = ctxWords.filter(function(w) { return itemWords.indexOf(w) !== -1; });
-    return common.length > 0;
+function checkDefaultItemMatchCategory(defaultItem, matchCategory) {
+    if (!defaultItem || !matchCategory) return true; // no filter if missing
+    var matchCat = matchCategory.toUpperCase();
+    var matchWords = matchCat.split(/\s+/).filter(function(w) { return w.length > 2; });
+    if (matchWords.length === 0) return true;
+    var hasRelation = false;
+    // Check 1: material_costs keys contain a word from the $match category
+    if (defaultItem.material_costs) {
+        var mcKeys = Object.keys(defaultItem.material_costs).map(function(k) { return k.toUpperCase(); });
+        hasRelation = matchWords.some(function(mw) {
+            return mcKeys.some(function(mk) { return mk.indexOf(mw) !== -1; });
+        });
+    }
+    // Check 2: cascade rules target the same category
+    if (!hasRelation && defaultItem.calculation_rule_ai && defaultItem.calculation_rule_ai.cascade) {
+        hasRelation = defaultItem.calculation_rule_ai.cascade.some(function(r) {
+            if (!r.target || !r.target.startsWith('$match:')) return false;
+            var rCat = r.target.substring(7).toUpperCase();
+            return matchWords.some(function(mw) { return rCat.indexOf(mw) !== -1; });
+        });
+    }
+    return hasRelation;
 }
 
 // ── Module exports ──
@@ -384,6 +403,6 @@ if (typeof module !== 'undefined' && module.exports) {
         findExistingChildForDynamicRule: findExistingChildForDynamicRule,
         computeChildDims: computeChildDims,
         evaluateLaborModifiers: evaluateLaborModifiers,
-        checkMaterialCtxOverlap: checkMaterialCtxOverlap
+        checkDefaultItemMatchCategory: checkDefaultItemMatchCategory
     };
 }

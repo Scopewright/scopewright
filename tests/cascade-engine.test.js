@@ -70,7 +70,7 @@ var isRuleOverridden = helpers.isRuleOverridden;
 var findExistingChildForDynamicRule = helpers.findExistingChildForDynamicRule;
 var computeChildDims = helpers.computeChildDims;
 var MATCH_STOP_WORDS = helpers.MATCH_STOP_WORDS;
-var checkMaterialCtxOverlap = helpers.checkMaterialCtxOverlap;
+var checkDefaultItemMatchCategory = helpers.checkDefaultItemMatchCategory;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
 var ROOM_DM = fixturesDm.ROOM_DM;
@@ -1138,49 +1138,78 @@ describe('GROUP 19 — evaluateLaborModifiers — integration ST-0006', function
 });
 
 // ════════════════════════════════════════════════════════════════
-// GROUP 20: checkMaterialCtxOverlap — keyword-overlap filter for $match:
+// GROUP 20: checkDefaultItemMatchCategory — category-based filter for $match:
 // ════════════════════════════════════════════════════════════════
 
-describe('GROUP 20 — checkMaterialCtxOverlap', function() {
-    it('null materialCtx → true (no filter)', function() {
-        assertEqual(checkMaterialCtxOverlap(null, 'laque polyuréthane'), true);
+describe('GROUP 20 — checkDefaultItemMatchCategory', function() {
+    it('null defaultItem → true (no filter)', function() {
+        assertEqual(checkDefaultItemMatchCategory(null, 'FINITION BOIS'), true);
     });
 
-    it('null item client_text → true (no filter)', function() {
-        assertEqual(checkMaterialCtxOverlap('mélamine blanche', null), true);
+    it('null matchCategory → true (no filter)', function() {
+        assertEqual(checkDefaultItemMatchCategory({ material_costs: { 'PANNEAU MÉLAMINE': 5 } }, null), true);
     });
 
-    it('mélamine vs laque polyuréthane → false (0 common words)', function() {
-        assertEqual(checkMaterialCtxOverlap('mélamine blanche thermofusionnée 805', 'laque au polyuréthane clair'), false);
+    it('mélamine (no FINITION in costs) vs FINITION BOIS → false', function() {
+        var melamine = { material_costs: { 'PANNEAU MÉLAMINE': 5.00 } };
+        assertEqual(checkDefaultItemMatchCategory(melamine, 'FINITION BOIS'), false);
     });
 
-    it('mélamine vs vernis huile → false (0 common words)', function() {
-        assertEqual(checkMaterialCtxOverlap('mélamine blanche thermofusionnée', 'vernis huile naturelle'), false);
+    it('mélamine with BANDE DE CHANT in cascade → BANDE DE CHANT accepted', function() {
+        var melamine = {
+            material_costs: { 'PANNEAU MÉLAMINE': 5.00 },
+            calculation_rule_ai: { cascade: [{ target: '$match:BANDE DE CHANT' }] }
+        };
+        assertEqual(checkDefaultItemMatchCategory(melamine, 'BANDE DE CHANT'), true);
     });
 
-    it('placage chêne blanc vs bandes chêne blanc → true (chêne, blanc)', function() {
-        assertEqual(checkMaterialCtxOverlap('placage de chêne blanc FC', 'bandes de chêne blanc FC'), true);
+    it('mélamine without FINITION in cascade → FINITION BOIS rejected', function() {
+        var melamine = {
+            material_costs: { 'PANNEAU MÉLAMINE': 5.00 },
+            calculation_rule_ai: { cascade: [{ target: '$match:BANDE DE CHANT' }] }
+        };
+        assertEqual(checkDefaultItemMatchCategory(melamine, 'FINITION BOIS'), false);
     });
 
-    it('placage noyer noir vs laque polyuréthane → false', function() {
-        assertEqual(checkMaterialCtxOverlap('placage de noyer noir FC', 'laque au polyuréthane clair'), false);
+    it('placage with FINITION in cascade → FINITION BOIS accepted', function() {
+        var placage = {
+            material_costs: { 'PANNEAU BOIS': 8.50 },
+            calculation_rule_ai: { cascade: [
+                { target: '$match:BANDE DE CHANT' },
+                { target: '$match:FINITION BOIS' }
+            ] }
+        };
+        assertEqual(checkDefaultItemMatchCategory(placage, 'FINITION BOIS'), true);
     });
 
-    it('chêne blanc vs chants PVC → false (no common words > 2 chars)', function() {
-        assertEqual(checkMaterialCtxOverlap('placage de chêne blanc FC', 'chants PVC assortis'), false);
+    it('placage with FINITION in material_costs → FINITION BOIS accepted', function() {
+        var placage = {
+            material_costs: { 'PANNEAU BOIS': 8.50, 'FINITION BOIS': 3.00 }
+        };
+        assertEqual(checkDefaultItemMatchCategory(placage, 'FINITION BOIS'), true);
     });
 
-    it('same text → true', function() {
-        assertEqual(checkMaterialCtxOverlap('laque polyuréthane claire', 'laque polyuréthane claire'), true);
+    it('item with no material_costs and no cascade → rejected', function() {
+        var bare = { price: 100 };
+        assertEqual(checkDefaultItemMatchCategory(bare, 'FINITION BOIS'), false);
     });
 
-    it('short words (<=2 chars) are ignored', function() {
-        // "de" and "FC" are <=2 chars, should not count as common
-        assertEqual(checkMaterialCtxOverlap('de FC', 'de FC'), true); // both empty after filter → true (no words to compare = no filter)
+    it('partial word match in material_costs key (PANNEAU matches PANNEAU BOIS)', function() {
+        var item = { material_costs: { 'PANNEAU BOIS FRANC': 12.00 } };
+        assertEqual(checkDefaultItemMatchCategory(item, 'PANNEAU BOIS'), true);
     });
 
-    it('empty strings → true (no filter)', function() {
-        assertEqual(checkMaterialCtxOverlap('', ''), true);
+    it('cascade with $default: target (not $match:) → not checked', function() {
+        var item = {
+            material_costs: { 'PANNEAU MÉLAMINE': 5.00 },
+            calculation_rule_ai: { cascade: [{ target: '$default:Façades' }] }
+        };
+        assertEqual(checkDefaultItemMatchCategory(item, 'FINITION BOIS'), false);
+    });
+
+    it('empty material_costs + empty cascade → rejected', function() {
+        var item = { material_costs: {}, calculation_rule_ai: { cascade: [] } };
+        assertEqual(checkDefaultItemMatchCategory(item, 'FINITION BOIS'), false);
     });
 });
 

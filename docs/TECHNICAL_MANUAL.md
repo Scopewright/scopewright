@@ -455,6 +455,8 @@ Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant
 
 **Point critique** : `applyChildDims` est appelé **toujours** quand `rule.child_dims` existe dans les deux branches (enfant existant ET nouveau). Même si item/qty n'ont pas changé, les dimensions du parent ont pu changer (ex: L de 24→36).
 
+**Multi-instance** : quand `child_dims` est présent ET `qty > 1` (entier), le moteur crée **N lignes enfants distinctes** (qty=1 chacune) au lieu d'une seule ligne avec qty=N. Chaque façade/tiroir est une pièce physique avec ses propres dimensions calculées. Matching stable via `dataset.cascadeChildIndex` (0, 1, 2...) — non persisté en DB, reconstruit au chargement depuis `sort_order`. Quand `n_portes` passe de 3 à 2, le 3e enfant est supprimé par le orphan cleanup existant. Si qty est fractionnaire → comportement classique (1 ligne, qty=N).
+
 **Variables `n_portes` / `n_tiroirs`** : même pattern que `n_tablettes`/`n_partitions`. UI inputs `Port.`/`Tir.` dans la zone dims caisson. Migration : `sql/caisson_portes_tiroirs.sql`.
 
 ### 3.8 Guards et protections

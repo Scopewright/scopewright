@@ -503,6 +503,8 @@ C'est ici que la puissance de Scopewright se révèle. Chaque article de fabrica
 
 Les règles cascade peuvent inclure des **formules de dimensions** pour les enfants. Par exemple, une façade de porte peut avoir `L = (L / n_portes) - 0.125` et `H = H - 0.25`. Les dimensions de l'enfant sont recalculées automatiquement quand les dimensions du parent changent.
 
+**Multi-instance** : quand une règle a des formules de dimensions (`child_dims`) et que la quantité est un entier supérieur à 1 (ex: `n_portes = 2`), le système crée **2 lignes façade distinctes** (quantité 1 chacune) plutôt qu'une seule ligne quantité 2. Chaque façade est une pièce physique avec ses propres dimensions. Si `n_portes` passe de 3 à 2, la 3e façade est automatiquement supprimée.
+
 ### Barèmes et modificateurs (admin)
 
 Les barèmes ajustent automatiquement les temps de main-d'œuvre et coûts matériaux selon les dimensions de l'article. Cette section est visible uniquement pour les administrateurs dans la modale d'édition du catalogue.

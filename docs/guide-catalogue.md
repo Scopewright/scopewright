@@ -555,6 +555,7 @@ Dans `calculation_rule_ai.cascade` :
 | `target` | String | Code article (`ST-0015`), reference dynamique (`$default:NomGroupe`), ou correspondance auto (`$match:CatégorieDépense`). **Obligatoire.** |
 | `qty` | String/Number | Quantite ou formule. Par defaut `1`. **Important** : le champ s'appelle `qty`, jamais `formula`. |
 | `condition` | String/null | Formule booleenne. Si presente, la cascade ne s'execute que si la condition est vraie. |
+| `child_dims` | Object/null | Formules dimensionnelles pour l'enfant. Ex: `{ "L": "(L / n_portes) - 0.125", "H": "H - 0.25" }`. Calcule les dims L/H/P de l'enfant a partir des variables du parent. |
 | `override_children` | String[] | Categories de depense a bloquer chez les descendants. Ex: `["BANDE DE CHANT", "FINITION BOIS"]`. L'item qui declare l'override traite ses propres regles — seuls ses descendants les sautent. |
 
 **Quantites : constante vs formule**
@@ -567,6 +568,8 @@ Le moteur detecte automatiquement si `qty` est une constante ou une formule dime
 | Formule dimensionnelle | `"L * H / 144"` | Resultat **total** — PAS multiplie par `rootQty`. La formule calcule deja la surface totale |
 
 Cela evite le doublement des quantites pour les formules qui utilisent des dimensions physiques.
+
+**Multi-instance (child_dims + qty > 1)** : quand une regle declare `child_dims` ET que la quantite evaluee est un entier > 1 (ex: `n_portes = 2`), le moteur cree **N lignes distinctes** (qty=1 chacune) au lieu d'une seule ligne qty=N. Chaque facade ou tiroir est une piece physique avec ses propres dimensions calculees. Si `n_portes` passe de 3 a 2, le 3e enfant est supprime automatiquement. Les enfants sont identifies de maniere stable par `cascadeChildIndex` (0, 1, 2...) reconstruit depuis l'ordre `sort_order` au rechargement.
 
 ### Le target dynamique `$default:`
 

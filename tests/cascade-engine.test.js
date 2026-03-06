@@ -1213,6 +1213,108 @@ describe('GROUP 20 — checkDefaultItemMatchCategory', function() {
     });
 });
 
+// GROUP 21 — Multi-instance cascade (child_dims + qty > 1)
+
+describe('GROUP 21 — Multi-instance cascade (child_dims + qty > 1)', function() {
+
+    it('child_dims + qty=2 (integer) → multiInstance=true, instanceCount=2, instanceQty=1', function() {
+        var rule = { qty: 'n_portes', child_dims: { L: '(L / n_portes) - 0.125', H: 'H - 0.25' } };
+        var vars = { L: 48, H: 36, P: 24, n_portes: 2 };
+        var qty = evalFormula(rule.qty, vars);
+        assertEqual(qty, 2);
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, true);
+        var instanceCount = multiInstance ? qty : 1;
+        var instanceQty = multiInstance ? 1 : qty;
+        assertEqual(instanceCount, 2);
+        assertEqual(instanceQty, 1);
+    });
+
+    it('child_dims + qty=1 → multiInstance=false (single instance, normal behavior)', function() {
+        var rule = { qty: 'n_portes', child_dims: { L: 'L - 0.25', H: 'H - 0.25' } };
+        var vars = { L: 24, H: 36, n_portes: 1 };
+        var qty = evalFormula(rule.qty, vars);
+        assertEqual(qty, 1);
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, false);
+    });
+
+    it('no child_dims + qty=3 → multiInstance=false (materials stay 1 line with qty=N)', function() {
+        var rule = { qty: '3' };
+        var qty = evalFormula(rule.qty, {});
+        assertEqual(qty, 3);
+        var multiInstance = !!rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, false);
+    });
+
+    it('child_dims + fractional qty → multiInstance=false (fallback to single line)', function() {
+        var rule = { qty: 'L * H / 144', child_dims: { L: 'L', H: 'H' } };
+        var vars = { L: 48, H: 36 };
+        var qty = evalFormula(rule.qty, vars);
+        assertEqual(qty, 12); // 48*36/144 = 12, integer
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, true); // 12 is integer → multi-instance
+
+        // Fractional case
+        var vars2 = { L: 47, H: 36 };
+        var qty2 = evalFormula(rule.qty, vars2);
+        // 47*36/144 = 11.75
+        var multiInstance2 = rule.child_dims && qty2 > 1 && Number.isInteger(qty2);
+        assertEqual(multiInstance2, false); // fractional → NOT multi-instance
+    });
+
+    it('each instance gets its own child_dims (computeChildDims is deterministic)', function() {
+        var childDims = { L: '(L / n_portes) - 0.125', H: 'H - 0.25' };
+        var vars = { L: 48, H: 36, n_portes: 2 };
+        var dims0 = computeChildDims(childDims, vars);
+        var dims1 = computeChildDims(childDims, vars);
+        // Both instances get identical dims (same formula, same parent vars)
+        assertEqual(dims0.length_in, 23.875); // (48/2) - 0.125 = 23.875
+        assertEqual(dims0.height_in, 35.75);  // 36 - 0.25
+        assertEqual(dims1.length_in, 23.875);
+        assertEqual(dims1.height_in, 35.75);
+    });
+
+    it('n_portes=3 → 3 instances, each with same computed dims', function() {
+        var rule = { qty: 'n_portes', child_dims: { L: '(L / n_portes) - 0.125', H: 'H - 0.25' } };
+        var vars = { L: 48, H: 30, n_portes: 3 };
+        var qty = evalFormula(rule.qty, vars);
+        assertEqual(qty, 3);
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, true);
+        var dims = computeChildDims(rule.child_dims, vars);
+        assertEqual(dims.length_in, 15.875); // (48/3) - 0.125
+        assertEqual(dims.height_in, 29.75);  // 30 - 0.25
+    });
+
+    it('n_tiroirs=4 with child_dims → 4 instances', function() {
+        var rule = { qty: 'n_tiroirs', child_dims: { L: 'L - 0.5', H: '(H - 1) / n_tiroirs' } };
+        var vars = { L: 24, H: 30, n_tiroirs: 4 };
+        var qty = evalFormula(rule.qty, vars);
+        assertEqual(qty, 4);
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, true);
+        assertEqual(multiInstance ? qty : 1, 4);
+        assertEqual(multiInstance ? 1 : qty, 1);
+        var dims = computeChildDims(rule.child_dims, vars);
+        assertEqual(dims.length_in, 23.5); // 24 - 0.5
+        assertEqual(dims.height_in, 7.25); // (30-1)/4
+    });
+
+    it('constant qty + child_dims → multiInstance (qty per unit × rootQty handled upstream)', function() {
+        // A rule like qty: "2" with child_dims — the qty computation with rootQty happens
+        // BEFORE the multi-instance check. If final qty is integer > 1, multi-instance kicks in.
+        var rule = { qty: '2', child_dims: { L: 'L / 2' } };
+        var formulaStr = String(rule.qty);
+        var usesDimVars = /\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/.test(formulaStr);
+        assertEqual(usesDimVars, false);
+        // With rootQty=1: qty = 2 * 1 = 2
+        var qty = 2 * 1;
+        var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+        assertEqual(multiInstance, true);
+    });
+});
+
 // ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════

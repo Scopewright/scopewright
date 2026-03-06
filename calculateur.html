@@ -4421,6 +4421,15 @@
                 ? Math.round(qtyPerUnit * 100) / 100
                 : Math.round(qtyPerUnit * rootQty * 100) / 100;
 
+            // Multi-instance: when child_dims is present and qty > 1 (integer),
+            // create N separate lines (qty=1 each) instead of 1 line with qty=N.
+            // Each facade/drawer is a distinct physical piece with its own dimensions.
+            var multiInstance = rule.child_dims && qty > 1 && Number.isInteger(qty);
+            var instanceCount = multiInstance ? qty : 1;
+            var instanceQty = multiInstance ? 1 : qty;
+
+            for (var inst = 0; inst < instanceCount; inst++) {
+
             // Check if a locked child satisfies this rule (by rule target or catalogueId)
             // Prevents duplicate creation when a manually-changed child already covers this rule.
             var lockedMatch = false;
@@ -4429,10 +4438,12 @@
                 var lockedEl = document.getElementById(lockedChildren[li].rowId);
                 if (lockedEl && (lockedEl.dataset.cascadeRuleTarget === rule.target ||
                     lockedChildren[li].catalogueId === resolvedTarget)) {
+                    // For multi-instance, also match by cascadeChildIndex
+                    if (multiInstance && lockedEl.dataset.cascadeChildIndex !== String(inst)) continue;
                     matchedChildRowIds.push(lockedChildren[li].rowId);
                     lastInsertedRowId = lockedChildren[li].rowId;
                     lockedMatch = true;
-                    cascadeLog('info', 'locked child matches rule: ' + rule.target + ' → ' + lockedChildren[li].rowId);
+                    cascadeLog('info', 'locked child matches rule: ' + rule.target + (multiInstance ? '[' + inst + ']' : '') + ' → ' + lockedChildren[li].rowId);
                     break;
                 }
             }
@@ -4441,8 +4452,11 @@
             // Chercher un enfant ACTIF existant avec le même target
             var existing = null;
             for (var ei = 0; ei < activeChildren.length; ei++) {
-                if (activeChildren[ei].catalogueId === resolvedTarget &&
-                    matchedChildRowIds.indexOf(activeChildren[ei].rowId) === -1) {
+                if (matchedChildRowIds.indexOf(activeChildren[ei].rowId) !== -1) continue;
+                var _eiEl = document.getElementById(activeChildren[ei].rowId);
+                if (activeChildren[ei].catalogueId === resolvedTarget) {
+                    // Multi-instance: match by cascadeChildIndex too
+                    if (multiInstance && _eiEl && _eiEl.dataset.cascadeChildIndex !== String(inst)) continue;
                     existing = activeChildren[ei];
                     break;
                 }
@@ -4453,8 +4467,10 @@
                     if (matchedChildRowIds.indexOf(activeChildren[ei2].rowId) !== -1) continue;
                     var childElRt = document.getElementById(activeChildren[ei2].rowId);
                     if (childElRt && childElRt.dataset.cascadeRuleTarget === rule.target) {
+                        // Multi-instance: match by cascadeChildIndex too
+                        if (multiInstance && childElRt.dataset.cascadeChildIndex !== String(inst)) continue;
                         existing = activeChildren[ei2];
-                        cascadeLog('info', 'existing child matched by ruleTarget: ' + rule.target + ' → ' + existing.rowId);
+                        cascadeLog('info', 'existing child matched by ruleTarget: ' + rule.target + (multiInstance ? '[' + inst + ']' : '') + ' → ' + existing.rowId);
                         break;
                     }
                 }
@@ -4465,16 +4481,17 @@
                 var childRow = document.getElementById(existing.rowId);
                 if (childRow) {
                     childRow.dataset.cascadeRuleTarget = rule.target;
+                    if (multiInstance) childRow.dataset.cascadeChildIndex = String(inst);
                     var itemChanged = existing.catalogueId !== resolvedTarget;
                     var childQty = childRow.querySelector('.qty-input');
-                    var qtyChanged = childQty && parseFloat(childQty.value) !== qty;
+                    var qtyChanged = childQty && parseFloat(childQty.value) !== instanceQty;
                     // If resolution changed the target item, update the select
                     if (itemChanged) {
                         var childSelect2 = childRow.querySelector('.item-select');
                         if (childSelect2) childSelect2.value = resolvedTarget;
                     }
                     if (qtyChanged) {
-                        childQty.value = qty;
+                        childQty.value = instanceQty;
                         updateRow(existing.rowId);
                     } else if (itemChanged) {
                         updateRow(existing.rowId);
@@ -4505,7 +4522,7 @@
                                 description: _ei.description,
                                 unit_type: _ei.type || '',
                                 unit_price: _ecp !== null ? _ecp : (_ei.price || 0),
-                                quantity: qty
+                                quantity: instanceQty
                             };
                             if (_existDimsResult) Object.assign(_ePayload, _existDimsResult);
                             updateItem(itemMap[existing.rowId], _ePayload);
@@ -4535,11 +4552,14 @@
 
                 // Sélectionner l'article cible
                 var childRow2 = document.getElementById(newRowId);
-                if (childRow2) childRow2.dataset.cascadeRuleTarget = rule.target;
+                if (childRow2) {
+                    childRow2.dataset.cascadeRuleTarget = rule.target;
+                    if (multiInstance) childRow2.dataset.cascadeChildIndex = String(inst);
+                }
                 var childSelect = childRow2 ? childRow2.querySelector('.item-select') : null;
                 if (childSelect) childSelect.value = resolvedTarget;
                 var childQtyInput = childRow2 ? childRow2.querySelector('.qty-input') : null;
-                if (childQtyInput) childQtyInput.value = qty;
+                if (childQtyInput) childQtyInput.value = instanceQty;
 
                 // Hériter le tag du parent (toujours, même si vide)
                 var childTagInput = document.getElementById(newRowId + '-tag');
@@ -4567,7 +4587,7 @@
                         description: _ci.description,
                         unit_type: _ci.type || '',
                         unit_price: _icp !== null ? _icp : (_ci.price || 0),
-                        quantity: qty,
+                        quantity: instanceQty,
                         tag: parentTag || null
                     };
                     if (_newDimsResult) Object.assign(_nPayload, _newDimsResult);
@@ -4577,6 +4597,8 @@
                 matchedChildRowIds.push(newRowId);
                 lastInsertedRowId = newRowId;
             }
+
+            } // end multi-instance loop
         }
 
         // Supprimer les enfants orphelins (seulement actifs, pas les locked)
@@ -18213,7 +18235,29 @@
                                 _parentsSeen[parentRowId] = true;
                             }
                         });
+                        // Rebuild cascadeChildIndex for multi-instance children
+                        // (same parent + same cascadeRuleTarget = siblings, indexed by DOM order)
                         Object.keys(_parentsSeen).forEach(function(pid) {
+                            var children = _loadedCascadeItems.filter(function(ci) {
+                                return cascadeParentMap[ci.rowId] === pid;
+                            });
+                            // Count siblings per ruleTarget
+                            var targetGroups = {};
+                            children.forEach(function(ci) {
+                                var el = document.getElementById(ci.rowId);
+                                var rt = el ? (el.dataset.cascadeRuleTarget || '') : '';
+                                if (!targetGroups[rt]) targetGroups[rt] = [];
+                                targetGroups[rt].push(ci.rowId);
+                            });
+                            // Assign cascadeChildIndex only to multi-instance groups
+                            Object.keys(targetGroups).forEach(function(rt) {
+                                if (targetGroups[rt].length > 1) {
+                                    targetGroups[rt].forEach(function(rowId, idx) {
+                                        var el = document.getElementById(rowId);
+                                        if (el) el.dataset.cascadeChildIndex = String(idx);
+                                    });
+                                }
+                            });
                             markCascadeParent(pid);
                             applyCascadeVisibility(pid);
                         });

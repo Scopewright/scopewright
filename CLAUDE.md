@@ -152,6 +152,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - **`materialCtx`** : contexte cascade **hérité à travers toute la chaîne** parent → enfant → petit-enfant (4e paramètre de `executeCascade`). Pré-peuplé depuis le DM de la **catégorie du parent FAB racine** (ex: "Caisson" → `chosenClientText = "Placage chêne blanc"`). **Mis à jour par `$default:` après résolution** : `resolveCascadeTarget` propage le `client_text` de l'article résolu dans `materialCtx.chosenClientText` à chaque sortie (`cache hit`, `single candidate`, `modale technique`). Les `$match:` frères du même FAB scorent ainsi dans le contexte du matériau effectivement résolu par le `$default:` précédent. Sert de **disambiguateur** quand plusieurs DM existent, mais **ne surcharge jamais** un DM unique explicite (ex: DM "Finition" = "Laque polyuréthane" est utilisé tel quel)
 - **Quantités enfants** : détection automatique constante vs formule. Si `rule.qty` contient des variables dimensionnelles (`L`, `H`, `P`, `QTY`, `n_tablettes`, `n_partitions`, `n_portes`, `n_tiroirs`) → résultat = quantité totale, **pas de multiplication** par `rootQty`. Si constante pure (ex: `"2"`) → quantité par unité FAB, multipliée par `rootQty`. Regex : `/\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/`
 - **`child_dims`** : formules dimensionnelles sur les règles cascade. Quand `rule.child_dims` est présent (ex: `{ L: '(L / n_portes) - 0.125', H: 'H - 0.25' }`), les dimensions L/H/P de l'enfant sont **calculées** à partir des variables du parent via `evalFormula`. `applyChildDims(childRowId, rule, vars)` écrit dans les inputs dim de l'enfant et appelle `updateRow(childRowId, { skipCascade: true })`. Appelé **toujours** quand `rule.child_dims` existe (même si item/qty inchangés) car les dims du parent ont pu changer. Résultat persisté en DB via `updateItem` (`length_in`, `height_in`, `depth_in`)
+- **Multi-instance** : quand `child_dims` est présent ET `qty > 1` (entier), le moteur crée **N lignes distinctes** (qty=1 chacune) au lieu d'1 ligne avec qty=N. Chaque façade/tiroir est une pièce physique avec ses propres dimensions. Matching stable via `dataset.cascadeChildIndex` (0, 1, 2...). Non persisté en DB — reconstruit au `openSubmission` depuis l'ordre `sort_order` des enfants partageant le même `cascadeRuleTarget`. Si qty est fractionnaire ou `child_dims` absent → comportement classique (1 ligne, qty=N)
 - **`n_portes` / `n_tiroirs`** : variables caisson (même pattern que `n_tablettes`/`n_partitions`). UI inputs `Port.`/`Tir.` dans la zone dims caisson. Substitution dans `evalFormula`. Ask completeness : 0 valide, null bloque. Aliases : `PORTES`/`N_PORTES`, `TIROIRS`/`N_TIROIRS`. Migration : `sql/caisson_portes_tiroirs.sql`
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
@@ -621,7 +622,7 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 189 assertions en 24 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 197 assertions en 25 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 15 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 14 articles catalogue réalistes (4 FAB + 10 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
@@ -694,11 +695,14 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - [ ] `n_portes = 0` → accepté (valide)
 - [ ] `n_portes = null` → ask affiché (non défini)
 
-### child_dims
+### child_dims + multi-instance
 - [ ] Règle avec `child_dims: { L: '(L/n_portes)-0.125', H: 'H-0.25' }` → enfant reçoit L/H calculés
 - [ ] Parent dims changent (L: 24→36) → enfant child_dims recalculés automatiquement
 - [ ] `child_dims` absent → aucun effet sur les dims enfant
 - [ ] Formule unsafe dans child_dims → clé ignorée, pas de crash
+- [ ] `child_dims` + `n_portes=2` → 2 lignes enfants distinctes (qty=1 chacune), pas 1 ligne qty=2
+- [ ] `n_portes` passe de 3 à 2 → 3e enfant supprimé (orphan cleanup)
+- [ ] Recharger soumission → `cascadeChildIndex` reconstruit, re-cascade stable
 
 ### Barèmes et modificateurs
 - [ ] Article avec `labor_modifiers` + L > seuil → popover affiche colonne Auto avec valeurs factorisées

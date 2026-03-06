@@ -7027,7 +7027,7 @@
                         // AI merge protection: preserve ask, override_children, child_dims from existing JSON
                         var existing = {};
                         try { existing = JSON.parse(jsonTextarea.value) || {}; } catch(e) {}
-                        ['ask', 'override_children', 'child_dims'].forEach(function(k) {
+                        ['ask', 'override_children', 'child_dims', 'labor_modifiers'].forEach(function(k) {
                             if (existing[k] && !envelope.json[k]) envelope.json[k] = existing[k];
                         });
                         // Preserve child_dims on individual cascade rules

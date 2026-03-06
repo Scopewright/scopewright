@@ -426,7 +426,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 **Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif.
 
-**AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`
+**AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`. **AI merge protection** dans `aiCalcRuleGenerate()` : quand l'AI régénère le JSON `calculation_rule_ai`, les clés `ask`, `override_children`, `child_dims`, `labor_modifiers` sont préservées depuis le JSON existant si l'AI ne les retourne pas
 
 **Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables. Le guard `formula auto-qty` est aussi étendu : `calculation_rule_ai` est évalué pour tout article avec `dims_config` (pas seulement FAB). La modale catalogue sauvegarde `dims_config` pour tout type d'article si au moins une checkbox dim est cochée (ne force plus `null` pour les non-FAB).
 

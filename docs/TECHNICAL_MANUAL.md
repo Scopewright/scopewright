@@ -397,6 +397,8 @@ await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
 
 **Propagation via enfants existants** : quand `findExistingChildForDynamicRule` retrouve un enfant pour une règle `$default:`, l'ID (`_defaultResolvedId`) et le `client_text` de l'article existant sont propagés dans `materialCtx` avec `_updatedBySiblingDefault = true`. Sans cette propagation, les changements de dims ou de DM ne déclencheraient pas le filtre catégorie car le `$default:` résoudrait via enfant existant sans passer par `resolveCascadeTarget`.
 
+**Résolution fraîche `$match:` sur changement DM** : flag `_defaultResolvedFresh` dans la boucle cascade. Si `$default:` résout via `resolveCascadeTarget` (pas via enfant existant — le DM a changé), le flag est activé. Les `$match:` suivants **sautent** `findExistingChildForDynamicRule` et forcent une résolution fraîche via `resolveMatchTarget`. L'ancien enfant est retrouvé par `cascadeRuleTarget` (fallback) et mis à jour (`itemChanged = true`). Ex: DM mélamine → placage : `$default:Caisson` résout ST-0035 (fresh) → `_defaultResolvedFresh = true` → `$match:BANDE DE CHANT` résout ST-0013 (chêne, fresh) au lieu de garder ST-0048 (PVC, stale).
+
 ### 3.6 Quantités enfants (constante vs formule)
 
 Le moteur détecte automatiquement si `rule.qty` est une constante ou une formule dimensionnelle :

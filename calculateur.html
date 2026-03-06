@@ -5499,7 +5499,7 @@
             background: var(--sw-surface);
             display: none; /* collapsed by default */
         }
-        .calc-row.cascade-child .cell-article { padding-left: 20px; }
+        .calc-row.cascade-child .cell-article { padding-left: 22px; }
         .calc-row.cascade-child .combobox-input,
         .calc-row.cascade-child .cell-code,
         .calc-row.cascade-child .cell-type,
@@ -5742,6 +5742,7 @@
         .combobox-input:focus { border-color: var(--sw-navy); background: var(--sw-surface); outline: none; }
         .combobox-input::placeholder { color: #C8CED6; }
         .combobox-input.has-value { font-weight: 600; color: var(--sw-text, #0F172A); }
+        .cascade-parent-row .combobox-input.has-value { font-size: 14px; }
         .cascade-child .combobox-input.has-value { font-weight: 400; color: #9CA3AF; }
         .btn-edit-cat {
             flex-shrink: 0; width: 22px; height: 22px; border: none; background: none;
@@ -5885,7 +5886,7 @@
         .cell-code {
             font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
             font-size: 10px;
-            color: var(--sw-muted, #94A3B8);
+            color: #A1A1AA;
             position: relative;
             cursor: help;
         }
@@ -5896,8 +5897,8 @@
             display: flex;
             align-items: center;
             gap: 2px;
-            font-size: 10px;
-            color: #94a3b8;
+            font-size: 11px;
+            color: #9CA3AF;
         }
         .cell-dims input {
             width: 36px;
@@ -5987,7 +5988,7 @@
             border-radius: 6px;
             text-align: center;
             background: transparent;
-            color: var(--sw-text-2, #64748B);
+            color: var(--sw-muted, #94A3B8);
             font-variant-numeric: tabular-nums;
             transition: border-color 0.15s, background-color 0.15s;
         }
@@ -6000,7 +6001,7 @@
 
         .cell-total {
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             text-align: right;
             color: var(--sw-text);
             font-variant-numeric: tabular-nums;
@@ -6255,13 +6256,13 @@
             justify-content: center;
         }
         .install-toggle-row input[type="checkbox"] {
-            width: 11px;
-            height: 11px;
+            width: 12px;
+            height: 12px;
             cursor: pointer;
             accent-color: var(--sw-navy);
-            opacity: 0.65;
+            opacity: 0.5;
         }
-        .install-toggle-row input[type="checkbox"]:checked { opacity: 0.85; }
+        .install-toggle-row input[type="checkbox"]:checked { opacity: 0.8; }
 
         .btn-remove-group {
             padding: 5px 12px;

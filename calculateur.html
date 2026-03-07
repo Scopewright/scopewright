@@ -8855,11 +8855,11 @@
             display: flex; border: 1px solid #F3F4F6; border-radius: 8px; overflow: hidden; margin-bottom: 16px;
         }
         .rentab-kpi-card {
-            flex: 1; padding: 20px 24px; text-align: center;
+            flex: 1; padding: 20px 24px; text-align: center; background: #fff; border: 1px solid #E5E7EB;
         }
-        .rentab-kpi-card + .rentab-kpi-card { border-left: 1px solid #F3F4F6; }
-        .rentab-kpi-card.profit-green { background: #ECFDF5; }
-        .rentab-kpi-card.profit-orange { background: #FEF3C7; }
+        .rentab-kpi-card + .rentab-kpi-card { border-left: 1px solid #E5E7EB; }
+        .rentab-kpi-card.profit-green { background: #F0FDF4; }
+        .rentab-kpi-card.profit-orange { background: #FFFBEB; }
         .rentab-kpi-card.profit-red { background: #FEF2F2; }
         .rentab-kpi-label {
             font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 6px;
@@ -8867,31 +8867,31 @@
         .rentab-kpi-value {
             font-size: 32px; font-weight: 600; color: #0B1220; line-height: 1.1; font-variant-numeric: tabular-nums;
         }
-        .rentab-kpi-value.profit-green-value { font-size: 36px; color: #16A34A; }
-        .rentab-kpi-value.profit-orange-value { font-size: 36px; color: #D97706; }
+        .rentab-kpi-value.profit-green-value { font-size: 36px; color: #15803D; }
+        .rentab-kpi-value.profit-orange-value { font-size: 36px; color: #B45309; }
         .rentab-kpi-value.profit-red-value { font-size: 36px; color: #DC2626; }
         .rentab-kpi-pct { font-size: 14px; font-weight: 600; margin-top: 4px; }
-        .rentab-kpi-pct.pct-green { color: #16A34A; }
-        .rentab-kpi-pct.pct-orange { color: #D97706; }
+        .rentab-kpi-pct.pct-green { color: #15803D; }
+        .rentab-kpi-pct.pct-orange { color: #B45309; }
         .rentab-kpi-pct.pct-red { color: #DC2626; }
         .rentab-kpi-sub { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
 
         /* ── AI warning banner ── */
         .rentab-ai-warning {
-            background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 6px;
-            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #92400E; line-height: 1.4;
+            background: #FFFBEB; border-left: 3px solid #D4A017; border-radius: 6px;
+            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #78350F; line-height: 1.4;
             display: flex; align-items: center; justify-content: space-between; gap: 16px;
         }
         .rentab-ai-warning-text { flex: 1; }
         .rentab-btn-ai-adjust {
-            flex-shrink: 0; background: #92400E; color: #FEF3C7; border: none; border-radius: 6px;
+            flex-shrink: 0; background: #0B1220; color: #fff; border: none; border-radius: 6px;
             padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s;
         }
-        .rentab-btn-ai-adjust:hover { background: #78350F; }
+        .rentab-btn-ai-adjust:hover { background: #080E18; }
 
         /* ── AI recommendation reveal ── */
         .rentab-ai-recommend {
-            background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;
+            background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px;
             padding: 16px 20px; margin-bottom: 20px;
             display: flex; align-items: center; justify-content: space-between; gap: 16px;
             animation: rentabAiReveal 0.3s ease-out;
@@ -8902,19 +8902,19 @@
         }
         .rentab-ai-recommend-left { display: flex; align-items: center; gap: 12px; }
         .rentab-ai-recommend-icon {
-            width: 36px; height: 36px; background: #16A34A; border-radius: 50%;
+            width: 36px; height: 36px; background: #0B1220; border-radius: 50%;
             display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex-shrink: 0;
         }
         .rentab-ai-recommend-label {
-            font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #16A34A; margin-bottom: 2px;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #15803D; margin-bottom: 2px;
         }
         .rentab-ai-recommend-price { font-size: 28px; font-weight: 700; color: #0B1220; line-height: 1.1; }
         .rentab-ai-recommend-detail { font-size: 12px; color: #6B7280; margin-top: 2px; }
         .rentab-btn-ai-apply {
-            background: #16A34A; color: #fff; border: none; border-radius: 6px;
+            background: #0B1220; color: #fff; border: none; border-radius: 6px;
             padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
         }
-        .rentab-btn-ai-apply:hover { background: #15803D; }
+        .rentab-btn-ai-apply:hover { background: #080E18; }
         .rentab-btn-ai-dismiss {
             background: transparent; color: #6B7280; border: 1px solid #E5E7EB; border-radius: 6px;
             padding: 8px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s;
@@ -8932,12 +8932,14 @@
         .rentab-repartition-bar .seg {
             height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
-        .seg-mat   { background: #3B82F6; }
-        .seg-sal   { background: #8B5CF6; }
-        .seg-frais { background: #F59E0B; }
-        .seg-prof  { background: #16A34A; }
+        .seg-mat   { background: #334155; }
+        .seg-sal   { background: #A78BFA; }
+        .seg-frais { background: #9CA3AF; }
+        .seg-prof  { background: #86EFAC; }
         .seg-loss  { background: #DC2626; }
         .rentab-seg-label { font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; padding: 0 6px; }
+        .seg-prof .rentab-seg-label { color: #14532D; }
+        .seg-frais .rentab-seg-label { color: #1F2937; }
 
         /* ── 2 columns ── */
         .rentab-two-cols { display: flex; gap: 28px; margin-bottom: 28px; }
@@ -8958,8 +8960,8 @@
         .rentab-marge-badge {
             display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
         }
-        .rentab-marge-badge.green  { background: #DCFCE7; color: #16A34A; }
-        .rentab-marge-badge.orange { background: #FEF3C7; color: #D97706; }
+        .rentab-marge-badge.green  { background: #DCFCE7; color: #15803D; }
+        .rentab-marge-badge.orange { background: #FEF3C7; color: #B45309; }
         .rentab-marge-badge.red    { background: #FEE2E2; color: #DC2626; }
         .rentab-info-icon {
             display: inline-flex; align-items: center; justify-content: center;
@@ -8985,7 +8987,7 @@
         .rentab-dept-stats {
             font-size: 11px; color: #6B7280; width: 110px; flex-shrink: 0; text-align: right; white-space: nowrap;
         }
-        .rentab-dept-stats strong { color: #0B1220; font-weight: 600; }
+        .rentab-dept-stats strong { color: #111827; font-weight: 600; }
 
         /* ── Matériaux table ── */
         .rentab-mat-section { border: 1px solid #F3F4F6; border-radius: 8px; padding: 20px; margin-bottom: 24px; }

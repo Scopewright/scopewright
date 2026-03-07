@@ -385,12 +385,19 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 
 ```
 Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
-     + Σ(material_costs[cat] × (1 + markup%/100 + waste%/100))
+     + Σ(material_costs[cat] × (1 + waste%/100) × (1 + markup%/100))
 ```
 
+- **Markup sur coût + perte** : le markup s'applique sur `(coût + perte)`, pas sur le coût seul. Formule matériaux : `coût × (1 + waste%) × (1 + markup%)`
 - `loss_override_pct` sur l'article remplace le `waste` par catégorie
 - Deux formats de `material_costs` : flat numbers (calculateur via `computeComposedPrice`) et objets `{cost, qty}` (catalogue/approbation via `computeCatItemPrice`)
 - Si aucun prix composé défini, le prix manuel (`price`) est utilisé
+
+**Rentabilité** (`computeRentabilityData` / `openRentab`) :
+- **Marge brute** = `(PV - coûtant mat - perte - salaires) / PV × 100`
+- **Profit net** = `(PV - coûtant mat - perte - salaires - frais fixes) / PV × 100`
+- Fonction pure testable : `computeRentabilityPure(lines[], tauxHoraires[], expenseCategories[])` dans `tests/cascade-helpers.js`
+- Tests : GROUP 28 (17 tests) dans `tests/cascade-engine.test.js`
 
 ### Barèmes et modificateurs (`labor_modifiers`)
 
@@ -657,14 +664,14 @@ Si une modification touche plus de 3 fonctions dans un domaine différent de la 
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 265 assertions en 27 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 18 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/cascade-engine.test.js` | 282 assertions en 28 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 19 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`
 
 ### Synchronisation
 

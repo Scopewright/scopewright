@@ -1064,7 +1064,7 @@
             var expCat = expenseCategories.find(function(c) { return c.name === catName; });
             var markup = expCat ? (expCat.markup || 0) : 0;
             var waste = currentItemLossOverride != null ? currentItemLossOverride : (expCat ? (expCat.waste || 0) : 0);
-            materialTotal += cost * (1 + markup / 100 + waste / 100);
+            materialTotal += cost * (1 + waste / 100) * (1 + markup / 100);
         }
 
         var total = laborTotal + materialTotal;
@@ -1983,10 +1983,10 @@
                     var ec = (expenseCategories || []).find(function(e) { return e.name === mcat; });
                     var markup = ec ? (ec.markup || 0) : 0;
                     var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
-                    var matCost = baseCost * (1 + markup / 100 + waste / 100);
+                    var matCost = baseCost * (1 + waste / 100) * (1 + markup / 100);
                     matTotal += matCost;
                     var wasteLabel = item.loss_override_pct != null ? waste + '% perte [override]' : waste + '% perte';
-                    mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ \u00d7 (1 + ' + markup + '% markup + ' + wasteLabel + ') = ' + matCost.toFixed(2) + ' $');
+                    mcLines.push('  - ' + mcat + ': ' + baseCost.toFixed(2) + ' $ \u00d7 (1 + ' + wasteLabel + ') \u00d7 (1 + ' + markup + '% markup) = ' + matCost.toFixed(2) + ' $');
                 }
                 contextParts.push('Matériaux (total: ' + matTotal.toFixed(2) + ' $):');
                 mcLines.forEach(function(l) { contextParts.push(l); });

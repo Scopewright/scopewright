@@ -433,6 +433,133 @@ function parseFraction(str) {
     return null;
 }
 
+// ── computeRentabilityPure (synchronized with calculateur.html computeRentabilityData ~line 1177) ──
+// Pure function — no DOM dependencies. Takes an array of line descriptors.
+// Each line: { catalogueItem, qty, includeInstall, overrides, isCustom, customTotal }
+// Returns same shape as computeRentabilityData.
+
+function computeRentabilityPure(lines, tauxHoraires, expenseCategories) {
+    var deptMinutes = {};
+    var totalMatCoutant = 0, totalMatMarkup = 0, totalMatWaste = 0;
+    var totalHeuresCharge = 0, totalSalaires = 0, totalFraisFixes = 0, totalProfitMO = 0;
+    var totalPrixVente = 0;
+    var totalAjout = 0;
+
+    tauxHoraires.forEach(function(t) { deptMinutes[t.department] = 0; });
+
+    lines.forEach(function(line) {
+        var item = line.catalogueItem;
+        var qty = line.qty || 0;
+        var includeInstall = line.includeInstall !== false;
+        var ov = line.overrides || {};
+
+        // Custom item (ajout) — flat total, no decomposition
+        if (line.isCustom) {
+            var ct = line.customTotal || 0;
+            totalPrixVente += ct;
+            totalAjout += ct;
+            return;
+        }
+
+        if (!item) return;
+
+        // Price override = flat amount
+        if (ov.price != null) {
+            totalPrixVente += ov.price * qty;
+            totalAjout += ov.price * qty;
+            return;
+        }
+
+        // Build effective values: catalogue → auto factors → manual override
+        var laborMinutes = Object.assign({}, item.labor_minutes || {});
+        if (ov.laborAuto) {
+            Object.keys(ov.laborAuto).forEach(function(dept) {
+                if (laborMinutes[dept] != null) laborMinutes[dept] = Math.round(laborMinutes[dept] * ov.laborAuto[dept]);
+            });
+        }
+        if (ov.labor) Object.assign(laborMinutes, ov.labor);
+        var materialCosts = Object.assign({}, item.material_costs || {});
+        if (ov.materialAuto) {
+            Object.keys(ov.materialAuto).forEach(function(cat) {
+                var v = materialCosts[cat];
+                if (v != null) {
+                    if (typeof v === 'number') materialCosts[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
+                    else if (v && v.cost != null) materialCosts[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
+                }
+            });
+        }
+        if (ov.material) Object.assign(materialCosts, ov.material);
+
+        // Labor
+        tauxHoraires.forEach(function(t) {
+            var dept = t.department;
+            var mins = (laborMinutes[dept] || 0) * qty;
+            if (!includeInstall && dept === 'Installation') return;
+            deptMinutes[dept] = (deptMinutes[dept] || 0) + mins;
+            var hours = mins / 60;
+            totalHeuresCharge += hours * (t.taux_horaire || 0);
+            totalSalaires += hours * (t.salaire || 0);
+            totalFraisFixes += hours * (t.frais_fixe || 0);
+            totalProfitMO += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
+        });
+
+        // Materials — markup on (cost + waste)
+        expenseCategories.forEach(function(c) {
+            var cost = (materialCosts[c.name] || 0) * qty;
+            totalMatCoutant += cost;
+            var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
+            var wastePart = cost * (wasteRate / 100);
+            totalMatWaste += wastePart;
+            totalMatMarkup += (cost + wastePart) * ((c.markup || 0) / 100);
+        });
+
+        // Fallback: no composed data → use flat price
+        var hasComposed = false;
+        tauxHoraires.forEach(function(t) {
+            if ((item.labor_minutes || {})[t.department] > 0) hasComposed = true;
+        });
+        expenseCategories.forEach(function(c) {
+            if ((item.material_costs || {})[c.name] > 0) hasComposed = true;
+        });
+        if (!hasComposed) {
+            totalPrixVente += (item.price || 0) * qty;
+        }
+    });
+
+    totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
+
+    var prixVenteSansAjout = totalPrixVente - totalAjout;
+    var margeBrute = prixVenteSansAjout > 0
+        ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires) / prixVenteSansAjout * 100) : 0;
+    var profitNetPct = prixVenteSansAjout > 0
+        ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / prixVenteSansAjout * 100) : 0;
+    var profitNetMontant = prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
+    var margeBruteAvecAjout = totalPrixVente > 0
+        ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires) / totalPrixVente * 100) : 0;
+    var profitNetAvecAjoutPct = totalPrixVente > 0
+        ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / totalPrixVente * 100) : 0;
+    var profitNetAvecAjoutMontant = totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
+
+    return {
+        prixVente: Math.round(totalPrixVente * 100) / 100,
+        coutMateriaux: Math.round(totalMatCoutant * 100) / 100,
+        perteMateriaux: Math.round(totalMatWaste * 100) / 100,
+        markupMateriaux: Math.round(totalMatMarkup * 100) / 100,
+        heuresCharge: Math.round(totalHeuresCharge * 100) / 100,
+        salaires: Math.round(totalSalaires * 100) / 100,
+        fraisFixes: Math.round(totalFraisFixes * 100) / 100,
+        profitMO: Math.round(totalProfitMO * 100) / 100,
+        profitNet: Math.round(profitNetAvecAjoutMontant * 100) / 100,
+        ajouts: Math.round(totalAjout * 100) / 100,
+        margeBrute: Math.round(margeBrute * 10) / 10,
+        margeBruteAvecAjout: Math.round(margeBruteAvecAjout * 10) / 10,
+        profitNetPct: Math.round(profitNetPct * 10) / 10,
+        profitNetAvecAjoutPct: Math.round(profitNetAvecAjoutPct * 10) / 10,
+        margeVisee: 38,
+        heuresParDept: deptMinutes
+    };
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -455,6 +582,7 @@ if (typeof module !== 'undefined' && module.exports) {
         computeChildDims: computeChildDims,
         evaluateLaborModifiers: evaluateLaborModifiers,
         checkDefaultItemMatchCategory: checkDefaultItemMatchCategory,
-        parseFraction: parseFraction
+        parseFraction: parseFraction,
+        computeRentabilityPure: computeRentabilityPure
     };
 }

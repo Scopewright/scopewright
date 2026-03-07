@@ -1252,9 +1252,10 @@
             expenseCategories.forEach(function(c) {
                 var cost = (materialCosts[c.name] || 0) * qty;
                 totalMatCoutant += cost;
-                totalMatMarkup += cost * ((c.markup || 0) / 100);
                 var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
-                totalMatWaste += cost * (wasteRate / 100);
+                var wastePart = cost * (wasteRate / 100);
+                totalMatWaste += wastePart;
+                totalMatMarkup += (cost + wastePart) * ((c.markup || 0) / 100);
             });
 
             // Fallback: si pas de données composées, utiliser item.price
@@ -1265,11 +1266,20 @@
         });
 
         totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
-        var profitNet = totalProfitMO + totalMatMarkup;
+
+        // Marge brute = (PV - coûtant mat - perte - salaires) / PV
+        // Profit net  = (PV - coûtant mat - perte - salaires - frais fixes) / PV
         var prixVenteSansAjout = totalPrixVente - totalAjout;
-        var margeReelle = prixVenteSansAjout > 0 ? (profitNet / prixVenteSansAjout * 100) : 0;
-        var profitNetAvecAjout = profitNet + totalAjout;
-        var margeAvecAjout = totalPrixVente > 0 ? (profitNetAvecAjout / totalPrixVente * 100) : 0;
+        var margeBrute = prixVenteSansAjout > 0
+            ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires) / prixVenteSansAjout * 100) : 0;
+        var profitNetPct = prixVenteSansAjout > 0
+            ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / prixVenteSansAjout * 100) : 0;
+        var profitNetMontant = prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
+        var margeBruteAvecAjout = totalPrixVente > 0
+            ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires) / totalPrixVente * 100) : 0;
+        var profitNetAvecAjoutPct = totalPrixVente > 0
+            ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / totalPrixVente * 100) : 0;
+        var profitNetAvecAjoutMontant = totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
 
         return {
             prixVente: Math.round(totalPrixVente * 100) / 100,
@@ -1280,10 +1290,12 @@
             salaires: Math.round(totalSalaires * 100) / 100,
             fraisFixes: Math.round(totalFraisFixes * 100) / 100,
             profitMO: Math.round(totalProfitMO * 100) / 100,
-            profitNet: Math.round(profitNetAvecAjout * 100) / 100,
+            profitNet: Math.round(profitNetAvecAjoutMontant * 100) / 100,
             ajouts: Math.round(totalAjout * 100) / 100,
-            margeReelle: Math.round(margeReelle * 10) / 10,
-            margeAvecAjout: Math.round(margeAvecAjout * 10) / 10,
+            margeBrute: Math.round(margeBrute * 10) / 10,
+            margeBruteAvecAjout: Math.round(margeBruteAvecAjout * 10) / 10,
+            profitNetPct: Math.round(profitNetPct * 10) / 10,
+            profitNetAvecAjoutPct: Math.round(profitNetAvecAjoutPct * 10) / 10,
             margeVisee: 38,
             heuresParDept: deptMinutes
         };
@@ -21071,8 +21083,39 @@
 
                 var installCb = document.getElementById(row.id + '-install');
                 var includeInstall = installCb ? installCb.checked : true;
-                var laborMinutes = item.labor_minutes || {};
-                var materialCosts = item.material_costs || {};
+
+                // Per-line override: price override = flat amount, no decomposition
+                var ov = _rowOverrides[row.id];
+                if (ov && ov.price != null) {
+                    totalPrixVente += ov.price * qty;
+                    totalAjout += ov.price * qty;
+                    if (tagPrefix) {
+                        if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };
+                        tagData[tagPrefix].prixVente += ov.price * qty;
+                        tagData[tagPrefix].count++;
+                    }
+                    return;
+                }
+
+                // Build effective values: catalogue → auto factors → manual override
+                var laborMinutes = Object.assign({}, item.labor_minutes || {});
+                if (ov && ov.laborAuto) {
+                    Object.keys(ov.laborAuto).forEach(function(dept) {
+                        if (laborMinutes[dept] != null) laborMinutes[dept] = Math.round(laborMinutes[dept] * ov.laborAuto[dept]);
+                    });
+                }
+                if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);
+                var materialCosts = Object.assign({}, item.material_costs || {});
+                if (ov && ov.materialAuto) {
+                    Object.keys(ov.materialAuto).forEach(function(cat) {
+                        var v = materialCosts[cat];
+                        if (v != null) {
+                            if (typeof v === 'number') materialCosts[cat] = Math.round(v * ov.materialAuto[cat] * 100) / 100;
+                            else if (v && v.cost != null) materialCosts[cat] = Object.assign({}, v, { cost: Math.round(v.cost * ov.materialAuto[cat] * 100) / 100 });
+                        }
+                    });
+                }
+                if (ov && ov.material) Object.assign(materialCosts, ov.material);
 
                 var rowHeures = 0, rowMatCout = 0, rowProfit = 0, rowPrixVente = 0;
 
@@ -21092,17 +21135,19 @@
                     rowProfit += hours * ((t.taux_horaire || 0) - (t.salaire || 0) - (t.frais_fixe || 0));
                 });
 
-                // Matériaux
+                // Matériaux — markup sur (coût + perte)
                 expenseCategories.forEach(function(c) {
                     var cost = (materialCosts[c.name] || 0) * qty;
                     matCoutant[c.name] = (matCoutant[c.name] || 0) + cost;
                     totalMatCoutant += cost;
-                    totalMatMarkup += cost * ((c.markup || 0) / 100);
                     var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
-                    totalMatWaste += cost * (wasteRate / 100);
+                    var wastePart = cost * (wasteRate / 100);
+                    totalMatWaste += wastePart;
+                    var markupPart = (cost + wastePart) * ((c.markup || 0) / 100);
+                    totalMatMarkup += markupPart;
                     rowMatCout += cost;
-                    rowPrixVente += cost + cost * ((c.markup || 0) / 100) + cost * (wasteRate / 100);
-                    rowProfit += cost * ((c.markup || 0) / 100);
+                    rowPrixVente += cost + wastePart + markupPart;
+                    rowProfit += markupPart;
                 });
 
                 // Fallback: si pas de données composées, utiliser item.price
@@ -21126,14 +21171,20 @@
 
             totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
 
-            // Marges
-            var profitNet = totalProfitMO + totalMatMarkup;
+            // Marges — marge brute = (PV - mat - perte - salaires) / PV
+            // Profit net = (PV - mat - perte - salaires - frais fixes) / PV
             var prixVenteSansAjout = totalPrixVente - totalAjout;
-            var margeBrutReelPct = prixVenteSansAjout > 0 ? (profitNet / prixVenteSansAjout * 100) : 0;
-            var profitNetAvecAjout = profitNet + totalAjout;
-            var margeBrutAvecAjoutPct = totalPrixVente > 0 ? (profitNetAvecAjout / totalPrixVente * 100) : 0;
+            var margeBrutePct = prixVenteSansAjout > 0
+                ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires) / prixVenteSansAjout * 100) : 0;
+            var profitNetPct = prixVenteSansAjout > 0
+                ? ((prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / prixVenteSansAjout * 100) : 0;
+            var profitNetMontant = prixVenteSansAjout - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
+            var margeBruteAvecAjoutPct = totalPrixVente > 0
+                ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires) / totalPrixVente * 100) : 0;
+            var profitNetAvecAjoutPct = totalPrixVente > 0
+                ? ((totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / totalPrixVente * 100) : 0;
+            var profitNetAvecAjoutMontant = totalPrixVente - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes;
             var margeVisee = 38; // %
-            var margeViseeMontant = totalPrixVente * margeVisee / 100;
 
             // Total minutes
             var totalMinutes = 0;
@@ -21201,12 +21252,16 @@
             html += '<div class="rentab-section">';
             html += '<div class="rentab-section-title">Marges</div>';
             html += '<div class="rentab-margins">';
-            html += '<div class="rentab-margins-row"><span>Marge brut vis\u00e9e</span><span>' + fPct(margeVisee) + '</span></div>';
-            html += '<div class="rentab-margins-row"><span>Marge brut r\u00e9elle</span><span>' + fPct(margeBrutReelPct) + '</span></div>';
+            html += '<div class="rentab-margins-row"><span>Marge brute vis\u00e9e</span><span>' + fPct(margeVisee) + '</span></div>';
+            html += '<div class="rentab-margins-row"><span>Marge brute</span><span>' + fPct(margeBrutePct) + '</span></div>';
             if (totalAjout > 0) {
-                html += '<div class="rentab-margins-row"><span>Marge brut avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(margeBrutAvecAjoutPct) + '</span></div>';
+                html += '<div class="rentab-margins-row"><span>Marge brute avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(margeBruteAvecAjoutPct) + '</span></div>';
             }
-            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span>' + f(profitNetAvecAjout) + '</span></div>';
+            html += '<div class="rentab-margins-row"><span>Profit net</span><span>' + fPct(profitNetPct) + '</span></div>';
+            if (totalAjout > 0) {
+                html += '<div class="rentab-margins-row"><span>Profit net avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(profitNetAvecAjoutPct) + '</span></div>';
+            }
+            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span>' + f(profitNetAvecAjoutMontant) + '</span></div>';
             html += '</div>';
             html += '</div>';
 

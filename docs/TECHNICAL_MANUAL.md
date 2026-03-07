@@ -217,12 +217,19 @@ L'assemblage de la description client (`sbBuildDescription` dans le sandbox, `as
 
 ```
 Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
-     + Σ(material_costs[cat] × (1 + markup%/100 + waste%/100))
+     + Σ(material_costs[cat] × (1 + waste%/100) × (1 + markup%/100))
 ```
 
+- **Markup sur coût + perte** : le markup s'applique sur `(coût + perte)`, pas sur le coût seul
 - `loss_override_pct` sur l'article remplace le `waste` par catégorie
 - Les composants fournisseur (`catalogue_item_components`) verrouillent automatiquement les inputs de `material_costs` pour les catégories concernées
 - Si aucun prix composé n'est défini, le prix manuel (`price`) est utilisé
+
+**Rentabilité** : `computeRentabilityData` (retour objet pour AI context) et `openRentab` (drawer UI) partagent la même logique. Fonction pure testable : `computeRentabilityPure` dans `tests/cascade-helpers.js`.
+- **Marge brute** = `(PV - coûtant mat - perte - salaires) / PV × 100`
+- **Profit net** = `(PV - coûtant mat - perte - salaires - frais fixes) / PV × 100`
+- `price_override` et `__AJOUT__` sont traités comme ajouts flat (pas de décomposition MO/matériaux)
+- `openRentab` applique les overrides (laborAuto, materialAuto, manual) — même hiérarchie que `computeRentabilityData`
 
 ### 2.8 Barèmes et modificateurs (`labor_modifiers`)
 

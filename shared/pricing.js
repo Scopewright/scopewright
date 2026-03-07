@@ -31,7 +31,7 @@ function computeComposedPrice(item, includeInstallation) {
         if (cost > 0) {
             var markup = (expenseCategories[j].markup || 0) / 100;
             var waste = (item.loss_override_pct != null ? item.loss_override_pct : (expenseCategories[j].waste || 0)) / 100;
-            materialTotal += cost * (1 + markup + waste);
+            materialTotal += cost * (1 + waste) * (1 + markup);
             hasComposed = true;
         }
     }
@@ -60,7 +60,7 @@ function computeCatItemPrice(item) {
             var ec = (expenseCategories || []).find(function(e) { return e.name === cat; });
             var markup = ec ? (ec.markup || 0) : 0;
             var waste = item.loss_override_pct != null ? item.loss_override_pct : (ec ? (ec.waste || 0) : 0);
-            total += cost * (1 + markup / 100 + waste / 100);
+            total += cost * (1 + waste / 100) * (1 + markup / 100);
         }
     }
     return total;

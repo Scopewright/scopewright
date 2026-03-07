@@ -1835,6 +1835,283 @@ describe('27. evaluateLaborModifiers — calculation_rule_ai fallback', function
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 28 — computeRentabilityPure
+// ════════════════════════════════════════════════════════════════
+
+describe('28. computeRentabilityPure — rentability calculations', function() {
+    var computeRentabilityPure = helpers.computeRentabilityPure;
+
+    // Reference data — simple departments & expense categories
+    var testTaux = [
+        { department: 'Ébénisterie', taux_horaire: 75, salaire: 30, frais_fixe: 15 },
+        { department: 'Machinage', taux_horaire: 60, salaire: 25, frais_fixe: 10 },
+        { department: 'Installation', taux_horaire: 50, salaire: 20, frais_fixe: 10 }
+    ];
+    var testExpense = [
+        { name: 'PANNEAU MÉLAMINE', markup: 15, waste: 8 }
+    ];
+
+    // Reference item: Ébénisterie 120 min, Machinage 60 min, PANNEAU MÉLAMINE 10$
+    var refItem = {
+        id: 'TEST-001',
+        labor_minutes: { 'Ébénisterie': 120, 'Machinage': 60 },
+        material_costs: { 'PANNEAU MÉLAMINE': 10 }
+    };
+
+    // ── 28.1: Article composé simple, qty=2 ──
+    // Hand-calculated:
+    //   Ébénisterie: (120/60)*2 = 4h → charge: 4*75=300, salaire: 4*30=120, frais: 4*15=60
+    //   Machinage:   (60/60)*2  = 2h → charge: 2*60=120, salaire: 2*25=50,  frais: 2*10=20
+    //   profitMO = (300-120-60) + (120-50-20) = 120 + 50 = 170
+    //   Mat coûtant: 10*2 = 20
+    //   Perte: 20 * 8% = 1.60
+    //   Markup: (20 + 1.60) * 15% = 21.60 * 0.15 = 3.24
+    //   Prix vente = 300 + 120 + 20 + 1.60 + 3.24 = 444.84
+    //   Marge brute = (444.84 - 20 - 1.60 - 170) / 444.84 = 253.24 / 444.84 = 56.9%
+    //   Profit net  = (444.84 - 20 - 1.60 - 170 - 80) / 444.84 = 173.24 / 444.84 = 38.9%
+    it('article composé simple qty=2', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 2, includeInstall: true }
+        ], testTaux, testExpense);
+
+        assertEqual(r.heuresCharge, 420);       // 300 + 120
+        assertEqual(r.salaires, 170);           // 120 + 50
+        assertEqual(r.fraisFixes, 80);          // 60 + 20
+        assertEqual(r.profitMO, 170);           // 120 + 50
+        assertEqual(r.coutMateriaux, 20);       // 10*2
+        assertEqual(r.perteMateriaux, 1.6);     // 20*0.08
+        assertEqual(r.markupMateriaux, 3.24);   // (20+1.6)*0.15
+        assertEqual(r.prixVente, 444.84);       // 420 + 20 + 1.6 + 3.24
+    });
+
+    // ── 28.2: Markup calculated on cost + waste (P1 fix) ──
+    it('markup is on cost + waste, not cost alone', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // cost=10, waste=10*0.08=0.80, markup=(10+0.80)*0.15=1.62
+        assertEqual(r.coutMateriaux, 10);
+        assertEqual(r.perteMateriaux, 0.8);
+        assertEqual(r.markupMateriaux, 1.62);
+        // Old formula would give: markup = 10*0.15 = 1.50
+        assert(r.markupMateriaux !== 1.5, 'markup should NOT be 1.50 (old formula)');
+    });
+
+    // ── 28.3: Marge brute vs profit net (P8 fix) ──
+    it('marge brute excludes frais fixes, profit net includes them', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 2, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // PV = 444.84, salaires = 170, matCoutant = 20, perte = 1.60, frais = 80
+        // Marge brute = (444.84 - 20 - 1.60 - 170) / 444.84 * 100 = 253.24/444.84 = 56.9%
+        // Profit net  = (444.84 - 20 - 1.60 - 170 - 80) / 444.84 * 100 = 173.24/444.84 = 38.9%
+        assertEqual(r.margeBrute, 56.9);
+        assertEqual(r.profitNetPct, 38.9);
+        assert(r.margeBrute > r.profitNetPct, 'marge brute > profit net (frais fixes difference)');
+    });
+
+    // ── 28.4: Profit net montant ──
+    it('profit net montant = PV - mat - perte - salaires - frais', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 2, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // profitNet = 444.84 - 20 - 1.60 - 170 - 80 = 173.24
+        assertEqual(r.profitNet, 173.24);
+    });
+
+    // ── 28.5: Installation exclue ──
+    it('installation excluded — Installation dept skipped', function() {
+        var itemWithInstall = {
+            id: 'TEST-002',
+            labor_minutes: { 'Ébénisterie': 60, 'Installation': 120 },
+            material_costs: {}
+        };
+        var r = computeRentabilityPure([
+            { catalogueItem: itemWithInstall, qty: 1, includeInstall: false }
+        ], testTaux, testExpense);
+
+        // Only Ébénisterie: 1h*75=75 charge, 1h*30=30 salaire, 1h*15=15 frais
+        // Installation skipped
+        assertEqual(r.heuresCharge, 75);
+        assertEqual(r.salaires, 30);
+        assertEqual(r.fraisFixes, 15);
+        assertEqual(r.heuresParDept['Installation'], 0);
+    });
+
+    // ── 28.6: Installation incluse ──
+    it('installation included — all depts counted', function() {
+        var itemWithInstall = {
+            id: 'TEST-002',
+            labor_minutes: { 'Ébénisterie': 60, 'Installation': 120 },
+            material_costs: {}
+        };
+        var r = computeRentabilityPure([
+            { catalogueItem: itemWithInstall, qty: 1, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // Ébénisterie: 1h*75=75, Installation: 2h*50=100
+        assertEqual(r.heuresCharge, 175);
+        assertEqual(r.heuresParDept['Installation'], 120); // minutes
+    });
+
+    // ── 28.7: laborAuto barème ──
+    it('laborAuto factor multiplies labour minutes', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true,
+              overrides: { laborAuto: { 'Machinage': 1.5 } } }
+        ], testTaux, testExpense);
+
+        // Machinage: 60 * 1.5 = 90 → round = 90 min → 1.5h * 60 = 90$
+        // Ébénisterie: 120 min → 2h * 75 = 150$
+        assertEqual(r.heuresCharge, 240);  // 150 + 90
+        assertEqual(r.heuresParDept['Machinage'], 90); // 60 * 1.5
+    });
+
+    // ── 28.8: materialAuto barème ──
+    it('materialAuto factor multiplies material costs', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true,
+              overrides: { materialAuto: { 'PANNEAU MÉLAMINE': 1.2 } } }
+        ], testTaux, testExpense);
+
+        // cost = 10 * 1.2 = 12 → round(10*1.2*100)/100 = 12.00
+        // waste = 12 * 0.08 = 0.96
+        // markup = (12 + 0.96) * 0.15 = 12.96 * 0.15 = 1.944 → round = 1.94
+        assertEqual(r.coutMateriaux, 12);
+        assertEqual(r.perteMateriaux, 0.96);
+        // 12.96 * 0.15 = 1.944 → rounded to 2 decimals = 1.94
+        assertEqual(r.markupMateriaux, 1.94);
+    });
+
+    // ── 28.9: cumulative laborAuto + materialAuto ──
+    it('cumulative laborAuto + materialAuto combined', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true,
+              overrides: {
+                laborAuto: { 'Ébénisterie': 1.25, 'Machinage': 1.5 },
+                materialAuto: { 'PANNEAU MÉLAMINE': 1.2 }
+              } }
+        ], testTaux, testExpense);
+
+        // Éb: round(120*1.25)=150 min → 2.5h*75=187.5
+        // Mach: round(60*1.5)=90 min → 1.5h*60=90
+        assertEqual(r.heuresCharge, 277.5); // 187.5 + 90
+        assertEqual(r.coutMateriaux, 12);   // 10*1.2
+    });
+
+    // ── 28.10: manual override > auto ──
+    it('manual labor override takes priority over auto', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true,
+              overrides: {
+                laborAuto: { 'Machinage': 1.5 },  // would give 90
+                labor: { 'Machinage': 45 }         // manual override = 45 min
+              } }
+        ], testTaux, testExpense);
+
+        // Machinage: auto gives 90, but manual 45 overrides via Object.assign
+        assertEqual(r.heuresParDept['Machinage'], 45);
+    });
+
+    // ── 28.11: price override = flat, no decomposition ──
+    it('price override treated as flat ajout', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 2, includeInstall: true,
+              overrides: { price: 500 } }
+        ], testTaux, testExpense);
+
+        assertEqual(r.prixVente, 1000);   // 500*2
+        assertEqual(r.ajouts, 1000);       // treated as ajout
+        assertEqual(r.coutMateriaux, 0);   // no decomposition
+        assertEqual(r.heuresCharge, 0);
+    });
+
+    // ── 28.12: custom item (ajout) ──
+    it('custom item adds to prixVente and ajouts', function() {
+        var r = computeRentabilityPure([
+            { isCustom: true, customTotal: 250 }
+        ], testTaux, testExpense);
+
+        assertEqual(r.prixVente, 250);
+        assertEqual(r.ajouts, 250);
+        assertEqual(r.profitNet, 250);  // ajouts = pure profit
+    });
+
+    // ── 28.13: flat price item (no labor/material) ──
+    it('item with flat price only (no labor/material)', function() {
+        var flatItem = { id: 'FLAT-01', price: 100, labor_minutes: {}, material_costs: {} };
+        var r = computeRentabilityPure([
+            { catalogueItem: flatItem, qty: 3, includeInstall: true }
+        ], testTaux, testExpense);
+
+        assertEqual(r.prixVente, 300);     // 100*3
+        assertEqual(r.heuresCharge, 0);
+        assertEqual(r.coutMateriaux, 0);
+    });
+
+    // ── 28.14: loss_override_pct replaces category waste ──
+    it('loss_override_pct overrides category waste', function() {
+        var itemWithLoss = Object.assign({}, refItem, { loss_override_pct: 12 });
+        var r = computeRentabilityPure([
+            { catalogueItem: itemWithLoss, qty: 1, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // waste = 12% instead of category's 8%
+        // cost=10, waste=10*0.12=1.20
+        // markup=(10+1.20)*0.15=11.20*0.15=1.68
+        assertEqual(r.perteMateriaux, 1.2);
+        assertEqual(r.markupMateriaux, 1.68);
+    });
+
+    // ── 28.15: multi-line scenario ──
+    it('multi-line combines correctly', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true },
+            { catalogueItem: refItem, qty: 1, includeInstall: true }
+        ], testTaux, testExpense);
+
+        // Same as refItem qty=2
+        var r2 = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 2, includeInstall: true }
+        ], testTaux, testExpense);
+
+        assertEqual(r.prixVente, r2.prixVente);
+        assertEqual(r.profitNet, r2.profitNet);
+    });
+
+    // ── 28.16: empty lines → null-safe ──
+    it('empty lines returns zeros', function() {
+        var r = computeRentabilityPure([], testTaux, testExpense);
+        assertEqual(r.prixVente, 0);
+        assertEqual(r.margeBrute, 0);
+        assertEqual(r.profitNetPct, 0);
+    });
+
+    // ── 28.17: marge brute with ajouts ──
+    it('marge brute avec ajouts includes ajouts in PV denominator', function() {
+        var r = computeRentabilityPure([
+            { catalogueItem: refItem, qty: 1, includeInstall: true },
+            { isCustom: true, customTotal: 100 }
+        ], testTaux, testExpense);
+
+        // PV sans ajout: heuresCharge + mat + perte + markup
+        // Éb: 2h*75=150, Mach: 1h*60=60 → charge=210
+        // mat=10, perte=0.80, markup=1.62
+        // PV composé = 210 + 10 + 0.80 + 1.62 = 222.42
+        // PV total = 222.42 + 100 = 322.42
+        // salaires = 2h*30 + 1h*25 = 85
+        // Marge brute (sans ajout) = (222.42 - 10 - 0.80 - 85) / 222.42 = 126.62/222.42 = 56.9%
+        // Marge brute avec ajout = (322.42 - 10 - 0.80 - 85) / 322.42 = 226.62/322.42 = 70.3%
+        assertEqual(r.margeBrute, 56.9);
+        assertEqual(r.margeBruteAvecAjout, 70.3);
+        assert(r.margeBruteAvecAjout > r.margeBrute, 'avec ajout > sans ajout');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

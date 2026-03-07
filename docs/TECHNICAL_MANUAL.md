@@ -234,13 +234,13 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (refonte #132) :
 - 4 sections : KPI cards → bannière AI → barre répartition → 2 colonnes (marges + MO) → tableau matériaux → tags
-- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit (vert si positif, rouge si négatif)
-- Bannière AI : si marge effective < visée → texte conseil + bouton "Ajuster le prix" (scope group uniquement)
+- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit tri-state (vert ≥15%, orange 8-14.9%, rouge <8% profit net)
+- Bannière AI : si marge brute effective < 35% → texte conseil + bouton "Ajuster le prix" (scope group uniquement)
 - Prix recommandé : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Applique via `roomModifiers[groupId]` (% sous-total pièce)
 - `rentabApplyTargetPrice(groupId, prixCible)` : calcule le % room modifier depuis le sous-total base (sans modifier existant), tient compte du global modifier. Persiste en DB, ferme la modale silencieusement
 - Modificateur % sous-total : `computeRentabilityData` et `openRentab` appliquent `getModifierMultiplier(groupId)` au PV. Pour le scope projet, agrégation per-group avec modifiers individuels
 - Barre répartition : Matériaux (bleu) + Salaires (violet) + Frais fixes (ambre) + Profit (vert). Labels si segment ≥ 8%
-- Badges marges colorés : vert ≥ visée, orange ≥ visée-8%, rouge < visée-8%
+- Badges marges colorés — marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Profit net : vert ≥15%, orange 8-14.9%, rouge <8%
 - Ventilation MO : barres horizontales triées décroissant
 - Tableau matériaux : 4 colonnes (Base / Perte / Markup / Total) avec accumulateurs per-catégorie
 

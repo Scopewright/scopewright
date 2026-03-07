@@ -8858,18 +8858,22 @@
             flex: 1; padding: 20px 24px; text-align: center;
         }
         .rentab-kpi-card + .rentab-kpi-card { border-left: 1px solid #F3F4F6; }
-        .rentab-kpi-card.profit-card { background: #ECFDF5; }
-        .rentab-kpi-card.loss-card { background: #FEF2F2; }
+        .rentab-kpi-card.profit-green { background: #ECFDF5; }
+        .rentab-kpi-card.profit-orange { background: #FEF3C7; }
+        .rentab-kpi-card.profit-red { background: #FEF2F2; }
         .rentab-kpi-label {
             font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 6px;
         }
         .rentab-kpi-value {
             font-size: 32px; font-weight: 600; color: #0B1220; line-height: 1.1; font-variant-numeric: tabular-nums;
         }
-        .rentab-kpi-value.profit-value { font-size: 36px; color: #16A34A; }
-        .rentab-kpi-value.loss-value { font-size: 36px; color: #DC2626; }
-        .rentab-kpi-pct { font-size: 14px; font-weight: 600; color: #16A34A; margin-top: 4px; }
-        .rentab-kpi-pct.negative { color: #DC2626; }
+        .rentab-kpi-value.profit-green-value { font-size: 36px; color: #16A34A; }
+        .rentab-kpi-value.profit-orange-value { font-size: 36px; color: #D97706; }
+        .rentab-kpi-value.profit-red-value { font-size: 36px; color: #DC2626; }
+        .rentab-kpi-pct { font-size: 14px; font-weight: 600; margin-top: 4px; }
+        .rentab-kpi-pct.pct-green { color: #16A34A; }
+        .rentab-kpi-pct.pct-orange { color: #D97706; }
+        .rentab-kpi-pct.pct-red { color: #DC2626; }
         .rentab-kpi-sub { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
 
         /* ── AI warning banner ── */
@@ -21369,7 +21373,12 @@
 
             // Direct cost (matériaux + perte + salaires — sans frais fixes)
             var totalCoutDirect = totalMatCoutant + totalMatWaste + totalSalaires;
-            var isLoss = profitNetAvecAjoutMontant < 0;
+            var profitColor = function(pct) {
+                if (pct >= 15) return 'green';
+                if (pct >= 8) return 'orange';
+                return 'red';
+            };
+            var pColor = profitColor(profitNetAvecAjoutPct);
 
             var html = '';
 
@@ -21385,17 +21394,17 @@
             html += '<div class="rentab-kpi-value">' + f(totalCoutDirect) + '</div>';
             html += '<div class="rentab-kpi-sub">Co\u00fbt direct</div>';
             html += '</div>';
-            html += '<div class="rentab-kpi-card ' + (isLoss ? 'loss-card' : 'profit-card') + '">';
+            html += '<div class="rentab-kpi-card profit-' + pColor + '">';
             html += '<div class="rentab-kpi-label">Profit</div>';
-            html += '<div class="rentab-kpi-value ' + (isLoss ? 'loss-value' : 'profit-value') + '">' + f(profitNetAvecAjoutMontant) + '</div>';
-            html += '<div class="rentab-kpi-pct' + (isLoss ? ' negative' : '') + '">' + fPct(profitNetAvecAjoutPct) + '</div>';
+            html += '<div class="rentab-kpi-value profit-' + pColor + '-value">' + f(profitNetAvecAjoutMontant) + '</div>';
+            html += '<div class="rentab-kpi-pct pct-' + pColor + '">' + fPct(profitNetAvecAjoutPct) + '</div>';
             html += '<div class="rentab-kpi-sub">Profit net estim\u00e9</div>';
             html += '</div>';
             html += '</div>';
 
             // ── AI warning banner — only if marge < visée ──
             var margeBruteEffective = totalAjout > 0 ? margeBruteAvecAjoutPct : margeBrutePct;
-            if (margeBruteEffective < margeVisee && totalPrixVente > 0) {
+            if (margeBruteEffective < 35 && totalPrixVente > 0) {
                 // Calculate target price: PV_target = costs / (1 - margeVisee/100)
                 // costs for marge brute = matériaux + perte + salaires (no frais fixes)
                 var costsMargeBrute = totalMatCoutant + totalMatWaste + totalSalaires;
@@ -21473,33 +21482,38 @@
             html += '</div>';
 
             // Marge brute réelle — color badge
-            var margeBadgeColor = function(pct) {
-                if (pct >= margeVisee) return 'green';
-                if (pct >= margeVisee - 8) return 'orange';
+            var margeBruteBadge = function(pct) {
+                if (pct >= 35) return 'green';
+                if (pct >= 25) return 'orange';
+                return 'red';
+            };
+            var profitNetBadge = function(pct) {
+                if (pct >= 15) return 'green';
+                if (pct >= 8) return 'orange';
                 return 'red';
             };
             html += '<div class="rentab-marge-row">';
             html += '<span class="rentab-marge-label">Marge brute r\u00e9elle ';
             html += '<span class="rentab-info-icon">\u24d8<span class="tooltip">(vente \u2212 mat\u00e9riaux \u2212 perte \u2212 salaires) / vente</span></span>';
             html += '</span>';
-            html += '<span class="rentab-marge-badge ' + margeBadgeColor(margeBrutePct) + '">' + fPct(margeBrutePct) + '</span>';
+            html += '<span class="rentab-marge-badge ' + margeBruteBadge(margeBrutePct) + '">' + fPct(margeBrutePct) + '</span>';
             html += '</div>';
             if (totalAjout > 0) {
                 html += '<div class="rentab-marge-row">';
                 html += '<span class="rentab-marge-label">Marge brute avec ajouts</span>';
-                html += '<span class="rentab-marge-badge ' + margeBadgeColor(margeBruteAvecAjoutPct) + '">' + fPct(margeBruteAvecAjoutPct) + '</span>';
+                html += '<span class="rentab-marge-badge ' + margeBruteBadge(margeBruteAvecAjoutPct) + '">' + fPct(margeBruteAvecAjoutPct) + '</span>';
                 html += '</div>';
             }
             html += '<div class="rentab-marge-row">';
             html += '<span class="rentab-marge-label">Profit net r\u00e9el ';
             html += '<span class="rentab-info-icon">\u24d8<span class="tooltip">(vente \u2212 mat\u00e9riaux \u2212 perte \u2212 salaires \u2212 frais fixes) / vente</span></span>';
             html += '</span>';
-            html += '<span class="rentab-marge-badge ' + margeBadgeColor(profitNetPct) + '">' + fPct(profitNetPct) + '</span>';
+            html += '<span class="rentab-marge-badge ' + profitNetBadge(profitNetPct) + '">' + fPct(profitNetPct) + '</span>';
             html += '</div>';
             if (totalAjout > 0) {
                 html += '<div class="rentab-marge-row">';
                 html += '<span class="rentab-marge-label">Profit net avec ajouts</span>';
-                html += '<span class="rentab-marge-badge ' + margeBadgeColor(profitNetAvecAjoutPct) + '">' + fPct(profitNetAvecAjoutPct) + '</span>';
+                html += '<span class="rentab-marge-badge ' + profitNetBadge(profitNetAvecAjoutPct) + '">' + fPct(profitNetAvecAjoutPct) + '</span>';
                 html += '</div>';
             }
             html += '</div>';

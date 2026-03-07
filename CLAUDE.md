@@ -403,12 +403,12 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (`openRentab`) — refonte visuelle mockup #132 :
 - **4 sections** : KPI cards (Vente/Coût/Profit) → bannière AI → barre répartition → 2 colonnes (Marges + Ventilation MO) → tableau matériaux (Base/Perte/Markup/Total) → tags
-- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit vert (`#ECFDF5`) si positif, rouge (`#FEF2F2`) si négatif. Pourcentage sous le montant
-- **Bannière AI** : apparaît si marge brute effective < marge visée (38%). Texte : "Marge trop faible — augmenter le prix de X $ pour atteindre la cible de 38 %"
+- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit card couleur tri-state basée sur profit net % : vert (`#ECFDF5`) si ≥15%, orange (`#FEF3C7`) si 8-14.9%, rouge (`#FEF2F2`) si <8%
+- **Bannière AI** : apparaît si marge brute effective < 35% (seuil fixe). Texte : "Marge trop faible — augmenter le prix de X $ pour atteindre la cible de 38 %"
 - **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte verte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
 - **`rentabApplyTargetPrice(groupId, prixCible)`** : calcule le % room modifier nécessaire depuis le sous-total **base** (sans modifier existant). Formule : `((prixCible / (baseSousTotal × globalMult)) - 1) × 100`. Tient compte du modificateur global existant. L'inscrit dans `roomModifiers[groupId]`, appelle `refreshGroupRows` + `updateGrandTotal` + `updateRoom` DB, ferme la modale. Pas de confirm/alert natif
 - **Barre répartition** : 4 segments (Matériaux bleu, Salaires violet, Frais fixes ambre, Profit vert). Labels inline si segment ≥ 8%
-- **Marges** : badges colorés — vert (≥ visée), orange (≥ visée-8%), rouge (< visée-8%). Tooltips avec formules sur ⓘ
+- **Marges** : badges colorés séparés — marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Profit net : vert ≥15%, orange 8-14.9%, rouge <8%. Tooltips avec formules sur ⓘ
 - **Ventilation MO** : barres horizontales triées décroissant, couleur `#818CF8`
 - **Tableau matériaux** : accumulateurs per-catégorie `matWaste[cat]`, `matMarkup[cat]` (gère correctement `loss_override_pct`)
 

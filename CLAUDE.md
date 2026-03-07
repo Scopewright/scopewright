@@ -403,7 +403,7 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (`openRentab`) — refonte visuelle mockup #132 :
 - **4 sections** : KPI cards (Vente/Coût/Profit) → bannière AI → barre répartition → 2 colonnes (Marges + Ventilation MO) → tableau matériaux (Base/Perte/Markup/Total) → tags
-- **KPI cards** : 3 cartes en ligne. Profit vert (`#ECFDF5`) si positif, rouge (`#FEF2F2`) si négatif. Pourcentage sous le montant
+- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit vert (`#ECFDF5`) si positif, rouge (`#FEF2F2`) si négatif. Pourcentage sous le montant
 - **Bannière AI** : apparaît si marge brute effective < marge visée (38%). Texte : "Marge trop faible — augmenter le prix de X $ pour atteindre la cible de 38 %"
 - **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte verte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
 - **`rentabApplyTargetPrice(groupId, prixCible)`** : calcule le % room modifier nécessaire depuis le sous-total **base** (sans modifier existant). Formule : `((prixCible / (baseSousTotal × globalMult)) - 1) × 100`. Tient compte du modificateur global existant. L'inscrit dans `roomModifiers[groupId]`, appelle `refreshGroupRows` + `updateGrandTotal` + `updateRoom` DB, ferme la modale. Pas de confirm/alert natif

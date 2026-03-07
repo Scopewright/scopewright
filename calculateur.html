@@ -21367,8 +21367,8 @@
             var fPct = function(v) { return v.toFixed(1) + ' %'; };
             var fNum = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
 
-            // Total cost (everything except profit)
-            var totalCout = totalMatCoutant + totalMatWaste + totalSalaires + totalFraisFixes;
+            // Direct cost (matériaux + perte + salaires — sans frais fixes)
+            var totalCoutDirect = totalMatCoutant + totalMatWaste + totalSalaires;
             var isLoss = profitNetAvecAjoutMontant < 0;
 
             var html = '';
@@ -21382,8 +21382,8 @@
             html += '</div>';
             html += '<div class="rentab-kpi-card">';
             html += '<div class="rentab-kpi-label">Co\u00fbt</div>';
-            html += '<div class="rentab-kpi-value">' + f(totalCout) + '</div>';
-            html += '<div class="rentab-kpi-sub">Mat\u00e9riaux + MO + frais fixes</div>';
+            html += '<div class="rentab-kpi-value">' + f(totalCoutDirect) + '</div>';
+            html += '<div class="rentab-kpi-sub">Co\u00fbt direct</div>';
             html += '</div>';
             html += '<div class="rentab-kpi-card ' + (isLoss ? 'loss-card' : 'profit-card') + '">';
             html += '<div class="rentab-kpi-label">Profit</div>';

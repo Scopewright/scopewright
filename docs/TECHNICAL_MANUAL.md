@@ -234,7 +234,7 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (refonte #132) :
 - 4 sections : KPI cards → bannière AI → barre répartition → 2 colonnes (marges + MO) → tableau matériaux → tags
-- KPI : Vente / Coût / Profit (vert si positif, rouge si négatif)
+- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit (vert si positif, rouge si négatif)
 - Bannière AI : si marge effective < visée → texte conseil + bouton "Ajuster le prix" (scope group uniquement)
 - Prix recommandé : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Applique via `roomModifiers[groupId]` (% sous-total pièce)
 - `rentabApplyTargetPrice(groupId, prixCible)` : calcule le % room modifier depuis le sous-total base (sans modifier existant), tient compte du global modifier. Persiste en DB, ferme la modale silencieusement

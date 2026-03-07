@@ -1175,12 +1175,40 @@
     }
 
     function computeRentabilityData(scope, groupId) {
-        var rows;
+        // For project scope, aggregate per-group with modifiers
         if (scope === 'project') {
-            rows = document.querySelectorAll('.calc-row');
-        } else {
-            rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
+            var groups = document.querySelectorAll('.furniture-group');
+            if (!groups || groups.length === 0) return null;
+            var merged = null;
+            groups.forEach(function(g) {
+                var gData = computeRentabilityData('room', g.id);
+                if (!gData) return;
+                if (!merged) { merged = Object.assign({}, gData); merged.heuresParDept = Object.assign({}, gData.heuresParDept); return; }
+                merged.prixVente += gData.prixVente;
+                merged.coutMateriaux += gData.coutMateriaux;
+                merged.perteMateriaux += gData.perteMateriaux;
+                merged.markupMateriaux += gData.markupMateriaux;
+                merged.heuresCharge += gData.heuresCharge;
+                merged.salaires += gData.salaires;
+                merged.fraisFixes += gData.fraisFixes;
+                merged.profitMO += gData.profitMO;
+                merged.ajouts += gData.ajouts;
+                Object.keys(gData.heuresParDept).forEach(function(d) {
+                    merged.heuresParDept[d] = (merged.heuresParDept[d] || 0) + (gData.heuresParDept[d] || 0);
+                });
+            });
+            if (!merged) return null;
+            // Recalculate margins from merged totals
+            var pvSansAjout = merged.prixVente - merged.ajouts;
+            merged.margeBrute = pvSansAjout > 0 ? Math.round(((pvSansAjout - merged.coutMateriaux - merged.perteMateriaux - merged.salaires) / pvSansAjout * 100) * 10) / 10 : 0;
+            merged.profitNetPct = pvSansAjout > 0 ? Math.round(((pvSansAjout - merged.coutMateriaux - merged.perteMateriaux - merged.salaires - merged.fraisFixes) / pvSansAjout * 100) * 10) / 10 : 0;
+            merged.margeBruteAvecAjout = merged.prixVente > 0 ? Math.round(((merged.prixVente - merged.coutMateriaux - merged.perteMateriaux - merged.salaires) / merged.prixVente * 100) * 10) / 10 : 0;
+            merged.profitNetAvecAjoutPct = merged.prixVente > 0 ? Math.round(((merged.prixVente - merged.coutMateriaux - merged.perteMateriaux - merged.salaires - merged.fraisFixes) / merged.prixVente * 100) * 10) / 10 : 0;
+            merged.profitNet = Math.round((merged.prixVente - merged.coutMateriaux - merged.perteMateriaux - merged.salaires - merged.fraisFixes) * 100) / 100;
+            return merged;
         }
+
+        var rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
         if (!rows || rows.length === 0) return null;
 
         var deptMinutes = {};
@@ -1266,6 +1294,12 @@
         });
 
         totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
+
+        // Apply room modifier % (and global modifier) to selling price
+        // The modifier scales the selling price but costs remain unchanged
+        var modMultiplier = getModifierMultiplier(groupId);
+        totalPrixVente = totalPrixVente * modMultiplier;
+        totalAjout = totalAjout * modMultiplier;
 
         // Marge brute = (PV - coûtant mat - perte - salaires) / PV
         // Profit net  = (PV - coûtant mat - perte - salaires - frais fixes) / PV
@@ -21289,6 +21323,26 @@
 
             totalPrixVente += totalHeuresCharge + totalMatCoutant + totalMatWaste + totalMatMarkup;
 
+            // Apply room/global modifier % to selling price (costs unchanged)
+            if (scope === 'group') {
+                var modMult = getModifierMultiplier(groupId);
+                totalPrixVente = totalPrixVente * modMult;
+                totalAjout = totalAjout * modMult;
+            } else {
+                // Project scope: apply per-group modifiers
+                var baseSum = 0, effectiveSum = 0;
+                document.querySelectorAll('.furniture-group').forEach(function(g) {
+                    var b = getRoomCalculatedSubtotal(g.id);
+                    baseSum += b;
+                    effectiveSum += b * getModifierMultiplier(g.id);
+                });
+                if (baseSum > 0) {
+                    var projectModRatio = effectiveSum / baseSum;
+                    totalPrixVente = totalPrixVente * projectModRatio;
+                    totalAjout = totalAjout * projectModRatio;
+                }
+            }
+
             // Marges — marge brute = (PV - mat - perte - salaires) / PV
             // Profit net = (PV - mat - perte - salaires - frais fixes) / PV
             var prixVenteSansAjout = totalPrixVente - totalAjout;
@@ -21368,7 +21422,7 @@
                     html += '</div>';
                     html += '</div>';
                     html += '<div class="rentab-ai-recommend-actions">';
-                    html += '<button class="rentab-btn-ai-apply" onclick="rentabApplyTargetPrice(\'' + groupId + '\',' + prixCible.toFixed(2) + ',' + totalPrixVente.toFixed(2) + ')">Appliquer</button>';
+                    html += '<button class="rentab-btn-ai-apply" onclick="rentabApplyTargetPrice(\'' + groupId + '\',' + prixCible.toFixed(2) + ')">Appliquer</button>';
                     html += '<button class="rentab-btn-ai-dismiss" onclick="rentabDismissRecommendation()">Ignorer</button>';
                     html += '</div>';
                     html += '</div>';
@@ -21550,11 +21604,18 @@
             if (w) w.style.display = 'flex';
         }
 
-        function rentabApplyTargetPrice(groupId, prixCible, prixActuel) {
-            // Calculate the % modifier needed on the room sous-total
-            // prixCible = target, prixActuel = current total for this room
-            if (!prixActuel || prixActuel <= 0) return;
-            var pctNeeded = ((prixCible - prixActuel) / prixActuel) * 100;
+        function rentabApplyTargetPrice(groupId, prixCible) {
+            // Calculate the room modifier % needed to reach prixCible
+            // Use the BASE sous-total (without any modifier) as the reference
+            var baseSousTotal = getRoomCalculatedSubtotal(groupId);
+            // Also account for global modifier — the room modifier stacks with global
+            var globalPct = (currentSubmission && currentSubmission.global_price_modifier_pct) || 0;
+            var globalMult = 1 + globalPct / 100;
+            // prixCible = baseSousTotal × globalMult × (1 + roomPct/100)
+            // → roomPct = ((prixCible / (baseSousTotal × globalMult)) - 1) × 100
+            var baseWithGlobal = baseSousTotal * globalMult;
+            if (!baseWithGlobal || baseWithGlobal <= 0) return;
+            var pctNeeded = ((prixCible / baseWithGlobal) - 1) * 100;
             // Round to 1 decimal
             pctNeeded = Math.round(pctNeeded * 10) / 10;
             // Apply as room modifier

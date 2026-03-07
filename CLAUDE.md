@@ -396,8 +396,20 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 **Rentabilité** (`computeRentabilityData` / `openRentab`) :
 - **Marge brute** = `(PV - coûtant mat - perte - salaires) / PV × 100`
 - **Profit net** = `(PV - coûtant mat - perte - salaires - frais fixes) / PV × 100`
+- **Marge visée** : 38% (hardcodé)
 - Fonction pure testable : `computeRentabilityPure(lines[], tauxHoraires[], expenseCategories[])` dans `tests/cascade-helpers.js`
 - Tests : GROUP 28 (17 tests) dans `tests/cascade-engine.test.js`
+
+**Modale rentabilité** (`openRentab`) — refonte visuelle mockup #132 :
+- **4 sections** : KPI cards (Vente/Coût/Profit) → bannière AI → barre répartition → 2 colonnes (Marges + Ventilation MO) → tableau matériaux (Base/Perte/Markup/Total) → tags
+- **KPI cards** : 3 cartes en ligne. Profit vert (`#ECFDF5`) si positif, rouge (`#FEF2F2`) si négatif. Pourcentage sous le montant
+- **Bannière AI** : apparaît si marge brute effective < marge visée (38%). Texte : "Marge trop faible — augmenter le prix de X $ pour atteindre la cible de 38 %"
+- **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte verte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
+- **`rentabApplyTargetPrice(groupId, prixCible, prixActuel)`** : calcule `((prixCible - prixActuel) / prixActuel) × 100`, l'inscrit dans `roomModifiers[groupId]`, appelle `refreshGroupRows` + `updateGrandTotal` + `updateRoom` DB, ferme la modale. Pas de confirm/alert natif
+- **Barre répartition** : 4 segments (Matériaux bleu, Salaires violet, Frais fixes ambre, Profit vert). Labels inline si segment ≥ 8%
+- **Marges** : badges colorés — vert (≥ visée), orange (≥ visée-8%), rouge (< visée-8%). Tooltips avec formules sur ⓘ
+- **Ventilation MO** : barres horizontales triées décroissant, couleur `#818CF8`
+- **Tableau matériaux** : accumulateurs per-catégorie `matWaste[cat]`, `matMarkup[cat]` (gère correctement `loss_override_pct`)
 
 ### Barèmes et modificateurs (`labor_modifiers`)
 

@@ -225,11 +225,23 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - Les composants fournisseur (`catalogue_item_components`) verrouillent automatiquement les inputs de `material_costs` pour les catégories concernées
 - Si aucun prix composé n'est défini, le prix manuel (`price`) est utilisé
 
-**Rentabilité** : `computeRentabilityData` (retour objet pour AI context) et `openRentab` (drawer UI) partagent la même logique. Fonction pure testable : `computeRentabilityPure` dans `tests/cascade-helpers.js`.
+**Rentabilité** : `computeRentabilityData` (retour objet pour AI context) et `openRentab` (modale UI) partagent la même logique de calcul. Fonction pure testable : `computeRentabilityPure` dans `tests/cascade-helpers.js`.
 - **Marge brute** = `(PV - coûtant mat - perte - salaires) / PV × 100`
 - **Profit net** = `(PV - coûtant mat - perte - salaires - frais fixes) / PV × 100`
+- **Marge visée** : 38% (hardcodé)
 - `price_override` et `__AJOUT__` sont traités comme ajouts flat (pas de décomposition MO/matériaux)
 - `openRentab` applique les overrides (laborAuto, materialAuto, manual) — même hiérarchie que `computeRentabilityData`
+
+**Modale rentabilité** (refonte #132) :
+- 4 sections : KPI cards → bannière AI → barre répartition → 2 colonnes (marges + MO) → tableau matériaux → tags
+- KPI : Vente / Coût / Profit (vert si positif, rouge si négatif)
+- Bannière AI : si marge effective < visée → texte conseil + bouton "Ajuster le prix" (scope group uniquement)
+- Prix recommandé : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Applique via `roomModifiers[groupId]` (% sous-total pièce)
+- `rentabApplyTargetPrice(groupId, prixCible, prixActuel)` : calcule le % nécessaire, persiste en DB, ferme la modale silencieusement
+- Barre répartition : Matériaux (bleu) + Salaires (violet) + Frais fixes (ambre) + Profit (vert). Labels si segment ≥ 8%
+- Badges marges colorés : vert ≥ visée, orange ≥ visée-8%, rouge < visée-8%
+- Ventilation MO : barres horizontales triées décroissant
+- Tableau matériaux : 4 colonnes (Base / Perte / Markup / Total) avec accumulateurs per-catégorie
 
 ### 2.8 Barèmes et modificateurs (`labor_modifiers`)
 

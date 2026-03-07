@@ -8793,7 +8793,7 @@
         }
         .rentab-overlay.active { display: flex; }
         .rentab-modal {
-            background: #fff; border-radius: 10px; max-width: 1100px; width: 100%;
+            background: #fff; border-radius: 12px; max-width: 900px; width: 100%;
             max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
         }
         .rentab-header {
@@ -8807,39 +8807,6 @@
         }
         .rentab-close:hover { color: var(--sw-text); }
         .rentab-body { padding: 28px 32px; }
-        .rentab-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-        .rentab-section { margin-bottom: 24px; }
-        .rentab-section-title {
-            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-            color: #666; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e8e8e8;
-        }
-        .rentab-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .rentab-table td { padding: 6px 10px; }
-        .rentab-table td:first-child { color: #555; font-weight: 400; }
-        .rentab-table td:last-child { text-align: right; font-weight: 600; font-family: 'SF Mono', 'Consolas', monospace; color: var(--sw-text); }
-        .rentab-table tr.highlight td { background: #f5f5f5; font-weight: 700; color: var(--sw-text); border-radius: 4px; }
-        .rentab-table tr.highlight td:first-child { font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
-        .rentab-table tr.total td { border-top: 1px solid #ccc; font-weight: 700; font-size: 14px; padding-top: 10px; }
-        .rentab-table tr.spacer td { padding: 8px 0; }
-        .rentab-dept-table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden; }
-        .rentab-dept-table th {
-            background: #f5f5f5; color: #666; padding: 8px 8px;
-            font-weight: 600; font-size: 11px; text-align: center; border-bottom: 1px solid #e8e8e8;
-        }
-        .rentab-dept-table td { padding: 8px 8px; text-align: right; font-family: 'SF Mono', 'Consolas', monospace; color: var(--sw-text); }
-        .rentab-dept-table td:first-child { text-align: left; font-family: inherit; color: #555; font-weight: 500; }
-        .rentab-margins {
-            margin-top: 8px; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden;
-        }
-        .rentab-margins-row {
-            display: flex; justify-content: space-between; padding: 8px 14px;
-            font-size: 13px; border-bottom: 1px solid #eee; align-items: center;
-        }
-        .rentab-margins-row:last-child { border-bottom: none; }
-        .rentab-margins-row.profit-row { background: #f5f5f5; font-weight: 700; }
-        .rentab-margins-row span:first-child { color: #555; }
-        .rentab-margins-row span:last-child { font-weight: 600; font-family: 'SF Mono', 'Consolas', monospace; color: var(--sw-text); }
-        .rentab-full { grid-column: 1 / -1; }
         .rentab-footer {
             padding: 16px 32px 24px; display: flex; justify-content: flex-end;
         }
@@ -8848,6 +8815,153 @@
             font-size: 14px; font-family: inherit; cursor: pointer; color: #333; transition: all 0.15s;
         }
         .rentab-footer button:hover { background: #f5f5f5; border-color: #bbb; }
+
+        /* ── KPI cards ── */
+        .rentab-kpi-row {
+            display: flex; border: 1px solid #F3F4F6; border-radius: 8px; overflow: hidden; margin-bottom: 16px;
+        }
+        .rentab-kpi-card {
+            flex: 1; padding: 20px 24px; text-align: center;
+        }
+        .rentab-kpi-card + .rentab-kpi-card { border-left: 1px solid #F3F4F6; }
+        .rentab-kpi-card.profit-card { background: #ECFDF5; }
+        .rentab-kpi-card.loss-card { background: #FEF2F2; }
+        .rentab-kpi-label {
+            font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 6px;
+        }
+        .rentab-kpi-value {
+            font-size: 32px; font-weight: 600; color: #0B1220; line-height: 1.1; font-variant-numeric: tabular-nums;
+        }
+        .rentab-kpi-value.profit-value { font-size: 36px; color: #16A34A; }
+        .rentab-kpi-value.loss-value { font-size: 36px; color: #DC2626; }
+        .rentab-kpi-pct { font-size: 14px; font-weight: 600; color: #16A34A; margin-top: 4px; }
+        .rentab-kpi-pct.negative { color: #DC2626; }
+        .rentab-kpi-sub { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
+
+        /* ── AI warning banner ── */
+        .rentab-ai-warning {
+            background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 6px;
+            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #92400E; line-height: 1.4;
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        }
+        .rentab-ai-warning-text { flex: 1; }
+        .rentab-btn-ai-adjust {
+            flex-shrink: 0; background: #92400E; color: #FEF3C7; border: none; border-radius: 6px;
+            padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s;
+        }
+        .rentab-btn-ai-adjust:hover { background: #78350F; }
+
+        /* ── AI recommendation reveal ── */
+        .rentab-ai-recommend {
+            background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;
+            padding: 16px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            animation: rentabAiReveal 0.3s ease-out;
+        }
+        @keyframes rentabAiReveal {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .rentab-ai-recommend-left { display: flex; align-items: center; gap: 12px; }
+        .rentab-ai-recommend-icon {
+            width: 36px; height: 36px; background: #16A34A; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex-shrink: 0;
+        }
+        .rentab-ai-recommend-label {
+            font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #16A34A; margin-bottom: 2px;
+        }
+        .rentab-ai-recommend-price { font-size: 28px; font-weight: 700; color: #0B1220; line-height: 1.1; }
+        .rentab-ai-recommend-detail { font-size: 12px; color: #6B7280; margin-top: 2px; }
+        .rentab-btn-ai-apply {
+            background: #16A34A; color: #fff; border: none; border-radius: 6px;
+            padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+        }
+        .rentab-btn-ai-apply:hover { background: #15803D; }
+        .rentab-btn-ai-dismiss {
+            background: transparent; color: #6B7280; border: 1px solid #E5E7EB; border-radius: 6px;
+            padding: 8px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s;
+        }
+        .rentab-btn-ai-dismiss:hover { background: #F9FAFB; color: #374151; }
+        .rentab-ai-recommend-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* ── Répartition bar ── */
+        .rentab-section-label {
+            font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 10px;
+        }
+        .rentab-repartition-bar {
+            display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin-bottom: 28px;
+        }
+        .rentab-repartition-bar .seg {
+            height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .seg-mat   { background: #3B82F6; }
+        .seg-sal   { background: #8B5CF6; }
+        .seg-frais { background: #F59E0B; }
+        .seg-prof  { background: #16A34A; }
+        .seg-loss  { background: #DC2626; }
+        .rentab-seg-label { font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; padding: 0 6px; }
+
+        /* ── 2 columns ── */
+        .rentab-two-cols { display: flex; gap: 28px; margin-bottom: 28px; }
+        .rentab-col {
+            flex: 1; border: 1px solid #F3F4F6; border-radius: 8px; padding: 20px;
+        }
+        .rentab-col-title {
+            font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 16px;
+        }
+
+        /* Marges */
+        .rentab-marge-row {
+            display: flex; justify-content: space-between; align-items: center; padding: 8px 0;
+        }
+        .rentab-marge-row + .rentab-marge-row { border-top: 1px solid #F9FAFB; }
+        .rentab-marge-label { font-size: 13px; color: #374151; display: flex; align-items: center; gap: 5px; }
+        .rentab-marge-value { font-size: 14px; font-weight: 600; color: #0B1220; }
+        .rentab-marge-badge {
+            display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+        }
+        .rentab-marge-badge.green  { background: #DCFCE7; color: #16A34A; }
+        .rentab-marge-badge.orange { background: #FEF3C7; color: #D97706; }
+        .rentab-marge-badge.red    { background: #FEE2E2; color: #DC2626; }
+        .rentab-info-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 15px; height: 15px; border-radius: 50%; background: #F3F4F6; color: #9CA3AF;
+            font-size: 10px; font-weight: 600; cursor: help; position: relative; flex-shrink: 0;
+        }
+        .rentab-info-icon .tooltip {
+            display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            background: #1F2937; color: #F9FAFB; font-size: 11px; font-weight: 400;
+            padding: 8px 12px; border-radius: 6px; white-space: nowrap; z-index: 10; line-height: 1.5;
+        }
+        .rentab-info-icon .tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: #1F2937;
+        }
+        .rentab-info-icon:hover .tooltip { display: block; }
+
+        /* Ventilation MO */
+        .rentab-dept-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+        .rentab-dept-label { font-size: 12px; color: #374151; width: 80px; flex-shrink: 0; text-align: right; }
+        .rentab-dept-bar-wrap { flex: 1; height: 20px; background: #F9FAFB; border-radius: 4px; overflow: hidden; }
+        .rentab-dept-bar { height: 100%; background: #818CF8; border-radius: 4px; }
+        .rentab-dept-stats {
+            font-size: 11px; color: #6B7280; width: 110px; flex-shrink: 0; text-align: right; white-space: nowrap;
+        }
+        .rentab-dept-stats strong { color: #0B1220; font-weight: 600; }
+
+        /* ── Matériaux table ── */
+        .rentab-mat-section { border: 1px solid #F3F4F6; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+        .rentab-mat-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .rentab-mat-table th {
+            text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+            color: #9CA3AF; padding: 0 8px 10px; border-bottom: 1px solid #F3F4F6;
+        }
+        .rentab-mat-table th:not(:first-child) { text-align: right; }
+        .rentab-mat-table td { padding: 8px; color: #374151; border-bottom: 1px solid #F9FAFB; }
+        .rentab-mat-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+        .rentab-mat-table tr.total td {
+            font-weight: 600; color: #0B1220; border-top: 1px solid #E5E7EB; border-bottom: none; padding-top: 10px;
+        }
         .btn-rentab {
             background: none; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85);
             padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap;
@@ -9731,7 +9845,7 @@
             </div>
             <div class="rentab-body" id="rentabBody"></div>
             <div class="rentab-footer">
-                <button onclick="closeRentab()">Annuler</button>
+                <button onclick="closeRentab()">Fermer</button>
             </div>
         </div>
     </div>
@@ -21034,6 +21148,8 @@
             // Accumulateurs
             var deptMinutes = {};
             var matCoutant = {};
+            var matWaste = {};
+            var matMarkup = {};
             var totalMatMarkup = 0;
             var totalMatWaste = 0;
             var totalMatCoutant = 0;
@@ -21143,8 +21259,10 @@
                     var wasteRate = item.loss_override_pct != null ? item.loss_override_pct : (c.waste || 0);
                     var wastePart = cost * (wasteRate / 100);
                     totalMatWaste += wastePart;
+                    matWaste[c.name] = (matWaste[c.name] || 0) + wastePart;
                     var markupPart = (cost + wastePart) * ((c.markup || 0) / 100);
                     totalMatMarkup += markupPart;
+                    matMarkup[c.name] = (matMarkup[c.name] || 0) + markupPart;
                     rowMatCout += cost;
                     rowPrixVente += cost + wastePart + markupPart;
                     rowProfit += markupPart;
@@ -21195,106 +21313,205 @@
             var fPct = function(v) { return v.toFixed(1) + ' %'; };
             var fNum = function(v) { return v.toLocaleString('fr-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
 
+            // Total cost (everything except profit)
+            var totalCout = totalMatCoutant + totalMatWaste + totalSalaires + totalFraisFixes;
+            var isLoss = profitNetAvecAjoutMontant < 0;
+
             var html = '';
 
-            // ── 2 colonnes : résumé | ventilation + marges ──
-            html += '<div class="rentab-columns">';
+            // ── Section 1 — KPI cards ──
+            html += '<div class="rentab-kpi-row">';
+            html += '<div class="rentab-kpi-card">';
+            html += '<div class="rentab-kpi-label">Vente</div>';
+            html += '<div class="rentab-kpi-value">' + f(totalPrixVente) + '</div>';
+            html += '<div class="rentab-kpi-sub">Prix de vente total</div>';
+            html += '</div>';
+            html += '<div class="rentab-kpi-card">';
+            html += '<div class="rentab-kpi-label">Co\u00fbt</div>';
+            html += '<div class="rentab-kpi-value">' + f(totalCout) + '</div>';
+            html += '<div class="rentab-kpi-sub">Mat\u00e9riaux + MO + frais fixes</div>';
+            html += '</div>';
+            html += '<div class="rentab-kpi-card ' + (isLoss ? 'loss-card' : 'profit-card') + '">';
+            html += '<div class="rentab-kpi-label">Profit</div>';
+            html += '<div class="rentab-kpi-value ' + (isLoss ? 'loss-value' : 'profit-value') + '">' + f(profitNetAvecAjoutMontant) + '</div>';
+            html += '<div class="rentab-kpi-pct' + (isLoss ? ' negative' : '') + '">' + fPct(profitNetAvecAjoutPct) + '</div>';
+            html += '<div class="rentab-kpi-sub">Profit net estim\u00e9</div>';
+            html += '</div>';
+            html += '</div>';
 
-            // Colonne gauche — Résumé
-            html += '<div>';
-            html += '<div class="rentab-section">';
-            html += '<div class="rentab-section-title">R\u00e9sum\u00e9</div>';
-            html += '<table class="rentab-table">';
-            html += '<tr class="highlight"><td>Prix de vente total</td><td>' + f(totalPrixVente) + '</td></tr>';
-            html += '<tr class="spacer"><td></td><td></td></tr>';
-            html += '<tr><td>Prix co\u00fbtant mat\u00e9riaux (base)</td><td>' + f(totalMatCoutant) + '</td></tr>';
-            html += '<tr><td>Perte mat\u00e9riaux</td><td>' + f(totalMatWaste) + '</td></tr>';
-            html += '<tr><td>Mark up mat\u00e9riaux</td><td>' + f(totalMatMarkup) + '</td></tr>';
-            html += '<tr class="spacer"><td></td><td></td></tr>';
-            html += '<tr class="highlight"><td>Total heures charg\u00e9</td><td>' + f(totalHeuresCharge) + '</td></tr>';
-            html += '<tr><td>Total salaires</td><td>' + f(totalSalaires) + '</td></tr>';
-            html += '<tr><td>Total frais fixes</td><td>' + f(totalFraisFixes) + '</td></tr>';
-            html += '<tr><td>Profit sur taux horaire</td><td>' + f(totalProfitMO) + '</td></tr>';
-            if (totalAjout > 0) {
-                html += '<tr class="spacer"><td></td><td></td></tr>';
-                html += '<tr><td>Ajouts personnalis\u00e9s</td><td style="color:#1565C0;">' + f(totalAjout) + '</td></tr>';
+            // ── AI warning banner — only if marge < visée ──
+            var margeBruteEffective = totalAjout > 0 ? margeBruteAvecAjoutPct : margeBrutePct;
+            if (margeBruteEffective < margeVisee && totalPrixVente > 0) {
+                // Calculate target price: PV_target = costs / (1 - margeVisee/100)
+                // costs for marge brute = matériaux + perte + salaires (no frais fixes)
+                var costsMargeBrute = totalMatCoutant + totalMatWaste + totalSalaires;
+                var prixCible = costsMargeBrute / (1 - margeVisee / 100);
+                var ecart = prixCible - totalPrixVente;
+                // Profit net at target price
+                var profitNetCiblePct = prixCible > 0 ? ((prixCible - totalMatCoutant - totalMatWaste - totalSalaires - totalFraisFixes) / prixCible * 100) : 0;
+
+                html += '<div class="rentab-ai-warning" id="rentabAiWarning">';
+                html += '<span class="rentab-ai-warning-text">\u26a0 Marge trop faible \u2014 augmenter le prix de ' + f(Math.round(ecart)) + ' pour atteindre la cible de ' + fPct(margeVisee) + '.</span>';
+                if (scope === 'group') {
+                    html += '<button class="rentab-btn-ai-adjust" onclick="rentabShowRecommendation()">Ajuster le prix</button>';
+                }
+                html += '</div>';
+
+                if (scope === 'group') {
+                    html += '<div class="rentab-ai-recommend" id="rentabAiRecommend" style="display:none;">';
+                    html += '<div class="rentab-ai-recommend-left">';
+                    html += '<div class="rentab-ai-recommend-icon">\u2726</div>';
+                    html += '<div>';
+                    html += '<div class="rentab-ai-recommend-label">Prix recommand\u00e9</div>';
+                    html += '<div class="rentab-ai-recommend-price">' + f(Math.round(prixCible)) + '</div>';
+                    html += '<div class="rentab-ai-recommend-detail">Marge brute \u2192 ' + fPct(margeVisee) + ' \u00b7 Profit net \u2192 ' + fPct(profitNetCiblePct) + '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '<div class="rentab-ai-recommend-actions">';
+                    html += '<button class="rentab-btn-ai-apply" onclick="rentabApplyTargetPrice(\'' + groupId + '\',' + prixCible.toFixed(2) + ',' + totalPrixVente.toFixed(2) + ')">Appliquer</button>';
+                    html += '<button class="rentab-btn-ai-dismiss" onclick="rentabDismissRecommendation()">Ignorer</button>';
+                    html += '</div>';
+                    html += '</div>';
+                }
             }
-            html += '</table>';
-            html += '</div>';
+
+            // ── Section 2 — Répartition bar ──
+            if (totalPrixVente > 0) {
+                var matPct = (totalMatCoutant + totalMatWaste + totalMatMarkup) / totalPrixVente * 100;
+                var salPct = totalSalaires / totalPrixVente * 100;
+                var fraisPct = totalFraisFixes / totalPrixVente * 100;
+                var profPct = profitNetAvecAjoutMontant / totalPrixVente * 100;
+                // Clamp profit: if negative, show loss segment and zero profit
+                var showLoss = profPct < 0;
+                if (showLoss) { profPct = 0; }
+
+                html += '<div class="rentab-section-label">R\u00e9partition du prix</div>';
+                html += '<div class="rentab-repartition-bar">';
+                html += '<div class="seg seg-mat" style="width:' + matPct.toFixed(1) + '%">';
+                if (matPct >= 8) html += '<span class="rentab-seg-label">Mat\u00e9riaux ' + matPct.toFixed(1) + ' %</span>';
+                html += '</div>';
+                html += '<div class="seg seg-sal" style="width:' + salPct.toFixed(1) + '%">';
+                if (salPct >= 8) html += '<span class="rentab-seg-label">Salaires ' + salPct.toFixed(1) + ' %</span>';
+                html += '</div>';
+                html += '<div class="seg seg-frais" style="width:' + fraisPct.toFixed(1) + '%">';
+                if (fraisPct >= 8) html += '<span class="rentab-seg-label">Frais fixes ' + fraisPct.toFixed(1) + ' %</span>';
+                html += '</div>';
+                if (showLoss) {
+                    var lossPct = Math.abs(profitNetAvecAjoutMontant) / totalPrixVente * 100;
+                    // Loss bar is visual only — segment extends to fill remaining space
+                } else if (profPct > 0) {
+                    html += '<div class="seg seg-prof" style="width:' + profPct.toFixed(1) + '%">';
+                    if (profPct >= 8) html += '<span class="rentab-seg-label">Profit ' + profPct.toFixed(1) + ' %</span>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+
+            // ── Section 3 — 2 columns ──
+            html += '<div class="rentab-two-cols">';
+
+            // Colonne gauche — Marges
+            html += '<div class="rentab-col">';
+            html += '<div class="rentab-col-title">Marges</div>';
+            html += '<div class="rentab-marge-row">';
+            html += '<span class="rentab-marge-label">Marge brute vis\u00e9e</span>';
+            html += '<span class="rentab-marge-value">' + fPct(margeVisee) + '</span>';
             html += '</div>';
 
-            // Colonne droite — Ventilation + Marges
-            html += '<div>';
+            // Marge brute réelle — color badge
+            var margeBadgeColor = function(pct) {
+                if (pct >= margeVisee) return 'green';
+                if (pct >= margeVisee - 8) return 'orange';
+                return 'red';
+            };
+            html += '<div class="rentab-marge-row">';
+            html += '<span class="rentab-marge-label">Marge brute r\u00e9elle ';
+            html += '<span class="rentab-info-icon">\u24d8<span class="tooltip">(vente \u2212 mat\u00e9riaux \u2212 perte \u2212 salaires) / vente</span></span>';
+            html += '</span>';
+            html += '<span class="rentab-marge-badge ' + margeBadgeColor(margeBrutePct) + '">' + fPct(margeBrutePct) + '</span>';
+            html += '</div>';
+            if (totalAjout > 0) {
+                html += '<div class="rentab-marge-row">';
+                html += '<span class="rentab-marge-label">Marge brute avec ajouts</span>';
+                html += '<span class="rentab-marge-badge ' + margeBadgeColor(margeBruteAvecAjoutPct) + '">' + fPct(margeBruteAvecAjoutPct) + '</span>';
+                html += '</div>';
+            }
+            html += '<div class="rentab-marge-row">';
+            html += '<span class="rentab-marge-label">Profit net r\u00e9el ';
+            html += '<span class="rentab-info-icon">\u24d8<span class="tooltip">(vente \u2212 mat\u00e9riaux \u2212 perte \u2212 salaires \u2212 frais fixes) / vente</span></span>';
+            html += '</span>';
+            html += '<span class="rentab-marge-badge ' + margeBadgeColor(profitNetPct) + '">' + fPct(profitNetPct) + '</span>';
+            html += '</div>';
+            if (totalAjout > 0) {
+                html += '<div class="rentab-marge-row">';
+                html += '<span class="rentab-marge-label">Profit net avec ajouts</span>';
+                html += '<span class="rentab-marge-badge ' + margeBadgeColor(profitNetAvecAjoutPct) + '">' + fPct(profitNetAvecAjoutPct) + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
 
-            // Départements
-            html += '<div class="rentab-section">';
-            html += '<div class="rentab-section-title">Ventilation main-d\u2019\u0153uvre</div>';
-            html += '<table class="rentab-dept-table">';
-            html += '<tr><th></th>';
+            // Colonne droite — Ventilation MO
+            html += '<div class="rentab-col">';
+            html += '<div class="rentab-col-title">Ventilation main-d\u2019\u0153uvre</div>';
+            // Build dept data and sort descending by hours
+            var deptData = [];
+            var maxMinutes = 0;
             tauxHoraires.forEach(function(t) {
-                var short = t.department.split('/')[0].substring(0, 6);
-                html += '<th>' + escapeHtml(short) + '</th>';
+                var mins = deptMinutes[t.department] || 0;
+                if (mins > 0) {
+                    var hours = mins / 60;
+                    var cost = hours * (t.taux_horaire || 0);
+                    deptData.push({ name: t.department, hours: hours, cost: cost, minutes: mins });
+                    if (mins > maxMinutes) maxMinutes = mins;
+                }
             });
-            html += '</tr>';
-            // Heures
-            html += '<tr><td>Heures</td>';
-            var totalHeures = 0;
-            tauxHoraires.forEach(function(t) {
-                var h = (deptMinutes[t.department] || 0) / 60;
-                totalHeures += h;
-                html += '<td>' + fNum(h) + '</td>';
+            deptData.sort(function(a, b) { return b.hours - a.hours; });
+            deptData.forEach(function(d) {
+                var barPct = maxMinutes > 0 ? (d.minutes / maxMinutes * 100) : 0;
+                html += '<div class="rentab-dept-row">';
+                html += '<div class="rentab-dept-label">' + escapeHtml(d.name.split('/')[0].substring(0, 10)) + '</div>';
+                html += '<div class="rentab-dept-bar-wrap"><div class="rentab-dept-bar" style="width:' + barPct.toFixed(1) + '%"></div></div>';
+                html += '<div class="rentab-dept-stats">' + fNum(d.hours) + ' h \u2014 <strong>' + f(d.cost) + '</strong></div>';
+                html += '</div>';
             });
-            html += '</tr>';
-            html += '</table>';
-            html += '</div>';
-
-            // Marges
-            html += '<div class="rentab-section">';
-            html += '<div class="rentab-section-title">Marges</div>';
-            html += '<div class="rentab-margins">';
-            html += '<div class="rentab-margins-row"><span>Marge brute vis\u00e9e</span><span>' + fPct(margeVisee) + '</span></div>';
-            html += '<div class="rentab-margins-row"><span>Marge brute</span><span>' + fPct(margeBrutePct) + '</span></div>';
-            if (totalAjout > 0) {
-                html += '<div class="rentab-margins-row"><span>Marge brute avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(margeBruteAvecAjoutPct) + '</span></div>';
+            if (deptData.length === 0) {
+                html += '<div style="font-size:12px;color:#9CA3AF;">Aucune main-d\u2019\u0153uvre</div>';
             }
-            html += '<div class="rentab-margins-row"><span>Profit net</span><span>' + fPct(profitNetPct) + '</span></div>';
-            if (totalAjout > 0) {
-                html += '<div class="rentab-margins-row"><span>Profit net avec ajouts</span><span style="color:#1565C0;font-weight:600;">' + fPct(profitNetAvecAjoutPct) + '</span></div>';
-            }
-            html += '<div class="rentab-margins-row profit-row"><span>Profit net estim\u00e9</span><span>' + f(profitNetAvecAjoutMontant) + '</span></div>';
             html += '</div>';
-            html += '</div>';
+            html += '</div>'; // fin rentab-two-cols
 
-            html += '</div>';
-            html += '</div>'; // fin rentab-columns
-
-            // ── Pleine largeur : Coûtant matériaux ──
-            html += '<div class="rentab-section" style="margin-top:8px;">';
-            html += '<div class="rentab-section-title">Co\u00fbtant mat\u00e9riaux</div>';
-            html += '<table class="rentab-table">';
+            // ── Section 4 — Coûtant matériaux ──
+            html += '<div class="rentab-mat-section">';
+            html += '<div class="rentab-col-title">Co\u00fbtant mat\u00e9riaux</div>';
+            html += '<table class="rentab-mat-table">';
+            html += '<thead><tr><th>Cat\u00e9gorie</th><th>Base</th><th>Perte</th><th>Markup</th><th>Total</th></tr></thead>';
+            html += '<tbody>';
             var hasMatRows = false;
             expenseCategories.forEach(function(c) {
                 var costVal = matCoutant[c.name] || 0;
                 if (costVal > 0) {
-                    html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' + f(costVal) + '</td></tr>';
+                    var catWaste = matWaste[c.name] || 0;
+                    var catMarkup = matMarkup[c.name] || 0;
+                    var catTotal = costVal + catWaste + catMarkup;
+                    html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' + f(costVal) + '</td><td>' + f(catWaste) + '</td><td>' + f(catMarkup) + '</td><td>' + f(catTotal) + '</td></tr>';
                     hasMatRows = true;
                 }
             });
-            if (!hasMatRows) html += '<tr><td colspan="2" style="color:#999;">Aucun mat\u00e9riau</td></tr>';
-            html += '<tr class="total"><td>Total</td><td>' + f(totalMatCoutant) + '</td></tr>';
-            html += '</table>';
+            if (!hasMatRows) html += '<tr><td colspan="5" style="color:#9CA3AF;">Aucun mat\u00e9riau</td></tr>';
+            html += '<tr class="total"><td>Total</td><td>' + f(totalMatCoutant) + '</td><td>' + f(totalMatWaste) + '</td><td>' + f(totalMatMarkup) + '</td><td>' + f(totalMatCoutant + totalMatWaste + totalMatMarkup) + '</td></tr>';
+            html += '</tbody></table>';
             html += '</div>';
 
             // ── Ventilation par tag ──
             var tagPrefixKeys = Object.keys(tagData).sort();
             if (tagPrefixKeys.length > 0) {
-                html += '<div class="rentab-section rentab-tag-section">';
-                html += '<div class="rentab-section-title">Ventilation par tag</div>';
+                html += '<div class="rentab-tag-section">';
+                html += '<div class="rentab-col-title">Ventilation par tag</div>';
                 html += '<div class="rentab-tag-grid">';
                 tagPrefixKeys.forEach(function(prefix) {
                     var td = tagData[prefix];
                     var tp = (tagPrefixes || []).find(function(t) { return t.prefix === prefix; });
-                    var label = tp ? prefix + ' — ' + tp.label_fr : prefix;
+                    var label = tp ? prefix + ' \u2014 ' + tp.label_fr : prefix;
                     var marge = td.prixVente > 0 ? (td.profit / td.prixVente * 100) : 0;
                     html += '<div class="rentab-tag-card">';
                     html += '<div class="rentab-tag-card-title">' + escapeHtml(label) + ' (' + td.count + ' ligne' + (td.count > 1 ? 's' : '') + ')</div>';
@@ -21317,6 +21534,38 @@
 
         function closeRentab() {
             document.getElementById('rentabModal').classList.remove('active');
+        }
+
+        function rentabShowRecommendation() {
+            var w = document.getElementById('rentabAiWarning');
+            var r = document.getElementById('rentabAiRecommend');
+            if (w) w.style.display = 'none';
+            if (r) r.style.display = 'flex';
+        }
+
+        function rentabDismissRecommendation() {
+            var w = document.getElementById('rentabAiWarning');
+            var r = document.getElementById('rentabAiRecommend');
+            if (r) r.style.display = 'none';
+            if (w) w.style.display = 'flex';
+        }
+
+        function rentabApplyTargetPrice(groupId, prixCible, prixActuel) {
+            // Calculate the % modifier needed on the room sous-total
+            // prixCible = target, prixActuel = current total for this room
+            if (!prixActuel || prixActuel <= 0) return;
+            var pctNeeded = ((prixCible - prixActuel) / prixActuel) * 100;
+            // Round to 1 decimal
+            pctNeeded = Math.round(pctNeeded * 10) / 10;
+            // Apply as room modifier
+            roomModifiers[groupId] = pctNeeded;
+            refreshGroupRows(groupId);
+            updateGrandTotal();
+            if (roomMap[groupId]) {
+                updateRoom(roomMap[groupId], { price_modifier_pct: pctNeeded || null });
+                showSaveIndicator();
+            }
+            closeRentab();
         }
 
         // ═══════════════════════════════════════════════════════════════════════

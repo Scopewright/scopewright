@@ -248,8 +248,10 @@ function hasComposedPrice(item) {
 ### Formule du prix compose
 
 ```
-Prix = Σ(minutes/60 × taux_horaire) + Σ(cout × (1 + markup%/100 + waste%/100))
+Prix = Σ(minutes/60 × taux_horaire) + Σ(cout × (1 + waste%/100) × (1 + markup%/100))
 ```
+
+> **Note** : le markup s'applique sur `(cout + perte)`, pas sur le cout seul. La formule est multiplicative, pas additive.
 
 #### Main-d'oeuvre (`labor_minutes`)
 
@@ -342,7 +344,8 @@ Les baremes appliquent des **facteurs multiplicateurs** automatiques sur les min
 - **label** : description courte affichee dans le popover
 - **labor_factor** : multiplicateur par departement MO (1.0 = base, 1.5 = +50%). 3 formats : objet `{ "Machinage": 1.5 }`, nombre scalaire `1.5` (applique a tous), ou objet cle vide `{ "": 1.5 }` (normalise automatiquement)
 - **material_factor** : multiplicateur par categorie materiau (meme logique, 3 formats)
-- **First-match** : seul le premier modificateur dont la condition est vraie est applique
+- **First-match** (defaut) : seul le premier modificateur dont la condition est vraie est applique
+- **Cumulatif** (`"cumulative": true` au niveau racine) : TOUS les modificateurs dont la condition est vraie sont appliques — les facteurs sont **multiplies** entre eux (pas additionnes). Utile quand les axes dimensionnels sont independants (largeur × hauteur × epaisseur)
 
 ### Hierarchie d'override dans le calculateur
 
@@ -560,7 +563,7 @@ Dans `calculation_rule_ai.cascade` :
 
 **Quantites : constante vs formule**
 
-Le moteur detecte automatiquement si `qty` est une constante ou une formule dimensionnelle via regex `/\b(L|H|P|QTY|n_tablettes|n_partitions)\b/` :
+Le moteur detecte automatiquement si `qty` est une constante ou une formule dimensionnelle via regex `/\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/` :
 
 | Type | Exemple | Comportement |
 |------|---------|-------------|
@@ -617,7 +620,7 @@ La syntaxe `$match:CATÉGORIE_DÉPENSE` resout automatiquement un article par co
 
 `executeCascade(parentRowId, depth, parentOverrides, materialCtx)` :
 
-1. **Ask guard** (depth 0 uniquement) : si l'article declare `calculation_rule_ai.ask`, verifie que toutes les variables sont remplies (L/H/P/QTY > 0, n_tablettes/n_partitions != null, 0 valide)
+1. **Ask guard** (depth 0 uniquement) : si l'article declare `calculation_rule_ai.ask`, verifie que toutes les variables sont remplies (L/H/P/QTY > 0, n_tablettes/n_partitions/n_portes/n_tiroirs != null, 0 valide)
 2. **Pre-peuple materialCtx** depuis le DM de la categorie du parent FAB (si pas deja fourni)
 3. Lit les regles `cascade` de l'article
 4. Pour chaque regle :
@@ -1335,7 +1338,7 @@ Oui. `dims_config` est un objet JSONB `{ "l": true, "h": true, "p": false }` qui
 
 8. **Pas de filtrage proactif du combobox par `requires_choice`** : les restrictions ne se declenchent que si un article du groupe cible **existe deja** dans la piece. Le filtrage en amont ("quand l'estimateur ajoute un article, filtrer les options compatibles") n'est pas implemente.
 
-9. **`$match:` pas re-cascade sur changement DM** : `reprocessDefaultCascades()` ne gere que `$default:`. Les `$match:` ne sont pas recalcules quand un DM change — seul un re-trigger manuel le fait.
+9. ~~**`$match:` pas re-cascade sur changement DM**~~ **CORRIGE** : `reprocessDefaultCascades()` re-trigger les parents avec `$default:` ET `$match:` targets. Invalide `matchDefaults` et `dmChoiceCache`.
 
 ### Performance
 
@@ -1379,3 +1382,13 @@ Oui. `dims_config` est un objet JSONB `{ "l": true, "h": true, "p": false }` qui
 - `shared/utils.js` — `escapeHtml()` / `escapeAttr()` extrait (8 fichiers → 1)
 - `shared/pricing.js` — `computeComposedPrice()` / `computeCatItemPrice()` extrait (3 fichiers → 1)
 - `steleConfirm()` / `steleAlert()` — encore duplique (signatures differentes par fichier)
+- `shared/presentation-client.js` — 30 fonctions presentation extraites (2026-03-08)
+
+### Bugs corriges (2026-03-06 a 2026-03-08)
+
+24. ~~**Formule markup additive**~~ **CORRIGE** : la formule utilisait `(1 + markup + waste)` au lieu de `(1 + waste) × (1 + markup)`. Corrige dans `computeComposedPrice`.
+25. ~~**Popover truthy check sur facteur 0**~~ **CORRIGE** : `autoFactor` et `autoVal` sont des nombres — utiliser `!= null` au lieu de truthy check, sinon facteur 0 est traite comme absent.
+26. ~~**evaluateLaborModifiers ne lisait pas calculation_rule_ai**~~ **CORRIGE** : fallback vers `item.calculation_rule_ai.labor_modifiers` si `item.labor_modifiers` absent.
+27. ~~**MAT sans champs dims malgre dims_config**~~ **CORRIGE** : les champs dims s'affichent pour tout article avec `dims_config` explicite, pas seulement FAB.
+28. ~~**Modale catalogue forcait dims_config null pour non-FAB**~~ **CORRIGE** : sauvegarde dims_config pour tout type si au moins une checkbox dim est cochee.
+29. ~~**Modificateur % ignore dans rentabilite**~~ **CORRIGE** : `openRentab` et `computeRentabilityData` appliquent `getModifierMultiplier(groupId)` au prix de vente.

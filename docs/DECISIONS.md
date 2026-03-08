@@ -422,7 +422,7 @@
 **Alternatives considérées** :
 - **Intégrer dans `calculation_rule_ai`** : surchargerait les règles cascade avec des données de pricing. Mélange de responsabilités — les barèmes sont du pricing, les cascades sont de la composition.
 - **Formules dans `labor_minutes` directement** : pas de séparation base/ajustement. Impossible de voir l'ajustement séparé de la base.
-- **Barèmes cumulatifs** : plus complexe, ambiguïté dans l'ordre d'application. First-match est simple et prévisible.
+- **Barèmes cumulatifs** : plus complexe initialement. Ajouté ensuite via `"cumulative": true` (DEC-023) pour les cas où les axes sont indépendants.
 
 **Conséquences** :
 - L'estimateur voit automatiquement les ajustements sans intervention
@@ -447,3 +447,82 @@
 - Le calculateur est visuellement propre par défaut (3 lignes au lieu de 20)
 - Les calculs, saves, et propagation installation fonctionnent sur les enfants masqués
 - L'estimateur peut inspecter les composantes à la demande
+
+## DEC-023 — Mode cumulatif pour les barèmes
+
+**Date** : 2026-03-06
+
+**Contexte** : First-match couvre la majorité des cas (paliers de largeur). Mais certains articles ont des ajustements sur des axes indépendants (ex: largeur ET hauteur ET nombre de tablettes). Chaque axe devrait multiplier indépendamment.
+
+**Décision** : `"cumulative": true` au niveau racine du JSON `labor_modifiers`. Tous les modificateurs dont la condition est vraie sont appliqués — les facteurs sont **multipliés** entre eux (pas additionnés). Le mode par défaut reste first-match pour la compatibilité.
+
+**Conséquences** :
+- Flexibilité accrue sans casser les barèmes existants
+- Les facteurs indépendants se composent naturellement (1.25 × 1.10 = 1.375)
+
+## DEC-024 — Cascade suppressed (mémoire de suppression)
+
+**Date** : 2026-03-06
+
+**Contexte** : L'utilisateur supprime un enfant cascade non pertinent (ex: bande de chant sur un meuble sans chant visible). La cascade le regénère à chaque changement de dimensions.
+
+**Décision** : `cascadeSuppressed[parentRowId]` en mémoire + `room_items.cascade_suppressed` JSONB en DB. La cascade skip les targets supprimés. Reset quand l'article parent change. Bouton ⊘ pour restaurer.
+
+**Conséquences** :
+- L'estimateur contrôle la composition finale
+- Pas de regénération indésirable
+- Le reset au changement d'article est intuitif (nouveau meuble = nouvelles composantes)
+
+## DEC-025 — Enfants cascade manuels (locked)
+
+**Date** : 2026-03-06
+
+**Contexte** : L'estimateur veut ajouter un composant sous un parent FAB qui n'est pas dans les règles cascade automatiques (ex: quincaillerie spéciale).
+
+**Décision** : `addRow(groupId, { parentRowId })` crée un enfant `cascade-child` + `cascade-locked`. Persisté avec `parent_item_id` + `cascade_locked: true` en DB. Le moteur ne touche jamais les enfants locked.
+
+**Conséquences** :
+- Flexibilité pour les cas spéciaux sans modifier les règles catalogue
+- Coexistence naturelle avec les enfants automatiques
+
+## DEC-026 — Description AI en panneau proposition (pas d'écriture directe)
+
+**Date** : 2026-03-08
+
+**Contexte** : Le dot (•) AI sur les descriptions écrivait directement dans le champ, sans possibilité de prévisualiser ou sélectionner partiellement. L'estimateur devait annuler manuellement si le résultat ne convenait pas.
+
+**Décision** : Panneau inline `.ai-desc-proposal` avec 3 boutons : Remplacer tout / Insérer la sélection (contextuel, apparaît uniquement quand du texte est sélectionné dans la proposition) / Ignorer.
+
+**Alternatives considérées** :
+- **Diff côte-à-côte** (avant/après) : trop lourd pour des descriptions courtes, complexité CSS disproportionnée.
+- **Inline diff** (mots ajoutés/supprimés colorés) : la description est du HTML formaté, le diff serait illisible.
+
+**Conséquences** :
+- L'estimateur contrôle ce qui est appliqué
+- Possibilité de sélectionner un fragment pertinent seulement
+- Le champ n'est modifié qu'après action explicite
+
+## DEC-027 — Extraction shared/presentation-client.js (#126)
+
+**Date** : 2026-03-08
+
+**Contexte** : `calculateur.html` à ~21 700 lignes dépasse largement le seuil de maintenabilité. Les fonctions de présentation client (descriptions, clauses, snapshot, status) forment un domaine cohérent et relativement autonome.
+
+**Décision** : Extraction de 30 fonctions (~728 lignes) dans `shared/presentation-client.js`. Les fonctions accèdent aux globales calculateur via le scope lexical partagé entre `<script>` tags (pas de modules ES). Architecture Rule 6 ajoutée : toute nouvelle feature doit évaluer si elle peut vivre dans un fichier séparé.
+
+**Conséquences** :
+- ~670 lignes retirées de calculateur.html
+- Le fichier partagé reste fortement couplé (30+ globales requises)
+- Précédent établi pour les extractions futures (AI, cascade, pipeline)
+
+## DEC-028 — Rentabilité : seuils tri-state indépendants
+
+**Date** : 2026-03-08
+
+**Contexte** : Le profit net et la marge brute ont des plages normales très différentes. Un seuil unique (ex: 38%) ne convient pas aux deux métriques.
+
+**Décision** : Seuils séparés — Profit net : vert ≥15%, orange 8-14.9%, rouge <8%. Marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Bannière AI : seuil fixe marge brute < 35%.
+
+**Conséquences** :
+- Chaque métrique est évaluée dans son propre contexte
+- L'estimateur voit immédiatement si une métrique est critique sans interpréter un seuil unique

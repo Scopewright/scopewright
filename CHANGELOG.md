@@ -2,6 +2,110 @@
 
 ---
 
+## 2026-03-08
+
+### Features
+- **#135 — Panneau proposition AI description** — Le dot (•) sur le calculateur n'écrit plus directement dans le champ description. Affiche un panneau inline avec la proposition, 3 boutons : Remplacer tout / Insérer la sélection (contextuel) / Ignorer
+- **#126 phase 1 — Extraction shared/presentation-client.js** — 30 fonctions (~728 lignes) extraites de calculateur.html : helpers texte, descriptions, clauses, images, snapshot, status UI
+
+### UI — Rentabilité (#132)
+- **Tri-state color thresholds** — Profit net : vert ≥15%, orange 8-14.9%, rouge <8%. Marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Bannière AI seuil fixe 35%
+- **KPI cost card** — Coût direct = matériaux + perte + salaires (sans frais fixes)
+- **Desaturation palette** — Cartes KPI fond blanc, barre répartition muted, boutons navy, badges doux
+- **Alignement Scopewright** — Palette complète tokens (#111827 texte, #94A3B8 labels, #E5E7EB bordures, #F8FAFC surfaces)
+
+### Bug Fixes
+- **Fix: Modificateur % prix vente** — `openRentab` ignorait le room modifier % sur le prix de vente
+
+---
+
+## 2026-03-07
+
+### Features — Rentabilité (#132)
+- **Redesign modale rentabilité** — Layout mockup : 4 sections (KPI cards, barre répartition, marges + ventilation MO, tableau matériaux + tags)
+- **Bouton "Ajuster le prix"** — Calcule le prix cible pour atteindre la marge visée (38%), applique via room modifier %
+- **`computeRentabilityPure`** — Fonction pure testable dans cascade-helpers.js, 17 tests (GROUP 28)
+
+### Bug Fixes
+- **Fix: Formule markup** — Markup s'applique sur `(coût + perte)`, pas `(coût + perte + markup)` séparément. Formule : `coût × (1 + waste%) × (1 + markup%)`
+
+---
+
+## 2026-03-06
+
+### Features — Barèmes et modificateurs
+- **Labor modifiers** — Système de barèmes dimensionnels automatiques. Section séparée dans la modale catalogue (admin), JSON `labor_modifiers` sur `catalogue_items`
+- **Popover 3 colonnes** — Cat | Auto | Manuel. Valeurs auto-factorisées visibles, banner bleu si barème actif
+- **AI barèmes** — Bouton AI + action `catalogue_labor_modifiers` dans translate edge function, prompt `ai_prompt_labor_modifiers`
+- **AI merge protection** — `aiCalcRuleGenerate()` préserve `ask`, `override_children`, `child_dims`, `labor_modifiers` lors de la regénération AI
+- **Validation barèmes** — Vérification des clés `labor_factor`/`material_factor` contre les départements MO et catégories matériaux à la sauvegarde
+- **Mode cumulatif** — `"cumulative": true` : tous les modificateurs vrais appliqués, facteurs multipliés (pas first-match)
+- **Dims sur MAT** — Champs dims (L/H/P) affichés pour tout article avec `dims_config` explicite, pas seulement FAB. Guard auto-qty étendu
+- **Dupliquer un article** — Bouton dans la modale catalogue, copie toutes les données sauf `is_default` et `status`
+- **Suggestions texte client** — Autocomplete Levenshtein en temps réel dans le champ `editClientText`
+- **Modale reste ouverte** — Save garde la modale ouverte, toast "Sauvegardé ✓" 2.5s, fermeture manuelle
+
+### Features — Cascade
+- **Collapse enfants cascade** — Masqués par défaut, triangle ▶ sur le parent, badge (+N), total agrégé récursif
+- **Cascade suppressed** — Suppression manuelle d'enfants cascade mémorisée, bouton ⊘ pour restaurer
+- **Cascade manual edit** — Indicateur modification manuelle (bordure indigo), bouton ↺ revert
+- **Enfants cascade manuels** — `addRow(groupId, { parentRowId })` pour ajout manuel sous un parent FAB
+
+### Features — AI
+- **Tool `remove_item`** — Supprime un article via UUID, récursif sur enfants cascade, jamais auto-exécuté
+- **Undo stack** — Max 10 entrées, bouton flottant ↩ 8s auto-hide, restaure après suppression/modification overrides
+
+### Features — Dims
+- **`n_portes` / `n_tiroirs`** — Variables caisson UI + substitution `evalFormula`. 0 valide, null bloque
+- **`child_dims` + multi-instance** — Formules dimensionnelles sur règles cascade + N lignes distinctes quand qty > 1
+- **Parser fractions** — Inputs dims acceptent `3/4`, `1 1/2`, `23 5/8`. Conversion auto au blur
+
+### Database
+- `sql/labor_modifiers.sql` — `labor_modifiers` JSONB + `labor_modifiers_human` TEXT sur `catalogue_items`, `labor_auto_modifier` JSONB sur `room_items`
+- `sql/cascade_suppressed.sql` — `cascade_suppressed` JSONB sur `room_items`
+- `sql/caisson_portes_tiroirs.sql` — `n_portes` + `n_tiroirs` INT sur `room_items`
+- `sql/catalogue_change_log.sql` — Table `catalogue_change_log` (audit AI)
+- `sql/line_overrides.sql` — `labor_override`, `material_override`, `price_override` sur `room_items`
+
+### Tests
+- **19 fonctions testées**, 282 assertions en 28 groupes (0 dépendances)
+- Groupes 17-19 : evaluateLaborModifiers (basic, formulas, integration)
+- Groupes 20-21 : checkDefaultItemMatchCategory, child_dims
+- Groupes 22-23 : undo stack, token optimization
+- Groupe 24 : cumulative baremes
+- Groupe 25 : MAT with dims_config
+- Groupe 26 : parseFraction
+- Groupe 27 : calculation_rule_ai fallback
+- Groupe 28 : computeRentabilityPure (17 tests)
+
+---
+
+## 2026-03-05
+
+### Features — Moteur cascade
+- **Override par ligne** — Ajustements MO, matériaux, prix de vente par ligne sans modifier le catalogue. Popover ⚙, indicateur violet, persistance DB
+- **Tool `update_submission_line`** — AI tool pour overrides MO/matériaux/prix, jamais auto-exécuté
+- **Tool `update_catalogue_item`** — Modification catalogue depuis l'AI avec audit trail, auto-exécuté après confirmation
+- **skipCascade** — Règle systématique : toute fonction non-dimensionnelle passe `{ skipCascade: true }` à `updateRow`
+- **Anti-lignes vides** — 3 gardes : skip save sans article, blur remove après 2s, filtre openSubmission
+- **Installation propagation** — `propagateInstallationToCascadeChildren` récursif avec `skipCascade: true`
+- **Quantités cascade** — Distinction constante × rootQty vs formule = total (regex variables)
+
+### Features — AI
+- **tool_use/tool_result sanitization** — `sanitizeConversationToolUse` injecte des `tool_result` synthétiques pour orphelins
+- **Rate limit auto-retry** — 429/529 → message temporaire, 15s, 1 retry
+- **Cascade debug logs** — Buffer circulaire 200 entrées, inclusion conditionnelle dans le contexte AI
+- **Images annotées rasterisées** — `rasterizeAnnotatedImage()` pour AI (JPEG 0.92)
+
+### Bug Fixes
+- **Fix: rootQty constant vs formula** — Détection par regex des variables dimensionnelles
+- **Fix: $match context propagation** — `_defaultResolvedFresh` flag pour résolution fraîche après changement DM
+- **Fix: override_children** — Bloquait les propres règles du déclarant, corrigé : seuls les descendants bloqués
+- **Fix: instruction in catalogueSummary** — Inclus correctement dans le résumé AI
+- **Fix: PDF upload sanitisation** — NFD strip accents, caractères spéciaux nettoyés
+
+---
+
 ## 2026-03-03
 
 ### Features — Moteur cascade & audit catalogue

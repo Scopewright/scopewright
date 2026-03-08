@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-05
+> **Dernière mise à jour** : 2026-03-08
 
 ---
 
@@ -42,16 +42,16 @@
 
 | Fichier | Rôle | Taille approx. |
 |---------|------|----------------|
-| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 500 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~9 200 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~2 900 lignes |
-| `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 300 lignes |
-| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 060 lignes |
-| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 340 lignes |
-| `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 200 lignes |
-| `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~300 lignes |
-| `login.html` | Authentification Supabase — email/password, refresh token | ~200 lignes |
-| `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~730 lignes |
+| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 700 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 500 lignes |
+| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 300 lignes |
+| `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 200 lignes |
+| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
+| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
+| `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 120 lignes |
+| `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~685 lignes |
+| `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
+| `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~728 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 
@@ -103,7 +103,7 @@
 
 ### 1.4 Authentification
 
-**Pattern `authenticatedFetch()`** (dupliqué dans chaque fichier HTML) :
+**Pattern `authenticatedFetch()`** (extrait dans `shared/auth.js`, inclus par toutes les pages authentifiées) :
 1. Vérifie si le token expire dans < 5 minutes (`isTokenExpiringSoon`)
 2. Si oui, rafraîchit proactivement via `/auth/v1/token?grant_type=refresh_token`
 3. Injecte les headers `Authorization: Bearer {token}` et `apikey: {SUPABASE_KEY}`
@@ -646,7 +646,7 @@ Pas de hiérarchie multi-niveaux. Chaque pièce gère ses propres DM de façon i
 Déclenché quand un DM est modifié :
 1. Trouve tous les parents (lignes racine) qui ont des règles `$default:` correspondant au groupe modifié
 2. Re-exécute `executeCascade()` séquentiellement sur chacun
-3. **Limitation** : Ne traite PAS les cibles `$match:` — seuls les `$default:` sont re-cascadés
+3. Re-trigger les parents avec `$default:` ET `$match:` targets. Invalide `matchDefaults` (cache `$match:` persisté) ET `dmChoiceCache` (choix DM stale). Exécute sous guard `_cascadeRunning = true`
 
 ### 4.5 UI
 
@@ -752,7 +752,7 @@ calculateur.html                    ai-assistant Edge Function
   ├── messages[] ───────────────────►     ├── Anthropic API
   │   (historique conversation)           │   claude-sonnet-4-5
   │                                       │   max_tokens: 4096
-  │◄──────────────────────────────────    │   6 tools
+  │◄──────────────────────────────────    │   10 tools
   │   { content, tool_use[] }             │
   │                                       │
   ├── formatPendingActions()              │
@@ -831,6 +831,7 @@ calculateur.html                    ai-assistant Edge Function
 | `catalogue_calc_rule` | Sonnet 4 | Génération règle de calcul (explication + JSON) |
 | `calculateur_description` | Haiku | Génération description client de pièce (panneau proposition) |
 | `import_components` | Sonnet 4 | Extraction composants fournisseur (multimodal) |
+| `catalogue_labor_modifiers` | Sonnet 4 | Génération barèmes dimensionnels (explication + JSON) |
 | `approval_suggest` | Sonnet 4 | Suggestions pour article proposé |
 
 ### 6.7 Mode simulation et confirmation
@@ -1225,20 +1226,20 @@ submission_unlock_logs (immuable)
 
 **Tolérance horloge** : 30 secondes sur l'expiration
 
-### 12.2 ai-assistant/index.ts (~757 lignes)
+### 12.2 ai-assistant/index.ts (~924 lignes)
 
 - **Modèle** : `claude-sonnet-4-5-20250929` (non-streaming)
 - **Max tokens** : 4096
 - **Prompt dynamique** : System prompt enrichi avec contexte projet complet (taux, dépenses, DM, rooms, items, catalogue, learnings)
 - **2 modes** : `ai_prompt_estimateur` (calculateur) et `ai_prompt_approval_review` (approbation)
-- **7 tools** définis avec schémas JSON
+- **10 tools** définis avec schémas JSON
 - **`save_learning`** exécuté côté serveur (INSERT direct dans `ai_learnings`)
 - **Boucle tool** : Si la réponse contient `save_learning`, exécute et relance pour réponse finale
 
-### 12.3 translate/index.ts (~527 lignes)
+### 12.3 translate/index.ts (~603 lignes)
 
 - **Modèles** : Haiku 4.5 (texte), Sonnet 4 (JSON)
-- **12 actions** couvrant traduction, optimisation, génération JSON, reformulation instruction
+- **13 actions** couvrant traduction, optimisation, génération JSON, reformulation instruction, barèmes
 - **Prefill assistant** : `"{"` pour forcer output JSON
 - **Multi-texte** : Concaténation avec `===SEPARATOR===`
 - **Multimodal** : Support images base64 pour `import_components`
@@ -1302,39 +1303,43 @@ Tests Node.js headless (0 dépendances externes) couvrant les fonctions pures du
 
 ```bash
 node tests/cascade-engine.test.js
-# Attendu : 123 passed, 0 failed, exit code 0
+# Attendu : 282 passed, 0 failed, exit code 0
 ```
 
 ### 14.2 Fichiers
 
-| Fichier | Contenu |
-|---------|---------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 259 assertions en 26 groupes |
-| `tests/cascade-helpers.js` | 17 fonctions pures + constante `MATCH_STOP_WORDS` |
-| `tests/fixtures/catalogue.js` | 18 articles réalistes (ST-0001 à ST-0060 + ST-0005 à ST-0008 + ST-0045 + ST-0051) : 7 FAB + 11 MAT |
-| `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` |
+| Fichier | Contenu | Lignes |
+|---------|---------|--------|
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 282 assertions en 28 groupes | ~2 124 |
+| `tests/cascade-helpers.js` | 19 fonctions pures + constante `MATCH_STOP_WORDS` | ~588 |
+| `tests/fixtures/catalogue.js` | 21 articles réalistes (8 FAB + 13 MAT) | ~330 |
+| `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` | ~49 |
 
-### 14.3 Fonctions extraites
+### 14.3 Fonctions extraites (19)
 
-| Fonction | Source (calculateur.html) | Paramétrage |
-|----------|--------------------------|-------------|
-| `evalFormula(expr, vars, log)` | Lignes 2837-2855 | `cascadeLog` → `log` callback |
-| `normalizeDmType(str)` | Lignes 2858-2862 | Aucun |
-| `extractMatchKeywords(clientText, stopWords)` | Lignes 2792-2796 | `MATCH_STOP_WORDS` → paramètre |
-| `scoreMatchCandidates(candidates, keywords)` | Lignes 3273-3281 | Aucun |
-| `deduplicateDmByClientText(entries)` | Lignes 3289-3300 | Aucun |
-| `itemHasMaterialCost(item, expCatUpper)` | Lignes 2999-3009 | Aucun |
-| `getAllowedCategoriesForGroup(groupName, mapping)` | Lignes 2278-2291 | `categoryGroupMapping` → paramètre |
-| `isFormulaQty(formulaStr)` | Ligne 4107 | Extraction inline |
-| `computeCascadeQty(ruleQty, vars, rootQty, log)` | Lignes 4100-4110 | Combine `evalFormula` + branchement |
-| `checkAskCompleteness(askFields, vars)` | Lignes 3944-3960 | Aucun |
-| `inferAskFromDimsConfig(dimsConfig)` | Lignes 3936-3942 | Aucun |
-| `mergeOverrideChildren(parentOverrides, ownOverrides)` | Ligne 3895 | Aucun |
-| `isRuleOverridden(ruleTarget, ancestorOverrides)` | Lignes 4049-4056 | Aucun |
-| `findExistingChildForDynamicRule(target, dmEntries, activeChildren, alreadyMatched, catalogueData, allowedCats, log)` | Lignes 2869-2941 | `groupId` → `dmEntries`, `CATALOGUE_DATA` → `catalogueData`, `getAllowedCategoriesForGroup` → `allowedCats` pré-calculé |
-| `computeChildDims(childDims, vars, log)` | Pure version of `applyChildDims` | Aucun DOM — retourne `{length_in, height_in, depth_in}` |
+| Fonction | Paramétrage |
+|----------|-------------|
+| `evalFormula(expr, vars, log)` | `cascadeLog` → `log` callback |
+| `normalizeDmType(str)` | Aucun |
+| `extractMatchKeywords(clientText, stopWords)` | `MATCH_STOP_WORDS` → paramètre |
+| `scoreMatchCandidates(candidates, keywords)` | Aucun |
+| `deduplicateDmByClientText(entries)` | Aucun |
+| `itemHasMaterialCost(item, expCatUpper)` | Aucun |
+| `getAllowedCategoriesForGroup(groupName, mapping)` | `categoryGroupMapping` → paramètre |
+| `isFormulaQty(formulaStr)` | Extraction inline |
+| `computeCascadeQty(ruleQty, vars, rootQty, log)` | Combine `evalFormula` + branchement |
+| `checkAskCompleteness(askFields, vars)` | Aucun |
+| `inferAskFromDimsConfig(dimsConfig)` | Aucun |
+| `mergeOverrideChildren(parentOverrides, ownOverrides)` | Aucun |
+| `isRuleOverridden(ruleTarget, ancestorOverrides)` | Aucun |
+| `findExistingChildForDynamicRule(...)` | Paramètres explicites au lieu de globals |
+| `computeChildDims(childDims, vars, log)` | Pure — retourne `{length_in, height_in, depth_in}` |
+| `evaluateLaborModifiers(item, vars, log)` | Pure — retourne `{labor_factor, material_factor, label}` ou null |
+| `checkDefaultItemMatchCategory(defaultItem, matchCategory)` | Aucun |
+| `parseFraction(str)` | Aucun |
+| `computeRentabilityPure(lines, tauxHoraires, expenseCategories)` | Aucun |
 
-### 14.4 Groupes de tests (16)
+### 14.4 Groupes de tests (28)
 
 1. **evalFormula** (17) — arithmétique, variables L/H/P/QTY, n_tablettes/n_partitions, ceil/floor/round/min/max, null, unsafe, division par zéro
 2. **normalizeDmType** (9) — lowercase, accents, pluriel s/x, null, Façades→Facade
@@ -1342,7 +1347,7 @@ node tests/cascade-engine.test.js
 4. **computeCascadeQty** (9) — constante × rootQty, formule = total (pas × rootQty), résultat ≤0
 5. **mergeOverrideChildren** (4) — vide, parent seul, own seul, concat
 6. **isRuleOverridden** (7) — $match bloqué/non-bloqué, $default jamais bloqué, code direct jamais bloqué
-7. **override_children integration** (10) — FAB ST-0001 : propres rules passent, descendants bloqués, FAB enfants autonomes (mergedOverrides reset à [])
+7. **override_children integration** (10) — FAB ST-0001 : propres rules passent, descendants bloqués, FAB enfants autonomes
 8. **checkAskCompleteness** (12) — complet, L=0, L absent, n_tablettes=0 valide, alias, champ inconnu
 9. **inferAskFromDimsConfig** (6) — l+h+p, l+h, vide, null
 10. **extractMatchKeywords + scoreMatchCandidates** (9) — extraction, stop words, scoring, tri
@@ -1350,8 +1355,20 @@ node tests/cascade-engine.test.js
 12. **getAllowedCategoriesForGroup** (6) — Caisson→3 cats, Finition→1, inconnu→null
 13. **itemHasMaterialCost** (8) — flat cost, {cost,qty}, zéro, case-insensitive, absent, null
 14. **findExistingChildForDynamicRule** (8) — $default exact/fallback/already-matched, $match word overlap
-15. **n_portes / n_tiroirs** (14) — evalFormula substitution, isFormulaQty detection, checkAskCompleteness guards (0 valid, null blocks, aliases), computeCascadeQty with n_portes formula
-16. **computeChildDims** (11) — null/undefined→{}, L/H/P formulas, only defined keys, unsafe formula omitted, realistic ST-0005 scenario, lowercase key normalization, unknown key ignored
+15. **n_portes / n_tiroirs** (14) — evalFormula substitution, isFormulaQty detection, checkAskCompleteness guards
+16. **computeChildDims** (11) — L/H/P formulas, only defined keys, unsafe formula omitted
+17. **evaluateLaborModifiers — basic** (~8) — null, vide, first-match, label fallback
+18. **evaluateLaborModifiers — formulas** (~6) — L×H, ceil/floor, n_tablettes, matériau seul
+19. **evaluateLaborModifiers — integration** (~6) — ST-0006 scénarios complets avec facteurs
+20. **checkDefaultItemMatchCategory** (~8) — mélamine vs finition, placage vs finition, bande de chant
+21. **computeChildDims — additional** — scénarios complémentaires
+22. **undo stack** — save/restore, max size
+23. **token optimization** — budget tokens, troncature
+24. **cumulative baremes** (~6) — facteurs multipliés, mixed true/false, all false
+25. **MAT with dims_config** (~4) — dims fields, formula auto-qty
+26. **parseFraction** (~8) — entiers, décimaux, fractions simples, mixtes, trait d'union, invalides
+27. **calculation_rule_ai fallback** (~4) — labor_modifiers dans calculation_rule_ai
+28. **computeRentabilityPure** (17) — marges, prix zéro, installation, loss_override, frais fixes
 
 ### 14.5 Synchronisation
 

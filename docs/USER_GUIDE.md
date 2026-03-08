@@ -296,6 +296,8 @@ Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une i
 
 **Mode simulation :** L'assistant propose toujours les modifications en texte d'abord. Vous voyez ce qu'il veut faire, puis vous cliquez **Appliquer** ou **Ignorer**. Rien ne se fait sans votre confirmation.
 
+**Supprimer un article :** L'assistant peut supprimer un article sur votre demande ("supprime le caisson C1"). Si l'article est un parent de fabrication avec des composantes, toutes les composantes sont supprimées aussi. Comme pour les modifications, une confirmation est toujours demandée.
+
 **Modifier le catalogue depuis le calculateur :** Si vous avez la permission d'édition du catalogue, l'assistant peut aussi modifier un article du catalogue directement (prix, formules, matériaux). Ces modifications passent toujours par une confirmation explicite et sont tracées dans un journal d'audit.
 
 **Changement de contexte automatique :** Quand vous scrollez d'un meuble à l'autre dans le calculateur, l'assistant comprend automatiquement le changement et adapte ses réponses au meuble visible.
@@ -304,13 +306,12 @@ Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une i
 
 Chaque meuble a un champ **Description client** qui apparaît dans la soumission envoyée au client. Deux façons de le remplir :
 
-1. **AI** — Cliquez le point AI (●) à côté du champ. L'assistant génère une description structurée basée sur les articles du meuble :
-   - Caisson : matériau, finition
-   - Façades : type, matériau
-   - Tiroirs : système, quantité
-   - Poignées : modèle
-   - Détails : particularités
-   - Exclusions : ce qui n'est pas inclus
+1. **AI** — Cliquez le point AI (●) à côté du champ. Un **panneau de proposition** apparaît sous le champ avec la description générée. Vous avez 3 options :
+   - **Remplacer tout** — remplace la description existante par la proposition
+   - **Insérer la sélection** — sélectionnez un passage dans la proposition, ce bouton apparaît automatiquement pour insérer le fragment sélectionné à la position de votre curseur dans le champ principal
+   - **Ignorer** — ferme le panneau sans rien modifier
+
+   La proposition est structurée : caisson (matériau, finition), façades (type, matériau), tiroirs (système, quantité), poignées (modèle), détails, exclusions.
 
 2. **Assemblage** — Cliquez le bouton ⚡ pour assembler automatiquement la description à partir des articles présents.
 
@@ -342,13 +343,14 @@ Il y a aussi un **toggle global** au niveau du projet qui contrôle l'installati
 
 ### Rentabilité
 
-Le bouton **Rentabilité** dans la barre d'outils ouvre une vue détaillée :
+Le bouton **Rentabilité** dans la barre d'outils ouvre une modale avec 4 sections :
 
-- **Prix de vente** par meuble
-- **Coût matériaux** ventilé par catégorie de dépense (bois, quincaillerie, panneaux…)
-- **Coût main-d'œuvre** ventilé par département (fabrication, assemblage, finition…)
-- **Marge brute** en dollars et en pourcentage
-- **Modificateur %** — Un pourcentage de surcharge appliqué à toutes les sections
+1. **Cartes KPI** — Vente / Coût direct / Profit. La carte Profit change de couleur selon le profit net : vert (≥15%), orange (8-14.9%), rouge (<8%)
+2. **Barre de répartition** — Segments visuels montrant la proportion matériaux, salaires, frais fixes et profit
+3. **Marges** — Marge brute et profit net avec badges colorés. Ventilation main-d'œuvre par département
+4. **Tableau matériaux** — Base, perte, markup et total par catégorie de dépense
+
+Si la marge brute est trop faible (< 35%), un bandeau propose un ajustement automatique. Le bouton **Ajuster le prix** calcule le prix cible pour atteindre la marge visée (38%) et l'applique via le modificateur % de la pièce.
 
 ### Ajustements par ligne
 
@@ -377,6 +379,32 @@ Les articles avec des **barèmes** ajustent automatiquement leurs temps de main-
 Les barèmes sont définis sur l'article dans le catalogue (section "Barèmes et modificateurs", visible admin uniquement). Quand un barème est actif, une icône ⚙ bleue apparaît à côté du prix, et le panneau d'ajustement affiche les valeurs auto-calculées dans la colonne **Auto**.
 
 Les barèmes se recalculent automatiquement quand vous changez les dimensions. Vous pouvez toujours surcharger avec un override Manuel.
+
+Les barèmes peuvent fonctionner en mode **cumulatif** (défini par l'admin) : dans ce cas, plusieurs ajustements s'appliquent en même temps si leurs conditions sont toutes remplies.
+
+### Composantes automatiques
+
+Les articles de fabrication génèrent automatiquement leurs composantes (panneaux, bandes de chant, finition, etc.) selon les matériaux par défaut de la pièce. Ces composantes sont masquées par défaut — cliquez le **triangle ▶** à côté du parent pour les voir. Un badge **(+N)** indique le nombre de composantes masquées.
+
+**Supprimer une composante :** Si vous supprimez manuellement une composante automatique, elle ne sera pas regénérée. Un bouton **⊘** apparaît sur le parent — cliquez-le pour voir les composantes supprimées et les restaurer si besoin.
+
+**Modifier manuellement :** Si vous changez la quantité ou le prix d'une composante automatique, une bordure bleue apparaît pour indiquer que la valeur diffère du calcul automatique. Le bouton **↺** restaure les valeurs calculées.
+
+**Ajouter une composante personnalisée :** L'assistant AI peut ajouter un article sous un parent de fabrication (ex: quincaillerie spéciale). Cette composante est protégée et ne sera jamais touchée par le moteur automatique.
+
+### Fractions dans les dimensions
+
+Les champs de dimensions (L, H, P) acceptent les fractions en plus des décimaux :
+- `3/4` → 0.75
+- `1 1/2` → 1.5
+- `23 5/8` → 23.625
+- `1-3/4` → 1.75
+
+La conversion se fait automatiquement quand vous quittez le champ.
+
+### Annuler une action
+
+Après la suppression d'un article ou la modification d'ajustements, un bouton **↩ Annuler** apparaît en bas à gauche pendant 8 secondes. Cliquez-le pour restaurer l'état précédent.
 
 ### Filtres et navigation
 

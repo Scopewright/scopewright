@@ -18,15 +18,15 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 500 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~9 200 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~2 900 lignes |
-| `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 300 lignes |
-| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 340 lignes |
-| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 060 lignes |
-| `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 200 lignes |
-| `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation modules | ~300 lignes |
-| `login.html` | Authentification Supabase — email/password, refresh token | ~200 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
+| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 300 lignes |
+| `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
+| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
+| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
+| `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 120 lignes |
+| `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation modules | ~685 lignes |
+| `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 

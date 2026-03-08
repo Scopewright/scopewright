@@ -42,7 +42,7 @@
 
 | Fichier | Rôle | Taille approx. |
 |---------|------|----------------|
-| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~18 600 lignes |
+| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 500 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~9 200 lignes |
 | `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~2 900 lignes |
 | `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 300 lignes |
@@ -51,6 +51,7 @@
 | `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 200 lignes |
 | `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~300 lignes |
 | `login.html` | Authentification Supabase — email/password, refresh token | ~200 lignes |
+| `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~730 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 

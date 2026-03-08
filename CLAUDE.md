@@ -18,7 +18,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~18 600 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 500 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~9 200 lignes |
 | `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~2 900 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 300 lignes |
@@ -37,6 +37,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | `shared/auth.js` | `SUPABASE_URL`, `SUPABASE_KEY`, `authenticatedFetch()`, `refreshAccessToken()`, `isTokenExpiringSoon()`, `_tokenDebug()` | Toutes les pages authentifiées (7 fichiers) |
 | `shared/utils.js` | `escapeHtml()`, `escapeAttr()` | Toutes les pages qui affichent des données utilisateur (8 fichiers) |
 | `shared/pricing.js` | `computeComposedPrice(item, includeInstallation)` (flat costs), `computeCatItemPrice(item)` ({cost,qty} objects) | calculateur, catalogue, approbation |
+| `shared/presentation-client.js` | Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (`assembleRoomDescription`, `editClientDescription`, `saveClientDescription`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
 
 **Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags.
 

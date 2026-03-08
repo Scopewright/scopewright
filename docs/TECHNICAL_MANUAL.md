@@ -829,7 +829,7 @@ calculateur.html                    ai-assistant Edge Function
 | `catalogue_json` | Sonnet 4 | Conversion explication → JSON structuré |
 | `catalogue_pres_rule` | Sonnet 4 | Génération règle de présentation (explication + JSON) |
 | `catalogue_calc_rule` | Sonnet 4 | Génération règle de calcul (explication + JSON) |
-| `calculateur_description` | Haiku | Génération description client de pièce |
+| `calculateur_description` | Haiku | Génération description client de pièce (panneau proposition) |
 | `import_components` | Sonnet 4 | Extraction composants fournisseur (multimodal) |
 | `approval_suggest` | Sonnet 4 | Suggestions pour article proposé |
 

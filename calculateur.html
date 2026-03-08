@@ -6540,6 +6540,52 @@
             50% { opacity:1; transform:scale(1.15); }
         }
 
+        /* ── AI Description Proposal Panel ── */
+        .ai-desc-proposal {
+            margin-top: 8px; padding: 12px 14px; border-radius: 10px;
+            background: #F8FAFC; border: 1px solid #E5E7EB;
+            animation: sdFadeIn 0.2s ease;
+        }
+        .ai-desc-proposal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .ai-desc-proposal-header span {
+            font-size: 11px; font-weight: 600; color: #94A3B8;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .ai-desc-proposal-body {
+            font-size: 13px; line-height: 1.6; color: #111827;
+            padding: 8px 10px; background: #fff; border: 1px solid #E5E7EB;
+            border-radius: 8px; cursor: text; user-select: text;
+            max-height: 200px; overflow-y: auto;
+        }
+        .ai-desc-proposal-body p { margin: 0 0 4px 0; }
+        .ai-desc-proposal-body strong { font-weight: 600; color: #111827; }
+        .ai-desc-proposal-body ul { margin: 2px 0 6px 0; padding-left: 18px; }
+        .ai-desc-proposal-body li { margin-bottom: 2px; }
+        .ai-desc-proposal-actions {
+            display: flex; gap: 8px; margin-top: 10px; align-items: center;
+        }
+        .ai-desc-proposal-actions .btn-proposal {
+            padding: 6px 14px; border-radius: 8px; font-size: 12px;
+            font-weight: 600; cursor: pointer; border: none;
+            transition: background 0.15s, opacity 0.15s;
+        }
+        .btn-proposal-replace {
+            background: #0B1220; color: #fff;
+        }
+        .btn-proposal-replace:hover { background: #080E18; }
+        .btn-proposal-insert {
+            background: #E0E7FF; color: #3730A3;
+            display: none; /* shown only when text selected in proposal */
+        }
+        .btn-proposal-insert:hover { background: #C7D2FE; }
+        .btn-proposal-ignore {
+            background: transparent; color: #6B7280; border: 1px solid #E5E7EB !important;
+        }
+        .btn-proposal-ignore:hover { background: #F1F5F9; }
+
         .btn-assemble-desc {
             position: absolute; top: 6px; right: 30px; z-index: 2;
             width: 22px; height: 22px; border-radius: 50%;
@@ -15869,25 +15915,17 @@
                 prompt += 'Génère une description client complète pour cette pièce à partir des articles listés.';
             }
 
+            // Close any existing proposal panel for this group
+            aiDescIgnore(groupId);
+
             btn.disabled = true;
             btn.classList.add('ai-active');
 
             try {
                 var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description');
                 if (results['desc']) {
-                    var html = results['desc'];
-                    roomDescHTML[groupId] = html;
-                    textarea.value = htmlToText(html);
-                    refreshDescriptionDisplay(groupId);
-                    roomDescEN[groupId] = '';
-                    if (roomMap[groupId]) {
-                        authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                            body: JSON.stringify({ client_description: html, client_description_en: '' })
-                        });
-                    }
-                    showSaveIndicator();
+                    var proposalHtml = results['desc'];
+                    showAiDescProposal(groupId, proposalHtml);
                 }
             } catch (err) {
                 var msg = err.message || '';
@@ -15897,6 +15935,129 @@
                 btn.disabled = false;
                 btn.classList.remove('ai-active');
             }
+        }
+
+        // ── AI Description Proposal Panel ──
+
+        function showAiDescProposal(groupId, proposalHtml) {
+            var wrap = document.getElementById(groupId + '-aiDesc');
+            if (!wrap) return;
+            var container = wrap.closest('.ai-field-wrap');
+            if (!container) return;
+
+            // Remove existing panel if any
+            var existing = container.querySelector('.ai-desc-proposal');
+            if (existing) existing.remove();
+
+            var panel = document.createElement('div');
+            panel.className = 'ai-desc-proposal';
+            panel.id = groupId + '-aiProposal';
+            panel.dataset.proposalHtml = proposalHtml;
+
+            panel.innerHTML =
+                '<div class="ai-desc-proposal-header"><span>Proposition AI</span></div>' +
+                '<div class="ai-desc-proposal-body" id="' + groupId + '-proposalBody">' + proposalHtml + '</div>' +
+                '<div class="ai-desc-proposal-actions">' +
+                    '<button class="btn-proposal btn-proposal-replace" onclick="aiDescReplaceAll(\'' + groupId + '\')">Remplacer tout</button>' +
+                    '<button class="btn-proposal btn-proposal-insert" id="' + groupId + '-proposalInsert" onclick="aiDescInsertSelection(\'' + groupId + '\')">Ins\u00e9rer la s\u00e9lection</button>' +
+                    '<button class="btn-proposal btn-proposal-ignore" onclick="aiDescIgnore(\'' + groupId + '\')">Ignorer</button>' +
+                '</div>';
+
+            container.appendChild(panel);
+
+            // Listen for text selection in proposal body to show/hide Insert button
+            var body = document.getElementById(groupId + '-proposalBody');
+            var insertBtn = document.getElementById(groupId + '-proposalInsert');
+            if (body && insertBtn) {
+                body.addEventListener('mouseup', function() {
+                    var sel = window.getSelection();
+                    var selText = sel ? sel.toString().trim() : '';
+                    insertBtn.style.display = selText.length > 0 ? '' : 'none';
+                });
+                // Also hide on click outside the body
+                document.addEventListener('mousedown', function onDocClick(e) {
+                    if (!body.contains(e.target) && e.target !== insertBtn) {
+                        insertBtn.style.display = 'none';
+                    }
+                    // Cleanup when panel is removed
+                    if (!document.contains(panel)) {
+                        document.removeEventListener('mousedown', onDocClick);
+                    }
+                });
+            }
+        }
+
+        function aiDescReplaceAll(groupId) {
+            var panel = document.getElementById(groupId + '-aiProposal');
+            if (!panel) return;
+            var html = panel.dataset.proposalHtml;
+            if (!html) return;
+
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+
+            roomDescHTML[groupId] = html;
+            textarea.value = htmlToText(html);
+            refreshDescriptionDisplay(groupId);
+            roomDescEN[groupId] = '';
+
+            if (roomMap[groupId]) {
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ client_description: html, client_description_en: '' })
+                });
+            }
+            showSaveIndicator();
+            panel.remove();
+        }
+
+        function aiDescInsertSelection(groupId) {
+            var sel = window.getSelection();
+            var selText = sel ? sel.toString().trim() : '';
+            if (!selText) return;
+
+            var textarea = document.getElementById(groupId + '-clientDesc');
+            if (!textarea) return;
+
+            // Switch to textarea edit mode to insert
+            var display = document.getElementById(groupId + '-clientDescDisplay');
+            if (display) display.style.display = 'none';
+            textarea.style.display = '';
+
+            var cursorPos = textarea.selectionStart || textarea.value.length;
+            var before = textarea.value.substring(0, cursorPos);
+            var after = textarea.value.substring(cursorPos);
+            // Add newline separator if inserting into non-empty text
+            var sep = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
+            textarea.value = before + sep + selText + after;
+
+            // Update HTML cache and save
+            var html = textToHtml(textarea.value);
+            roomDescHTML[groupId] = html;
+            roomDescEN[groupId] = '';
+
+            if (roomMap[groupId]) {
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ client_description: html, client_description_en: '' })
+                });
+            }
+            showSaveIndicator();
+
+            // Finish edit mode — show display
+            finishEditDescription(groupId);
+
+            // Clear selection and hide insert button
+            sel.removeAllRanges();
+            var insertBtn = document.getElementById(groupId + '-proposalInsert');
+            if (insertBtn) insertBtn.style.display = 'none';
+        }
+
+        function aiDescIgnore(groupId) {
+            var panel = document.getElementById(groupId + '-aiProposal');
+            if (panel) panel.remove();
         }
 
         // ── Collect all FR texts (useHtml=true sends HTML for translate, plain for optimize) ──
@@ -21216,6 +21377,7 @@
             toolActionLabel, executeAiTool, findGroupIdByName,
             // Génération AI
             aiGenerateDescription,
+            aiDescReplaceAll, aiDescInsertSelection, aiDescIgnore,
         };
 
         window.Calc = {

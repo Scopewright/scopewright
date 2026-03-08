@@ -864,7 +864,7 @@ Personnalisez la page d'introduction de vos soumissions :
 | Ajouter un article inhabituel | **Manuel** — Cherchez dans le dropdown, vérifiez les paramètres |
 | Vérifier la rentabilité | **AI** — « Analyse la rentabilité » |
 | Ajuster un prix manuellement | **Manuel** — Modifiez directement dans la ligne |
-| Générer les descriptions | **AI** — Cliquez le bouton AI sur chaque meuble |
+| Générer les descriptions | **AI** — Cliquez le dot (•) sur chaque meuble → panneau proposition (Remplacer tout / Insérer sélection / Ignorer) |
 | Import de contacts | **AI** — Collez un screenshot, l'AI fait le reste |
 | Diagnostiquer un problème | **AI** — « Pourquoi le panneau n'est pas généré? » |
 | Corriger un prix catalogue | **AI** — « Change le prix de ST-0042 à 85$ » (si permission) |

@@ -136,6 +136,7 @@
 - `waste` : facteur de perte % par défaut
 - `calc_template` (optionnel) : template pour la génération AI de règles de calcul
 - `pres_template` (optionnel) : template pour la génération AI de règles de présentation
+- `presentation_rule` (optionnel) : JSON de règle de présentation au niveau du groupe (même structure que `catalogue_items.presentation_rule` : `{sections, exclude, notes}`). Sert de fallback quand un article n'a pas sa propre `presentation_rule_human`. Éditable dans admin.html via un textarea JSON par catégorie, avec bouton AI de génération (action `expense_pres_rule`, Sonnet 4)
 
 Les catégories sont aussi groupées par `material_groups` (Caisson, Facades, Panneaux, Tiroirs, Poignées, Éclairage, Autre) via `app_config.category_group_mapping`.
 
@@ -214,6 +215,10 @@ Les catégories sont aussi groupées par `material_groups` (Caisson, Facades, Pa
 **Ordre des sections** (hardcodé) : CAISSON, FACADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNEES, QUINCAILLERIE, ECLAIRAGE, FINITION, RANGEMENT, DETAILS, EXCLUSIONS, NOTES, PARTICULARITES
 
 L'assemblage de la description client (`sbBuildDescription` dans le sandbox, `assembleRoomDescription` dans le calculateur) combine les matériaux par défaut sélectionnés + les règles de présentation de chaque article pour produire un texte structuré.
+
+**Fallback groupe** : `_findGroupPresRule(catItem)` dans `calculateur.html` — quand un article n'a pas de `presentation_rule_human`, cherche une `presentation_rule` au niveau du groupe de dépense (`expenseCategories`). Résolution : 1) clés `material_costs` de l'article matchées contre `expenseCategories[].name`, 2) catégorie catalogue de l'article. La règle article a toujours priorité (pas de merge, pur fallback). Utilisé dans `aiGenerateDescription()` pour enrichir le contexte AI.
+
+**Contexte AI catalogue** : `aiCatalogueExplication()` dans `catalogue_prix_stele_complet.html` inclut les `presentation_rule` JSON des groupes de dépense via `getPresRuleJsons()` pour que l'AI s'inspire de la structure du groupe lors de la génération des règles de présentation d'un article.
 
 ### 2.7 Prix composé
 
@@ -856,8 +861,8 @@ Le flux AI suit un pattern de confirmation utilisateur :
 
 ### 6.9 Prompts overridables
 
-Chaque prompt AI peut être overridé via `app_config` (13 clés) :
-`ai_prompt_estimateur`, `ai_prompt_catalogue_import`, `ai_prompt_contacts`, `ai_prompt_fiche_optimize`, `ai_prompt_fiche_translate_fr_en`, `ai_prompt_fiche_translate_en_fr`, `ai_prompt_client_text_catalogue`, `ai_prompt_instruction_catalogue`, `ai_prompt_json_catalogue`, `ai_prompt_pres_rule`, `ai_prompt_calc_rule`, `ai_prompt_description_calculateur`, `ai_prompt_approval_review`
+Chaque prompt AI peut être overridé via `app_config` (16 clés) :
+`ai_prompt_estimateur`, `ai_prompt_catalogue_import`, `ai_prompt_contacts`, `ai_prompt_fiche_optimize`, `ai_prompt_fiche_translate_fr_en`, `ai_prompt_fiche_translate_en_fr`, `ai_prompt_client_text_catalogue`, `ai_prompt_instruction_catalogue`, `ai_prompt_json_catalogue`, `ai_prompt_pres_rule`, `ai_prompt_calc_rule`, `ai_prompt_description_calculateur`, `ai_prompt_approval_review`, `ai_prompt_labor_modifiers`, `ai_prompt_import_components`, `ai_prompt_expense_pres_rule`
 
 ### 6.10 Cascade debug logs
 

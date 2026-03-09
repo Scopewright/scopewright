@@ -856,6 +856,8 @@ Chaque catégorie de matériau a un **facteur de perte** (%) :
 
 Le facteur de perte est appliqué au coût : `coût × (1 + perte% / 100)`. Il représente les chutes, les erreurs de coupe et le gaspillage normal.
 
+Chaque catégorie peut aussi avoir une **règle de présentation JSON** (textarea dans le template de la catégorie). Cette règle sert de modèle par défaut pour les articles de cette catégorie : quand un article n'a pas sa propre règle de présentation, le système utilise celle du groupe pour guider la génération de descriptions. Un bouton AI permet de générer la règle automatiquement.
+
 ### Prompts AI
 
 L'administration contient un **dropdown de 12+ assistants AI** dont vous pouvez personnaliser les instructions :
@@ -873,6 +875,7 @@ L'administration contient un **dropdown de 12+ assistants AI** dont vous pouvez 
 | Assistant approbation | La révision automatique des soumissions |
 | Règles de cascade | La génération des règles cascade (JSON) |
 | Barèmes et modificateurs | La génération des barèmes dimensionnels (JSON) |
+| Dépenses — Règle de présentation | La génération des règles de présentation par catégorie de dépense (JSON) |
 
 Pour chaque assistant, vous pouvez **modifier le prompt** (les instructions). Laissez vide pour utiliser le prompt par défaut. Vos modifications sont sauvegardées et prennent effet immédiatement.
 

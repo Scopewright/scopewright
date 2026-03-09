@@ -525,7 +525,7 @@ La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast nav
 8. **Sanitisation messages** : filtre défense en profondeur contre `content` vide/null/`[]` — appliqué côté client dans `callAiAssistant()` (calculateur), `callAiReviewAssistant()` (approbation), `callCatAiReviewAssistant()` (catalogue), ET côté serveur dans `ai-assistant/index.ts` (guard permanent). Prévient erreur Anthropic 400 "non-empty content"
 7. **Images AI** : deux sources — chatbox paste/drop (base64, 3200px max, JPEG 0.90) et images de référence (URL directe Storage). Les images de référence utilisent `annotatedUrl` (image avec tags rasterisés) quand disponible, sinon l'image brute. `collectRoomDetail` inclut aussi les positions des tags en texte (`annotations: [{image, tags}]`)
 8. **Rasterisation annotations** : `rasterizeAnnotatedImage()` — au save des annotations, dessine image + tags (rect navy + texte blanc) dans un canvas, upload JPEG 0.92 dans `annotated/{mediaId}.jpg`, stocke l'URL dans `room_media.annotated_url`. Migration : `sql/annotated_url.sql`
-9. **Description AI — panneau proposition** : `aiGenerateDescription()` n'écrit plus directement dans le champ. Affiche un panneau inline `.ai-desc-proposal` sous le champ description avec le HTML proposé. 3 boutons : **Remplacer tout** (remplace la description entière), **Insérer la sélection** (apparaît uniquement quand du texte est sélectionné dans la proposition — insère le fragment à la position du curseur dans le champ principal), **Ignorer** (ferme le panneau). Fonctions : `showAiDescProposal`, `aiDescReplaceAll`, `aiDescInsertSelection`, `aiDescIgnore`
+9. **Description AI — panneau proposition** : `aiGenerateDescription()` n'écrit plus directement dans le champ. Affiche un panneau inline `.ai-desc-proposal` sous le champ description avec le HTML proposé. 3 boutons : **Remplacer tout** (remplace la description entière), **Insérer la sélection** (apparaît uniquement quand du texte est sélectionné dans la proposition — insère le fragment à la position du curseur dans le champ principal), **Ignorer** (ferme le panneau). Fonctions : `showAiDescProposal`, `aiDescReplaceAll`, `aiDescInsertSelection`, `aiDescIgnore`. **Fallback règle de présentation groupe** : `_findGroupPresRule(catItem)` — si l'article n'a pas de `presentation_rule_human`, cherche une `presentation_rule` au niveau du groupe de dépense via les clés `material_costs` de l'article, puis par catégorie catalogue. La règle article a toujours priorité (pas de merge, pur fallback)
 10. **Cascade debug log** : `cascadeDebugLog` — buffer mémoire circulaire (max 200 entrées) capturant tous les `console.log/warn/error` du moteur cascade via `cascadeLog(level, msg, data)`. `summarizeCascadeLog()` retourne les 50 dernières entrées en texte. `detectCascadeDiagnostic(text)` détecte les mots-clés cascade dans le message utilisateur pour inclure les logs dans le contexte AI
 10. **Tool `update_catalogue_item`** : modifie un article du catalogue depuis l'AI (price, labor_minutes, material_costs, calculation_rule_ai, instruction, loss_override_pct). Permission `canEditCatalogue` requise (`edit_catalogue`). Whitelist stricte de champs, snapshot avant/après, audit trail dans `catalogue_change_log`. **Auto-exécuté** après confirmation conversationnelle (l'AI propose en simulation → l'utilisateur confirme → exécution directe). Migration : `sql/catalogue_change_log.sql`
 11. **Tool `update_submission_line`** : ajuste les minutes MO, coûts matériaux ou prix de vente d'une ligne dans la soumission courante. Override local, ne modifie PAS le catalogue. Fusionne `labor_minutes`/`material_costs` avec les valeurs catalogue via `Object.assign`. `price` remplace entièrement le prix composé. **Jamais auto-exécuté** — simulation obligatoire. Pas d'audit trail DB (chat history seulement). Le contexte AI (`collectRoomDetail`) inclut `laborMinutes` et `materialCosts` catalogue par ligne + overrides existants. Le résultat du tool retourne `catalogue_base` (valeurs catalogue) et `effective_overrides` (overrides effectifs après fusion) pour vérification
@@ -535,7 +535,7 @@ La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast nav
 
 ### Architecture des prompts AI
 
-**15 prompts** (13 dans le dropdown admin + 2 invisibles) répartis dans 4 Edge Functions.
+**18 prompts** (15 dans le dropdown admin + 3 invisibles) répartis dans 4 Edge Functions.
 Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override DB** dans `app_config`. Si la DB a une valeur non-vide → utilisée. Sinon → hardcodé.
 
 | Clé `app_config` | Edge Function | Modèle | Admin visible |
@@ -551,6 +551,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `ai_prompt_pres_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_calc_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_labor_modifiers` | translate | Sonnet 4 | ✅ |
+| `ai_prompt_expense_pres_rule` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_description_calculateur` | translate | Haiku 4.5 | ✅ |
 | `ai_prompt_import_components` | translate | Sonnet 4 | ✅ |
 | `ai_prompt_instruction_catalogue` | translate | Haiku 4.5 | ✅ |
@@ -565,7 +566,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
-- Prompts translate (12 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
+- Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
 - `DESCRIPTION_FORMAT_RULES` (9 lignes) — injecté via placeholder `{{DESCRIPTION_FORMAT_RULES}}`

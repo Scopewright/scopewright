@@ -88,6 +88,11 @@ async function exportSubmissionPdf() {
             el.remove();
         });
 
+        // 3b. Convert cross-origin images to base64 data URLs
+        //     Supabase Storage images are cross-origin — html2canvas renders them
+        //     as blank unless they are inlined as data URLs.
+        await _convertImagesToBase64(clone);
+
         // 4. Build standalone HTML document for PDF rendering
         var pdfHtml = '<!DOCTYPE html><html><head>' +
             '<meta charset="UTF-8">' +
@@ -129,7 +134,6 @@ async function exportSubmissionPdf() {
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                allowTaint: true,
                 logging: false,
                 width: 1056,
                 windowWidth: 1056
@@ -164,4 +168,47 @@ function _sanitizePdfFilename(str) {
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '');
+}
+
+/**
+ * Convert all <img> elements with external src to base64 data URLs.
+ * This prevents blank images in the PDF caused by html2canvas
+ * failing to capture cross-origin resources (Supabase Storage).
+ */
+async function _convertImagesToBase64(container) {
+    var imgs = container.querySelectorAll('img[src]');
+    var promises = [];
+    imgs.forEach(function(img) {
+        var src = img.getAttribute('src');
+        // Skip already-inlined images and empty src
+        if (!src || src.startsWith('data:')) return;
+        promises.push(
+            _fetchImageAsBase64(src).then(function(dataUrl) {
+                if (dataUrl) img.setAttribute('src', dataUrl);
+            }).catch(function() {
+                // Leave original src — html2canvas will try useCORS as fallback
+            })
+        );
+    });
+    await Promise.all(promises);
+}
+
+/**
+ * Fetch an image URL and return a base64 data URL.
+ * Returns null if the fetch fails.
+ */
+async function _fetchImageAsBase64(url) {
+    try {
+        var resp = await fetch(url, { mode: 'cors' });
+        if (!resp.ok) return null;
+        var blob = await resp.blob();
+        return new Promise(function(resolve) {
+            var reader = new FileReader();
+            reader.onloadend = function() { resolve(reader.result); };
+            reader.onerror = function() { resolve(null); };
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        return null;
+    }
 }

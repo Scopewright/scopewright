@@ -94,21 +94,22 @@ async function exportSubmissionPdf() {
         await _convertImagesToBase64(clone);
 
         // 4. Inject SNAPSHOT_CSS into document.head so html2canvas can read computed styles.
-        //    html2canvas ignores <style> tags inside the target element — it only reads
-        //    stylesheets registered in the document's stylesheet list.
+        //    html2canvas reads from document.styleSheets, not inline <style> in the target.
         var styleEl = document.createElement('style');
         styleEl.id = 'pdf-export-snapshot-css';
         styleEl.textContent = SNAPSHOT_CSS +
             '\n.pv-content{padding:0;gap:0}' +
-            '\n.pv-page{page-break-after:always;aspect-ratio:auto;width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
+            '\n.pv-page{page-break-after:always;width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
             '\n.pv-page:last-child{page-break-after:auto}';
         document.head.appendChild(styleEl);
 
-        // 5. Create temporary container for html2pdf
-        var tempContainer = document.createElement('div');
-        tempContainer.innerHTML = '<div class="pv-content">' + clone.innerHTML + '</div>';
-        tempContainer.style.cssText = 'position:fixed;left:0;top:0;width:1056px;z-index:-9999;';
-        document.body.appendChild(tempContainer);
+        // 5. Build element for html2pdf — do NOT append to DOM manually.
+        //    html2pdf.toContainer() creates its own overlay and moves the element into it.
+        //    Manual DOM insertion causes conflicts (double-parenting, cleanup race).
+        var pdfRoot = document.createElement('div');
+        pdfRoot.className = 'pv-content';
+        pdfRoot.style.width = '1056px';
+        pdfRoot.innerHTML = clone.innerHTML;
 
         // 6. Generate filename
         var orgName = (introConfig && introConfig.org_name) ? introConfig.org_name : 'Stele';
@@ -117,7 +118,7 @@ async function exportSubmissionPdf() {
         var version = currentSubmission.current_version || '1';
         var filename = _sanitizePdfFilename(orgName) + '_' + projectCode + '_' + subNumber + '_v' + version + '.pdf';
 
-        // 7. Generate PDF
+        // 7. Generate PDF — html2pdf manages the DOM lifecycle (overlay create/destroy)
         var opt = {
             margin: 0,
             filename: filename,
@@ -137,21 +138,15 @@ async function exportSubmissionPdf() {
             pagebreak: { mode: ['css', 'legacy'], before: '.pv-page' }
         };
 
-        await html2pdf().set(opt).from(tempContainer).save();
-
-        // 8. Cleanup (also handled in finally block as safety net)
-        document.body.removeChild(tempContainer);
-        styleEl.remove();
+        await html2pdf().set(opt).from(pdfRoot).save();
 
     } catch (err) {
         console.error('[PDF] Export failed:', err);
         steleAlert('Erreur lors de l\'export PDF : ' + (err.message || err), 'Erreur');
     } finally {
-        // Cleanup: remove injected style and temp container even on error
+        // Cleanup injected stylesheet
         var injectedStyle = document.getElementById('pdf-export-snapshot-css');
         if (injectedStyle) injectedStyle.remove();
-        var leftover = document.querySelector('[style*="z-index:-9999"][style*="width:1056px"]');
-        if (leftover) leftover.remove();
         if (btn) {
             btn.disabled = false;
             btn.textContent = 'PDF';

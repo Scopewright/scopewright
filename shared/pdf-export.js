@@ -93,30 +93,21 @@ async function exportSubmissionPdf() {
         //     as blank unless they are inlined as data URLs.
         await _convertImagesToBase64(clone);
 
-        // 4. Build standalone HTML document for PDF rendering
-        var pdfHtml = '<!DOCTYPE html><html><head>' +
-            '<meta charset="UTF-8">' +
-            '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">' +
-            '<style>' + SNAPSHOT_CSS +
+        // 4. Inject SNAPSHOT_CSS into document.head so html2canvas can read computed styles.
+        //    html2canvas ignores <style> tags inside the target element — it only reads
+        //    stylesheets registered in the document's stylesheet list.
+        var styleEl = document.createElement('style');
+        styleEl.id = 'pdf-export-snapshot-css';
+        styleEl.textContent = SNAPSHOT_CSS +
             '\n.pv-content{padding:0;gap:0}' +
-            '\n.pv-page{page-break-after:always;aspect-ratio:11/8.5;width:100%;box-sizing:border-box}' +
-            '\n.pv-page:last-child{page-break-after:auto}' +
-            '</style>' +
-            '</head><body>' +
-            '<div class="pv-content">' + clone.innerHTML + '</div>' +
-            '</body></html>';
+            '\n.pv-page{page-break-after:always;aspect-ratio:auto;width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
+            '\n.pv-page:last-child{page-break-after:auto}';
+        document.head.appendChild(styleEl);
 
         // 5. Create temporary container for html2pdf
         var tempContainer = document.createElement('div');
         tempContainer.innerHTML = '<div class="pv-content">' + clone.innerHTML + '</div>';
         tempContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1056px;';
-        // Apply SNAPSHOT_CSS via a style tag inside
-        var styleEl = document.createElement('style');
-        styleEl.textContent = SNAPSHOT_CSS +
-            '\n.pv-content{padding:0;gap:0}' +
-            '\n.pv-page{page-break-after:always;aspect-ratio:auto;width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
-            '\n.pv-page:last-child{page-break-after:auto}';
-        tempContainer.prepend(styleEl);
         document.body.appendChild(tempContainer);
 
         // 6. Generate filename
@@ -148,13 +139,19 @@ async function exportSubmissionPdf() {
 
         await html2pdf().set(opt).from(tempContainer).save();
 
-        // 8. Cleanup
+        // 8. Cleanup (also handled in finally block as safety net)
         document.body.removeChild(tempContainer);
+        styleEl.remove();
 
     } catch (err) {
         console.error('[PDF] Export failed:', err);
         steleAlert('Erreur lors de l\'export PDF : ' + (err.message || err), 'Erreur');
     } finally {
+        // Cleanup: remove injected style and temp container even on error
+        var injectedStyle = document.getElementById('pdf-export-snapshot-css');
+        if (injectedStyle) injectedStyle.remove();
+        var leftover = document.querySelector('[style*="left:-9999px"][style*="width:1056px"]');
+        if (leftover) leftover.remove();
         if (btn) {
             btn.disabled = false;
             btn.textContent = 'PDF';

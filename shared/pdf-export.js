@@ -107,7 +107,7 @@ async function exportSubmissionPdf() {
         // 5. Create temporary container for html2pdf
         var tempContainer = document.createElement('div');
         tempContainer.innerHTML = '<div class="pv-content">' + clone.innerHTML + '</div>';
-        tempContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1056px;';
+        tempContainer.style.cssText = 'position:fixed;left:0;top:0;width:1056px;z-index:-9999;';
         document.body.appendChild(tempContainer);
 
         // 6. Generate filename
@@ -150,7 +150,7 @@ async function exportSubmissionPdf() {
         // Cleanup: remove injected style and temp container even on error
         var injectedStyle = document.getElementById('pdf-export-snapshot-css');
         if (injectedStyle) injectedStyle.remove();
-        var leftover = document.querySelector('[style*="left:-9999px"][style*="width:1056px"]');
+        var leftover = document.querySelector('[style*="z-index:-9999"][style*="width:1056px"]');
         if (leftover) leftover.remove();
         if (btn) {
             btn.disabled = false;

@@ -58,29 +58,67 @@ async function exportSubmissionPdf() {
             ta.parentNode.replaceChild(div, ta);
         });
 
-        // 3. Replace acceptance/signature section with printable signature line
+        // 3. Rebuild total+signature page — sober white style (no black rectangle)
         var acceptPage = clone.querySelector('.pv-page-total');
         if (acceptPage) {
-            // Add printable signature block after the total box
+            var sigLabel = currentLang === 'en' ? 'Accepted by' : 'Accept\u00e9 par';
+            var dateLabel = 'Date';
+
+            // Extract total data from the existing total box before replacing
             var totalBox = acceptPage.querySelector('.pv-total-box');
+            var totalHtml = '';
             if (totalBox) {
-                var sigBlock = document.createElement('div');
-                sigBlock.style.cssText = 'margin-top:48px;padding:0 56px;width:100%;';
-                var sigLabel = currentLang === 'en' ? 'Accepted by' : 'Accept\u00e9 par';
-                var dateLabel = currentLang === 'en' ? 'Date' : 'Date';
-                sigBlock.innerHTML =
-                    '<div style="display:flex;gap:64px;justify-content:center;margin-top:24px;">' +
-                        '<div style="flex:1;max-width:300px;">' +
-                            '<div style="border-bottom:1px solid #333;height:40px;"></div>' +
-                            '<div style="font-size:11px;color:#888;margin-top:6px;text-transform:uppercase;letter-spacing:1px;">' + sigLabel + '</div>' +
+                // Rebuild total content with white/sober style
+                var breakdown = totalBox.querySelector('.pv-total-breakdown');
+                var breakdownHtml = '';
+                if (breakdown) {
+                    // Re-style breakdown lines for white background
+                    var lines = breakdown.querySelectorAll('.pv-total-subtotal-line, .pv-total-discount-line');
+                    lines.forEach(function(line) {
+                        var spans = line.querySelectorAll('span');
+                        var isDiscount = line.classList.contains('pv-total-discount-line');
+                        var color = isDiscount ? '#ef5350' : '#1A1A1A';
+                        breakdownHtml += '<div style="display:flex;justify-content:space-between;font-size:15px;padding:4px 0;color:' + color + ';">';
+                        spans.forEach(function(s) { breakdownHtml += '<span>' + s.innerHTML + '</span>'; });
+                        breakdownHtml += '</div>';
+                    });
+                    if (breakdownHtml) breakdownHtml += '<div style="border-top:1px solid #e2e8f0;margin:8px 0;"></div>';
+                }
+
+                var labelEl = totalBox.querySelector('.total-label');
+                var amountEl = totalBox.querySelector('.total-amount');
+                var taxesEl = totalBox.querySelector('.total-taxes');
+
+                totalHtml =
+                    '<div style="text-align:center;padding:36px 56px;">' +
+                        (breakdownHtml ? '<div style="max-width:360px;margin:0 auto 16px;">' + breakdownHtml + '</div>' : '') +
+                        '<div style="font-family:Inter,-apple-system,sans-serif;font-size:12px;font-weight:400;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;color:#94a3b8;">' +
+                            (labelEl ? labelEl.innerHTML : '') +
                         '</div>' +
-                        '<div style="flex:0 0 180px;">' +
-                            '<div style="border-bottom:1px solid #333;height:40px;"></div>' +
-                            '<div style="font-size:11px;color:#888;margin-top:6px;text-transform:uppercase;letter-spacing:1px;">' + dateLabel + '</div>' +
+                        '<div style="font-family:Inter,-apple-system,sans-serif;font-size:48px;font-weight:400;letter-spacing:-0.02em;color:#1A1A1A;">' +
+                            (amountEl ? amountEl.innerHTML : '') +
+                        '</div>' +
+                        '<div style="font-size:13px;color:#94a3b8;margin-top:6px;">' +
+                            (taxesEl ? taxesEl.innerHTML : '') +
                         '</div>' +
                     '</div>';
-                totalBox.parentNode.insertBefore(sigBlock, totalBox.nextSibling);
             }
+
+            // Signature block
+            var sigHtml =
+                '<div style="display:flex;gap:64px;justify-content:center;margin-top:48px;padding:0 56px;">' +
+                    '<div style="flex:1;max-width:300px;">' +
+                        '<div style="border-bottom:1px solid #cbd5e1;height:40px;"></div>' +
+                        '<div style="font-size:11px;color:#94a3b8;margin-top:6px;text-transform:uppercase;letter-spacing:1px;">' + sigLabel + '</div>' +
+                    '</div>' +
+                    '<div style="flex:0 0 180px;">' +
+                        '<div style="border-bottom:1px solid #cbd5e1;height:40px;"></div>' +
+                        '<div style="font-size:11px;color:#94a3b8;margin-top:6px;text-transform:uppercase;letter-spacing:1px;">' + dateLabel + '</div>' +
+                    '</div>' +
+                '</div>';
+
+            // Replace entire page content
+            acceptPage.innerHTML = totalHtml + sigHtml;
         }
 
         // Remove any existing acceptance proof badge (interactive)
@@ -99,8 +137,9 @@ async function exportSubmissionPdf() {
         styleEl.id = 'pdf-export-snapshot-css';
         styleEl.textContent = SNAPSHOT_CSS +
             '\n.pv-content{padding:0;gap:0}' +
-            '\n.pv-page{page-break-after:always;width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
-            '\n.pv-page:last-child{page-break-after:auto}';
+            '\n.pv-page{width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
+            '\n.pv-page-total{background:#fff;color:#1A1A1A}' +
+            '\n.pv-total-box{background:transparent;color:#1A1A1A;padding:0}';
         document.head.appendChild(styleEl);
 
         // 5. Build element for html2pdf — do NOT append to DOM manually.
@@ -135,7 +174,7 @@ async function exportSubmissionPdf() {
                 format: 'letter',
                 orientation: 'landscape'
             },
-            pagebreak: { mode: ['css', 'legacy'], before: '.pv-page' }
+            pagebreak: { mode: 'css', before: '.pv-page' }
         };
 
         await html2pdf().set(opt).from(pdfRoot).save();

@@ -8,7 +8,7 @@
 - **#137 — Export PDF** — Bouton PDF dans la toolbar preview du calculateur. Export client-side via html2pdf.js (html2canvas + jsPDF). Format landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier : `shared/pdf-export.js` (~168 lignes)
 
 ### Bug Fixes
-- **Fix: PDF page blanche** — SNAPSHOT_CSS injecté dans `document.head` au lieu d'un `<style>` dans le container cible. html2canvas ne lit pas les `<style>` internes — il lit les computed styles depuis les stylesheets du document
+- **Fix: PDF page blanche** — Trois correctifs : (1) SNAPSHOT_CSS injecté dans `document.head` (html2canvas lit `document.styleSheets`), (2) positionnement à `left:0` au lieu de `-9999px`, (3) suppression de l'insertion DOM manuelle — `html2pdf.toContainer()` gère son propre overlay, l'insertion manuelle causait des conflits de lifecycle
 - **Fix: Images blanches PDF** — Les images Supabase Storage (cross-origin) sont converties en base64 data URLs avant le rendu html2canvas
 
 ### Database

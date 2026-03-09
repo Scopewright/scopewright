@@ -383,9 +383,10 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 Export client-side de la soumission en PDF via html2pdf.js (CDN, html2canvas + jsPDF). Puppeteer non viable sur Supabase Edge Functions (Deno Deploy).
 - **Bouton PDF** dans la toolbar preview de `calculateur.html` (entre Présentation et EN)
 - **Format** : landscape 8.5x11 (letter), JPEG 0.95, scale 2
-- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → remplacement signature par lignes imprimables (Accepté par / Date) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → html2pdf → download → cleanup
+- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → remplacement signature par lignes imprimables (Accepté par / Date) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
 - **Images cross-origin** : les `<img>` Supabase Storage sont fetch et converties en base64 data URLs avant le rendu html2canvas (`_convertImagesToBase64`). Fallback `useCORS` si le fetch échoue
-- **Styles** : SNAPSHOT_CSS injecté dans `document.head` (pas dans le container cible) — html2canvas lit les computed styles depuis les stylesheets du document, pas les `<style>` internes. ID `pdf-export-snapshot-css`, retiré dans `finally`
+- **Styles** : SNAPSHOT_CSS injecté dans `document.head` (ID `pdf-export-snapshot-css`, retiré dans `finally`). html2canvas lit les computed styles depuis `document.styleSheets`, pas les `<style>` internes au container
+- **DOM** : l'élément `pdfRoot` n'est PAS ajouté manuellement au DOM — `html2pdf.toContainer()` crée son propre overlay et y déplace l'élément. L'insertion manuelle causait des conflits de lifecycle
 - **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`. `_sanitizePdfFilename()` normalise NFD, strip accents/caractères spéciaux
 - **`org_name`** : chargé depuis `introConfig` (via `app_config`), fallback "Stele". Migration : `sql/org_name.sql`
 

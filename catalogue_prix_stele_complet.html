@@ -6812,6 +6812,14 @@
                 .join('\n');
         }
 
+        function getPresRuleJsons() {
+            if (!expenseCategories) return '';
+            return expenseCategories
+                .filter(function(c) { return c.presentation_rule; })
+                .map(function(c) { return c.name + ' : ' + JSON.stringify(c.presentation_rule); })
+                .join('\n');
+        }
+
         function getAllRulesTemplates() {
             return getCalcTemplates() || getPresTemplates();
         }
@@ -6999,8 +7007,13 @@
 
             var presTemplates = getPresTemplates();
             if (presTemplates) {
-                prompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE ===\n' + presTemplates;
+                prompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE (texte) ===\n' + presTemplates;
                 prompt += '\nResp\u00e8cte TOUJOURS ces r\u00e8gles. Ajoute seulement ce qui est sp\u00e9cifique \u00e0 cet article.';
+            }
+            var presRuleJsons = getPresRuleJsons();
+            if (presRuleJsons) {
+                prompt += '\n\n=== R\u00c8GLES DE PR\u00c9SENTATION PAR CAT\u00c9GORIE (JSON) ===\n' + presRuleJsons;
+                prompt += '\nCes JSON sont les r\u00e8gles de pr\u00e9sentation par d\u00e9faut du groupe. Inspire-toi de la structure mais adapte \u00e0 cet article.';
             }
 
             var similar = getSimilarItems(category, 10);

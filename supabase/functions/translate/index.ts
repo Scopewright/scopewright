@@ -29,7 +29,7 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
         "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
         "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest",
-        "ai_prompt_instruction_catalogue", "ai_prompt_labor_modifiers"
+        "ai_prompt_instruction_catalogue", "ai_prompt_labor_modifiers", "ai_prompt_expense_pres_rule"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -320,6 +320,32 @@ RÈGLES :
 - "warnings" : max 3 messages courts en français
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
+const EXPENSE_PRES_RULE_SYSTEM = `Tu es un spécialiste en documentation pour Scopewright, la plateforme d'estimation de Stele.
+Tu reçois le nom et le template de présentation d'une catégorie de dépense (ex: PANNEAU BOIS, QUINCAILLERIE).
+Tu dois générer un JSON structuré de règle de présentation applicable à TOUS les articles de cette catégorie.
+
+ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
+{
+  "status": "ok" | "needs_review" | "error",
+  "warnings": [],
+  "json": {
+    "sections": [
+      { "key": "CLÉ_SECTION", "label": "Libellé de section", "template": "{client_text}" }
+    ],
+    "exclude": [],
+    "notes": ""
+  }
+}
+
+RÈGLES :
+- Keys standards : CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS, NOTES, PARTICULARITÉS
+- Le "template" utilise {client_text} comme placeholder pour le texte client de l'article
+- Cette règle est un FALLBACK : elle s'applique uniquement aux articles qui n'ont PAS leur propre presentation_rule
+- Rester générique à la catégorie, pas spécifique à un article
+- "status" : "ok" si résultat fiable, "needs_review" si doutes
+- "warnings" : max 3 messages courts en français
+- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
+
 const APPROVAL_SUGGEST_SYSTEM = `Tu es un expert en catalogues de cuisine et meubles sur mesure pour Stele, atelier d'ébénisterie haut de gamme.
 Un estimateur a proposé un nouvel article au catalogue. Tu reçois :
 1. Les détails de l'article proposé (description, catégorie, type, contexte de proposition)
@@ -364,6 +390,7 @@ const PROMPT_MAP: Record<string, { key: string; prompt: string }> = {
   approval_suggest:        { key: "ai_prompt_approval_suggest", prompt: APPROVAL_SUGGEST_SYSTEM },
   instruction_rewrite:     { key: "ai_prompt_instruction_catalogue", prompt: CATALOGUE_INSTRUCTION_SYSTEM },
   catalogue_labor_modifiers: { key: "ai_prompt_labor_modifiers", prompt: CATALOGUE_LABOR_MODIFIERS_SYSTEM },
+  expense_pres_rule:         { key: "ai_prompt_expense_pres_rule", prompt: EXPENSE_PRES_RULE_SYSTEM },
 };
 
 // Retry fetch with exponential backoff for overloaded (529) and rate limit (429)
@@ -448,7 +475,7 @@ serve(async (req) => {
     }
 
     // Use Sonnet for JSON generation and vision tasks, Haiku for the rest (speed)
-    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers"];
+    const SONNET_ACTIONS = ["catalogue_json", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers", "expense_pres_rule"];
     const model = SONNET_ACTIONS.includes(action)
       ? "claude-sonnet-4-20250514"
       : "claude-haiku-4-5-20251001";
@@ -486,6 +513,8 @@ serve(async (req) => {
           ? `Voici les détails de l'article et son instruction actuelle.\n\n${nonEmpty[0].text}\n\nReformule l'instruction en texte structuré et actionnable. Retourne UNIQUEMENT le texte reformulé.`
           : action === "catalogue_labor_modifiers"
           ? `Voici les détails de l'article.\n\n${nonEmpty[0].text}\n\nGénère les barèmes JSON. Retourne UNIQUEMENT le JSON valide.`
+          : action === "expense_pres_rule"
+          ? `Voici les détails de la catégorie de dépense.\n\n${nonEmpty[0].text}\n\nGénère la règle de présentation JSON. Retourne UNIQUEMENT le JSON valide.`
           : `Translate this French text to English. Return ONLY the translated text, no explanation, no markdown:\n\n${nonEmpty[0].text}`;
 
       // Build multimodal content when images are provided (for import_components with vision)
@@ -505,7 +534,7 @@ serve(async (req) => {
       }
 
       // Actions that require strict JSON output: use assistant prefill to force JSON
-      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers"];
+      const JSON_ACTIONS = ["catalogue_client_text", "catalogue_pres_rule", "catalogue_calc_rule", "import_components", "approval_suggest", "catalogue_labor_modifiers", "expense_pres_rule"];
       const useJsonPrefill = JSON_ACTIONS.includes(action);
       const messages: any[] = [{ role: "user", content: userContent }];
       if (useJsonPrefill) {

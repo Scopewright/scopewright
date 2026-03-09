@@ -15884,6 +15884,31 @@
             return data.translations;
         }
 
+        // ── Group-level presentation rule fallback ──
+        // Returns the first matching presentation_rule from expenseCategories
+        // based on the article's material_costs keys or its catalogue category.
+        function _findGroupPresRule(catItem) {
+            if (!expenseCategories || !expenseCategories.length) return null;
+            // Try material_costs keys first (most specific)
+            var matKeys = catItem.material_costs ? Object.keys(catItem.material_costs) : [];
+            for (var i = 0; i < matKeys.length; i++) {
+                for (var j = 0; j < expenseCategories.length; j++) {
+                    if (expenseCategories[j].presentation_rule && expenseCategories[j].name === matKeys[i]) {
+                        return expenseCategories[j].presentation_rule;
+                    }
+                }
+            }
+            // Fallback: match by catalogue category name
+            if (catItem.category) {
+                for (var k = 0; k < expenseCategories.length; k++) {
+                    if (expenseCategories[k].presentation_rule && expenseCategories[k].name === catItem.category) {
+                        return expenseCategories[k].presentation_rule;
+                    }
+                }
+            }
+            return null;
+        }
+
         // ── AI Generate / Revise client description ──
         async function aiGenerateDescription(groupId) {
             var btn = document.getElementById(groupId + '-aiDesc');
@@ -15903,7 +15928,13 @@
                 if (item.catalogueId) {
                     var catItem = CATALOGUE_DATA.find(function(c) { return c.id === item.catalogueId; });
                     if (catItem && catItem.client_text) itemLines += ' [client: ' + catItem.client_text + ']';
-                    if (catItem && catItem.presentation_rule_human) itemLines += ' [règle: ' + catItem.presentation_rule_human + ']';
+                    if (catItem && catItem.presentation_rule_human) {
+                        itemLines += ' [règle: ' + catItem.presentation_rule_human + ']';
+                    } else if (catItem && expenseCategories && expenseCategories.length) {
+                        // Fallback: group-level presentation_rule via material_costs keys
+                        var groupRule = _findGroupPresRule(catItem);
+                        if (groupRule) itemLines += ' [règle groupe: ' + JSON.stringify(groupRule) + ']';
+                    }
                 }
                 if (item.tag) itemLines += ' [tag: ' + item.tag + ']';
                 itemLines += '\n';

@@ -784,6 +784,7 @@
                             <option value="ai_prompt_approval_review">Assistant approbation</option>
                             <option value="ai_prompt_instruction_catalogue">Catalogue &mdash; Instruction article</option>
                             <option value="ai_prompt_labor_modifiers">Catalogue &mdash; Bar&egrave;mes et modificateurs</option>
+                            <option value="ai_prompt_expense_pres_rule">D&eacute;penses &mdash; R&egrave;gle de pr&eacute;sentation</option>
                         </select>
                         <span id="aiPromptStatus" style="font-size:11px; color:#aaa;"></span>
                     </div>
@@ -1881,14 +1882,15 @@
         var html = '';
         for (var i = 0; i < expenseCategories.length; i++) {
             var c = expenseCategories[i];
-            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '');
+            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '', c.presentation_rule || '');
         }
         body.innerHTML = html;
     }
 
-    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate) {
-        var hasTemplate = (calcTemplate || presTemplate) ? ' open' : '';
-        var showRow = (calcTemplate || presTemplate) ? 'table-row' : 'none';
+    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate, presRule) {
+        var hasTemplate = (calcTemplate || presTemplate || presRule) ? ' open' : '';
+        var showRow = (calcTemplate || presTemplate || presRule) ? 'table-row' : 'none';
+        var presRuleStr = presRule ? (typeof presRule === 'string' ? presRule : JSON.stringify(presRule, null, 2)) : '';
         return '<tr class="expense-main-row">' +
             '<td><button class="btn-expand-template' + hasTemplate + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
@@ -1902,6 +1904,8 @@
             '<textarea class="input-template input-template-calc" placeholder="Instructions AI pour les r\u00e8gles de calcul (cascade, quantit\u00e9s, mat\u00e9riaux)\u2026">' + escapeHtml(calcTemplate) + '</textarea>' +
             '<div class="template-label" style="margin-top:8px;">Template pr\u00e9sentation</div>' +
             '<textarea class="input-template input-template-pres" placeholder="Instructions AI pour la pr\u00e9sentation client (sections, format, texte)\u2026">' + escapeHtml(presTemplate) + '</textarea>' +
+            '<div class="template-label" style="margin-top:8px;">R\u00e8gle de pr\u00e9sentation JSON</div>' +
+            '<textarea class="input-template input-template-pres-rule" rows="4" placeholder=\'{"sections":[{"key":"CAISSON","label":"Caisson","template":"{client_text}"}],"exclude":[],"notes":""}\'>' + escapeHtml(presRuleStr) + '</textarea>' +
             '</td>' +
             '</tr>';
     }
@@ -1945,16 +1949,22 @@
             var wasteInput = mainRows[i].querySelector('.input-waste');
             var wasteVal = parseFloat(wasteInput ? wasteInput.value : 0) || 0;
             var templateRow = mainRows[i].nextElementSibling;
-            var calcTpl = '', presTpl = '';
+            var calcTpl = '', presTpl = '', presRuleStr = '';
             if (templateRow && templateRow.classList.contains('expense-template-row')) {
                 var taCalc = templateRow.querySelector('.input-template-calc');
                 var taPres = templateRow.querySelector('.input-template-pres');
+                var taPresRule = templateRow.querySelector('.input-template-pres-rule');
                 calcTpl = taCalc ? taCalc.value.trim() : '';
                 presTpl = taPres ? taPres.value.trim() : '';
+                presRuleStr = taPresRule ? taPresRule.value.trim() : '';
             }
             var cat = { name: nameVal, markup: markupVal, waste: wasteVal };
             if (calcTpl) cat.calc_template = calcTpl;
             if (presTpl) cat.pres_template = presTpl;
+            if (presRuleStr) {
+                try { cat.presentation_rule = JSON.parse(presRuleStr); }
+                catch(e) { cat.presentation_rule = null; }
+            }
             newCats.push(cat);
         }
         expenseCategories = newCats;
@@ -2803,6 +2813,9 @@
     // Default for Catalogue — Barèmes et modificateurs — must match CATALOGUE_LABOR_MODIFIERS_SYSTEM in translate/index.ts
     AI_PROMPT_DEFAULTS['ai_prompt_labor_modifiers'] = "Tu es un ing\u00e9nieur de bar\u00e8mes pour Scopewright, la plateforme d'estimation de Stele.\nTu re\u00e7ois l'explication en langage naturel des bar\u00e8mes de prix d'un article du catalogue.\nTu dois faire DEUX choses :\n1. Reformuler/corriger le texte d'explication (phrases claires, techniques, concises)\n2. G\u00e9n\u00e9rer le JSON de bar\u00e8mes structur\u00e9 correspondant\n\nENVELOPPE DE R\u00c9PONSE OBLIGATOIRE (JSON) :\n{\n  \"status\": \"ok\" | \"needs_review\" | \"error\",\n  \"warnings\": [],\n  \"explication\": \"Texte reformul\u00e9\",\n  \"json\": {\n    \"modifiers\": [\n      {\n        \"condition\": \"L > 36\",\n        \"label\": \"Largeur > 36 po\",\n        \"labor_factor\": { \"Machinage\": 1.25 },\n        \"material_factor\": { \"PANNEAU M\u00c9LAMINE\": 1.10 }\n      }\n    ]\n  }\n}\n\nR\u00c8GLES :\n- \"condition\" : expression \u00e9valuable avec variables L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs\n- \"label\" : description courte pour l'affichage\n- \"labor_factor\" : multiplicateur par d\u00e9partement MO (1.0 = pas de changement, 1.25 = +25%)\n- \"material_factor\" : multiplicateur par cat\u00e9gorie mat\u00e9riau\n- Premier modificateur dont la condition est vraie EST APPLIQU\u00c9 (first-match, pas cumulatif)\n- Les paliers doivent \u00eatre ordonn\u00e9s du plus grand au plus petit\n- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks";
 
+    // Default for Dépenses — Règle de présentation — must match EXPENSE_PRES_RULE_SYSTEM in translate/index.ts
+    AI_PROMPT_DEFAULTS['ai_prompt_expense_pres_rule'] = "Tu es un sp\u00e9cialiste en documentation pour Scopewright, la plateforme d'estimation de Stele.\nTu re\u00e7ois le nom et le template de pr\u00e9sentation d'une cat\u00e9gorie de d\u00e9pense (ex: PANNEAU BOIS, QUINCAILLERIE).\nTu dois g\u00e9n\u00e9rer un JSON structur\u00e9 de r\u00e8gle de pr\u00e9sentation applicable \u00e0 TOUS les articles de cette cat\u00e9gorie.\n\nENVELOPPE DE R\u00c9PONSE OBLIGATOIRE (JSON) :\n{\n  \"status\": \"ok\" | \"needs_review\" | \"error\",\n  \"warnings\": [],\n  \"json\": {\n    \"sections\": [\n      { \"key\": \"CL\u00c9_SECTION\", \"label\": \"Libell\u00e9 de section\", \"template\": \"{client_text}\" }\n    ],\n    \"exclude\": [],\n    \"notes\": \"\"\n  }\n}\n\nR\u00c8GLES :\n- Keys standards : CAISSON, FA\u00c7ADES, PANNEAUX, COMPTOIR, TIROIRS, POIGN\u00c9ES, QUINCAILLERIE, \u00c9CLAIRAGE, FINITION, RANGEMENT, D\u00c9TAILS, EXCLUSIONS, NOTES, PARTICULARIT\u00c9S\n- Le \"template\" utilise {client_text} comme placeholder pour le texte client de l'article\n- Cette r\u00e8gle est un FALLBACK : elle s'applique uniquement aux articles qui n'ont PAS leur propre presentation_rule\n- Rester g\u00e9n\u00e9rique \u00e0 la cat\u00e9gorie, pas sp\u00e9cifique \u00e0 un article\n- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks";
+
     var currentPromptKey = 'ai_prompt_estimateur';
 
     function switchAiPrompt() {
@@ -2832,7 +2845,8 @@
                     || row.key === 'ai_prompt_client_text_catalogue' || row.key === 'ai_prompt_pres_rule'
                     || row.key === 'ai_prompt_calc_rule' || row.key === 'ai_prompt_description_calculateur'
                     || row.key === 'ai_prompt_import_components' || row.key === 'ai_prompt_approval_review'
-                    || row.key === 'ai_prompt_instruction_catalogue') {
+                    || row.key === 'ai_prompt_instruction_catalogue' || row.key === 'ai_prompt_labor_modifiers'
+                    || row.key === 'ai_prompt_expense_pres_rule') {
                     if (row.value && typeof row.value === 'string' && row.value.trim()) {
                         aiPromptOverrides[row.key] = row.value;
                     }

@@ -1078,9 +1078,11 @@ Export client-side de la soumission en PDF. Utilise html2pdf.js (CDN) qui combin
 1. `renderPreview()` genere le HTML live dans `#pvContent`
 2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable, textareas)
 3. Remplace la section signature/acceptation par des lignes imprimables ("Accepte par" / "Date")
-4. Injecte `SNAPSHOT_CSS` + overrides page-break dans un conteneur temporaire hors-ecran (1056px)
-5. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, page-break par `.pv-page`
-6. Telecharge le fichier, nettoie le conteneur temporaire
+4. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
+5. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis les stylesheets du document — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`
+6. Cree un container temporaire hors-ecran (1056px) avec le HTML clone, l'attache au DOM
+7. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, page-break par `.pv-page`
+8. Telecharge le fichier, nettoie le conteneur temporaire + le `<style>` injecte (aussi dans `finally` comme filet de securite)
 
 **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
 - `org_name` : `introConfig.org_name` (charge depuis `app_config`), fallback "Stele"

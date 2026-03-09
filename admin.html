@@ -232,6 +232,34 @@
             font-size: 11px; color: #94a3b8; margin-bottom: 4px;
             text-transform: uppercase; letter-spacing: 0.3px;
         }
+        .expense-ai-wrap {
+            display: flex; gap: 6px; align-items: flex-start;
+        }
+        .expense-ai-wrap textarea { flex: 1; }
+        .expense-ai-btn {
+            flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
+            border: 1px solid #e2e8f0; background: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .expense-ai-btn:hover { border-color: var(--sw-navy); background: #f8fafc; }
+        .expense-ai-btn:disabled { opacity: 0.4; cursor: default; }
+        .expense-ai-btn .ai-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            display: block;
+        }
+        .expense-ai-btn.ai-active .ai-dot { animation: aiBreathing 1.5s ease-in-out infinite; }
+        @keyframes aiBreathing { 0%,100% { opacity: 0.4; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+        .expense-json-ta {
+            font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+        }
+        .expense-json-ta.json-success { border-color: #10b981; background: #ecfdf5; transition: background 0.3s; }
+        .expense-ai-feedback {
+            font-size: 11px; padding: 6px 8px; border-radius: 4px; margin-bottom: 4px;
+        }
+        .expense-ai-feedback.fb-error { background: #fef2f2; color: #dc2626; }
+        .expense-ai-feedback.fb-ok { background: #ecfdf5; color: #059669; }
         .cat-chip-x:hover { color: #c0392b; }
         .cat-chip-add {
             background: none; border: 1px dashed #cbd5e1; color: #94a3b8;
@@ -1882,17 +1910,18 @@
         var html = '';
         for (var i = 0; i < expenseCategories.length; i++) {
             var c = expenseCategories[i];
-            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '', c.presentation_rule || '');
+            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '', c.presentation_rule || '', c.calc_rule || '');
         }
         body.innerHTML = html;
     }
 
-    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate, presRule) {
-        var hasTemplate = (calcTemplate || presTemplate || presRule) ? ' open' : '';
-        var showRow = (calcTemplate || presTemplate || presRule) ? 'table-row' : 'none';
+    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate, presRule, calcRule) {
+        var hasContent = (calcTemplate || presTemplate || presRule || calcRule) ? ' open' : '';
+        var showRow = hasContent ? 'table-row' : 'none';
         var presRuleStr = presRule ? (typeof presRule === 'string' ? presRule : JSON.stringify(presRule, null, 2)) : '';
+        var calcRuleStr = calcRule ? (typeof calcRule === 'string' ? calcRule : JSON.stringify(calcRule, null, 2)) : '';
         return '<tr class="expense-main-row">' +
-            '<td><button class="btn-expand-template' + hasTemplate + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
+            '<td><button class="btn-expand-template' + hasContent + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
             '<td><input type="number" class="input-number" value="' + (markup || 0) + '" placeholder="0" step="1" min="0"></td>' +
             '<td><input type="number" class="input-number input-waste" value="' + (waste || 0) + '" placeholder="0" step="1" min="0"></td>' +
@@ -1900,12 +1929,27 @@
             '</tr>' +
             '<tr class="expense-template-row" style="display:' + showRow + ';">' +
             '<td colspan="5">' +
+
+            // ── CALCUL section ──
             '<div class="template-label">Template calcul</div>' +
-            '<textarea class="input-template input-template-calc" placeholder="Instructions AI pour les r\u00e8gles de calcul (cascade, quantit\u00e9s, mat\u00e9riaux)\u2026">' + escapeHtml(calcTemplate) + '</textarea>' +
-            '<div class="template-label" style="margin-top:8px;">Template pr\u00e9sentation</div>' +
-            '<textarea class="input-template input-template-pres" placeholder="Instructions AI pour la pr\u00e9sentation client (sections, format, texte)\u2026">' + escapeHtml(presTemplate) + '</textarea>' +
-            '<div class="template-label" style="margin-top:8px;">R\u00e8gle de pr\u00e9sentation JSON</div>' +
-            '<textarea class="input-template input-template-pres-rule" rows="4" placeholder=\'{"sections":[{"key":"CAISSON","label":"Caisson","template":"{client_text}"}],"exclude":[],"notes":""}\'>' + escapeHtml(presRuleStr) + '</textarea>' +
+            '<div class="expense-ai-wrap">' +
+                '<textarea class="input-template input-template-calc" placeholder="Instructions AI pour les r\u00e8gles de calcul (cascade, quantit\u00e9s, mat\u00e9riaux)\u2026">' + escapeHtml(calcTemplate) + '</textarea>' +
+                '<button class="expense-ai-btn" onclick="aiExpenseCalcRule(this)" title="G\u00e9n\u00e9rer le JSON calcul"><span class="ai-dot"></span></button>' +
+            '</div>' +
+            '<div class="expense-ai-feedback" style="display:none;"></div>' +
+            '<div class="template-label" style="margin-top:6px;">JSON calcul</div>' +
+            '<textarea class="input-template expense-json-ta input-template-calc-rule" rows="4" placeholder=\'{"formula":"...","cascade":[...],"ask":["L","H"]}\'>' + escapeHtml(calcRuleStr) + '</textarea>' +
+
+            // ── PRÉSENTATION section ──
+            '<div class="template-label" style="margin-top:12px;">Template pr\u00e9sentation</div>' +
+            '<div class="expense-ai-wrap">' +
+                '<textarea class="input-template input-template-pres" placeholder="Instructions AI pour la pr\u00e9sentation client (sections, format, texte)\u2026">' + escapeHtml(presTemplate) + '</textarea>' +
+                '<button class="expense-ai-btn" onclick="aiExpensePresRule(this)" title="G\u00e9n\u00e9rer le JSON pr\u00e9sentation"><span class="ai-dot"></span></button>' +
+            '</div>' +
+            '<div class="expense-ai-feedback" style="display:none;"></div>' +
+            '<div class="template-label" style="margin-top:6px;">JSON pr\u00e9sentation</div>' +
+            '<textarea class="input-template expense-json-ta input-template-pres-rule" rows="4" placeholder=\'{"sections":[{"key":"CAISSON","label":"Caisson","template":"{client_text}"}],"exclude":[],"notes":""}\'>' + escapeHtml(presRuleStr) + '</textarea>' +
+
             '</td>' +
             '</tr>';
     }
@@ -1921,7 +1965,7 @@
 
     function addExpenseRow() {
         var body = document.getElementById('expensesBody');
-        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0, '', ''));
+        body.insertAdjacentHTML('beforeend', buildExpenseRowHtml('', 30, 0, '', '', '', ''));
         var mainRows = body.querySelectorAll('.expense-main-row');
         if (mainRows.length) {
             var lastMain = mainRows[mainRows.length - 1];
@@ -1949,14 +1993,16 @@
             var wasteInput = mainRows[i].querySelector('.input-waste');
             var wasteVal = parseFloat(wasteInput ? wasteInput.value : 0) || 0;
             var templateRow = mainRows[i].nextElementSibling;
-            var calcTpl = '', presTpl = '', presRuleStr = '';
+            var calcTpl = '', presTpl = '', presRuleStr = '', calcRuleStr = '';
             if (templateRow && templateRow.classList.contains('expense-template-row')) {
                 var taCalc = templateRow.querySelector('.input-template-calc');
                 var taPres = templateRow.querySelector('.input-template-pres');
                 var taPresRule = templateRow.querySelector('.input-template-pres-rule');
+                var taCalcRule = templateRow.querySelector('.input-template-calc-rule');
                 calcTpl = taCalc ? taCalc.value.trim() : '';
                 presTpl = taPres ? taPres.value.trim() : '';
                 presRuleStr = taPresRule ? taPresRule.value.trim() : '';
+                calcRuleStr = taCalcRule ? taCalcRule.value.trim() : '';
             }
             var cat = { name: nameVal, markup: markupVal, waste: wasteVal };
             if (calcTpl) cat.calc_template = calcTpl;
@@ -1965,10 +2011,134 @@
                 try { cat.presentation_rule = JSON.parse(presRuleStr); }
                 catch(e) { cat.presentation_rule = null; }
             }
+            if (calcRuleStr) {
+                try { cat.calc_rule = JSON.parse(calcRuleStr); }
+                catch(e) { cat.calc_rule = null; }
+            }
             newCats.push(cat);
         }
         expenseCategories = newCats;
         saveConfig('expense_categories', expenseCategories, 'expensesFeedback');
+    }
+
+    // ── AI generation for expense category templates ──
+
+    function _getExpenseContext(btn) {
+        var templateRow = btn.closest('.expense-template-row');
+        var mainRow = templateRow ? templateRow.previousElementSibling : null;
+        if (!mainRow) return null;
+        var name = mainRow.querySelector('.input-email').value.trim();
+        var calcTa = templateRow.querySelector('.input-template-calc');
+        var presTa = templateRow.querySelector('.input-template-pres');
+        var calcRuleTa = templateRow.querySelector('.input-template-calc-rule');
+        var presRuleTa = templateRow.querySelector('.input-template-pres-rule');
+        // Feedback div is the .expense-ai-feedback AFTER the btn's .expense-ai-wrap
+        var feedbackEl = btn.closest('.expense-ai-wrap').nextElementSibling;
+        return { name: name, calcTa: calcTa, presTa: presTa, calcRuleTa: calcRuleTa, presRuleTa: presRuleTa, feedbackEl: feedbackEl };
+    }
+
+    function _showExpenseFeedback(el, msg, isError) {
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'expense-ai-feedback ' + (isError ? 'fb-error' : 'fb-ok');
+        el.style.display = '';
+        if (!isError) setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+
+    async function aiExpenseCalcRule(btn) {
+        var ctx = _getExpenseContext(btn);
+        if (!ctx || !ctx.name) return;
+        var humanText = ctx.calcTa ? ctx.calcTa.value.trim() : '';
+        if (!humanText) {
+            _showExpenseFeedback(ctx.feedbackEl, 'Écrivez d\u2019abord le template calcul avant de lancer l\u2019AI.', true);
+            if (ctx.calcTa) ctx.calcTa.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.classList.add('ai-active');
+        ctx.feedbackEl.style.display = 'none';
+
+        try {
+            var prompt = '=== CATÉGORIE DE DÉPENSE ===\nNom: ' + ctx.name +
+                '\nMarkup: ' + (expenseCategories.find(function(c){ return c.name === ctx.name; }) || {}).markup + '%' +
+                '\n\nCatégories matériaux existantes: ' + expenseCategories.map(function(c){ return c.name; }).join(', ');
+
+            // Add other expense calc templates as examples
+            var examples = expenseCategories.filter(function(c) { return c.calc_rule && c.name !== ctx.name; })
+                .map(function(c) { return c.name + ': ' + JSON.stringify(c.calc_rule); });
+            if (examples.length > 0) prompt += '\n\n=== EXEMPLES JSON EXISTANTS ===\n' + examples.join('\n');
+
+            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"formula":"L * H / 144","cascade":[{"target":"CODE ou $match:CATÉGORIE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+            prompt += '\n\nTemplate calcul actuel :\n' + humanText;
+
+            var existingJson = ctx.calcRuleTa ? ctx.calcRuleTa.value.trim() : '';
+            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+
+            var results = await regenCallEdge([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
+            var envelope = regenParseEnvelope(results['cr'], 'explication');
+            regenFixJsonSplit(envelope, ['cascade', 'ask', 'formula']);
+
+            if (envelope.explication && ctx.calcTa) ctx.calcTa.value = envelope.explication;
+            if (envelope.json && ctx.calcRuleTa) {
+                ctx.calcRuleTa.value = JSON.stringify(envelope.json, null, 2);
+                ctx.calcRuleTa.classList.add('json-success');
+                setTimeout(function() { ctx.calcRuleTa.classList.remove('json-success'); }, 2000);
+            }
+            _showExpenseFeedback(ctx.feedbackEl, 'JSON calcul généré ✓', false);
+        } catch (err) {
+            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur AI', true);
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('ai-active');
+        }
+    }
+
+    async function aiExpensePresRule(btn) {
+        var ctx = _getExpenseContext(btn);
+        if (!ctx || !ctx.name) return;
+        var humanText = ctx.presTa ? ctx.presTa.value.trim() : '';
+        if (!humanText) {
+            _showExpenseFeedback(ctx.feedbackEl, 'Écrivez d\u2019abord le template présentation avant de lancer l\u2019AI.', true);
+            if (ctx.presTa) ctx.presTa.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.classList.add('ai-active');
+        ctx.feedbackEl.style.display = 'none';
+
+        try {
+            var prompt = '=== CATÉGORIE DE DÉPENSE ===\nNom: ' + ctx.name +
+                '\n\nSections de description connues: Caisson, Façades, Tiroirs, Poignées, Détails, Exclusions';
+
+            // Add other expense pres rules as examples
+            var examples = expenseCategories.filter(function(c) { return c.presentation_rule && c.name !== ctx.name; })
+                .map(function(c) { return c.name + ': ' + JSON.stringify(c.presentation_rule); });
+            if (examples.length > 0) prompt += '\n\n=== EXEMPLES JSON EXISTANTS ===\n' + examples.join('\n');
+
+            prompt += '\n\nTemplate présentation actuel :\n' + humanText;
+
+            var existingJson = ctx.presRuleTa ? ctx.presRuleTa.value.trim() : '';
+            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+
+            var results = await regenCallEdge([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
+            var envelope = regenParseEnvelope(results['pr'], 'explication');
+            regenFixJsonSplit(envelope, ['sections', 'exclude', 'notes']);
+
+            if (envelope.explication && ctx.presTa) ctx.presTa.value = envelope.explication;
+            if (envelope.json && ctx.presRuleTa) {
+                ctx.presRuleTa.value = JSON.stringify(envelope.json, null, 2);
+                ctx.presRuleTa.classList.add('json-success');
+                setTimeout(function() { ctx.presRuleTa.classList.remove('json-success'); }, 2000);
+            }
+            _showExpenseFeedback(ctx.feedbackEl, 'JSON présentation généré ✓', false);
+        } catch (err) {
+            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur AI', true);
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('ai-active');
+        }
     }
 
     // ── Taux horaires table ──

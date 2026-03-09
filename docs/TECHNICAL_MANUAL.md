@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-08
+> **Dernière mise à jour** : 2026-03-09
 
 ---
 
@@ -52,6 +52,7 @@
 | `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~685 lignes |
 | `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
 | `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~728 lignes |
+| `shared/pdf-export.js` | Export PDF client-side — `exportSubmissionPdf()`, `_sanitizePdfFilename()` | ~168 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 
@@ -1068,6 +1069,28 @@ Pour les soumissions verrouillées (status ≠ draft/returned/pending_internal) 
 - Soumission : `submission_number`, `status`, `sent_at`, `approved_total`, `global_price_modifier_pct`, `discount_type/value`, `clauses[]`
 - Pièces : `name`, `subtotal`, `installation_included`, `price_modifier_pct`, `client_description`, `images[]`
 - Token : `accepted_at`, `client_name`, `client_email`, `signature_data`
+
+### 8.10 Export PDF (`shared/pdf-export.js`)
+
+Export client-side de la soumission en PDF. Utilise html2pdf.js (CDN) qui combine html2canvas (rendu bitmap) et jsPDF (assemblage PDF).
+
+**Processus** :
+1. `renderPreview()` genere le HTML live dans `#pvContent`
+2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable, textareas)
+3. Remplace la section signature/acceptation par des lignes imprimables ("Accepte par" / "Date")
+4. Injecte `SNAPSHOT_CSS` + overrides page-break dans un conteneur temporaire hors-ecran (1056px)
+5. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, page-break par `.pv-page`
+6. Telecharge le fichier, nettoie le conteneur temporaire
+
+**Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
+- `org_name` : `introConfig.org_name` (charge depuis `app_config`), fallback "Stele"
+- `_sanitizePdfFilename(str)` : NFD strip accents, garde alphanumeriques + `_` + `-`
+
+**Dependances** :
+- CDN : `https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js`
+- Globales : `currentProject`, `currentSubmission`, `currentLang`, `introConfig`, `renderPreview()`, `SNAPSHOT_CSS`, `steleAlert()`
+
+**Migration SQL** : `sql/org_name.sql` — INSERT `org_name` dans `app_config`
 
 ---
 

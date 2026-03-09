@@ -718,6 +718,18 @@ Le bouton **Aperçu** dans la barre d'outils ouvre une prévisualisation de la s
 
 Le bouton **Présentation** ouvre cette vue en plein écran (iframe) pour une démo client.
 
+### Exporter en PDF
+
+Le bouton **PDF** dans la barre d'outils de l'aperçu genere un fichier PDF de la soumission.
+
+- Le PDF reprend le contenu exact de l'aperçu (couverture, introduction, meubles, prix, clauses)
+- Format paysage lettre (8.5 x 11 pouces), identique a la presentation web
+- La section signature interactive est remplacee par des lignes imprimables "Accepte par" et "Date"
+- Le fichier est nomme automatiquement : `{Organisation}_{CodeProjet}_{NumeroSoumission}_v{Version}.pdf`
+- La generation se fait entierement dans le navigateur -- aucun envoi de donnees a un serveur externe
+
+Le bouton affiche "PDF..." pendant la generation (quelques secondes selon le nombre de pages).
+
 ### Envoyer au client
 
 #### Générer le lien

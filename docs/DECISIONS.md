@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-05
+> **Dernière mise à jour** : 2026-03-09
 
 ---
 
@@ -526,3 +526,26 @@
 **Conséquences** :
 - Chaque métrique est évaluée dans son propre contexte
 - L'estimateur voit immédiatement si une métrique est critique sans interpréter un seuil unique
+
+---
+
+## DEC-029 — Export PDF client-side (html2pdf.js) au lieu de serveur (Puppeteer)
+
+**Date** : 2026-03-09
+
+**Contexte** : L'export PDF de la soumission est demande (#137). Le contenu a generer est le meme que le preview HTML (`renderPreview`). Deux approches possibles : generation cote serveur (Puppeteer/Playwright dans une Edge Function) ou generation cote client (librairie JS dans le navigateur).
+
+**Decision** : Utiliser html2pdf.js (CDN) cote client. La librairie combine html2canvas (rendu bitmap du HTML) et jsPDF (assemblage du PDF). Le processus clone le HTML du preview, nettoie les elements interactifs, et genere le PDF directement dans le navigateur.
+
+**Alternatives considerees** :
+- **Puppeteer sur Edge Function** : Supabase Edge Functions tournent sur Deno Deploy, qui ne supporte pas Puppeteer (pas de Chrome headless). Il faudrait un service tiers (Browserless, Render) ou un serveur dedie -- complexite et cout disproportionnes.
+- **wkhtmltopdf sur serveur** : Necessite un binaire natif, pas deployable sur Deno Deploy ni sur Netlify Functions.
+- **jsPDF seul (sans html2canvas)** : Generation manuelle du layout PDF via API jsPDF -- effort de developpement massif pour reproduire le layout multi-page avec images, polices, et mise en page existante.
+- **Print to PDF navigateur** (`window.print()`) : Pas de controle sur le nom de fichier, les marges, la mise en page. Resultat variable selon le navigateur et l'OS.
+
+**Consequences** :
+- Zero infrastructure serveur supplementaire
+- Dependance CDN (html2pdf.js 0.10.2) -- si le CDN est indisponible, le bouton affiche une erreur
+- Le rendu depend de html2canvas qui rasterise le HTML -- certains CSS complexes (blend modes, backdrop-filter) peuvent etre approximes
+- Le PDF est genere dans le navigateur du client -- la performance depend de la puissance de la machine (acceptable pour des soumissions de 5-15 pages)
+- Les polices Google Fonts (Inter, Cormorant Garamond) doivent etre chargees avant le rendu

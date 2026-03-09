@@ -38,6 +38,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | `shared/utils.js` | `escapeHtml()`, `escapeAttr()` | Toutes les pages qui affichent des données utilisateur (8 fichiers) |
 | `shared/pricing.js` | `computeComposedPrice(item, includeInstallation)` (flat costs), `computeCatItemPrice(item)` ({cost,qty} objects) | calculateur, catalogue, approbation |
 | `shared/presentation-client.js` | Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (`assembleRoomDescription`, `editClientDescription`, `saveClientDescription`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
+| `shared/pdf-export.js` | `exportSubmissionPdf()`, `_sanitizePdfFilename()` — Export PDF client-side via html2pdf.js (html2canvas + jsPDF) | calculateur |
 
 **Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags.
 
@@ -376,6 +377,15 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 
 **Clauses** : `submissions.clauses` JSONB `[{title, content, title_en, content_en}]`. Bibliothèque dans `quote_clauses` table.
 **Sauvegarde immédiate** : `saveSubmissionClauses()` → PATCH instantané en DB.
+
+### Export PDF (`shared/pdf-export.js`)
+
+Export client-side de la soumission en PDF via html2pdf.js (CDN, html2canvas + jsPDF). Puppeteer non viable sur Supabase Edge Functions (Deno Deploy).
+- **Bouton PDF** dans la toolbar preview de `calculateur.html` (entre Présentation et EN)
+- **Format** : landscape 8.5x11 (letter), JPEG 0.95, scale 2
+- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → remplacement signature par lignes imprimables (Accepte par / Date) → html2pdf → download
+- **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`. `_sanitizePdfFilename()` normalise NFD, strip accents/caracteres speciaux
+- **`org_name`** : charge depuis `introConfig` (via `app_config`), fallback "Stele". Migration : `sql/org_name.sql`
 
 ### Pipeline commercial
 

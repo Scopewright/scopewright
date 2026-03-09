@@ -3,7 +3,7 @@
 > Audit indépendant de sécurité, bugs, risques architecturaux et performance.
 > Analyse en lecture seule de l'ensemble du codebase.
 >
-> **Date** : 2026-03-08 (mis à jour)
+> **Date** : 2026-03-09 (mis à jour)
 > **Périmètre** : Tous les fichiers HTML, Edge Functions, SQL migrations, Google Apps Script
 
 ---
@@ -402,6 +402,10 @@ Bouton dans la modale d'édition. Copie toutes les données sauf `is_default` (f
 **[FEATURE-18] Extraction shared/presentation-client.js #126**
 
 30 fonctions (~728 lignes) extraites de calculateur.html : helpers texte, descriptions, clauses CRUD + drag-drop, images, snapshot, status UI. Dépend de 30+ globales calculateur.
+
+**[FEATURE-19] Export PDF #137**
+
+Export client-side via html2pdf.js (html2canvas + jsPDF). Bouton PDF dans la toolbar preview. Landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier `shared/pdf-export.js` (~168 lignes). Nom de fichier : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`. CDN dependency : html2pdf.js 0.10.2.
 
 ---
 

@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-03-09
+
+### Features
+- **#137 — Export PDF** — Bouton PDF dans la toolbar preview du calculateur. Export client-side via html2pdf.js (html2canvas + jsPDF). Format landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier : `shared/pdf-export.js` (~168 lignes)
+
+### Database
+- `sql/org_name.sql` — INSERT `org_name` dans `app_config` (nom organisation pour le filename PDF)
+
+---
+
 ## 2026-03-08
 
 ### Features

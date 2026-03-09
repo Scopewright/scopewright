@@ -15969,11 +15969,15 @@
             var body = document.getElementById(groupId + '-proposalBody');
             var insertBtn = document.getElementById(groupId + '-proposalInsert');
             if (body && insertBtn) {
-                body.addEventListener('mouseup', function() {
+                function checkProposalSelection() {
                     var sel = window.getSelection();
                     var selText = sel ? sel.toString().trim() : '';
-                    insertBtn.style.display = selText.length > 0 ? '' : 'none';
-                });
+                    // Only show if selection is within the proposal body
+                    var inBody = sel && sel.anchorNode && body.contains(sel.anchorNode);
+                    insertBtn.style.display = (selText.length > 0 && inBody) ? 'inline-block' : 'none';
+                }
+                body.addEventListener('mouseup', checkProposalSelection);
+                body.addEventListener('keyup', checkProposalSelection);
                 // Also hide on click outside the body
                 document.addEventListener('mousedown', function onDocClick(e) {
                     if (!body.contains(e.target) && e.target !== insertBtn) {

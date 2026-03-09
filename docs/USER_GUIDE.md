@@ -724,7 +724,8 @@ Le bouton **PDF** dans la barre d'outils de l'aperçu genere un fichier PDF de l
 
 - Le PDF reprend le contenu exact de l'aperçu (couverture, introduction, meubles, prix, clauses)
 - Format paysage lettre (8.5 x 11 pouces), identique a la presentation web
-- La section signature interactive est remplacee par des lignes imprimables "Accepte par" et "Date"
+- La page total est affichee sur fond blanc avec le montant en gros texte sombre (pas de rectangle noir)
+- La section signature interactive est remplacee par des lignes imprimables "Accepte par" et "Date" sur fond blanc sobre
 - Le fichier est nomme automatiquement : `{Organisation}_{CodeProjet}_{NumeroSoumission}_v{Version}.pdf`
 - La generation se fait entierement dans le navigateur -- aucun envoi de donnees a un serveur externe
 
@@ -856,7 +857,12 @@ Chaque catégorie de matériau a un **facteur de perte** (%) :
 
 Le facteur de perte est appliqué au coût : `coût × (1 + perte% / 100)`. Il représente les chutes, les erreurs de coupe et le gaspillage normal.
 
-Chaque catégorie peut aussi avoir une **règle de présentation JSON** (textarea dans le template de la catégorie). Cette règle sert de modèle par défaut pour les articles de cette catégorie : quand un article n'a pas sa propre règle de présentation, le système utilise celle du groupe pour guider la génération de descriptions. Un bouton AI permet de générer la règle automatiquement.
+Chaque catégorie peut aussi avoir deux types de règles JSON, éditables via des textareas dans la section de la catégorie :
+
+- **Règle de calcul** (`calc_rule`) — Un template JSON de règle de calcul pour les articles de cette catégorie. Le bouton AI **Template calcul** génère automatiquement le JSON à partir du template texte.
+- **Règle de présentation** (`presentation_rule`) — Un template JSON de règle de présentation pour les articles de cette catégorie. Sert de modèle par défaut quand un article n'a pas sa propre règle de présentation. Le bouton AI **Template présentation** génère automatiquement le JSON à partir du template texte.
+
+Les deux boutons AI utilisent le contexte de la catégorie (nom, template texte, articles existants) pour générer des JSON pertinents.
 
 ### Prompts AI
 
@@ -875,6 +881,7 @@ L'administration contient un **dropdown de 12+ assistants AI** dont vous pouvez 
 | Assistant approbation | La révision automatique des soumissions |
 | Règles de cascade | La génération des règles cascade (JSON) |
 | Barèmes et modificateurs | La génération des barèmes dimensionnels (JSON) |
+| Dépenses — Règle de calcul | La génération des règles de calcul par catégorie de dépense (JSON) |
 | Dépenses — Règle de présentation | La génération des règles de présentation par catégorie de dépense (JSON) |
 
 Pour chaque assistant, vous pouvez **modifier le prompt** (les instructions). Laissez vide pour utiliser le prompt par défaut. Vos modifications sont sauvegardées et prennent effet immédiatement.

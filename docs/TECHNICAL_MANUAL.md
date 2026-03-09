@@ -134,9 +134,10 @@
 - `name` : nom (ex: "PANNEAU BOIS", "BANDE DE CHANT", "QUINCAILLERIE")
 - `markup` : marge % par défaut
 - `waste` : facteur de perte % par défaut
-- `calc_template` (optionnel) : template pour la génération AI de règles de calcul
-- `pres_template` (optionnel) : template pour la génération AI de règles de présentation
-- `presentation_rule` (optionnel) : JSON de règle de présentation au niveau du groupe (même structure que `catalogue_items.presentation_rule` : `{sections, exclude, notes}`). Sert de fallback quand un article n'a pas sa propre `presentation_rule_human`. Éditable dans admin.html via un textarea JSON par catégorie, avec bouton AI de génération (action `expense_pres_rule`, Sonnet 4)
+- `calc_template` (optionnel) : template texte pour la génération AI de règles de calcul
+- `pres_template` (optionnel) : template texte pour la génération AI de règles de présentation
+- `calc_rule` (optionnel) : JSON de règle de calcul au niveau du groupe (même structure que `catalogue_items.calculation_rule_ai`). Éditable dans admin.html via un textarea JSON par catégorie, avec bouton AI de génération (réutilise l'action `catalogue_calc_rule`, Sonnet 4). Fonctions : `aiExpenseCalcRule(btn)`, `_getExpenseContext(btn)`, `_showExpenseFeedback(el, msg, isError)`
+- `presentation_rule` (optionnel) : JSON de règle de présentation au niveau du groupe (même structure que `catalogue_items.presentation_rule` : `{sections, exclude, notes}`). Sert de fallback quand un article n'a pas sa propre `presentation_rule_human`. Éditable dans admin.html via un textarea JSON par catégorie, avec bouton AI de génération (réutilise l'action `catalogue_pres_rule`, Sonnet 4). Fonctions : `aiExpensePresRule(btn)`
 
 Les catégories sont aussi groupées par `material_groups` (Caisson, Facades, Panneaux, Tiroirs, Poignées, Éclairage, Autre) via `app_config.category_group_mapping`.
 
@@ -1082,12 +1083,13 @@ Export client-side de la soumission en PDF. Utilise html2pdf.js (CDN) qui combin
 **Processus** :
 1. `renderPreview()` genere le HTML live dans `#pvContent`
 2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable, textareas)
-3. Remplace la section signature/acceptation par des lignes imprimables ("Accepte par" / "Date")
-4. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
-5. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis `document.styleSheets` — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`
-6. Cree un element `pdfRoot` (`className='pv-content'`, `width:1056px`) avec le HTML clone — PAS attache au DOM manuellement. `html2pdf.toContainer()` cree son propre overlay et y deplace l'element
-7. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, page-break par `.pv-page`
-8. Telecharge le fichier, nettoie le `<style>` injecte dans `finally` (html2pdf gere son overlay lui-meme)
+3. Reconstruit la page total (`.pv-page-total`) — fond blanc, montant en gros texte sombre, labels muted. Supprime le rectangle noir `#1A1A1A` du snapshot
+4. Remplace la section signature/acceptation par des lignes imprimables ("Accepte par" / "Date") sur fond blanc avec typographie sobre alignee sur le style Steps
+5. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
+6. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis `document.styleSheets` — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`, `.pv-page-total{background:#fff}`, `.pv-total-box{background:transparent}`
+7. Cree un element `pdfRoot` (`className='pv-content'`, `width:1056px`) avec le HTML clone — PAS attache au DOM manuellement. `html2pdf.toContainer()` cree son propre overlay et y deplace l'element
+8. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, pagebreak mode `'css'` uniquement (pas `['css','legacy']`), page-break via `before: '.pv-page'`. Le `page-break-after:always` CSS a ete retire pour eviter les pages blanches en double
+9. Telecharge le fichier, nettoie le `<style>` injecte dans `finally` (html2pdf gere son overlay lui-meme)
 
 **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
 - `org_name` : `introConfig.org_name` (charge depuis `app_config`), fallback "Stele"
@@ -1141,7 +1143,7 @@ Chat drawer connecté à `contacts-import` Edge Function via SSE. Supporte :
 | Catégories catalogue | `catalogue_categories` | Liste de catégories |
 | Groupes de matériaux | `material_groups` | Groupes pour DM (7 par défaut) |
 | Mapping cat→groupes | `category_group_mapping` | Associe groupes aux catégories |
-| Catégories de dépense | `expense_categories` | 24 catégories avec markup, waste, templates |
+| Catégories de dépense | `expense_categories` | 24 catégories avec markup, waste, templates, calc_rule, presentation_rule, AI buttons |
 | Taux horaires | `taux_horaires` | 7 départements avec taux, frais, salaire |
 | Tags média | `media_tags` | Tags pour images (avec propagation rename) |
 | Préfixes tags | `tag_prefixes` | C=Caisson, F=Filler, P=Panneau, etc. |

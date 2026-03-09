@@ -6,12 +6,14 @@
 
 ### Features
 - **#137 — Export PDF** — Bouton PDF dans la toolbar preview du calculateur. Export client-side via html2pdf.js (html2canvas + jsPDF). Format landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier : `shared/pdf-export.js` (~168 lignes)
+- **#138 suite — AI catégories de dépense** — Chaque catégorie de dépense dans admin.html a maintenant deux boutons AI : **Template calcul** → génère le JSON `calc_rule` (action `catalogue_calc_rule`), **Template présentation** → génère le JSON `presentation_rule` (action `catalogue_pres_rule`). Nouveau champ `calc_rule` persisté dans `expense_categories[n].calc_rule`. Fonctions : `aiExpenseCalcRule`, `aiExpensePresRule`, `_getExpenseContext`, `_showExpenseFeedback`
 
 ### Features (continued)
 - **#138 — Règle de présentation sur catégories de dépense** — Les `expense_categories` supportent un champ `presentation_rule` JSON (même structure que `catalogue_items.presentation_rule` : `{sections, exclude, notes}`). Textarea JSON dans admin.html par catégorie de dépense. Nouvelle action AI `expense_pres_rule` (Sonnet 4, JSON prefill) dans la edge function `translate`. Nouveau prompt `ai_prompt_expense_pres_rule` dans le dropdown admin. Fallback dans le calculateur : `_findGroupPresRule(catItem)` utilise la règle du groupe quand l'article n'a pas de `presentation_rule_human` (résolution via clés `material_costs` puis catégorie catalogue). Contexte AI catalogue : `getPresRuleJsons()` injecte les règles JSON des groupes dans `aiCatalogueExplication()`
 - **Fix: `loadAiPrompts()` whitelist** — `ai_prompt_labor_modifiers` manquait dans la whitelist de `loadAiPrompts()` dans admin.html
 
 ### Bug Fixes
+- **Fix: #137 PDF layout** — Trois correctifs : (1) suppression du `page-break-after:always` CSS en double (conflit avec html2pdf `before:.pv-page`) — élimine les pages blanches, (2) page total reconstruite en blanc (supprime le rectangle noir `#1A1A1A`), (3) page signature redesignée en style sobre sur fond blanc avec lignes "Accepté par" / "Date" alignées sur le style Steps
 - **Fix: PDF page blanche** — Trois correctifs : (1) SNAPSHOT_CSS injecté dans `document.head` (html2canvas lit `document.styleSheets`), (2) positionnement à `left:0` au lieu de `-9999px`, (3) suppression de l'insertion DOM manuelle — `html2pdf.toContainer()` gère son propre overlay, l'insertion manuelle causait des conflits de lifecycle
 - **Fix: Images blanches PDF** — Les images Supabase Storage (cross-origin) sont converties en base64 data URLs avant le rendu html2canvas
 

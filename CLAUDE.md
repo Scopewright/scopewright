@@ -383,7 +383,10 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 Export client-side de la soumission en PDF via html2pdf.js (CDN, html2canvas + jsPDF). Puppeteer non viable sur Supabase Edge Functions (Deno Deploy).
 - **Bouton PDF** dans la toolbar preview de `calculateur.html` (entre Présentation et EN)
 - **Format** : landscape 8.5x11 (letter), JPEG 0.95, scale 2
-- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → remplacement signature par lignes imprimables (Accepté par / Date) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
+- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → reconstruction page total (fond blanc, montant en gros texte sombre) → remplacement signature par lignes imprimables (Accepté par / Date, fond blanc sobre) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
+- **Page breaks** : mode `'css'` uniquement (pas `['css','legacy']`), html2pdf gère les sauts via `before: '.pv-page'`. Le `page-break-after:always` CSS a été retiré des overrides pour éviter les pages blanches en double
+- **Page total** : `.pv-page-total` reconstruite entièrement dans l'export PDF — fond blanc, montant en texte sombre large, labels muted. Supprime le rectangle noir `#1A1A1A` du snapshot. CSS override : `.pv-page-total{background:#fff}`, `.pv-total-box{background:transparent}`
+- **Page signature** : total + lignes "Accepté par" / "Date" rendus sur fond blanc avec typographie sobre alignée sur le style Steps
 - **Images cross-origin** : les `<img>` Supabase Storage sont fetch et converties en base64 data URLs avant le rendu html2canvas (`_convertImagesToBase64`). Fallback `useCORS` si le fetch échoue
 - **Styles** : SNAPSHOT_CSS injecté dans `document.head` (ID `pdf-export-snapshot-css`, retiré dans `finally`). html2canvas lit les computed styles depuis `document.styleSheets`, pas les `<style>` internes au container
 - **DOM** : l'élément `pdfRoot` n'est PAS ajouté manuellement au DOM — `html2pdf.toContainer()` crée son propre overlay et y déplace l'élément. L'insertion manuelle causait des conflits de lifecycle
@@ -535,7 +538,7 @@ La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast nav
 
 ### Architecture des prompts AI
 
-**18 prompts** (15 dans le dropdown admin + 3 invisibles) répartis dans 4 Edge Functions.
+**18 prompts** (15 dans le dropdown admin + 3 invisibles) répartis dans 4 Edge Functions. Les catégories de dépense dans admin.html réutilisent les actions `catalogue_calc_rule` et `catalogue_pres_rule` de l'edge function `translate` pour générer les JSON `calc_rule` et `presentation_rule` respectivement.
 Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override DB** dans `app_config`. Si la DB a une valeur non-vide → utilisée. Sinon → hardcodé.
 
 | Clé `app_config` | Edge Function | Modèle | Admin visible |

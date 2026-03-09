@@ -12,11 +12,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
             onerror="handleScriptError('PDF.js')"></script>
 
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"
+            onerror="console.warn('html2pdf.js not loaded — PDF export disabled')"></script>
+
     <!-- Shared modules -->
     <script src="shared/auth.js"></script>
     <script src="shared/utils.js"></script>
     <script src="shared/pricing.js"></script>
     <script src="shared/presentation-client.js"></script>
+    <script src="shared/pdf-export.js"></script>
 
     <script>
     // ═══════════════════════════════════════════════════════════════════════
@@ -9832,6 +9837,7 @@
                 <span class="pv-toolbar-title">Aper&ccedil;u soumission</span>
                 <span class="pv-toolbar-sub" id="pvSubNumber"></span>
                 <button class="btn-client-view" id="btnPresentation" onclick="openPresentation()" title="Plein &eacute;cran">Pr&eacute;sentation</button>
+                <button class="btn-client-view" id="btnPdfExport" onclick="exportSubmissionPdf()" title="Exporter en PDF">PDF</button>
                 <button class="btn-client-view" id="btnLang" onclick="toggleLang()" title="Changer la langue">EN</button>
             </div>
             <div class="pv-split">
@@ -16362,7 +16368,7 @@
         async function loadCoverImage() {
             if (coverImageUrl !== null) return; // already loaded
             try {
-                var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
+                var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url,org_name';
                 var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + configKeys + ')&select=key,value', {});
                 if (r.ok) {
                     var rows = await r.json();

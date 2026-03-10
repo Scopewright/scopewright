@@ -5,6 +5,7 @@
 ## 2026-03-10
 
 ### Bug Fixes
+- **Fix: #98 — Résidu "Façades et panneaux apparents" phase 2** — `'PANNEAUX APPARENTS'` → `'PANNEAUX'` dans les keywords de `formatDescriptionForDisplay()` (presentation-client.js + quote.html). Migration SQL `sql/fix_facades_label_phase2.sql` : purge le vieux label dans `catalogue_items.presentation_rule`, `presentation_rule_human`, `app_config.expense_categories`, et `app_config.ai_prompt_*`
 - **Fix: #140 — 3 bugs qty_multiplier** — (1) Enfants cascade n'héritent pas le QM du parent : ajout `propagateQtyMultToCascadeChildren(parentRowId, val)` — récursif, appelé depuis `updateQtyMult()` (même pattern que `propagateInstallationToCascadeChildren`). Fix also dans `executeCascade` : nouveau child QM toujours hérité (pas seulement quand > 1). (2) Quantité auto-calculée non modifiable : `qtyInput.readOnly = true` quand auto-qty (formule) est actif, style gris `#94A3B8`. (3) `openRentab` qty sans qtyMult : ajout `_qmRentab` dans la boucle rows de `openRentab` — `qty *= qtyMult` pour cohérence avec `computeRentabilityData` et `getRowTotal`
 - **Fix: #137 PDF — debug erreur PDFShift** — Affichage de `errData.detail` dans le message d'erreur + download automatique du HTML source (`debug-pdf-source.html`) en cas d'échec pour diagnostic local
 - **Fix: #137 PDF — 3 bugs persistants** — (1) Pages blanches : tous les CSS overrides renforcés avec `!important` (`aspect-ratio:unset!important`, `height:auto!important`, `overflow:visible!important`, `min-height:auto!important`, `max-height:none!important`), gap `.pv-content` forcé à 0. (2) `<br>` en texte brut : ajout sanitisation post-clone — regex `&lt;br&gt;` → `<br>` et `&lt;p|strong|em|ul|ol|li&gt;` → vrais tags HTML (double-escaping en DB). (3) Images coupées côté gauche : `object-fit:contain!important` (au lieu de `cover`) + `min-width:0!important` sur `.pv-page-room-media` et `.pv-img-wrap` pour contraindre les images dans leur grille. Debug blob download retiré
@@ -49,7 +50,8 @@
 
 ### Database
 - `sql/org_name.sql` — INSERT `org_name` dans `app_config` (nom organisation pour le filename PDF)
-- `sql/fix_facades_label.sql` — Migration : scinde `"Façades et panneaux apparents"` en `"Façades"` + `"Panneaux"` dans `app_config` (material_groups + category_group_mapping)
+- `sql/fix_facades_label.sql` — Migration phase 1 : scinde `"Façades et panneaux apparents"` en `"Façades"` + `"Panneaux"` dans `app_config` (material_groups + category_group_mapping)
+- `sql/fix_facades_label_phase2.sql` — Migration phase 2 : purge le vieux label dans `catalogue_items.presentation_rule`, `presentation_rule_human`, `app_config.expense_categories`, `app_config.ai_prompt_*`
 
 ---
 

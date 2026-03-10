@@ -61,7 +61,7 @@ function formatDescriptionForDisplay(text) {
     if (!text || !text.trim()) return '';
     var lines = text.split('\n');
     var keywords = [
-        'CAISSON', 'PANNEAUX APPARENTS', 'FAÇADES',
+        'CAISSON', 'PANNEAUX', 'FAÇADES',
         'TIROIRS LEGRABOX', 'TIROIRS', 'POIGNÉES', 'ÉCLAIRAGE',
         'DÉTAILS', 'EXCLUSIONS', 'COMPTOIR', 'QUINCAILLERIE',
         'FINITION', 'ÉLECTRO', 'RANGEMENT', 'DIMENSIONS',

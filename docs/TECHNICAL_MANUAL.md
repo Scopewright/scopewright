@@ -1213,7 +1213,8 @@ submission_unlock_logs (immuable)
 
 ### 11.2 Colonnes générées
 
-- `room_items.line_total` : `qty × unit_price × (1 + markup/100)` — **ne pas écrire dessus**
+- `room_items.line_total` : `qty × unit_price × (1 + markup/100)` — **ne pas écrire dessus** (Note : n'inclut pas qty_multiplier, le calcul réel est côté client)
+- `room_items.qty_multiplier` : NUMERIC DEFAULT 1. Multiplicateur global par ligne. Total effectif = `unit_price × quantity × qty_multiplier`. Hérité par les enfants cascade. Migration : `sql/qty_multiplier.sql`
 
 ### 11.3 Séquences
 

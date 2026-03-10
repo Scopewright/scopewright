@@ -9,6 +9,9 @@
 - **Fix: #137 PDF — 3 bugs HTML source (session précédente)** — Overrides CSS initiaux (sans `!important`), `textToHtml()` détecte `<br`, overflow hidden sur conteneurs 2-colonnes
 - **Fix: Modifier % pièce — lignes cascade non rafraîchies** — `updateCollapsedParentTotal()` utilisait `getRowTotal()` (prix de base sans modificateur) pour afficher l'agrégat collapsé et le total individuel (mode expanded). Après changement du modifier %, le parent FAB affichait un total sans le %. Fix : applique `getModifierMultiplier(groupId)` au total affiché dans `updateCollapsedParentTotal` (both collapsed aggregate and expanded individual paths)
 
+### Features
+- **#140 — QTY multiplicateur universel par ligne article** — Nouveau champ `qty_multiplier` (default 1) entre la colonne Type et L×H×P. Multiplie le total de la ligne indépendamment du type de calcul (pi², pi³, unitaire). QTY=1 : chiffre gris très pâle `#D1D5DB`. QTY>1 : navy bold. Intégré dans `getRowTotal`, `updateRow` (3 chemins : normal, auto-qty, barèmes), `computeRentabilityData`, `collectRoomDetail` (AI context). Persisté en DB (`room_items.qty_multiplier`). Hérité par les enfants cascade lors de l'exécution. Pas de re-cascade au changement (ne touche pas les dims). Migration : `sql/qty_multiplier.sql`
+
 ### UI/UX
 - **Colonne INST. — checkboxes discrètes** — Remplacement des checkboxes natives (noires, `accent-color`) par des custom checkboxes CSS. Cochée : fond `#EFF6FF`, checkmark `#93C5FD`, bordure `#BFDBFE`. Décochée : bordure `#E5E7EB`, fond blanc, quasi invisible. Transition 150ms. Logique `toggleRowInstallation` / `propagateInstallationToCascadeChildren` inchangée
 

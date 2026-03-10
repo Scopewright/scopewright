@@ -243,6 +243,18 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy
 8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
 
+### QTY multiplicateur universel (`qty_multiplier`)
+
+Champ multiplicateur global par ligne article, indépendant du type de calcul (pi², pi³, unitaire).
+- **Position** : entre la colonne Type et L×H×P dans la grille (colonne 6, 44px desktop / 36px tablet)
+- **Formule** : `total_ligne = unit_price × quantity × qty_multiplier × modifier%`
+- **Default** : 1. Valeur > 1 → style `.qty-mult-active` (navy bold). Valeur = 1 → gris pâle `#D1D5DB`
+- **Fonction** : `updateQtyMult(rowId)` — met à jour l'affichage + sauvegarde DB + `updateRow({ skipCascade: true })`
+- **Pas de re-cascade** : `qty_multiplier` ne touche pas les dimensions, pas besoin de recascader
+- **Cascade** : les enfants cascade héritent le `qty_multiplier` du parent lors de `executeCascade` (existants + nouveaux). L'estimateur peut modifier manuellement le `qty_multiplier` d'un enfant
+- **Intégration** : `getRowTotal`, `updateRow` (3 chemins), `computeRentabilityData`, `collectRoomDetail` (AI context), `debouncedSaveItem`, `openSubmission` (restauration)
+- **DB** : `room_items.qty_multiplier` NUMERIC DEFAULT 1. Migration : `sql/qty_multiplier.sql`
+
 ### Ajout d'articles
 
 Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-container`). Pas de (+) inline sur les lignes.

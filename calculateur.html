@@ -1030,6 +1030,8 @@
             var qtyInput = row.querySelector('.qty-input');
             if (!sel || !sel.value) return;
             var qty = parseFloat(qtyInput.value) || 0;
+            var _qmCtx = row.querySelector('.qty-mult-input');
+            var qtyMult = (_qmCtx ? parseFloat(_qmCtx.value) : 1) || 1;
             var selectedId = sel.value;
             var tagInput = row.querySelector('.cell-tag input');
             var tag = tagInput ? tagInput.value.trim() : '';
@@ -1037,23 +1039,23 @@
                 var cdCtx = _customItemDataMap[row.id] || {};
                 var ajP = cdCtx.unit_price || 0;
                 var ajM = cdCtx.markup || 0;
-                var lt = ajP * qty * (1 + ajM / 100);
+                var lt = ajP * qty * qtyMult * (1 + ajM / 100);
                 var ajoutDims = collectRowDims(row);
                 var ajSupplier = (cdCtx.custom_data && cdCtx.custom_data.supplier_name) || '';
-                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, qtyMult: qtyMult, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
                 subtotal += lt;
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                 if (item) {
                     var composed = computeComposedPrice(item, includeInstall);
                     var effPrice = composed !== null ? composed : (item.price || 0);
-                    var lt2 = effPrice * qty;
+                    var lt2 = effPrice * qty * qtyMult;
                     subtotal += lt2;
                     var catDims = collectRowDims(row);
                     var rowData = {
                         index: idx, tag: tag || null, type: 'catalogue', catalogueId: item.id,
                         description: item.description, itemType: item.type,
-                        unitPrice: Math.round(effPrice * 100) / 100, qty: qty,
+                        unitPrice: Math.round(effPrice * 100) / 100, qty: qty, qtyMult: qtyMult,
                         lineTotal: Math.round(lt2 * 100) / 100,
                         laborMinutes: item.labor_minutes || {},
                         materialCosts: item.material_costs || {},
@@ -1157,7 +1159,8 @@
             var qtyInput = row.querySelector('.qty-input');
             if (!select || !qtyInput) return;
             var selectedId = select.value;
-            var qty = parseFloat(qtyInput.value) || 0;
+            var _qmR = row.querySelector('.qty-mult-input');
+            var qty = (parseFloat(qtyInput.value) || 0) * ((_qmR ? parseFloat(_qmR.value) : 1) || 1);
             if (!selectedId || selectedId === '__PROPOSER__') return;
             if (selectedId === '__AJOUT__') {
                 var ajt = getRowTotal(row);
@@ -4248,6 +4251,9 @@
             dims.P = ownP ? (parseFloat(ownP.value) || 0) : dims.P;
         }
         var parentQty = parseFloat(qtyInput.value) || 0;
+        // Propagate parent's qty_multiplier to cascade children
+        var _parentQmEl = document.getElementById(parentRowId + '-qty-mult');
+        var _parentQm = (_parentQmEl ? parseFloat(_parentQmEl.value) : 1) || 1;
         // Root QTY = quantité du FAB racine (nombre d'unités physiques)
         // À profondeur 0 c'est parentQty, à profondeur 1+ on remonte la chaîne
         var rootQty = (depth === 0) ? parentQty : getRootQtyForCascade(parentRowId);
@@ -4606,6 +4612,14 @@
                         childTagSync.value = parentTag;
                         if (itemMap[existing.rowId]) updateItem(itemMap[existing.rowId], { tag: parentTag || null });
                     }
+                    // Inherit qty_multiplier from parent
+                    var _childQmSync = document.getElementById(existing.rowId + '-qty-mult');
+                    if (_childQmSync && parseFloat(_childQmSync.value) !== _parentQm) {
+                        _childQmSync.value = _parentQm;
+                        if (_parentQm > 1) _childQmSync.classList.add('qty-mult-active');
+                        else _childQmSync.classList.remove('qty-mult-active');
+                        if (itemMap[existing.rowId]) updateItem(itemMap[existing.rowId], { qty_multiplier: _parentQm });
+                    }
 
                     // Apply child_dims — ALWAYS when present (parent dims may have changed)
                     var _existDimsResult = null;
@@ -4680,6 +4694,12 @@
                 // Hériter le tag du parent (toujours, même si vide)
                 var childTagInput = document.getElementById(newRowId + '-tag');
                 if (childTagInput) childTagInput.value = parentTag;
+                // Inherit qty_multiplier from parent
+                var _newChildQm = document.getElementById(newRowId + '-qty-mult');
+                if (_newChildQm && _parentQm > 1) {
+                    _newChildQm.value = _parentQm;
+                    _newChildQm.classList.add('qty-mult-active');
+                }
 
                 updateRow(newRowId);
 
@@ -4704,6 +4724,7 @@
                         unit_type: _ci.type || '',
                         unit_price: _icp !== null ? _icp : (_ci.price || 0),
                         quantity: instanceQty,
+                        qty_multiplier: _parentQm,
                         tag: parentTag || null
                     };
                     if (_newDimsResult) Object.assign(_nPayload, _newDimsResult);
@@ -5545,7 +5566,7 @@
 
         .calc-header {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 280px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 44px 280px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 6px 10px;
             background: transparent;
@@ -5577,7 +5598,7 @@
 
         .calc-row {
             display: grid;
-            grid-template-columns: 30px 55px 1fr 90px 90px 280px 110px 100px 30px 120px 30px;
+            grid-template-columns: 30px 55px 1fr 90px 90px 44px 280px 110px 100px 30px 120px 30px;
             gap: 6px;
             padding: 0 10px;
             min-height: 36px;
@@ -5599,6 +5620,7 @@
         .calc-row.cascade-child .cell-dims,
         .calc-row.cascade-child .cell-dims input,
         .calc-row.cascade-child .qty-input,
+        .calc-row.cascade-child .qty-mult-input,
         .calc-row.cascade-child .cell-unit-price,
         .calc-row.cascade-child .cell-total { font-size: 11px; color: #9CA3AF; }
         .calc-row.cascade-child.cascade-visible { display: grid; }
@@ -6001,6 +6023,25 @@
         }
 
         .cell-type { text-align: center; font-size: 10px; color: var(--sw-muted); }
+
+        .cell-qty-mult { display: flex; align-items: center; justify-content: center; }
+        .qty-mult-input {
+            width: 32px;
+            padding: 2px 1px;
+            font-size: 11px;
+            text-align: center;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background: transparent;
+            color: #D1D5DB;
+            outline: none;
+            transition: color 0.15s, border-color 0.15s;
+            -moz-appearance: textfield;
+        }
+        .qty-mult-input::-webkit-outer-spin-button,
+        .qty-mult-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .qty-mult-input:focus { border-color: var(--sw-border); color: var(--sw-navy); }
+        .qty-mult-input.qty-mult-active { color: var(--sw-navy); font-weight: 600; }
 
         .cell-dims {
             display: flex;
@@ -9046,7 +9087,7 @@
             .main-content { padding: 24px 16px; }
             .project-list-view { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
             .calc-header, .calc-row {
-                grid-template-columns: 24px 45px 1fr 70px 70px 210px 90px 80px 24px 100px 24px;
+                grid-template-columns: 24px 45px 1fr 70px 70px 36px 210px 90px 80px 24px 100px 24px;
                 gap: 4px;
                 padding: 3px 8px;
                 font-size: 10px;
@@ -11606,6 +11647,21 @@
             });
         }
 
+        function updateQtyMult(rowId) {
+            var input = document.getElementById(rowId + '-qty-mult');
+            if (!input) return;
+            var val = parseFloat(input.value) || 1;
+            if (val < 1) { val = 1; input.value = 1; }
+            // Visual: active style when > 1
+            if (val > 1) input.classList.add('qty-mult-active');
+            else input.classList.remove('qty-mult-active');
+            updateRow(rowId, { skipCascade: true });
+            if (itemMap[rowId]) {
+                updateItem(itemMap[rowId], { qty_multiplier: val });
+                showSaveIndicator();
+            }
+        }
+
         function toggleRowInstallation(rowId) {
             var cb = document.getElementById(rowId + '-install');
             var checked = cb ? cb.checked : true;
@@ -11687,6 +11743,7 @@
                     <span class="sortable" onclick="sortGroupRows('${groupId}','article')">Article<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center">Code</span>
                     <span class="col-center">Type</span>
+                    <span class="col-center" title="Multiplicateur quantité">Qté</span>
                     <span class="col-center">L&times;H&times;P</span>
                     <span class="col-right sortable" onclick="sortGroupRows('${groupId}','price')">Prix unit.<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center sortable" onclick="sortGroupRows('${groupId}','qty')">Quantit&eacute;<span class="sort-arrow">&#9650;</span></span>
@@ -11820,6 +11877,9 @@
                 </div>
                 <div class="cell-code" id="${rowId}-code">—</div>
                 <div class="cell-type" id="${rowId}-type">—</div>
+                <div class="cell-qty-mult">
+                    <input type="number" class="qty-mult-input" id="${rowId}-qty-mult" value="1" min="1" step="1" oninput="updateQtyMult('${rowId}')" onchange="updateQtyMult('${rowId}')">
+                </div>
                 <div class="cell-dims dims-hidden" id="${rowId}-dims">&mdash;</div>
                 <div class="cell-unit-price" id="${rowId}-unit-price"><span class="upx">—</span><button class="btn-ov" id="${rowId}-ov-btn" onclick="openOverridePopover('${rowId}')" title="Ajuster le prix">&#9881;</button></div>
                 <div class="cell-qty">
@@ -12550,6 +12610,8 @@
 
             const selectedId = select.value;
             const qty = parseFloat(qtyInput.value) || 0;
+            var _qmInput = document.getElementById(rowId + '-qty-mult');
+            var qm = (_qmInput ? parseFloat(_qmInput.value) : 1) || 1;
             const currentMode = row.dataset.mode;
 
             // Cascade : détecter changement d'article → reset enfants + clear suppressions
@@ -12648,7 +12710,7 @@
                         var _upx0 = document.getElementById(rowId + '-unit-price');
                         var _upxInner0 = _upx0 ? _upx0.querySelector('.upx') : null;
                         if (_upxInner0) _upxInner0.textContent = formatPrice(effectivePrice * mult0); else if (_upx0) _upx0.textContent = formatPrice(effectivePrice * mult0);
-                        totalEl.textContent = formatPrice(effectivePrice * qty * mult0);
+                        totalEl.textContent = formatPrice(effectivePrice * qty * qm * mult0);
                     }
                 } else {
                     codeEl.textContent = '—';
@@ -12789,7 +12851,7 @@
                                     var ep2 = cp2 !== null ? cp2 : (formulaItem.price || 0);
                                     var rg2 = row.closest('.furniture-group');
                                     var m2 = rg2 ? getModifierMultiplier(rg2.id) : 1;
-                                    totalEl.textContent = formatPrice(ep2 * autoQty * m2);
+                                    totalEl.textContent = formatPrice(ep2 * autoQty * qm * m2);
                                 }
                             }
                         }
@@ -12876,7 +12938,7 @@
                     if (_upxInnerB) _upxInnerB.textContent = formatPrice(effectivePriceB * multB); else if (_upxB) _upxB.textContent = formatPrice(effectivePriceB * multB);
                     var totalElB = document.getElementById(rowId + '-total');
                     var qtyB = parseFloat(qtyInput.value) || 0;
-                    if (totalElB) totalElB.textContent = formatPrice(effectivePriceB * qtyB * multB);
+                    if (totalElB) totalElB.textContent = formatPrice(effectivePriceB * qtyB * qm * multB);
                     console.log('[BAREMES] price updated:', effectivePriceB, '× qty', qtyB, '=', effectivePriceB * qtyB * multB, 'laborAuto:', JSON.stringify(_rowOverrides[rowId] && _rowOverrides[rowId].laborAuto));
                 } else if (_bItem) {
                     // Item exists but has no labor_modifiers — clear any stale auto overrides
@@ -12943,7 +13005,9 @@
             const selectedId = select ? select.value : '';
             const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
 
-            let fields = { quantity: qty };
+            var _qmSave = document.getElementById(rowId + '-qty-mult');
+            var _qmVal = (_qmSave ? parseFloat(_qmSave.value) : 1) || 1;
+            let fields = { quantity: qty, qty_multiplier: _qmVal };
 
             if (selectedId === '__PROPOSER__') return;
 
@@ -13337,6 +13401,8 @@
             if (!select || !qtyInput) return 0;
             const selectedId = select.value;
             const qty = parseFloat(qtyInput.value) || 0;
+            var qmInput = row.querySelector('.qty-mult-input');
+            var qm = (qmInput ? parseFloat(qmInput.value) : 1) || 1;
 
             if (selectedId === '__PROPOSER__') {
                 return 0;
@@ -13344,7 +13410,7 @@
                 var cd = _customItemDataMap[row.id] || {};
                 var ajCost = cd.unit_price || 0;
                 var ajMarkup = cd.markup || 0;
-                return ajCost * (1 + ajMarkup / 100) * qty;
+                return ajCost * (1 + ajMarkup / 100) * qty * qm;
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
@@ -13379,7 +13445,7 @@
                         var mc = computeComposedPrice(merged, includeInstall);
                         if (mc !== null) eff = mc;
                     }
-                    return eff * qty;
+                    return eff * qty * qm;
                 }
             }
             return 0;
@@ -18473,6 +18539,13 @@
                             }
 
                             qtyInput.value = item.quantity || 1;
+
+                            // Restore qty_multiplier
+                            var _qmRestore = document.getElementById(rowId + '-qty-mult');
+                            if (_qmRestore && item.qty_multiplier && item.qty_multiplier > 1) {
+                                _qmRestore.value = item.qty_multiplier;
+                                _qmRestore.classList.add('qty-mult-active');
+                            }
 
                             if (item.installation_included === false) {
                                 var rowInstCb = document.getElementById(rowId + '-install');

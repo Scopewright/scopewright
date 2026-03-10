@@ -176,6 +176,19 @@ Jamais de shadow lourde. Jamais de gradient.
 - Pas de scrollbar custom, pas de flèches haut/bas
 - Comportement scroll natif standard
 
+### Champs numériques discrets (pattern QTY multiplicateur)
+
+Pour les champs numériques secondaires qui ne doivent pas attirer l'attention :
+
+- **Valeur par défaut (=1)** : couleur `#D1D5DB` (gris très pâle), bordure transparente, fond transparent
+- **Valeur active (>1)** : couleur `var(--sw-navy)`, `font-weight: 600` (classe `.qty-mult-active`)
+- **Focus** : bordure `var(--sw-border)`, couleur navy
+- Taille : 32px wide, font-size 11px, text-align center
+- Pas de spinners natifs (webkit + moz appearance none)
+- Transition 150ms sur color et border-color
+
+Principe : l'information est disponible mais ne crée pas de bruit visuel quand elle est à sa valeur par défaut.
+
 ### Checkboxes (colonne installation)
 
 Checkboxes custom CSS — jamais de checkbox native noire.

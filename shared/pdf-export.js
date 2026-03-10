@@ -1,8 +1,8 @@
 /**
  * shared/pdf-export.js — PDF export for submissions
  *
- * Exports the preview content as a landscape 8.5x11 PDF using html2pdf.js.
- * Replaces the interactive signature box with a printable signature line.
+ * Exports the preview content as a landscape Letter PDF via PDFShift API
+ * (server-side Chromium rendering through the pdf-export Edge Function).
  *
  * Exported functions:
  *   - exportSubmissionPdf()
@@ -13,15 +13,13 @@
  *   - renderPreview()
  *   - SNAPSHOT_CSS
  *   - escapeHtml()
+ *   - authenticatedFetch() (from shared/auth.js)
+ *   - SUPABASE_URL (from shared/auth.js)
  *
  * Used by: calculateur.html
  */
 
 async function exportSubmissionPdf() {
-    if (typeof html2pdf === 'undefined') {
-        steleAlert('La librairie PDF n\'est pas chargée. Vérifiez votre connexion et rafraîchissez la page.', 'Erreur');
-        return;
-    }
     if (!currentSubmission) {
         steleAlert('Aucune soumission ouverte.', 'Erreur');
         return;
@@ -39,10 +37,9 @@ async function exportSubmissionPdf() {
         var container = document.getElementById('pvContent');
         if (!container) throw new Error('Preview container not found');
 
-        // 2. Clone content and clean up
+        // 2. Clone content and clean up interactive elements
         var clone = container.cloneNode(true);
 
-        // Remove interactive elements
         clone.querySelectorAll('.pv-img-delete, .pv-img-badge-client, .pv-page-clause-actions, .pv-clause-dropzone, .pv-optimize-btn, button, .pv-img-ai-ref-badge').forEach(function(el) {
             el.remove();
         });
@@ -54,11 +51,11 @@ async function exportSubmissionPdf() {
             var div = document.createElement('div');
             div.className = ta.className;
             div.style.cssText = ta.style.cssText;
-            div.textContent = ta.value;
+            div.innerHTML = escapeHtml(ta.value).replace(/\n/g, '<br>');
             ta.parentNode.replaceChild(div, ta);
         });
 
-        // 3. Rebuild total+signature page — 2-column layout matching quote.html "Votre projet est prêt"
+        // 3. Rebuild total+signature page — 2-column layout matching quote.html
         var acceptPage = clone.querySelector('.pv-page-total');
         if (acceptPage) {
             var isEn = currentLang === 'en';
@@ -100,13 +97,13 @@ async function exportSubmissionPdf() {
                 taxesText = taxesEl ? taxesEl.innerHTML : '';
             }
 
-            // Build 2-column layout (same as quote.html pv-page-final)
+            // Build 2-column layout
             acceptPage.innerHTML =
                 '<div style="height:1px;background:rgba(0,0,0,0.14);margin:0 80px;"></div>' +
-                '<div style="flex:1;display:grid;grid-template-columns:55% 1px 1fr;padding:80px;gap:0;min-height:0;">' +
+                '<div style="display:flex;width:100%;height:100%;padding:80px;box-sizing:border-box;align-items:center;">' +
 
-                    // Left column — emotional closing text
-                    '<div style="display:flex;flex-direction:column;justify-content:center;padding-right:64px;">' +
+                    // Left column — emotional closing text (55%)
+                    '<div style="width:55%;padding-right:48px;">' +
                         '<div style="font-family:Inter,-apple-system,sans-serif;font-size:38px;font-weight:300;line-height:1.25;color:#1A1A1A;letter-spacing:-0.02em;margin-bottom:64px;">' + finalTitle + '</div>' +
                         '<div style="max-width:440px;">' +
                             '<p style="font-size:15px;font-weight:400;line-height:1.75;color:#6F6F6F;margin:0 0 20px 0;">' + para1 + '</p>' +
@@ -115,11 +112,11 @@ async function exportSubmissionPdf() {
                         '</div>' +
                     '</div>' +
 
-                    // Vertical separator
+                    // Vertical separator (1px)
                     '<div style="width:1px;background:#F0F0F0;align-self:stretch;"></div>' +
 
                     // Right column — total + signature lines
-                    '<div style="display:flex;flex-direction:column;justify-content:center;padding-left:48px;gap:32px;">' +
+                    '<div style="flex:1;padding-left:48px;">' +
                         // Total block
                         '<div>' +
                             installHtml +
@@ -130,11 +127,11 @@ async function exportSubmissionPdf() {
                         '</div>' +
 
                         // Signature lines
-                        '<div>' +
+                        '<div style="margin-top:32px;">' +
                             '<div style="border-bottom:1px solid #E5E5E5;height:36px;"></div>' +
                             '<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#9A9A9A;margin-top:6px;">' + sigLabel + '</div>' +
                         '</div>' +
-                        '<div style="max-width:180px;">' +
+                        '<div style="max-width:180px;margin-top:32px;">' +
                             '<div style="border-bottom:1px solid #E5E5E5;height:36px;"></div>' +
                             '<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#9A9A9A;margin-top:6px;">' + dateLabel + '</div>' +
                         '</div>' +
@@ -148,67 +145,85 @@ async function exportSubmissionPdf() {
             el.remove();
         });
 
-        // 3b. Convert cross-origin images to base64 data URLs
-        //     Supabase Storage images are cross-origin — html2canvas renders them
-        //     as blank unless they are inlined as data URLs.
-        await _convertImagesToBase64(clone);
+        // Bug 2 fix: sanitize double-escaped HTML entities in descriptions.
+        // Some DB descriptions contain literal "&lt;br&gt;" instead of <br> tags.
+        var rawHtml = clone.innerHTML;
+        rawHtml = rawHtml.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+        rawHtml = rawHtml.replace(/&lt;(\/?(p|strong|em|ul|ol|li|b|i|u|h[1-6]))&gt;/gi, '<$1>');
 
-        // 4. Inject SNAPSHOT_CSS into document.head so html2canvas can read computed styles.
-        //    html2canvas reads from document.styleSheets, not inline <style> in the target.
-        var styleEl = document.createElement('style');
-        styleEl.id = 'pdf-export-snapshot-css';
-        styleEl.textContent = SNAPSHOT_CSS +
-            '\n.pv-content{padding:0;gap:0}' +
-            '\n.pv-page{width:100%;box-sizing:border-box;height:auto;overflow:visible}' +
+        // 4. Build self-contained HTML document for PDFShift
+        // All overrides use !important to guarantee they beat SNAPSHOT_CSS rules
+        // at identical specificity (same class selectors, later in cascade).
+        var pdfCss = SNAPSHOT_CSS +
+            // Bug 1 fix: eliminate blank pages.
+            // SNAPSHOT_CSS sets aspect-ratio:11/8.5 on .pv-page which forces a fixed
+            // height per page. When content is shorter, the remaining space creates a
+            // blank area that PDFShift's print engine treats as a separate page.
+            // Also remove gap between pages and ensure no double page-breaks.
+            '\n.pv-content{padding:0!important;gap:0!important}' +
+            '\n.pv-page{width:100%!important;box-sizing:border-box!important;height:auto!important;aspect-ratio:unset!important;overflow:visible!important;position:relative!important;min-height:auto!important;max-height:none!important}' +
             '\n.pv-page:not(:first-child){page-break-before:always}' +
-            '\n.pv-page-total{background:#fff;color:#1A1A1A;display:flex;flex-direction:column}' +
-            '\n.pv-total-box{display:none}';
-        document.head.appendChild(styleEl);
+            '\n.pv-page-total{background:#fff!important;color:#1A1A1A!important;display:flex!important;flex-direction:column!important}' +
+            '\n.pv-total-box{display:none!important}' +
+            // Bug 3 fix: constrain 2-column layouts to prevent image/text overflow.
+            // PDFShift renders at 1056px viewport. Images in .pv-page-room-media can
+            // overflow their grid cells if min-width is not constrained.
+            // Use object-fit:contain so plan images are fully visible (not cropped).
+            '\n.pv-page-room-body{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
+            '\n.pv-page-room-text{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
+            '\n.pv-page-room-media{overflow:hidden!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}' +
+            '\n.pv-page-room-media .pv-img-wrap{overflow:hidden!important;min-width:0!important;max-width:100%!important}' +
+            '\n.pv-page-room-media .pv-img-wrap img{object-fit:contain!important;object-position:center!important;max-width:100%!important}' +
+            '\n.pv-page-intro{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
+            '\n.pv-intro-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
+            '\n.pv-page-why{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
+            '\n.pv-why-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}';
 
-        // 5. Build element for html2pdf — do NOT append to DOM manually.
-        //    html2pdf.toContainer() creates its own overlay and moves the element into it.
-        //    Manual DOM insertion causes conflicts (double-parenting, cleanup race).
-        var pdfRoot = document.createElement('div');
-        pdfRoot.className = 'pv-content';
-        pdfRoot.style.width = '1056px';
-        pdfRoot.innerHTML = clone.innerHTML;
+        var htmlDoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+            '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">' +
+            '<style>' + pdfCss + '</style>' +
+            '</head><body style="margin:0;padding:0;">' +
+            '<div class="pv-content" style="width:1056px;">' + rawHtml + '</div>' +
+            '</body></html>';
 
-        // 6. Generate filename
+        // 5. Generate filename
         var orgName = (introConfig && introConfig.org_name) ? introConfig.org_name : 'Stele';
         var projectCode = (currentProject && currentProject.project_code) ? currentProject.project_code : 'PROJ';
         var subNumber = currentSubmission.submission_number || '000';
         var version = currentSubmission.current_version || '1';
         var filename = _sanitizePdfFilename(orgName) + '_' + projectCode + '_' + subNumber + '_v' + version + '.pdf';
 
-        // 7. Generate PDF — html2pdf manages the DOM lifecycle (overlay create/destroy)
-        var opt = {
-            margin: 0,
-            filename: filename,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                width: 1056,
-                windowWidth: 1056
-            },
-            jsPDF: {
-                unit: 'in',
-                format: 'letter',
-                orientation: 'landscape'
-            },
-            pagebreak: { mode: 'css' }
-        };
+        // 6. Call Edge Function
+        var resp = await authenticatedFetch(
+            SUPABASE_URL + '/functions/v1/pdf-export',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ html: htmlDoc })
+            }
+        );
 
-        await html2pdf().set(opt).from(pdfRoot).save();
+        if (!resp.ok) {
+            var errData;
+            try { errData = await resp.json(); } catch (e) { errData = {}; }
+            throw new Error(errData.error || 'PDF generation failed (HTTP ' + resp.status + ')');
+        }
+
+        // 7. Download the PDF blob
+        var blob = await resp.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
     } catch (err) {
         console.error('[PDF] Export failed:', err);
         steleAlert('Erreur lors de l\'export PDF : ' + (err.message || err), 'Erreur');
     } finally {
-        // Cleanup injected stylesheet
-        var injectedStyle = document.getElementById('pdf-export-snapshot-css');
-        if (injectedStyle) injectedStyle.remove();
         if (btn) {
             btn.disabled = false;
             btn.textContent = 'PDF';
@@ -222,47 +237,4 @@ function _sanitizePdfFilename(str) {
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_|_$/g, '');
-}
-
-/**
- * Convert all <img> elements with external src to base64 data URLs.
- * This prevents blank images in the PDF caused by html2canvas
- * failing to capture cross-origin resources (Supabase Storage).
- */
-async function _convertImagesToBase64(container) {
-    var imgs = container.querySelectorAll('img[src]');
-    var promises = [];
-    imgs.forEach(function(img) {
-        var src = img.getAttribute('src');
-        // Skip already-inlined images and empty src
-        if (!src || src.startsWith('data:')) return;
-        promises.push(
-            _fetchImageAsBase64(src).then(function(dataUrl) {
-                if (dataUrl) img.setAttribute('src', dataUrl);
-            }).catch(function() {
-                // Leave original src — html2canvas will try useCORS as fallback
-            })
-        );
-    });
-    await Promise.all(promises);
-}
-
-/**
- * Fetch an image URL and return a base64 data URL.
- * Returns null if the fetch fails.
- */
-async function _fetchImageAsBase64(url) {
-    try {
-        var resp = await fetch(url, { mode: 'cors' });
-        if (!resp.ok) return null;
-        var blob = await resp.blob();
-        return new Promise(function(resolve) {
-            var reader = new FileReader();
-            reader.onloadend = function() { resolve(reader.result); };
-            reader.onerror = function() { resolve(null); };
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        return null;
-    }
 }

@@ -2,7 +2,22 @@
 
 ---
 
+## 2026-03-10
+
+### Bug Fixes
+- **Fix: #137 PDF — 3 bugs persistants** — (1) Pages blanches : tous les CSS overrides renforcés avec `!important` (`aspect-ratio:unset!important`, `height:auto!important`, `overflow:visible!important`, `min-height:auto!important`, `max-height:none!important`), gap `.pv-content` forcé à 0. (2) `<br>` en texte brut : ajout sanitisation post-clone — regex `&lt;br&gt;` → `<br>` et `&lt;p|strong|em|ul|ol|li&gt;` → vrais tags HTML (double-escaping en DB). (3) Images coupées côté gauche : `object-fit:contain!important` (au lieu de `cover`) + `min-width:0!important` sur `.pv-page-room-media` et `.pv-img-wrap` pour contraindre les images dans leur grille. Debug blob download retiré
+- **Fix: #137 PDF — 3 bugs HTML source (session précédente)** — Overrides CSS initiaux (sans `!important`), `textToHtml()` détecte `<br`, overflow hidden sur conteneurs 2-colonnes
+- **Fix: Modifier % pièce — lignes cascade non rafraîchies** — `updateCollapsedParentTotal()` utilisait `getRowTotal()` (prix de base sans modificateur) pour afficher l'agrégat collapsé et le total individuel (mode expanded). Après changement du modifier %, le parent FAB affichait un total sans le %. Fix : applique `getModifierMultiplier(groupId)` au total affiché dans `updateCollapsedParentTotal` (both collapsed aggregate and expanded individual paths)
+
+### UI/UX
+- **Colonne INST. — checkboxes discrètes** — Remplacement des checkboxes natives (noires, `accent-color`) par des custom checkboxes CSS. Cochée : fond `#EFF6FF`, checkmark `#93C5FD`, bordure `#BFDBFE`. Décochée : bordure `#E5E7EB`, fond blanc, quasi invisible. Transition 150ms. Logique `toggleRowInstallation` / `propagateInstallationToCascadeChildren` inchangée
+
+---
+
 ## 2026-03-09
+
+### Migration
+- **#137 — Migration PDF : html2pdf → PDFShift** — Remplacement complet du système d'export PDF client-side (html2pdf.js/html2canvas/jsPDF) par un rendu server-side via PDFShift API (Chromium). Nouvelle Edge Function `pdf-export` (`supabase/functions/pdf-export/index.ts`). `shared/pdf-export.js` réécrit : collecte HTML autoportant (SNAPSHOT_CSS inline + Google Fonts) → `authenticatedFetch()` vers Edge Function → PDFShift API → blob PDF → download. Suppression CDN html2pdf.js de calculateur.html. Tous les hacks html2canvas retirés (conversion table-layout, base64 images, injection CSS dans document.head). Flex/grid fonctionnent nativement avec Chromium. Secret requis : `PDFSHIFT_API_KEY`
 
 ### Features
 - **#139 — Style Guide UI** — Création de `docs/STYLE_GUIDE.md` : guide visuel complet (palette, typographie, espacement, boutons, cartes, tables, inputs, pattern AI dot, animations). Section "Références obligatoires" ajoutée dans CLAUDE.md. Directive : lire le style guide avant tout travail UI. Attio ajouté comme référence principale d'inspiration UI
@@ -18,15 +33,18 @@
 - **Fix: `loadAiPrompts()` whitelist** — `ai_prompt_labor_modifiers` manquait dans la whitelist de `loadAiPrompts()` dans admin.html
 
 ### Bug Fixes
+- **Fix: #137 PDF — 3 bugs critiques** — (1) Pages blanches intercalées : supprimé `page-break-after:always` redondant dans SNAPSHOT_CSS `@media print` (doublon avec `page-break-before` dans pdf-export.js). (2) HTML brut dans descriptions : ajouté `<br` à la détection HTML de `textToHtml()` (presentation-client.js) + corrigé conversion textarea→div dans pdf-export.js (`textContent` → `innerHTML` avec `escapeHtml` + newlines→`<br>`). (3) Texte coupé 2 colonnes : converti tous les layouts flex/grid en `display:table`/`table-cell` avec largeurs % fixes (room body, intro, why stele, signature page) pour compatibilité html2canvas
 - **Fix: #138 — Align admin expense AI buttons with catalogue modal pattern** — Replaced custom CSS (`.expense-ai-btn`, `.expense-ai-wrap`, `.expense-ai-feedback`) with catalogue modal pattern (`.ai-field-wrap`, `.btn-ai-dot` absolute positioned, `.ai-feedback-container`/`.ai-feedback-banner`). Same animations: `aiBreathe`, `aiBreatheFast`, `ai-done`, `aiSuccessFlash`. Functions renamed to `_flashAiSuccess`/`_flashAiDotDone` (local versions of catalogue pattern)
 - **Fix: Strip "prefix" from AI pres_rule responses** — `delete s.prefix` applied on all `pres_rule` AI response paths (catalogue `aiCatalogueExplication`, admin `regenOneItem` and `aiExpensePresRule`). Fixed `fixEnvelopeJsonSplit` keys from `['sections','order','prefix']` to `['sections','exclude','notes']` to match actual `presentation_rule` schema
 - **Fix: #137 PDF layout v2** — Page breaks via CSS `.pv-page:not(:first-child){page-break-before:always}` (élimine les pages blanches). Page total+signature reconstruite en layout 2 colonnes identique à quote.html "Votre projet est prêt" : texte de clôture émotionnel à gauche, total + lignes signature à droite. `.pv-total-box` masqué via `display:none`. Bilingue FR/EN
 - **Fix: PDF page blanche** — Trois correctifs : (1) SNAPSHOT_CSS injecté dans `document.head` (html2canvas lit `document.styleSheets`), (2) positionnement à `left:0` au lieu de `-9999px`, (3) suppression de l'insertion DOM manuelle — `html2pdf.toContainer()` gère son propre overlay, l'insertion manuelle causait des conflits de lifecycle
 - **Fix: Images blanches PDF** — Les images Supabase Storage (cross-origin) sont converties en base64 data URLs avant le rendu html2canvas
 - **Fix: Flèches scroll textareas admin** — Suppression des flèches haut/bas natives Windows sur les textareas `.input-template` dans admin.html (section catégories de dépense). Scrollbar fine 6px sans boutons via `::-webkit-scrollbar-button{display:none}` + `scrollbar-width:thin`
+- **Fix: Label "Façades et panneaux apparents"** — Résidu legacy remplacé dans 5 fichiers. Keywords description : `'PANNEAUX APPARENTS'` séparé de `'FAÇADES'` (presentation-client.js, quote.html). Prompt AI pres_rule : label `"Façades"` (translate edge function). Seed SQL : `material_groups` et `category_group_mapping` scindés en `"Façades"` + `"Panneaux"`. Migration prod : `sql/fix_facades_label.sql`
 
 ### Database
 - `sql/org_name.sql` — INSERT `org_name` dans `app_config` (nom organisation pour le filename PDF)
+- `sql/fix_facades_label.sql` — Migration : scinde `"Façades et panneaux apparents"` en `"Façades"` + `"Panneaux"` dans `app_config` (material_groups + category_group_mapping)
 
 ---
 

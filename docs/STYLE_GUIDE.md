@@ -176,6 +176,19 @@ Jamais de shadow lourde. Jamais de gradient.
 - Pas de scrollbar custom, pas de flèches haut/bas
 - Comportement scroll natif standard
 
+### Checkboxes (colonne installation)
+
+Checkboxes custom CSS — jamais de checkbox native noire.
+
+- **Décochée** : bordure `#E5E7EB`, fond blanc, quasi invisible
+- **Cochée** : fond `#EFF6FF`, checkmark `#93C5FD` (CSS `::after` border trick), bordure `#BFDBFE`
+- **Hover** : bordure passe à `#BFDBFE`
+- Taille : 14×14px, border-radius 3px
+- Transition : 150ms ease
+- `appearance: none` pour supprimer le rendu natif
+
+Principe : la checkbox ne doit **jamais** attirer l'oeil. L'état coché est une info secondaire, pas un call-to-action.
+
 ---
 
 ## 12. Icônes

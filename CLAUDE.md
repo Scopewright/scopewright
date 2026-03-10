@@ -38,7 +38,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | `shared/utils.js` | `escapeHtml()`, `escapeAttr()` | Toutes les pages qui affichent des données utilisateur (8 fichiers) |
 | `shared/pricing.js` | `computeComposedPrice(item, includeInstallation)` (flat costs), `computeCatItemPrice(item)` ({cost,qty} objects) | calculateur, catalogue, approbation |
 | `shared/presentation-client.js` | Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (`assembleRoomDescription`, `editClientDescription`, `saveClientDescription`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
-| `shared/pdf-export.js` | `exportSubmissionPdf()`, `_sanitizePdfFilename()` — Export PDF client-side via html2pdf.js (html2canvas + jsPDF) | calculateur |
+| `shared/pdf-export.js` | `exportSubmissionPdf()`, `_sanitizePdfFilename()` — Export PDF server-side via PDFShift API (Edge Function `pdf-export`) | calculateur |
 
 **Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags.
 
@@ -167,7 +167,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - **Validation target** : après résolution (`resolveCascadeTarget`), le target est vérifié dans `CATALOGUE_DATA`. Si l'ID n'existe pas dans le catalogue, traité comme résolution échouée (empêche la création de lignes vides)
 - **`cascadeRuleTarget`** : chaque enfant cascade stocke `dataset.cascadeRuleTarget = rule.target` (ex: `"$default:Façades"`). Sert à identifier quel rule a créé l'enfant, utilisé par le matching locked children et la préservation au rechargement
 - **Collapse enfants cascade** : les enfants cascade sont masqués par défaut (`display: none`, classe `.cascade-visible` pour afficher). Triangle ▶ sur le parent FAB (`btn-cascade-toggle`, classe `.cascade-parent-row`). Badge `(+N)` dans `.cell-total` quand collapsé. Checkbox globale par pièce dans le header (`.cb-show-cascade`) → classe `.show-all-cascade` sur le groupe. État en mémoire (`_cascadeExpanded[parentRowId]`), pas persisté en DB. Les calculs (`getRowTotal`, `computeRentabilityData`), saves, et propagation installation fonctionnent normalement sur les enfants masqués
-- **Total agrégé collapsé** : quand un parent FAB est collapsé, sa cellule `.cell-total` affiche la somme parent + **tous les descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte enfants + petits-enfants via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme via `getRowTotal`, expanded → recalcule `getRowTotal(parentRow)` (jamais de cache DOM — évite la circularité agrégat↔individuel). Dans `updateRow`, la mise à jour remonte toute la chaîne d'ancêtres (`while (_ancestor)`) pour que les changements sur un petit-enfant propagent au grand-parent collapsé
+- **Total agrégé collapsé** : quand un parent FAB est collapsé, sa cellule `.cell-total` affiche la somme parent + **tous les descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte enfants + petits-enfants via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme via `getRowTotal` × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur (jamais de cache DOM — évite la circularité agrégat↔individuel). Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les totaux individuels. Dans `updateRow`, la mise à jour remonte toute la chaîne d'ancêtres (`while (_ancestor)`) pour que les changements sur un petit-enfant propagent au grand-parent collapsé
 
 **Préservation au rechargement** : `findExistingChildForDynamicRule` utilise 2 niveaux de matching pour retrouver les enfants existants au lieu de les recréer :
 1. **Exact** : `catalogueId` dans `validIds` (DM entry + catégorie autorisée) — comportement normal
@@ -380,17 +380,22 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 
 ### Export PDF (`shared/pdf-export.js`)
 
-Export client-side de la soumission en PDF via html2pdf.js (CDN, html2canvas + jsPDF). Puppeteer non viable sur Supabase Edge Functions (Deno Deploy).
+Export server-side de la soumission en PDF via PDFShift API (rendu Chromium) à travers l'Edge Function `pdf-export`.
 - **Bouton PDF** dans la toolbar preview de `calculateur.html` (entre Présentation et EN)
-- **Format** : landscape 8.5x11 (letter), JPEG 0.95, scale 2
-- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → reconstruction page total+signature (layout 2 colonnes quote.html) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
-- **Page breaks** : CSS `.pv-page:not(:first-child){page-break-before:always}` + `pagebreak: { mode: 'css' }`. Le `:not(:first-child)` empêche une page blanche en début de document. Pas de `before: '.pv-page'` dans les options html2pdf (causait une page blanche initiale)
-- **Page total+signature** : `.pv-page-total` reconstruite en layout 2 colonnes identique à quote.html "Votre projet est prêt" : colonne gauche (55%) texte de clôture émotionnel (titre 38px + 3 paragraphes), séparateur vertical 1px, colonne droite total (montant 48px, breakdown, taxes) + lignes signature ("Accepté par" / "Date"). Bilingue FR/EN via `currentLang`. CSS : `.pv-page-total{background:#fff;display:flex;flex-direction:column}`, `.pv-total-box{display:none}`
-- **Images cross-origin** : les `<img>` Supabase Storage sont fetch et converties en base64 data URLs avant le rendu html2canvas (`_convertImagesToBase64`). Fallback `useCORS` si le fetch échoue
-- **Styles** : SNAPSHOT_CSS injecté dans `document.head` (ID `pdf-export-snapshot-css`, retiré dans `finally`). html2canvas lit les computed styles depuis `document.styleSheets`, pas les `<style>` internes au container
-- **DOM** : l'élément `pdfRoot` n'est PAS ajouté manuellement au DOM — `html2pdf.toContainer()` crée son propre overlay et y déplace l'élément. L'insertion manuelle causait des conflits de lifecycle
+- **Format** : landscape Letter (8.5x11), marges 0
+- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → reconstruction page total+signature (layout 2 colonnes flex) → construction document HTML autoportant (SNAPSHOT_CSS inline) → `authenticatedFetch()` vers Edge Function `pdf-export` → PDFShift API (Chromium) → blob PDF → download
+- **Page breaks** : CSS `.pv-page:not(:first-child){page-break-before:always}` + `use_print: true` dans PDFShift
+- **Page total+signature** : `.pv-page-total` reconstruite en layout 2 colonnes flex : colonne gauche (55%) texte de clôture émotionnel (titre 38px + 3 paragraphes), séparateur vertical 1px, colonne droite total (montant 48px, breakdown, taxes) + lignes signature ("Accepté par" / "Date"). Bilingue FR/EN via `currentLang`
+- **Pas de hacks html2canvas** : PDFShift utilise Chromium — flex/grid fonctionnent nativement, pas besoin de conversion table-layout. Pas de conversion base64 des images (PDFShift les fetch côté serveur). Pas d'injection CSS dans `document.head`
+- **CSS overrides PDF** : tous les overrides utilisent `!important` pour garantir la priorité sur SNAPSHOT_CSS. `.pv-page{aspect-ratio:unset!important;height:auto!important;overflow:visible!important;min-height:auto!important;max-height:none!important}` (élimine les pages blanches). `.pv-content{gap:0!important}` (pas d'espace entre pages). Images : `object-fit:contain!important` (plans visibles en entier, pas croppés), `min-width:0!important` sur `.pv-page-room-media` et `.pv-img-wrap` (empêche le débordement grille). Conteneurs 2 colonnes : `overflow:hidden!important;max-width:100%!important`. Texte : `word-wrap:break-word!important;overflow-wrap:break-word!important`
+- **Sanitisation HTML descriptions** : après le clone, regex remplace `&lt;br&gt;` → `<br>` et `&lt;p|strong|em|ul|ol|li&gt;` → vrais tags HTML (corrige le double-escaping de descriptions en DB)
+- **Conversion textarea→div** : les textareas (clauses) sont converties en divs avec `innerHTML = escapeHtml(value) + newlines→<br>`
+- **Document HTML** : document complet autoportant envoyé à PDFShift (DOCTYPE + head avec CSS inline + Google Fonts Inter + body avec contenu)
+- **`textToHtml()` détection HTML** : `shared/presentation-client.js` détecte `<br` (en plus de `<p>`, `<strong>`, `<ul>`) comme indicateur HTML — empêche le double-escaping des descriptions legacy contenant des `<br>` tags
 - **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`. `_sanitizePdfFilename()` normalise NFD, strip accents/caractères spéciaux
-- **`org_name`** : chargé depuis `introConfig` (via `app_config`), fallback "Stele". Migration : `sql/org_name.sql`
+- **`org_name`** : chargé depuis `introConfig` (via `app_config`), fallback "Stele"
+- **Edge Function** : `supabase/functions/pdf-export/index.ts` — reçoit `{ html }`, appelle `https://api.pdfshift.io/v3/convert/pdf` avec auth Basic (secret `PDFSHIFT_API_KEY`), retourne le PDF binaire
+- **Dépendances retirées** : html2pdf.js (CDN), html2canvas, jsPDF — tout remplacé par PDFShift server-side
 
 ### Pipeline commercial
 
@@ -580,7 +585,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin
 - `catalogue-import` n'injecte pas les learnings (contrairement aux 3 autres EF)
 
-### 4 Edge Functions
+### 5 Edge Functions
 
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
@@ -588,6 +593,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (12 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |
+| `pdf-export` | — | Non | — | calculateur (shared/pdf-export.js) |
 
 ### Déploiement Edge Functions
 
@@ -597,15 +603,17 @@ npx supabase functions deploy ai-assistant --no-verify-jwt
 npx supabase functions deploy translate --no-verify-jwt
 npx supabase functions deploy catalogue-import --no-verify-jwt
 npx supabase functions deploy contacts-import --no-verify-jwt
+npx supabase functions deploy pdf-export --no-verify-jwt
 
 # Secrets (déjà configurés)
 npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 npx supabase secrets set JWT_SECRET="..."
+npx supabase secrets set PDFSHIFT_API_KEY=sk_...
 ```
 
 ### Authentification Edge Functions
 
-Les 4 Edge Functions sont déployées avec `--no-verify-jwt`. La vérification JWT est effectuée manuellement via `_shared/auth.ts` (bibliothèque `jose`) :
+Les 5 Edge Functions sont déployées avec `--no-verify-jwt`. La vérification JWT est effectuée manuellement via `_shared/auth.ts` (bibliothèque `jose`) :
 - **Primaire** : ES256 via JWKS (clé publique Supabase Auth v2, cachée 1h)
 - **Fallback** : HS256 avec `JWT_SECRET` (tokens legacy)
 - Tolérance horloge : 30s sur l'expiration

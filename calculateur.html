@@ -12,10 +12,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
             onerror="handleScriptError('PDF.js')"></script>
 
-    <!-- html2pdf.js for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"
-            onerror="console.warn('html2pdf.js not loaded — PDF export disabled')"></script>
-
     <!-- Shared modules -->
     <script src="shared/auth.js"></script>
     <script src="shared/utils.js"></script>
@@ -6369,13 +6365,37 @@
             justify-content: center;
         }
         .install-toggle-row input[type="checkbox"] {
-            width: 12px;
-            height: 12px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1.5px solid #E5E7EB;
+            background: #fff;
             cursor: pointer;
-            accent-color: var(--sw-navy);
-            opacity: 0.5;
+            position: relative;
+            transition: all 0.15s ease;
+            margin: 0;
         }
-        .install-toggle-row input[type="checkbox"]:checked { opacity: 0.8; }
+        .install-toggle-row input[type="checkbox"]:checked {
+            background: #EFF6FF;
+            border-color: #BFDBFE;
+        }
+        .install-toggle-row input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            left: 3.5px;
+            top: 1px;
+            width: 4px;
+            height: 7px;
+            border: solid #93C5FD;
+            border-width: 0 1.5px 1.5px 0;
+            transform: rotate(45deg);
+        }
+        .install-toggle-row input[type="checkbox"]:hover {
+            border-color: #BFDBFE;
+        }
 
         .btn-remove-group {
             padding: 5px 12px;
@@ -11537,9 +11557,13 @@
             var container = parentRow.closest('.furniture-group');
             var showAll = container && container.classList.contains('show-all-cascade');
 
+            // Apply room + global modifier so the displayed total matches the subtotal
+            var groupId = parentRow.dataset.group;
+            var mult = groupId ? getModifierMultiplier(groupId) : 1;
+
             if (_cascadeExpanded[parentRowId] || showAll) {
                 // Expanded or show-all: restore individual total (always recalculate)
-                totalEl.textContent = formatPrice(getRowTotal(parentRow));
+                totalEl.textContent = formatPrice(getRowTotal(parentRow) * mult);
                 parentRow.classList.remove('aggregate-total');
                 return;
             }
@@ -11551,7 +11575,7 @@
             descendants.forEach(function(desc) {
                 sum += getRowTotal(desc);
             });
-            totalEl.textContent = formatPrice(sum);
+            totalEl.textContent = formatPrice(sum * mult);
             parentRow.classList.add('aggregate-total');
             // Badge shows direct children count
             var directChildren = findCascadeChildRows(parentRowId);
@@ -16384,7 +16408,7 @@
             '.pv-why-bottom{position:absolute;bottom:8px;left:32px;right:56px;display:flex;justify-content:space-between;align-items:center}\n' +
             '.pv-why-bottom-url{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;letter-spacing:0.02em;color:#1a1a1a}\n' +
             '.pv-why-bottom-page{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;color:#888}\n' +
-            '@media print{.pv-page{page-break-after:always} .pv-page-room-media .pv-img-wrap{box-shadow:none} .pv-page-why{page-break-after:always;break-inside:avoid}}';
+            '@media print{.pv-page-room-media .pv-img-wrap{box-shadow:none} .pv-page-why{break-inside:avoid}}';
 
         // generateSnapshotHtml, uploadSnapshot, getSnapshotUrl
         // → extracted to shared/presentation-client.js

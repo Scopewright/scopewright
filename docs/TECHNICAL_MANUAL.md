@@ -542,7 +542,7 @@ Les enfants cascade sont **masqués par défaut** pour réduire le bruit visuel 
 
 **État** : `_cascadeExpanded[parentRowId]` en mémoire. Pas de persistance DB — reset à collapsé au chargement.
 
-**Total agrégé** : quand un parent est collapsé, sa cellule `.cell-total` affiche la somme du parent + **tous ses descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte l'arbre complet via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme `getRowTotal` de tout l'arbre, expanded → recalcule `getRowTotal(parentRow)` directement (pas de cache `dataset.individualTotal` — évite la circularité où le DOM contient déjà l'agrégat). Dans `updateRow`, un changement sur un petit-enfant remonte toute la chaîne d'ancêtres (`while (_ancestor)`).
+**Total agrégé** : quand un parent est collapsé, sa cellule `.cell-total` affiche la somme du parent + **tous ses descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte l'arbre complet via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme `getRowTotal` de tout l'arbre × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur. Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les prix individuels modifiés. Dans `updateRow`, un changement sur un petit-enfant remonte toute la chaîne d'ancêtres (`while (_ancestor)`).
 
 **Invariants préservés** : `getRowTotal`, `computeRentabilityData`, `debouncedSaveItem`, `propagateInstallationToCascadeChildren` opèrent sur les éléments DOM par ID, pas par visibilité — fonctionnent normalement sur enfants masqués.
 
@@ -1078,27 +1078,37 @@ Pour les soumissions verrouillées (status ≠ draft/returned/pending_internal) 
 
 ### 8.10 Export PDF (`shared/pdf-export.js`)
 
-Export client-side de la soumission en PDF. Utilise html2pdf.js (CDN) qui combine html2canvas (rendu bitmap) et jsPDF (assemblage PDF).
+Export server-side de la soumission en PDF via PDFShift API (rendu Chromium) a travers l'Edge Function `pdf-export`.
+
+**Architecture** :
+- Client (`shared/pdf-export.js`) : collecte le HTML, construit un document autoportant, appelle l'Edge Function
+- Serveur (`supabase/functions/pdf-export/index.ts`) : recoit le HTML, appelle PDFShift API, retourne le PDF binaire
+- PDFShift : rendu Chromium server-side, supporte flex/grid nativement, fetch les images directement
 
 **Processus** :
 1. `renderPreview()` genere le HTML live dans `#pvContent`
-2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable, textareas)
-3. Reconstruit la page total+signature (`.pv-page-total`) en layout 2 colonnes identique a quote.html "Votre projet est pret" : colonne gauche (55%) avec texte de cloture emotionnel (titre 38px, 3 paragraphes), separateur vertical 1px, colonne droite avec total (montant 48px) + lignes signature ("Accepte par" / "Date"). Extraction des donnees du total existant (breakdown, montant, taxes) avant remplacement du innerHTML. `.pv-total-box` masque via `display:none`
-4. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
-5. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis `document.styleSheets` — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`, `.pv-page-total{background:#fff;display:flex;flex-direction:column}`, `.pv-total-box{display:none}`
-6. Cree un element `pdfRoot` (`className='pv-content'`, `width:1056px`) avec le HTML clone — PAS attache au DOM manuellement. `html2pdf.toContainer()` cree son propre overlay et y deplace l'element
-7. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, pagebreak mode `'css'` uniquement (pas `['css','legacy']`). Page breaks via CSS `.pv-page:not(:first-child){page-break-before:always}` — le `:not(:first-child)` empeche une page blanche en debut de document
-8. Telecharge le fichier, nettoie le `<style>` injecte dans `finally` (html2pdf gere son overlay lui-meme)
+2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable). Textareas converties en divs avec `innerHTML = escapeHtml(value) + newlines→<br>`
+3. Reconstruit la page total+signature (`.pv-page-total`) en layout flex 2 colonnes : colonne gauche (55%) texte de cloture emotionnel (titre 38px, 3 paragraphes), separateur vertical 1px, colonne droite total (montant 48px) + lignes signature. `.pv-total-box` masque via `display:none`
+3b. **Sanitisation HTML descriptions** : apres le clone, regex remplace les entites HTML double-escapees (`&lt;br&gt;` → `<br>`, `&lt;p&gt;` → `<p>`, etc.) pour corriger les descriptions en DB contenant du HTML echappe
+4. Construit un document HTML complet autoportant : DOCTYPE + head (Google Fonts Inter, SNAPSHOT_CSS + overrides inline) + body (contenu clone dans div `.pv-content` width 1056px). **Overrides CSS** (tous avec `!important` pour garantir la priorite sur SNAPSHOT_CSS) : `.pv-page{aspect-ratio:unset!important;height:auto!important;overflow:visible!important;min-height:auto!important;max-height:none!important}` (elimine les pages blanches). `.pv-content{gap:0!important}`. Images : `object-fit:contain!important` (plans visibles en entier), `min-width:0!important` sur media/img-wrap (empeche debordement grille). Conteneurs 2 colonnes : `overflow:hidden!important;max-width:100%!important`. Texte : `word-wrap:break-word!important`
+5. Appelle l'Edge Function `pdf-export` via `authenticatedFetch()` avec `{ html: htmlDoc }`
+6. L'Edge Function envoie le HTML a PDFShift API (`https://api.pdfshift.io/v3/convert/pdf`) avec params : format Letter, landscape, margin 0, use_print true
+7. Recoit le PDF binaire, cree un blob URL, declenche le telechargement
 
 **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
 - `org_name` : `introConfig.org_name` (charge depuis `app_config`), fallback "Stele"
 - `_sanitizePdfFilename(str)` : NFD strip accents, garde alphanumeriques + `_` + `-`
 
-**Dependances** :
-- CDN : `https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js`
-- Globales : `currentProject`, `currentSubmission`, `currentLang`, `introConfig`, `renderPreview()`, `SNAPSHOT_CSS`, `steleAlert()`
+**Edge Function `pdf-export`** :
+- Auth : JWT via `_shared/auth.ts` (meme pattern que les autres EF)
+- PDFShift auth : Basic auth avec secret `PDFSHIFT_API_KEY`
+- Reponse : `application/pdf` binaire (200) ou JSON erreur (400/401/403/502)
+- Deploy : `npx supabase functions deploy pdf-export --no-verify-jwt`
 
-**Migration SQL** : `sql/org_name.sql` — INSERT `org_name` dans `app_config`
+**Dependances** :
+- Secret : `PDFSHIFT_API_KEY` (configurer via `npx supabase secrets set`)
+- Globales : `currentProject`, `currentSubmission`, `currentLang`, `introConfig`, `renderPreview()`, `SNAPSHOT_CSS`, `authenticatedFetch()`, `SUPABASE_URL`, `steleAlert()`
+- **Retirees** : html2pdf.js (CDN), html2canvas, jsPDF
 
 ---
 

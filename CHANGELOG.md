@@ -5,7 +5,12 @@
 ## 2026-03-09
 
 ### Features
-- **#137 — Export PDF** — Bouton PDF dans la toolbar preview du calculateur. Export client-side via html2pdf.js (html2canvas + jsPDF). Format landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier : `shared/pdf-export.js` (~168 lignes)
+- **#139 — Style Guide UI** — Création de `docs/STYLE_GUIDE.md` : guide visuel complet (palette, typographie, espacement, boutons, cartes, tables, inputs, pattern AI dot, animations). Section "Références obligatoires" ajoutée dans CLAUDE.md. Directive : lire le style guide avant tout travail UI. Attio ajouté comme référence principale d'inspiration UI
+- **#132 fix palette — Modal rentabilité alignée STYLE_GUIDE** — Palette complète revue : barre répartition (navy/gris/teal), KPI profit (teal OK, ambre warning), bannière avertissement (ambre), barres MO (navy), badges marges (teal/ambre/rouge). Retiré tout violet saturé (#A78BFA) et vert vif (#86EFAC, #22C55E, #15803D)
+
+### Documentation
+- **Maintenance complète** — Mise à jour de tous les docs (CLAUDE.md, TECHNICAL_MANUAL, AUDIT_REPORT, USER_GUIDE, CHANGELOG, STYLE_GUIDE) pour refléter l'état réel du code. Correction line counts (`admin.html` 3300→3580). Création `docs/sessions/SESSION_2026-03-09.md`
+- **#137 — Export PDF** — Bouton PDF dans la toolbar preview du calculateur. Export client-side via html2pdf.js (html2canvas + jsPDF). Format landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier : `shared/pdf-export.js` (~268 lignes)
 - **#138 suite — AI catégories de dépense** — Chaque catégorie de dépense dans admin.html a maintenant deux boutons AI : **Template calcul** → génère le JSON `calc_rule` (action `catalogue_calc_rule`), **Template présentation** → génère le JSON `presentation_rule` (action `catalogue_pres_rule`). Nouveau champ `calc_rule` persisté dans `expense_categories[n].calc_rule`. Fonctions : `aiExpenseCalcRule`, `aiExpensePresRule`, `_getExpenseContext`, `_showExpenseFeedback`
 
 ### Features (continued)
@@ -15,9 +20,10 @@
 ### Bug Fixes
 - **Fix: #138 — Align admin expense AI buttons with catalogue modal pattern** — Replaced custom CSS (`.expense-ai-btn`, `.expense-ai-wrap`, `.expense-ai-feedback`) with catalogue modal pattern (`.ai-field-wrap`, `.btn-ai-dot` absolute positioned, `.ai-feedback-container`/`.ai-feedback-banner`). Same animations: `aiBreathe`, `aiBreatheFast`, `ai-done`, `aiSuccessFlash`. Functions renamed to `_flashAiSuccess`/`_flashAiDotDone` (local versions of catalogue pattern)
 - **Fix: Strip "prefix" from AI pres_rule responses** — `delete s.prefix` applied on all `pres_rule` AI response paths (catalogue `aiCatalogueExplication`, admin `regenOneItem` and `aiExpensePresRule`). Fixed `fixEnvelopeJsonSplit` keys from `['sections','order','prefix']` to `['sections','exclude','notes']` to match actual `presentation_rule` schema
-- **Fix: #137 PDF layout** — Trois correctifs : (1) suppression du `page-break-after:always` CSS en double (conflit avec html2pdf `before:.pv-page`) — élimine les pages blanches, (2) page total reconstruite en blanc (supprime le rectangle noir `#1A1A1A`), (3) page signature redesignée en style sobre sur fond blanc avec lignes "Accepté par" / "Date" alignées sur le style Steps
+- **Fix: #137 PDF layout v2** — Page breaks via CSS `.pv-page:not(:first-child){page-break-before:always}` (élimine les pages blanches). Page total+signature reconstruite en layout 2 colonnes identique à quote.html "Votre projet est prêt" : texte de clôture émotionnel à gauche, total + lignes signature à droite. `.pv-total-box` masqué via `display:none`. Bilingue FR/EN
 - **Fix: PDF page blanche** — Trois correctifs : (1) SNAPSHOT_CSS injecté dans `document.head` (html2canvas lit `document.styleSheets`), (2) positionnement à `left:0` au lieu de `-9999px`, (3) suppression de l'insertion DOM manuelle — `html2pdf.toContainer()` gère son propre overlay, l'insertion manuelle causait des conflits de lifecycle
 - **Fix: Images blanches PDF** — Les images Supabase Storage (cross-origin) sont converties en base64 data URLs avant le rendu html2canvas
+- **Fix: Flèches scroll textareas admin** — Suppression des flèches haut/bas natives Windows sur les textareas `.input-template` dans admin.html (section catégories de dépense). Scrollbar fine 6px sans boutons via `::-webkit-scrollbar-button{display:none}` + `scrollbar-width:thin`
 
 ### Database
 - `sql/org_name.sql` — INSERT `org_name` dans `app_config` (nom organisation pour le filename PDF)

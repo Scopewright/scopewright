@@ -20,7 +20,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 300 lignes |
+| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 580 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -383,10 +383,9 @@ quote.html charge le snapshot si `status ∉ {draft, returned, pending_internal}
 Export client-side de la soumission en PDF via html2pdf.js (CDN, html2canvas + jsPDF). Puppeteer non viable sur Supabase Edge Functions (Deno Deploy).
 - **Bouton PDF** dans la toolbar preview de `calculateur.html` (entre Présentation et EN)
 - **Format** : landscape 8.5x11 (letter), JPEG 0.95, scale 2
-- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → reconstruction page total (fond blanc, montant en gros texte sombre) → remplacement signature par lignes imprimables (Accepté par / Date, fond blanc sobre) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
-- **Page breaks** : mode `'css'` uniquement (pas `['css','legacy']`), html2pdf gère les sauts via `before: '.pv-page'`. Le `page-break-after:always` CSS a été retiré des overrides pour éviter les pages blanches en double
-- **Page total** : `.pv-page-total` reconstruite entièrement dans l'export PDF — fond blanc, montant en texte sombre large, labels muted. Supprime le rectangle noir `#1A1A1A` du snapshot. CSS override : `.pv-page-total{background:#fff}`, `.pv-total-box{background:transparent}`
-- **Page signature** : total + lignes "Accepté par" / "Date" rendus sur fond blanc avec typographie sobre alignée sur le style Steps
+- **Processus** : `renderPreview()` → clone HTML → nettoyage interactifs → reconstruction page total+signature (layout 2 colonnes quote.html) → conversion images base64 → injection SNAPSHOT_CSS dans `document.head` → élément `pdfRoot` passé à html2pdf (gestion DOM déléguée) → download → cleanup stylesheet
+- **Page breaks** : CSS `.pv-page:not(:first-child){page-break-before:always}` + `pagebreak: { mode: 'css' }`. Le `:not(:first-child)` empêche une page blanche en début de document. Pas de `before: '.pv-page'` dans les options html2pdf (causait une page blanche initiale)
+- **Page total+signature** : `.pv-page-total` reconstruite en layout 2 colonnes identique à quote.html "Votre projet est prêt" : colonne gauche (55%) texte de clôture émotionnel (titre 38px + 3 paragraphes), séparateur vertical 1px, colonne droite total (montant 48px, breakdown, taxes) + lignes signature ("Accepté par" / "Date"). Bilingue FR/EN via `currentLang`. CSS : `.pv-page-total{background:#fff;display:flex;flex-direction:column}`, `.pv-total-box{display:none}`
 - **Images cross-origin** : les `<img>` Supabase Storage sont fetch et converties en base64 data URLs avant le rendu html2canvas (`_convertImagesToBase64`). Fallback `useCORS` si le fetch échoue
 - **Styles** : SNAPSHOT_CSS injecté dans `document.head` (ID `pdf-export-snapshot-css`, retiré dans `finally`). html2canvas lit les computed styles depuis `document.styleSheets`, pas les `<style>` internes au container
 - **DOM** : l'élément `pdfRoot` n'est PAS ajouté manuellement au DOM — `html2pdf.toContainer()` crée son propre overlay et y déplace l'élément. L'insertion manuelle causait des conflits de lifecycle
@@ -420,13 +419,13 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (`openRentab`) — refonte visuelle mockup #132 :
 - **4 sections** : KPI cards (Vente/Coût/Profit) → bannière AI → barre répartition → 2 colonnes (Marges + Ventilation MO) → tableau matériaux (Base/Perte/Markup/Total) → tags
-- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit card couleur tri-state basée sur profit net % : vert (`#ECFDF5`) si ≥15%, orange (`#FEF3C7`) si 8-14.9%, rouge (`#FEF2F2`) si <8%
-- **Bannière AI** : apparaît si marge brute effective < 35% (seuil fixe). Texte : "Marge trop faible — augmenter le prix de X $ pour atteindre la cible de 38 %"
-- **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte verte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
+- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit card couleur tri-state basée sur profit net % : teal (`#F0FDFA`, bordure `#99F6E4`) si ≥15%, ambre (`#FFFBEB`, bordure `#FDE68A`) si 8-14.9%, ambre (`#FFFBEB`, bordure `#FDE68A`) si <8%. Couleurs montant : `#0D9488` (OK), `#B45309` (warning/danger). Couleurs % : `#0D9488` (OK), `#D97706` (warning/danger)
+- **Bannière AI** : apparaît si marge brute effective < 35% (seuil fixe). Fond `#FFFBEB`, bordure gauche `#F59E0B`, texte `#92400E`
+- **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
 - **`rentabApplyTargetPrice(groupId, prixCible)`** : calcule le % room modifier nécessaire depuis le sous-total **base** (sans modifier existant). Formule : `((prixCible / (baseSousTotal × globalMult)) - 1) × 100`. Tient compte du modificateur global existant. L'inscrit dans `roomModifiers[groupId]`, appelle `refreshGroupRows` + `updateGrandTotal` + `updateRoom` DB, ferme la modale. Pas de confirm/alert natif
-- **Barre répartition** : 4 segments (Matériaux bleu, Salaires violet, Frais fixes ambre, Profit vert). Labels inline si segment ≥ 8%
-- **Marges** : badges colorés séparés — marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Profit net : vert ≥15%, orange 8-14.9%, rouge <8%. Tooltips avec formules sur ⓘ
-- **Ventilation MO** : barres horizontales triées décroissant, couleur `#818CF8`
+- **Barre répartition** : 4 segments — Matériaux `#0B1220` (navy), Salaires `#374151` (gris foncé), Frais fixes `#9CA3AF` (gris), Profit `#0D9488` (teal). Labels inline si segment ≥ 8%
+- **Marges** : badges colorés — marge brute : teal `#0D9488` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : teal ≥15%, ambre 8-14.9%, rouge <8%. Tooltips avec formules sur ⓘ
+- **Ventilation MO** : barres horizontales triées décroissant, couleur `#0B1220` (navy), fond vide `#F1F5F9`
 - **Tableau matériaux** : accumulateurs per-catégorie `matWaste[cat]`, `matMarkup[cat]` (gère correctement `loss_override_pct`)
 
 ### Barèmes et modificateurs (`labor_modifiers`)
@@ -734,12 +733,18 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 
 - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif : architecture, systèmes (cascade, DM, permissions, workflow), Edge Functions, tables, triggers
 - `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 18 bugs, 13 risques architecturaux, 27 recommandations priorisées
-- `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-010) : contexte, alternatives, conséquences
+- `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-030) : contexte, alternatives, conséquences
 - `docs/USER_GUIDE.md` — Guide utilisateur complet : 9 parties, fonctionnalités, exemples AI, workflow, trucs et astuces
 - `docs/guide-catalogue.md` — Guide complet du catalogue : structure, cascades, DM, audit, variables, bugs connus
+- `docs/STYLE_GUIDE.md` — Guide de style UI : palette, typographie, espacement, composants, pattern AI dot, règle fondamentale de réutilisation
 - `ARCHITECTURE.md` — Vue d'ensemble architecturale (legacy, remplacé par TECHNICAL_MANUAL)
 - `CHANGELOG.md` — Historique des modifications datées
+- `docs/sessions/` — Résumés de session par date (features, bugs, décisions, backlogs)
 - `sql/` — Fichiers de migration SQL à exécuter manuellement dans Supabase SQL Editor
+
+## Références obligatoires
+
+Avant tout travail UI (nouveaux composants, modifications de style, nouveaux écrans), lire `/docs/STYLE_GUIDE.md` et confirmer que chaque décision visuelle respecte ce guide. En cas de doute, demander avant d'implémenter.
 
 ## Test checklist cascade
 

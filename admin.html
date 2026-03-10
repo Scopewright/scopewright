@@ -226,7 +226,13 @@
             font-family: inherit; font-size: 12px; line-height: 1.5;
             resize: vertical; color: #1f2937;
             transition: border-color 0.2s;
+            overflow: auto; scrollbar-width: thin; scrollbar-color: #d1d5db transparent;
         }
+        .input-template::-webkit-scrollbar { width: 6px; }
+        .input-template::-webkit-scrollbar-track { background: transparent; }
+        .input-template::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        .input-template::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .input-template::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
         .input-template:focus { outline: none; border-color: var(--sw-navy); }
         .template-label {
             font-size: 11px; color: #94a3b8; margin-bottom: 4px;

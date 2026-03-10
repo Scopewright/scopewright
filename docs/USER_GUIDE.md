@@ -724,8 +724,8 @@ Le bouton **PDF** dans la barre d'outils de l'aperçu genere un fichier PDF de l
 
 - Le PDF reprend le contenu exact de l'aperçu (couverture, introduction, meubles, prix, clauses)
 - Format paysage lettre (8.5 x 11 pouces), identique a la presentation web
-- La page total est affichee sur fond blanc avec le montant en gros texte sombre (pas de rectangle noir)
-- La section signature interactive est remplacee par des lignes imprimables "Accepte par" et "Date" sur fond blanc sobre
+- La derniere page reproduit le design "Votre projet est pret" de quote.html : colonne gauche avec texte de cloture, colonne droite avec total en grand + lignes signature ("Accepte par" / "Date")
+- Bilingue (FR/EN) selon la langue de la soumission
 - Le fichier est nomme automatiquement : `{Organisation}_{CodeProjet}_{NumeroSoumission}_v{Version}.pdf`
 - La generation se fait entierement dans le navigateur -- aucun envoi de donnees a un serveur externe
 

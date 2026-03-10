@@ -45,6 +45,8 @@
 !images/*
 !docs/
 !docs/*
+!docs/sessions/
+!docs/sessions/*
 !tests/
 !tests/*
 !tests/fixtures/

@@ -44,7 +44,7 @@
 |---------|------|----------------|
 | `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 500 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 300 lignes |
+| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 580 lignes |
 | `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 200 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
@@ -52,7 +52,7 @@
 | `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~685 lignes |
 | `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
 | `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~728 lignes |
-| `shared/pdf-export.js` | Export PDF client-side — `exportSubmissionPdf()`, `_sanitizePdfFilename()` | ~168 lignes |
+| `shared/pdf-export.js` | Export PDF client-side — `exportSubmissionPdf()`, `_sanitizePdfFilename()`, `_convertImagesToBase64()` | ~268 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 
@@ -242,14 +242,14 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (refonte #132) :
 - 4 sections : KPI cards → bannière AI → barre répartition → 2 colonnes (marges + MO) → tableau matériaux → tags
-- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit tri-state (vert ≥15%, orange 8-14.9%, rouge <8% profit net)
-- Bannière AI : si marge brute effective < 35% → texte conseil + bouton "Ajuster le prix" (scope group uniquement)
+- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit tri-state — teal (`#F0FDFA`/`#0D9488`) ≥15%, ambre (`#FFFBEB`/`#B45309`) 8-14.9%, ambre (`#FFFBEB`/`#B45309`) <8%
+- Bannière AI : si marge brute effective < 35% → fond `#FFFBEB`, bordure `#F59E0B`, texte `#92400E` + bouton "Ajuster le prix" (scope group uniquement)
 - Prix recommandé : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Applique via `roomModifiers[groupId]` (% sous-total pièce)
 - `rentabApplyTargetPrice(groupId, prixCible)` : calcule le % room modifier depuis le sous-total base (sans modifier existant), tient compte du global modifier. Persiste en DB, ferme la modale silencieusement
 - Modificateur % sous-total : `computeRentabilityData` et `openRentab` appliquent `getModifierMultiplier(groupId)` au PV. Pour le scope projet, agrégation per-group avec modifiers individuels
-- Barre répartition : Matériaux (bleu) + Salaires (violet) + Frais fixes (ambre) + Profit (vert). Labels si segment ≥ 8%
-- Badges marges colorés — marge brute : vert ≥35%, orange 25-34.9%, rouge <25%. Profit net : vert ≥15%, orange 8-14.9%, rouge <8%
-- Ventilation MO : barres horizontales triées décroissant
+- Barre répartition : Matériaux `#0B1220` (navy) + Salaires `#374151` (gris foncé) + Frais fixes `#9CA3AF` (gris) + Profit `#0D9488` (teal). Labels si segment ≥ 8%
+- Badges marges colorés — marge brute : teal `#0D9488` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : teal ≥15%, ambre 8-14.9%, rouge <8%
+- Ventilation MO : barres `#0B1220` (navy) sur fond `#F1F5F9`, triées décroissant
 - Tableau matériaux : 4 colonnes (Base / Perte / Markup / Total) avec accumulateurs per-catégorie
 
 ### 2.8 Barèmes et modificateurs (`labor_modifiers`)
@@ -1083,13 +1083,12 @@ Export client-side de la soumission en PDF. Utilise html2pdf.js (CDN) qui combin
 **Processus** :
 1. `renderPreview()` genere le HTML live dans `#pvContent`
 2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable, textareas)
-3. Reconstruit la page total (`.pv-page-total`) — fond blanc, montant en gros texte sombre, labels muted. Supprime le rectangle noir `#1A1A1A` du snapshot
-4. Remplace la section signature/acceptation par des lignes imprimables ("Accepte par" / "Date") sur fond blanc avec typographie sobre alignee sur le style Steps
-5. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
-6. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis `document.styleSheets` — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`, `.pv-page-total{background:#fff}`, `.pv-total-box{background:transparent}`
-7. Cree un element `pdfRoot` (`className='pv-content'`, `width:1056px`) avec le HTML clone — PAS attache au DOM manuellement. `html2pdf.toContainer()` cree son propre overlay et y deplace l'element
-8. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, pagebreak mode `'css'` uniquement (pas `['css','legacy']`), page-break via `before: '.pv-page'`. Le `page-break-after:always` CSS a ete retire pour eviter les pages blanches en double
-9. Telecharge le fichier, nettoie le `<style>` injecte dans `finally` (html2pdf gere son overlay lui-meme)
+3. Reconstruit la page total+signature (`.pv-page-total`) en layout 2 colonnes identique a quote.html "Votre projet est pret" : colonne gauche (55%) avec texte de cloture emotionnel (titre 38px, 3 paragraphes), separateur vertical 1px, colonne droite avec total (montant 48px) + lignes signature ("Accepte par" / "Date"). Extraction des donnees du total existant (breakdown, montant, taxes) avant remplacement du innerHTML. `.pv-total-box` masque via `display:none`
+4. `_convertImagesToBase64(clone)` — fetch toutes les `<img>` cross-origin (Supabase Storage) et les convertit en data URLs base64 via FileReader. Fallback `useCORS` si le fetch echoue
+5. Injecte `SNAPSHOT_CSS` dans `document.head` (ID `pdf-export-snapshot-css`). html2canvas lit les computed styles depuis `document.styleSheets` — un `<style>` dans le container cible est ignore. Overrides PDF : `height:auto;overflow:visible` sur `.pv-page`, `.pv-page-total{background:#fff;display:flex;flex-direction:column}`, `.pv-total-box{display:none}`
+6. Cree un element `pdfRoot` (`className='pv-content'`, `width:1056px`) avec le HTML clone — PAS attache au DOM manuellement. `html2pdf.toContainer()` cree son propre overlay et y deplace l'element
+7. html2pdf genere le PDF avec les options : landscape letter (8.5x11), JPEG 0.95, scale 2, pagebreak mode `'css'` uniquement (pas `['css','legacy']`). Page breaks via CSS `.pv-page:not(:first-child){page-break-before:always}` — le `:not(:first-child)` empeche une page blanche en debut de document
+8. Telecharge le fichier, nettoie le `<style>` injecte dans `finally` (html2pdf gere son overlay lui-meme)
 
 **Nom de fichier** : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
 - `org_name` : `introConfig.org_name` (charge depuis `app_config`), fallback "Stele"
@@ -1143,7 +1142,7 @@ Chat drawer connecté à `contacts-import` Edge Function via SSE. Supporte :
 | Catégories catalogue | `catalogue_categories` | Liste de catégories |
 | Groupes de matériaux | `material_groups` | Groupes pour DM (7 par défaut) |
 | Mapping cat→groupes | `category_group_mapping` | Associe groupes aux catégories |
-| Catégories de dépense | `expense_categories` | 24 catégories avec markup, waste, templates, calc_rule, presentation_rule, AI buttons |
+| Catégories de dépense | `expense_categories` | 24 catégories avec markup, waste, templates, calc_rule, presentation_rule, AI buttons. Textareas `.input-template` : scrollbar fine 6px sans flèches (`::-webkit-scrollbar-button{display:none}`, `scrollbar-width:thin`) |
 | Taux horaires | `taux_horaires` | 7 départements avec taux, frais, salaire |
 | Tags média | `media_tags` | Tags pour images (avec propagation rename) |
 | Préfixes tags | `tag_prefixes` | C=Caisson, F=Filler, P=Panneau, etc. |

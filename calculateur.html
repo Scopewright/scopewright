@@ -8841,28 +8841,28 @@
             flex: 1; padding: 20px 24px; text-align: center; background: #fff;
         }
         .rentab-kpi-card + .rentab-kpi-card { border-left: 1px solid #E5E7EB; }
-        .rentab-kpi-card.profit-green { background: #F0FDF4; }
-        .rentab-kpi-card.profit-orange { background: #FFFBEB; }
-        .rentab-kpi-card.profit-red { background: #FEF2F2; }
+        .rentab-kpi-card.profit-green { background: #F0FDFA; border-bottom: 2px solid #99F6E4; }
+        .rentab-kpi-card.profit-orange { background: #FFFBEB; border-bottom: 2px solid #FDE68A; }
+        .rentab-kpi-card.profit-red { background: #FFFBEB; border-bottom: 2px solid #FDE68A; }
         .rentab-kpi-label {
             font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #94A3B8; margin-bottom: 6px;
         }
         .rentab-kpi-value {
             font-size: 32px; font-weight: 600; color: #111827; line-height: 1.1; font-variant-numeric: tabular-nums;
         }
-        .rentab-kpi-value.profit-green-value { font-size: 32px; color: #15803D; }
+        .rentab-kpi-value.profit-green-value { font-size: 32px; color: #0D9488; }
         .rentab-kpi-value.profit-orange-value { font-size: 32px; color: #B45309; }
-        .rentab-kpi-value.profit-red-value { font-size: 32px; color: #DC2626; }
+        .rentab-kpi-value.profit-red-value { font-size: 32px; color: #B45309; }
         .rentab-kpi-pct { font-size: 14px; font-weight: 600; margin-top: 4px; }
-        .rentab-kpi-pct.pct-green { color: #15803D; }
-        .rentab-kpi-pct.pct-orange { color: #B45309; }
-        .rentab-kpi-pct.pct-red { color: #DC2626; }
+        .rentab-kpi-pct.pct-green { color: #0D9488; }
+        .rentab-kpi-pct.pct-orange { color: #D97706; }
+        .rentab-kpi-pct.pct-red { color: #D97706; }
         .rentab-kpi-sub { font-size: 11px; color: #94A3B8; margin-top: 4px; }
 
         /* ── AI warning banner ── */
         .rentab-ai-warning {
-            background: #F8FAFC; border-left: 3px solid #D4A017; border-radius: 6px;
-            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #6B7280; line-height: 1.4;
+            background: #FFFBEB; border-left: 3px solid #F59E0B; border-radius: 6px;
+            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #92400E; line-height: 1.4;
             display: flex; align-items: center; justify-content: space-between; gap: 16px;
         }
         .rentab-ai-warning-text { flex: 1; }
@@ -8916,13 +8916,13 @@
             height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         .seg-mat   { background: #0B1220; }
-        .seg-sal   { background: #A78BFA; }
+        .seg-sal   { background: #374151; }
         .seg-frais { background: #9CA3AF; }
-        .seg-prof  { background: #86EFAC; }
+        .seg-prof  { background: #0D9488; }
         .seg-loss  { background: #DC2626; }
         .rentab-seg-label { font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; padding: 0 6px; }
-        .seg-prof .rentab-seg-label { color: #14532D; }
-        .seg-frais .rentab-seg-label { color: #1F2937; }
+        .seg-prof .rentab-seg-label { color: #fff; }
+        .seg-frais .rentab-seg-label { color: #fff; }
 
         /* ── 2 columns ── */
         .rentab-two-cols { display: flex; gap: 28px; margin-bottom: 28px; }
@@ -8943,8 +8943,8 @@
         .rentab-marge-badge {
             display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
         }
-        .rentab-marge-badge.green  { background: #F0FDF4; color: #15803D; }
-        .rentab-marge-badge.orange { background: #FFFBEB; color: #B45309; }
+        .rentab-marge-badge.green  { background: #F0FDFA; color: #0D9488; }
+        .rentab-marge-badge.orange { background: #FFFBEB; color: #D97706; }
         .rentab-marge-badge.red    { background: #FEF2F2; color: #DC2626; }
         .rentab-info-icon {
             display: inline-flex; align-items: center; justify-content: center;
@@ -8966,7 +8966,7 @@
         .rentab-dept-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
         .rentab-dept-label { font-size: 12px; color: #6B7280; width: 80px; flex-shrink: 0; text-align: right; }
         .rentab-dept-bar-wrap { flex: 1; height: 20px; background: #F1F5F9; border-radius: 4px; overflow: hidden; }
-        .rentab-dept-bar { height: 100%; background: #A78BFA; border-radius: 4px; }
+        .rentab-dept-bar { height: 100%; background: #0B1220; border-radius: 4px; }
         .rentab-dept-stats {
             font-size: 11px; color: #6B7280; width: 110px; flex-shrink: 0; text-align: right; white-space: nowrap;
         }

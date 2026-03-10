@@ -549,3 +549,25 @@
 - Le rendu depend de html2canvas qui rasterise le HTML -- certains CSS complexes (blend modes, backdrop-filter) peuvent etre approximes
 - Le PDF est genere dans le navigateur du client -- la performance depend de la puissance de la machine (acceptable pour des soumissions de 5-15 pages)
 - Les polices Google Fonts (Inter, Cormorant Garamond) doivent etre chargees avant le rendu
+
+---
+
+## DEC-030 — Style Guide UI formalisé (STYLE_GUIDE.md)
+
+**Date** : 2026-03-09
+
+**Contexte** : Plusieurs incohérences visuelles détectées — le modal rentabilité utilisait du violet saturé (#A78BFA) et du vert vif (#86EFAC) alors que le reste de l'app suit la palette navy/gris Scopewright. Les boutons AI admin avaient un style custom au lieu de réutiliser le pattern catalogue existant. Pas de document de référence obligatoire pour les décisions UI.
+
+**Decision** : Créer un `docs/STYLE_GUIDE.md` exhaustif (17 sections) couvrant philosophie visuelle, palette, typographie, espacement, boutons, cartes, tables, inputs, icônes, pattern AI dot, animations. Ajouter une section "Références obligatoires" dans CLAUDE.md imposant la lecture du guide avant tout travail UI.
+
+**Alternatives considerees** :
+- **Tokens CSS seul** (`scopewright-tokens.css`) : Couvre les variables CSS mais pas les patterns de composants, les règles de réutilisation, ni les couleurs sémantiques (rentabilité, badges marges).
+- **Documentation inline dans CLAUDE.md** : Section "Design system" existante mais trop technique, pas orientée décision visuelle.
+- **Storybook / design system interactif** : Trop lourd pour un projet sans build system, overkill pour l'équipe actuelle.
+
+**Consequences** :
+- Référence unique pour toutes les décisions visuelles
+- Directive obligatoire : lire le guide avant d'implémenter du UI
+- Palette rentabilité formalisée : teal (#0D9488) pour OK, ambre pour warning, interdit violet/vert vif
+- Attio comme référence principale d'inspiration (tags compacts, densité d'information, node graph)
+- Règle fondamentale : réutiliser les patterns existants, ne jamais réinventer

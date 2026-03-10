@@ -43,25 +43,25 @@ Règles :
 
 ### Couleurs d'état
 - Blue: #3B82F6 - A soumissionner
-- Green: #22C55E - Vendu
+- Green: #22C55E - Vendu, Envoyée, checkmarks pipeline, ET métriques financières positives (profit, marges OK). Un seul vert dans toute l'app.
 - Orange: #F59E0B - En attente
 - Red: #EF4444 - Perdu
 - Purple: #8B5CF6 - En révision
 - Gray: #9CA3AF - Brouillon
 
-Jamais utilisées pour décorer l'interface. Uniquement pour les statuts.
+Jamais utilisées pour décorer l'interface. Uniquement pour les statuts et métriques.
 
 ### Couleurs rentabilité (modal)
-- Barre répartition : Matériaux #0B1220, Salaires #374151, Frais fixes #9CA3AF, Profit #0D9488
-- KPI Profit OK (≥ 15%) : fond #F0FDFA, bordure #99F6E4, montant/% #0D9488
+- Barre répartition : Matériaux #0B1220, Salaires #374151, Frais fixes #9CA3AF, Profit #22C55E
+- KPI Profit OK (≥ 15%) : fond #F0FDF4, bordure #BBF7D0, montant/% #22C55E
 - KPI Profit warning (< 8%) : fond #FFFBEB, bordure #FDE68A, montant #B45309, % #D97706
 - Bannière avertissement : fond #FFFBEB, bordure gauche #F59E0B, texte #92400E
 - Barres MO : remplissage #0B1220, fond vide #F1F5F9
-- Valeurs marges OK (≥ 15%) : #0D9488
+- Valeurs marges OK (≥ 15%) : #22C55E (badges: fond #F0FDF4, texte #16A34A)
 - Valeurs marges warning (8-14.9%) : #D97706
 - Valeurs marges danger (< 8%) : #DC2626
 
-Interdit dans ce modal : violet saturé (#A78BFA), vert vif (#86EFAC, #22C55E, #15803D)
+Interdit dans ce modal : violet saturé (#A78BFA), vert vif (#86EFAC), teal (#0D9488)
 
 ---
 

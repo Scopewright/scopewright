@@ -419,12 +419,12 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (`openRentab`) — refonte visuelle mockup #132 :
 - **4 sections** : KPI cards (Vente/Coût/Profit) → bannière AI → barre répartition → 2 colonnes (Marges + Ventilation MO) → tableau matériaux (Base/Perte/Markup/Total) → tags
-- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit card couleur tri-state basée sur profit net % : teal (`#F0FDFA`, bordure `#99F6E4`) si ≥15%, ambre (`#FFFBEB`, bordure `#FDE68A`) si 8-14.9%, ambre (`#FFFBEB`, bordure `#FDE68A`) si <8%. Couleurs montant : `#0D9488` (OK), `#B45309` (warning/danger). Couleurs % : `#0D9488` (OK), `#D97706` (warning/danger)
+- **KPI cards** : 3 cartes en ligne (Vente / Coût direct / Profit). Coût direct = matériaux + perte + salaires (sans frais fixes). Profit card couleur tri-state basée sur profit net % : vert (`#F0FDF4`, bordure `#BBF7D0`) si ≥15%, ambre (`#FFFBEB`, bordure `#FDE68A`) si 8-14.9%, ambre (`#FFFBEB`, bordure `#FDE68A`) si <8%. Couleurs montant : `#22C55E` (OK), `#B45309` (warning/danger). Couleurs % : `#22C55E` (OK), `#D97706` (warning/danger)
 - **Bannière AI** : apparaît si marge brute effective < 35% (seuil fixe). Fond `#FFFBEB`, bordure gauche `#F59E0B`, texte `#92400E`
 - **Bouton "Ajuster le prix"** (scope `group` uniquement) : révèle une carte avec prix recommandé, marges projetées, et boutons Appliquer/Ignorer. Calcul : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Animation slide-down `rentabAiReveal`
 - **`rentabApplyTargetPrice(groupId, prixCible)`** : calcule le % room modifier nécessaire depuis le sous-total **base** (sans modifier existant). Formule : `((prixCible / (baseSousTotal × globalMult)) - 1) × 100`. Tient compte du modificateur global existant. L'inscrit dans `roomModifiers[groupId]`, appelle `refreshGroupRows` + `updateGrandTotal` + `updateRoom` DB, ferme la modale. Pas de confirm/alert natif
-- **Barre répartition** : 4 segments — Matériaux `#0B1220` (navy), Salaires `#374151` (gris foncé), Frais fixes `#9CA3AF` (gris), Profit `#0D9488` (teal). Labels inline si segment ≥ 8%
-- **Marges** : badges colorés — marge brute : teal `#0D9488` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : teal ≥15%, ambre 8-14.9%, rouge <8%. Tooltips avec formules sur ⓘ
+- **Barre répartition** : 4 segments — Matériaux `#0B1220` (navy), Salaires `#374151` (gris foncé), Frais fixes `#9CA3AF` (gris), Profit `#22C55E` (vert). Labels inline si segment ≥ 8%
+- **Marges** : badges colorés — marge brute : vert `#16A34A` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : vert ≥15%, ambre 8-14.9%, rouge <8%. Tooltips avec formules sur ⓘ
 - **Ventilation MO** : barres horizontales triées décroissant, couleur `#0B1220` (navy), fond vide `#F1F5F9`
 - **Tableau matériaux** : accumulateurs per-catégorie `matWaste[cat]`, `matMarkup[cat]` (gère correctement `loss_override_pct`)
 

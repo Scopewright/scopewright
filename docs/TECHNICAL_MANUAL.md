@@ -242,13 +242,13 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 
 **Modale rentabilité** (refonte #132) :
 - 4 sections : KPI cards → bannière AI → barre répartition → 2 colonnes (marges + MO) → tableau matériaux → tags
-- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit tri-state — teal (`#F0FDFA`/`#0D9488`) ≥15%, ambre (`#FFFBEB`/`#B45309`) 8-14.9%, ambre (`#FFFBEB`/`#B45309`) <8%
+- KPI : Vente / Coût direct (mat + perte + salaires, sans frais fixes) / Profit tri-state — vert (`#F0FDF4`/`#22C55E`) ≥15%, ambre (`#FFFBEB`/`#B45309`) 8-14.9%, ambre (`#FFFBEB`/`#B45309`) <8%
 - Bannière AI : si marge brute effective < 35% → fond `#FFFBEB`, bordure `#F59E0B`, texte `#92400E` + bouton "Ajuster le prix" (scope group uniquement)
 - Prix recommandé : `PV_cible = (mat + perte + salaires) / (1 - margeVisée/100)`. Applique via `roomModifiers[groupId]` (% sous-total pièce)
 - `rentabApplyTargetPrice(groupId, prixCible)` : calcule le % room modifier depuis le sous-total base (sans modifier existant), tient compte du global modifier. Persiste en DB, ferme la modale silencieusement
 - Modificateur % sous-total : `computeRentabilityData` et `openRentab` appliquent `getModifierMultiplier(groupId)` au PV. Pour le scope projet, agrégation per-group avec modifiers individuels
-- Barre répartition : Matériaux `#0B1220` (navy) + Salaires `#374151` (gris foncé) + Frais fixes `#9CA3AF` (gris) + Profit `#0D9488` (teal). Labels si segment ≥ 8%
-- Badges marges colorés — marge brute : teal `#0D9488` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : teal ≥15%, ambre 8-14.9%, rouge <8%
+- Barre répartition : Matériaux `#0B1220` (navy) + Salaires `#374151` (gris foncé) + Frais fixes `#9CA3AF` (gris) + Profit `#22C55E` (vert). Labels si segment ≥ 8%
+- Badges marges colorés — marge brute : vert `#16A34A` ≥35%, ambre `#D97706` 25-34.9%, rouge `#DC2626` <25%. Profit net : vert ≥15%, ambre 8-14.9%, rouge <8%
 - Ventilation MO : barres `#0B1220` (navy) sur fond `#F1F5F9`, triées décroissant
 - Tableau matériaux : 4 colonnes (Base / Perte / Markup / Total) avec accumulateurs per-catégorie
 

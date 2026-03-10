@@ -6,7 +6,7 @@
 
 ### Features
 - **#139 — Style Guide UI** — Création de `docs/STYLE_GUIDE.md` : guide visuel complet (palette, typographie, espacement, boutons, cartes, tables, inputs, pattern AI dot, animations). Section "Références obligatoires" ajoutée dans CLAUDE.md. Directive : lire le style guide avant tout travail UI. Attio ajouté comme référence principale d'inspiration UI
-- **#132 fix palette — Modal rentabilité alignée STYLE_GUIDE** — Palette complète revue : barre répartition (navy/gris/teal), KPI profit (teal OK, ambre warning), bannière avertissement (ambre), barres MO (navy), badges marges (teal/ambre/rouge). Retiré tout violet saturé (#A78BFA) et vert vif (#86EFAC, #22C55E, #15803D)
+- **#132 fix palette finale — Vert unifié modal rentabilité** — Remplacé teal (#0D9488) par vert standard #22C55E dans tout le modal rentabilité : KPI profit (fond #F0FDF4, bordure #BBF7D0), barre répartition profit, badges marges OK (#16A34A). Un seul vert dans toute l'app (#22C55E) pour statuts ET métriques financières positives
 
 ### Documentation
 - **Maintenance complète** — Mise à jour de tous les docs (CLAUDE.md, TECHNICAL_MANUAL, AUDIT_REPORT, USER_GUIDE, CHANGELOG, STYLE_GUIDE) pour refléter l'état réel du code. Correction line counts (`admin.html` 3300→3580). Création `docs/sessions/SESSION_2026-03-09.md`

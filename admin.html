@@ -232,34 +232,71 @@
             font-size: 11px; color: #94a3b8; margin-bottom: 4px;
             text-transform: uppercase; letter-spacing: 0.3px;
         }
-        .expense-ai-wrap {
-            display: flex; gap: 6px; align-items: flex-start;
+        /* AI field wrap — same pattern as catalogue modal */
+        .ai-field-wrap {
+            position: relative;
         }
-        .expense-ai-wrap textarea { flex: 1; }
-        .expense-ai-btn {
-            flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
-            border: 1px solid #e2e8f0; background: #fff; cursor: pointer;
+        .ai-field-wrap > textarea {
+            position: relative; z-index: 1;
+        }
+        .btn-ai-dot {
+            position: absolute; top: 6px; right: 6px; z-index: 2;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: transparent; border: none; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            transition: border-color 0.2s, background 0.2s;
+            padding: 0; flex-shrink: 0;
         }
-        .expense-ai-btn:hover { border-color: var(--sw-navy); background: #f8fafc; }
-        .expense-ai-btn:disabled { opacity: 0.4; cursor: default; }
-        .expense-ai-btn .ai-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: linear-gradient(135deg, #818cf8, #6366f1);
-            display: block;
+        .btn-ai-dot:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-ai-dot .ai-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            animation: aiBreathe 3.5s ease-in-out infinite;
+            transition: background 300ms ease;
         }
-        .expense-ai-btn.ai-active .ai-dot { animation: aiBreathing 1.5s ease-in-out infinite; }
-        @keyframes aiBreathing { 0%,100% { opacity: 0.4; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+        .btn-ai-dot:hover .ai-dot { opacity: 1; transform: scale(1.3); }
+        @keyframes aiBreathe {
+            0%,100% { opacity:0.5; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.1); }
+        }
+        .btn-ai-dot.ai-active .ai-dot {
+            background: var(--sw-navy, #0B1220);
+            animation: aiBreatheFast 1.2s ease-in-out infinite;
+        }
+        @keyframes aiBreatheFast {
+            0%,100% { opacity:0.6; transform:scale(1); }
+            50% { opacity:1; transform:scale(1.25); }
+        }
+        .btn-ai-dot.ai-done .ai-dot {
+            background: rgba(34,197,94,0.8);
+            animation: none; opacity: 1; transform: scale(1.2);
+        }
+        .ai-feedback-container { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+        .ai-feedback-container:empty { display:none; margin:0; }
+        .ai-feedback-banner {
+            display:flex; align-items:flex-start; gap:8px;
+            padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.4;
+            animation: aiFeedbackIn 200ms ease;
+        }
+        .ai-feedback-banner.error { background:#FEF2F2; border-left:3px solid #EF4444; color:#991B1B; }
+        .ai-feedback-banner.info { background:#F0F9FF; border-left:3px solid #3B82F6; color:#1E40AF; }
+        .ai-feedback-text { flex:1; min-width:0; }
+        .ai-feedback-btn-close {
+            width:18px; height:18px; border:none; background:transparent;
+            cursor:pointer; font-size:14px; color:inherit; opacity:0.5;
+            display:flex; align-items:center; justify-content:center; padding:0;
+        }
+        .ai-feedback-btn-close:hover { opacity:1; background:rgba(0,0,0,0.05); border-radius:3px; }
+        @keyframes aiSuccessFlash {
+            0% { background-color:transparent; }
+            30% { background-color:rgba(75,96,80,0.06); }
+            100% { background-color:transparent; }
+        }
+        .ai-success-flash { animation: aiSuccessFlash 600ms ease; }
+        @keyframes aiFeedbackIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
         .expense-json-ta {
             font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
         }
-        .expense-json-ta.json-success { border-color: #10b981; background: #ecfdf5; transition: background 0.3s; }
-        .expense-ai-feedback {
-            font-size: 11px; padding: 6px 8px; border-radius: 4px; margin-bottom: 4px;
-        }
-        .expense-ai-feedback.fb-error { background: #fef2f2; color: #dc2626; }
-        .expense-ai-feedback.fb-ok { background: #ecfdf5; color: #059669; }
+        .calc-rule-success { border-color: #10b981 !important; background: #ecfdf5 !important; transition: background 0.3s; }
         .cat-chip-x:hover { color: #c0392b; }
         .cat-chip-add {
             background: none; border: 1px dashed #cbd5e1; color: #94a3b8;
@@ -1932,21 +1969,21 @@
 
             // ── CALCUL section ──
             '<div class="template-label">Template calcul</div>' +
-            '<div class="expense-ai-wrap">' +
+            '<div class="ai-feedback-container"></div>' +
+            '<div class="ai-field-wrap">' +
                 '<textarea class="input-template input-template-calc" placeholder="Instructions AI pour les r\u00e8gles de calcul (cascade, quantit\u00e9s, mat\u00e9riaux)\u2026">' + escapeHtml(calcTemplate) + '</textarea>' +
-                '<button class="expense-ai-btn" onclick="aiExpenseCalcRule(this)" title="G\u00e9n\u00e9rer le JSON calcul"><span class="ai-dot"></span></button>' +
+                '<button class="btn-ai-dot" onclick="aiExpenseCalcRule(this)" title="G\u00e9n\u00e9rer le JSON calcul"><span class="ai-dot"></span></button>' +
             '</div>' +
-            '<div class="expense-ai-feedback" style="display:none;"></div>' +
             '<div class="template-label" style="margin-top:6px;">JSON calcul</div>' +
             '<textarea class="input-template expense-json-ta input-template-calc-rule" rows="4" placeholder=\'{"formula":"...","cascade":[...],"ask":["L","H"]}\'>' + escapeHtml(calcRuleStr) + '</textarea>' +
 
             // ── PRÉSENTATION section ──
             '<div class="template-label" style="margin-top:12px;">Template pr\u00e9sentation</div>' +
-            '<div class="expense-ai-wrap">' +
+            '<div class="ai-feedback-container"></div>' +
+            '<div class="ai-field-wrap">' +
                 '<textarea class="input-template input-template-pres" placeholder="Instructions AI pour la pr\u00e9sentation client (sections, format, texte)\u2026">' + escapeHtml(presTemplate) + '</textarea>' +
-                '<button class="expense-ai-btn" onclick="aiExpensePresRule(this)" title="G\u00e9n\u00e9rer le JSON pr\u00e9sentation"><span class="ai-dot"></span></button>' +
+                '<button class="btn-ai-dot" onclick="aiExpensePresRule(this)" title="G\u00e9n\u00e9rer le JSON pr\u00e9sentation"><span class="ai-dot"></span></button>' +
             '</div>' +
-            '<div class="expense-ai-feedback" style="display:none;"></div>' +
             '<div class="template-label" style="margin-top:6px;">JSON pr\u00e9sentation</div>' +
             '<textarea class="input-template expense-json-ta input-template-pres-rule" rows="4" placeholder=\'{"sections":[{"key":"CAISSON","label":"Caisson","template":"{client_text}"}],"exclude":[],"notes":""}\'>' + escapeHtml(presRuleStr) + '</textarea>' +
 
@@ -2022,6 +2059,7 @@
     }
 
     // ── AI generation for expense category templates ──
+    // Same pattern as catalogue modal (ai-field-wrap, btn-ai-dot, flashAiSuccess, flashAiDotDone)
 
     function _getExpenseContext(btn) {
         var templateRow = btn.closest('.expense-template-row');
@@ -2032,17 +2070,36 @@
         var presTa = templateRow.querySelector('.input-template-pres');
         var calcRuleTa = templateRow.querySelector('.input-template-calc-rule');
         var presRuleTa = templateRow.querySelector('.input-template-pres-rule');
-        // Feedback div is the .expense-ai-feedback AFTER the btn's .expense-ai-wrap
-        var feedbackEl = btn.closest('.expense-ai-wrap').nextElementSibling;
+        // Feedback container is the .ai-feedback-container BEFORE the btn's .ai-field-wrap
+        var feedbackEl = btn.closest('.ai-field-wrap').previousElementSibling;
+        if (!feedbackEl || !feedbackEl.classList.contains('ai-feedback-container')) feedbackEl = null;
         return { name: name, calcTa: calcTa, presTa: presTa, calcRuleTa: calcRuleTa, presRuleTa: presRuleTa, feedbackEl: feedbackEl };
     }
 
-    function _showExpenseFeedback(el, msg, isError) {
-        if (!el) return;
-        el.textContent = msg;
-        el.className = 'expense-ai-feedback ' + (isError ? 'fb-error' : 'fb-ok');
-        el.style.display = '';
-        if (!isError) setTimeout(function() { el.style.display = 'none'; }, 4000);
+    function _showExpenseFeedback(container, msg, level) {
+        if (!container) return;
+        container.innerHTML = '<div class="ai-feedback-banner ' + level + '">' +
+            '<span class="ai-feedback-text">' + escapeHtml(msg) + '</span>' +
+            '<button class="ai-feedback-btn-close" onclick="this.closest(\'.ai-feedback-banner\').remove()">&times;</button>' +
+            '</div>';
+    }
+
+    function _clearExpenseFeedback(container) {
+        if (container) container.innerHTML = '';
+    }
+
+    function _flashAiSuccess(fieldEl) {
+        if (!fieldEl) return;
+        fieldEl.classList.remove('ai-success-flash');
+        void fieldEl.offsetWidth;
+        fieldEl.classList.add('ai-success-flash');
+        setTimeout(function() { fieldEl.classList.remove('ai-success-flash'); }, 700);
+    }
+
+    function _flashAiDotDone(btn) {
+        if (!btn) return;
+        btn.classList.add('ai-done');
+        setTimeout(function() { btn.classList.remove('ai-done'); }, 500);
     }
 
     async function aiExpenseCalcRule(btn) {
@@ -2050,47 +2107,52 @@
         if (!ctx || !ctx.name) return;
         var humanText = ctx.calcTa ? ctx.calcTa.value.trim() : '';
         if (!humanText) {
-            _showExpenseFeedback(ctx.feedbackEl, 'Écrivez d\u2019abord le template calcul avant de lancer l\u2019AI.', true);
+            _showExpenseFeedback(ctx.feedbackEl, '\u00c9crivez d\u2019abord le template calcul avant de lancer l\u2019AI.', 'error');
             if (ctx.calcTa) ctx.calcTa.focus();
             return;
         }
 
         btn.disabled = true;
         btn.classList.add('ai-active');
-        ctx.feedbackEl.style.display = 'none';
+        _clearExpenseFeedback(ctx.feedbackEl);
 
+        var hadError = false;
         try {
-            var prompt = '=== CATÉGORIE DE DÉPENSE ===\nNom: ' + ctx.name +
+            var prompt = '=== CAT\u00c9GORIE DE D\u00c9PENSE ===\nNom: ' + ctx.name +
                 '\nMarkup: ' + (expenseCategories.find(function(c){ return c.name === ctx.name; }) || {}).markup + '%' +
-                '\n\nCatégories matériaux existantes: ' + expenseCategories.map(function(c){ return c.name; }).join(', ');
+                '\n\nCat\u00e9gories mat\u00e9riaux existantes: ' + expenseCategories.map(function(c){ return c.name; }).join(', ');
 
-            // Add other expense calc templates as examples
             var examples = expenseCategories.filter(function(c) { return c.calc_rule && c.name !== ctx.name; })
                 .map(function(c) { return c.name + ': ' + JSON.stringify(c.calc_rule); });
             if (examples.length > 0) prompt += '\n\n=== EXEMPLES JSON EXISTANTS ===\n' + examples.join('\n');
 
-            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"formula":"L * H / 144","cascade":[{"target":"CODE ou $match:CATÉGORIE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
+            prompt += '\n\n=== FORMAT JSON ATTENDU ===\n{"formula":"L * H / 144","cascade":[{"target":"CODE ou $match:CAT\u00c9GORIE","qty":"number|formula","condition":"optional"}],"ask":["dim1"],"notes":"optional"}';
             prompt += '\n\nTemplate calcul actuel :\n' + humanText;
 
             var existingJson = ctx.calcRuleTa ? ctx.calcRuleTa.value.trim() : '';
-            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
 
             var results = await regenCallEdge([{ key: 'cr', text: prompt }], 'catalogue_calc_rule');
             var envelope = regenParseEnvelope(results['cr'], 'explication');
             regenFixJsonSplit(envelope, ['cascade', 'ask', 'formula']);
 
-            if (envelope.explication && ctx.calcTa) ctx.calcTa.value = envelope.explication;
+            if (envelope.explication && ctx.calcTa) {
+                ctx.calcTa.value = envelope.explication;
+                _flashAiSuccess(ctx.calcTa);
+            }
             if (envelope.json && ctx.calcRuleTa) {
                 ctx.calcRuleTa.value = JSON.stringify(envelope.json, null, 2);
-                ctx.calcRuleTa.classList.add('json-success');
-                setTimeout(function() { ctx.calcRuleTa.classList.remove('json-success'); }, 2000);
+                ctx.calcRuleTa.classList.add('calc-rule-success');
+                setTimeout(function() { ctx.calcRuleTa.classList.remove('calc-rule-success'); }, 2000);
             }
-            _showExpenseFeedback(ctx.feedbackEl, 'JSON calcul généré ✓', false);
+            _clearExpenseFeedback(ctx.feedbackEl);
         } catch (err) {
-            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur AI', true);
+            hadError = true;
+            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur inconnue', 'error');
         } finally {
             btn.disabled = false;
             btn.classList.remove('ai-active');
+            if (!hadError) _flashAiDotDone(btn);
         }
     }
 
@@ -2099,45 +2161,57 @@
         if (!ctx || !ctx.name) return;
         var humanText = ctx.presTa ? ctx.presTa.value.trim() : '';
         if (!humanText) {
-            _showExpenseFeedback(ctx.feedbackEl, 'Écrivez d\u2019abord le template présentation avant de lancer l\u2019AI.', true);
+            _showExpenseFeedback(ctx.feedbackEl, '\u00c9crivez d\u2019abord le template pr\u00e9sentation avant de lancer l\u2019AI.', 'error');
             if (ctx.presTa) ctx.presTa.focus();
             return;
         }
 
         btn.disabled = true;
         btn.classList.add('ai-active');
-        ctx.feedbackEl.style.display = 'none';
+        _clearExpenseFeedback(ctx.feedbackEl);
 
+        var hadError = false;
         try {
-            var prompt = '=== CATÉGORIE DE DÉPENSE ===\nNom: ' + ctx.name +
-                '\n\nSections de description connues: Caisson, Façades, Tiroirs, Poignées, Détails, Exclusions';
+            var prompt = '=== CAT\u00c9GORIE DE D\u00c9PENSE ===\nNom: ' + ctx.name +
+                '\n\nSections de description connues: Caisson, Fa\u00e7ades, Tiroirs, Poign\u00e9es, D\u00e9tails, Exclusions';
 
-            // Add other expense pres rules as examples
             var examples = expenseCategories.filter(function(c) { return c.presentation_rule && c.name !== ctx.name; })
                 .map(function(c) { return c.name + ': ' + JSON.stringify(c.presentation_rule); });
             if (examples.length > 0) prompt += '\n\n=== EXEMPLES JSON EXISTANTS ===\n' + examples.join('\n');
 
-            prompt += '\n\nTemplate présentation actuel :\n' + humanText;
+            prompt += '\n\nTemplate pr\u00e9sentation actuel :\n' + humanText;
 
             var existingJson = ctx.presRuleTa ? ctx.presRuleTa.value.trim() : '';
-            if (existingJson) prompt += '\n\nJSON existant à réviser :\n' + existingJson;
+            if (existingJson) prompt += '\n\nJSON existant \u00e0 r\u00e9viser :\n' + existingJson;
 
             var results = await regenCallEdge([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
             var envelope = regenParseEnvelope(results['pr'], 'explication');
             regenFixJsonSplit(envelope, ['sections', 'exclude', 'notes']);
 
-            if (envelope.explication && ctx.presTa) ctx.presTa.value = envelope.explication;
+            if (envelope.json) {
+                // Strip "prefix" field if AI hallucinated it
+                if (envelope.json.sections) {
+                    envelope.json.sections.forEach(function(s) { delete s.prefix; });
+                }
+            }
+
+            if (envelope.explication && ctx.presTa) {
+                ctx.presTa.value = envelope.explication;
+                _flashAiSuccess(ctx.presTa);
+            }
             if (envelope.json && ctx.presRuleTa) {
                 ctx.presRuleTa.value = JSON.stringify(envelope.json, null, 2);
-                ctx.presRuleTa.classList.add('json-success');
-                setTimeout(function() { ctx.presRuleTa.classList.remove('json-success'); }, 2000);
+                ctx.presRuleTa.classList.add('calc-rule-success');
+                setTimeout(function() { ctx.presRuleTa.classList.remove('calc-rule-success'); }, 2000);
             }
-            _showExpenseFeedback(ctx.feedbackEl, 'JSON présentation généré ✓', false);
+            _clearExpenseFeedback(ctx.feedbackEl);
         } catch (err) {
-            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur AI', true);
+            hadError = true;
+            _showExpenseFeedback(ctx.feedbackEl, err.message || 'Erreur inconnue', 'error');
         } finally {
             btn.disabled = false;
             btn.classList.remove('ai-active');
+            if (!hadError) _flashAiDotDone(btn);
         }
     }
 
@@ -3337,6 +3411,10 @@
 
         var presEnv = regenParseEnvelope(results[1]['pr'], 'explication');
         regenFixJsonSplit(presEnv, ['sections', 'exclude', 'notes']);
+        // Strip "prefix" field if AI hallucinated it
+        if (presEnv.json && presEnv.json.sections) {
+            presEnv.json.sections.forEach(function(s) { delete s.prefix; });
+        }
         console.log('[REGEN] presEnv after parse+fix:', JSON.stringify(presEnv).substring(0, 500));
 
         var patch = {};

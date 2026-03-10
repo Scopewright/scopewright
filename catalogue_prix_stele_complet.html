@@ -6650,7 +6650,7 @@
 
         /**
          * Post-parse: separate explication text from embedded JSON in AI envelope.
-         * jsonKeys: array of key names that identify a valid json field (e.g. ["cascade","ask"] or ["sections","order","prefix"])
+         * jsonKeys: array of key names that identify a valid json field (e.g. ["cascade","ask"] or ["sections","exclude","notes"])
          */
         function fixEnvelopeJsonSplit(envelope, jsonKeys) {
             if (!envelope) return;
@@ -7034,6 +7034,11 @@
                 var envelope = parseAiEnvelope(results['pr'], 'explication');
                 fixEnvelopeJsonSplit(envelope, ['sections', 'exclude', 'notes']);
 
+                // Strip "prefix" field if AI hallucinated it
+                if (envelope.json && envelope.json.sections) {
+                    envelope.json.sections.forEach(function(s) { delete s.prefix; });
+                }
+
                 var applyData = function() {
                     if (envelope.explication) humanTextarea.value = envelope.explication;
                     if (envelope.json) {
@@ -7272,7 +7277,7 @@
                 var calcEnv = parseAiEnvelope(results[0]['cr'], 'explication');
                 fixEnvelopeJsonSplit(calcEnv, ['cascade', 'ask']);
                 var presEnv = parseAiEnvelope(results[1]['pr'], 'explication');
-                fixEnvelopeJsonSplit(presEnv, ['sections', 'order', 'prefix']);
+                fixEnvelopeJsonSplit(presEnv, ['sections', 'exclude', 'notes']);
 
                 var patch = {};
                 if (calcEnv.json) patch.calculation_rule_ai = calcEnv.json;

@@ -224,7 +224,7 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
   "json": {
     "sections": [
       { "key": "CAISSON", "label": "Caisson", "template": "{client_text}" },
-      { "key": "FAÇADES", "label": "Façades et panneaux apparents", "template": "en {client_text}" }
+      { "key": "FAÇADES", "label": "Façades", "template": "en {client_text}" }
     ],
     "exclude": ["éléments à ne jamais mentionner au client"],
     "notes": "instructions supplémentaires optionnelles"

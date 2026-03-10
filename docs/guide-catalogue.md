@@ -906,7 +906,7 @@ Instructions structurees (JSON) pour assembler la description client d'une piece
 {
   "sections": [
     { "key": "CAISSON", "label": "Caisson", "template": "{client_text}" },
-    { "key": "FAÇADES", "label": "Facades et panneaux apparents", "template": "en {client_text}" }
+    { "key": "FAÇADES", "label": "Façades", "template": "en {client_text}" }
   ],
   "exclude": ["elements a ne jamais mentionner"],
   "notes": "instructions supplementaires"

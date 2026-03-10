@@ -4696,9 +4696,10 @@
                 if (childTagInput) childTagInput.value = parentTag;
                 // Inherit qty_multiplier from parent
                 var _newChildQm = document.getElementById(newRowId + '-qty-mult');
-                if (_newChildQm && _parentQm > 1) {
+                if (_newChildQm) {
                     _newChildQm.value = _parentQm;
-                    _newChildQm.classList.add('qty-mult-active');
+                    if (_parentQm > 1) _newChildQm.classList.add('qty-mult-active');
+                    else _newChildQm.classList.remove('qty-mult-active');
                 }
 
                 updateRow(newRowId);
@@ -11660,6 +11661,26 @@
                 updateItem(itemMap[rowId], { qty_multiplier: val });
                 showSaveIndicator();
             }
+            // Propagate to cascade children (like installation propagation)
+            propagateQtyMultToCascadeChildren(rowId, val);
+        }
+
+        function propagateQtyMultToCascadeChildren(parentRowId, val) {
+            var children = findCascadeChildren(parentRowId);
+            children.forEach(function(child) {
+                var childInput = document.getElementById(child.rowId + '-qty-mult');
+                if (childInput && parseFloat(childInput.value) !== val) {
+                    childInput.value = val;
+                    if (val > 1) childInput.classList.add('qty-mult-active');
+                    else childInput.classList.remove('qty-mult-active');
+                    updateRow(child.rowId, { skipCascade: true });
+                    if (itemMap[child.rowId]) {
+                        updateItem(itemMap[child.rowId], { qty_multiplier: val });
+                    }
+                }
+                // Recursive: grandchildren
+                propagateQtyMultToCascadeChildren(child.rowId, val);
+            });
         }
 
         function toggleRowInstallation(rowId) {
@@ -12821,6 +12842,9 @@
                     if (!formula && formulaItem.type === 'pi\u00b2') formula = 'L * H / 144';
                     if (!formula && formulaItem.type === 'lin\u00e9aire') formula = 'L / 12';
                     if (formula) {
+                        qtyInput.readOnly = true;
+                        qtyInput.title = 'Quantité auto-calculée';
+                        qtyInput.style.color = '#94A3B8';
                         var fL = document.getElementById(rowId + '-dim-l');
                         var fH = document.getElementById(rowId + '-dim-h');
                         var fP = document.getElementById(rowId + '-dim-p');
@@ -20847,7 +20871,8 @@
                 var qtyInput = row.querySelector('.qty-input');
                 if (!select || !qtyInput) return;
                 var selectedId = select.value;
-                var qty = parseFloat(qtyInput.value) || 0;
+                var _qmRentab = row.querySelector('.qty-mult-input');
+                var qty = (parseFloat(qtyInput.value) || 0) * ((_qmRentab ? parseFloat(_qmRentab.value) : 1) || 1);
 
                 // Get tag for this row
                 var tagInput = row.querySelector('.cell-tag input');

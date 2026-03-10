@@ -206,7 +206,18 @@ async function exportSubmissionPdf() {
         if (!resp.ok) {
             var errData;
             try { errData = await resp.json(); } catch (e) { errData = {}; }
-            throw new Error(errData.error || 'PDF generation failed (HTTP ' + resp.status + ')');
+            console.error('[PDF] PDFShift error:', resp.status, errData);
+            // Download the HTML for debugging
+            var debugBlob = new Blob([htmlDoc], { type: 'text/html' });
+            var debugUrl = URL.createObjectURL(debugBlob);
+            var debugA = document.createElement('a');
+            debugA.href = debugUrl;
+            debugA.download = 'debug-pdf-source.html';
+            document.body.appendChild(debugA);
+            debugA.click();
+            document.body.removeChild(debugA);
+            URL.revokeObjectURL(debugUrl);
+            throw new Error((errData.error || 'PDF generation failed') + ' (HTTP ' + resp.status + ')' + (errData.detail ? ' — ' + errData.detail : ''));
         }
 
         // 7. Download the PDF blob

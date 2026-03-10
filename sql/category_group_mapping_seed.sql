@@ -5,7 +5,7 @@
 INSERT INTO app_config (key, value)
 VALUES (
     'material_groups',
-    '["Caisson","Façades et panneaux apparents","Tiroirs","Poignées","Éclairage","Autre"]'::jsonb
+    '["Caisson","Façades","Panneaux","Tiroirs","Poignées","Éclairage","Autre"]'::jsonb
 )
 ON CONFLICT (key) DO NOTHING;
 
@@ -13,12 +13,12 @@ INSERT INTO app_config (key, value)
 VALUES (
     'category_group_mapping',
     '{
-        "Budgétaire": ["Caisson","Façades et panneaux apparents","Tiroirs","Poignées","Éclairage","Autre"],
-        "Panneaux":   ["Caisson","Façades et panneaux apparents"],
+        "Budgétaire": ["Caisson","Façades","Panneaux","Tiroirs","Poignées","Éclairage","Autre"],
+        "Panneaux":   ["Caisson","Panneaux"],
         "Poignées":   ["Poignées"],
         "Tiroirs":    ["Tiroirs"],
         "Éclairage":  ["Éclairage"],
-        "Portes intérieures": ["Façades et panneaux apparents"]
+        "Portes intérieures": ["Façades"]
     }'::jsonb
 )
 ON CONFLICT (key) DO NOTHING;

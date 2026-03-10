@@ -36,7 +36,7 @@
 // Convert plain text (legacy) to basic HTML; if already HTML, return as-is
 function textToHtml(str) {
     if (!str) return '';
-    if (str.indexOf('<p>') !== -1 || str.indexOf('<strong>') !== -1 || str.indexOf('<ul>') !== -1) {
+    if (str.indexOf('<p>') !== -1 || str.indexOf('<strong>') !== -1 || str.indexOf('<ul>') !== -1 || str.indexOf('<br') !== -1) {
         return str; // already HTML
     }
     // Legacy plain text: escape then convert newlines to <br>
@@ -61,7 +61,7 @@ function formatDescriptionForDisplay(text) {
     if (!text || !text.trim()) return '';
     var lines = text.split('\n');
     var keywords = [
-        'CAISSON', 'FAÇADES ET PANNEAUX APPARENTS', 'FAÇADES',
+        'CAISSON', 'PANNEAUX APPARENTS', 'FAÇADES',
         'TIROIRS LEGRABOX', 'TIROIRS', 'POIGNÉES', 'ÉCLAIRAGE',
         'DÉTAILS', 'EXCLUSIONS', 'COMPTOIR', 'QUINCAILLERIE',
         'FINITION', 'ÉLECTRO', 'RANGEMENT', 'DIMENSIONS',

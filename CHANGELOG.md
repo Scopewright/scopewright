@@ -5,7 +5,7 @@
 ## 2026-03-10
 
 ### UX
-- **#141 — Barre de progression lors du recalcul cascade global** — Overlay semi-transparent `rgba(255,255,255,0.25)` + barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction pendant `reprocessDefaultCascades`. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess (updateRoomDmType 2×, clearRoomDm N×, copier-de N×). Fade-out 150ms. Aucun alert/confirm
+- **#141 — Barre de progression lors du recalcul cascade global** — Overlay `rgba(255,255,255,0.6)` sur la zone articles (`.calc-rows` du groupe, pas le header) + barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction pendant `reprocessDefaultCascades`. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess. Fade-out 150ms. Aucun alert/confirm
 
 ### Bug Fixes
 - **Fix: Total ligne enfant cascade avec sous-enfants affiché incorrectement** — Les enfants cascade niveau 2+ (ex: Facade Slab) qui ont leurs propres sous-enfants affichaient le total agrégé (parent + descendants) même quand expandés. Cause : `_cascadeExpanded` est `undefined` par défaut (traité comme collapsé) → `updateCollapsedParentTotal` écrivait l'agrégat. Quand le parent niveau 1 était expandé, les totaux des enfants n'étaient pas recalculés. Fix : `applyCascadeVisibility` appelle maintenant `updateCollapsedParentTotal` sur les enfants `cascade-parent-row` quand le parent est expandé

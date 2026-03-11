@@ -4151,14 +4151,15 @@
         });
     }
 
-    // ── Cascade progress overlay (ref-counted) ──
+    // ── Cascade progress overlay (ref-counted, per-group) ──
     var _cascadeProgressRef = 0;
-    function showCascadeProgress() {
+    var _cascadeProgressGroupId = null;
+    function showCascadeProgress(scopeGroupId) {
         _cascadeProgressRef++;
         if (_cascadeProgressRef > 1) return; // already visible
-        var host = document.getElementById('calculatorView');
+        _cascadeProgressGroupId = scopeGroupId;
+        var host = scopeGroupId ? document.getElementById(scopeGroupId + '-rows') : null;
         if (!host) return;
-        if (!host.style.position || host.style.position === 'static') host.style.position = 'relative';
         var ov = document.createElement('div');
         ov.className = 'cascade-progress-overlay';
         ov.id = 'cascadeProgressOverlay';
@@ -4169,6 +4170,7 @@
     function hideCascadeProgress() {
         _cascadeProgressRef = Math.max(0, _cascadeProgressRef - 1);
         if (_cascadeProgressRef > 0) return; // other callers still running
+        _cascadeProgressGroupId = null;
         var ov = document.getElementById('cascadeProgressOverlay');
         if (!ov) return;
         ov.classList.add('fade-out');
@@ -4223,7 +4225,7 @@
         // triggering parallel cascades while we're executing. Without this, each
         // updateRow(child) during item replacement fires scheduleCascade (debounce 400ms)
         // which creates duplicate children alongside the recursive cascade.
-        showCascadeProgress();
+        showCascadeProgress(scopeGroupId);
         _cascadeRunning = true;
         try {
             for (var i = 0; i < rowIds.length; i++) {
@@ -5655,9 +5657,10 @@
         .calc-row.cascade-child .qty-input { pointer-events: none; user-select: none; cursor: default; }
         .calc-row.cascade-child.cascade-visible { display: grid; }
         /* ── Cascade progress overlay ── */
+        .calc-rows { position: relative; }
         .cascade-progress-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.25); z-index: 50; pointer-events: all;
+            background: rgba(255,255,255,0.6); z-index: 50; pointer-events: all;
             display: flex; flex-direction: column; align-items: center;
             opacity: 1; transition: opacity 150ms ease-out;
         }

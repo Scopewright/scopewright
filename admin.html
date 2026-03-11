@@ -1080,6 +1080,83 @@
                 </div>
             </div>
 
+            <!-- Présentation soumission : Page "Pourquoi" -->
+            <div class="section collapsed" id="sectionWhyPage" data-panel="presentation">
+                <div class="section-toggle" onclick="toggleSection('sectionWhyPage')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Page &laquo;&nbsp;Pourquoi&nbsp;&raquo;</div>
+                        <div class="section-desc">Contenu de la page &laquo;&nbsp;Pourquoi [Atelier]&nbsp;&raquo; dans la pr&eacute;sentation client.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">Titre</label>
+                            <input type="text" id="whyTitle" placeholder="Pourquoi Stele?" style="width:100%; padding:8px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px;" onchange="saveIntroField('why_title', this.value)">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">Texte</label>
+                            <textarea id="whyText" rows="6" placeholder="Paragraphe explicatif (HTML autoris&eacute; : &lt;p&gt;, &lt;strong&gt;)" style="width:100%; padding:10px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px; resize:vertical;" onchange="saveIntroField('why_text', this.value)"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:12px; font-weight:500; color:#555; display:block; margin-bottom:4px;">Image</label>
+                            <p style="font-size:13px; color:#888; margin-bottom:8px;">Image affich&eacute;e &agrave; gauche de la page. Format recommand&eacute; : portrait, haute r&eacute;solution.</p>
+                            <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:200px;">
+                                    <label class="btn-outline" style="cursor:pointer; display:inline-block;">
+                                        Choisir une image
+                                        <input type="file" id="whyImageInput" accept="image/*" onchange="uploadWhyImage(this)" style="display:none;">
+                                    </label>
+                                    <button class="btn-outline" onclick="removeWhyImage()" style="margin-left:8px; color:#c00;">Supprimer</button>
+                                    <span class="save-feedback" id="whyImageFeedback"></span>
+                                </div>
+                                <div id="whyImagePreview" style="width:200px; height:280px; border-radius:8px; overflow:hidden; background:#f5f5f5; border:1px solid #e0e0e0; display:flex; align-items:center; justify-content:center;">
+                                    <span style="color:#666; font-size:13px;" id="whyImagePlaceholder">Aucune image</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <span class="save-feedback" id="whyFieldsFeedback" style="display:inline-block; margin-top:8px;"></span>
+                </div>
+            </div>
+
+            <!-- Présentation soumission : Étapes du projet -->
+            <div class="section collapsed" id="sectionProjectSteps" data-panel="presentation">
+                <div class="section-toggle" onclick="toggleSection('sectionProjectSteps')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">&Eacute;tapes du projet</div>
+                        <div class="section-desc">Les 8 &eacute;tapes affich&eacute;es dans la pr&eacute;sentation client des soumissions.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <p style="font-size:13px; color:#888; margin-bottom:16px;">
+                        Chaque &eacute;tape a un titre et une description courte. Modifiez les champs puis cliquez &agrave; l'ext&eacute;rieur pour sauvegarder.
+                    </p>
+                    <div id="stepsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+                    <span class="save-feedback" id="stepsFeedback" style="display:inline-block; margin-top:8px;"></span>
+                </div>
+            </div>
+
+            <!-- Présentation : Format description client -->
+            <div class="section collapsed" id="sectionDescriptionFormat" data-panel="presentation">
+                <div class="section-toggle" onclick="toggleSection('sectionDescriptionFormat')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Format description client</div>
+                        <div class="section-desc">R&egrave;gles de format pour la g&eacute;n&eacute;ration AI des descriptions client des pi&egrave;ces.</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <p style="font-size:13px; color:#888; margin-bottom:12px;">
+                        Ce texte est inject&eacute; dans le prompt AI de l'assistant estimateur et de la g&eacute;n&eacute;ration de description. Il d&eacute;finit l'ordre des sections, les labels, et les r&egrave;gles de formatage.
+                    </p>
+                    <textarea id="descriptionFormatRules" rows="16" style="width:100%; padding:10px 12px; border:1px solid #d0d0d0; border-radius:4px; font-family:'SF Mono',Monaco,Consolas,monospace; font-size:12px; resize:vertical; line-height:1.5;" onchange="saveConfig('description_format_rules', this.value, 'descFormatFeedback')"></textarea>
+                    <span class="save-feedback" id="descFormatFeedback" style="display:inline-block; margin-top:8px;"></span>
+                </div>
+            </div>
+
             <!-- Statuts du pipeline -->
             <div class="section collapsed" id="sectionPipelineStatuses" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionPipelineStatuses')">
@@ -3117,7 +3194,8 @@
     }
 
     function saveIntroField(key, value) {
-        saveConfig(key, value, 'introFieldsFeedback');
+        var fbId = key.startsWith('why_') ? 'whyFieldsFeedback' : 'introFieldsFeedback';
+        saveConfig(key, value, fbId);
     }
 
     async function loadIntroFields() {
@@ -3141,6 +3219,185 @@
 
     loadIntroImagePreview();
     loadIntroFields();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRÉSENTATION CLIENT — PAGE "POURQUOI"
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function showWhyPreview(url) {
+        var preview = document.getElementById('whyImagePreview');
+        if (url) {
+            preview.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;">';
+        } else {
+            preview.innerHTML = '<span style="color:#666;font-size:13px;" id="whyImagePlaceholder">Aucune image</span>';
+        }
+    }
+
+    async function uploadWhyImage(input) {
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        var feedback = document.getElementById('whyImageFeedback');
+        feedback.textContent = 'Upload en cours...';
+        feedback.style.color = '#888';
+        try {
+            var compressed = await compressCoverImage(file, 1600, 0.85);
+            var r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/why_image.jpg', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                body: compressed
+            });
+            if (!r.ok) {
+                r = await authenticatedFetch(SUPABASE_URL + '/storage/v1/object/assets/why_image.jpg', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                    body: compressed
+                });
+            }
+            if (r.ok) {
+                var publicUrl = SUPABASE_URL + '/storage/v1/object/public/assets/why_image.jpg?t=' + Date.now();
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key: 'why_image_url', value: JSON.stringify(publicUrl) })
+                });
+                showWhyPreview(publicUrl);
+                feedback.textContent = 'Image sauvegardée!';
+                feedback.style.color = 'var(--sw-navy)';
+            } else {
+                feedback.textContent = 'Erreur upload';
+                feedback.style.color = '#c00';
+            }
+        } catch (e) {
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+        input.value = '';
+    }
+
+    async function removeWhyImage() {
+        if (!confirm('Supprimer l\'image de la page Pourquoi ?')) return;
+        var feedback = document.getElementById('whyImageFeedback');
+        try {
+            await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify({ key: 'why_image_url', value: JSON.stringify('') })
+            });
+            showWhyPreview('');
+            feedback.textContent = 'Image supprimée';
+            feedback.style.color = '#888';
+        } catch (e) {
+            feedback.textContent = 'Erreur';
+            feedback.style.color = '#c00';
+        }
+    }
+
+    async function loadWhyFields() {
+        try {
+            var keys = 'why_title,why_text,why_image_url';
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + keys + ')&select=key,value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                var map = {};
+                rows.forEach(function(row) { map[row.key] = row.value; });
+                if (map.why_title) document.getElementById('whyTitle').value = map.why_title;
+                if (map.why_text) document.getElementById('whyText').value = map.why_text;
+                var imgUrl = map.why_image_url;
+                if (imgUrl) {
+                    // Strip wrapping quotes if JSON-encoded
+                    if (typeof imgUrl === 'string' && imgUrl.length >= 2 && imgUrl[0] === '"' && imgUrl[imgUrl.length - 1] === '"') {
+                        try { imgUrl = JSON.parse(imgUrl); } catch (e) {}
+                    }
+                    showWhyPreview(imgUrl);
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    loadWhyFields();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRÉSENTATION CLIENT — ÉTAPES DU PROJET
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var DEFAULT_STEPS = [
+        { title: 'Conception', description: 'Rassembler les informations nécessaires : choix des poignées, approbation des matériaux, fiches techniques des électroménagers.' },
+        { title: 'Prise de mesure initiale', description: 'Mesures sur les colombages et le plancher non fini. Nous tiendrons compte de l\'épaisseur des revêtements prévus.' },
+        { title: 'Approbation des dessins d\'atelier', description: 'Les dessins d\'atelier vous seront remis pour approbation. Une fois approuvés, aucune modification ne pourra y être apportée.' },
+        { title: 'Commande de matériaux', description: 'Commande des matériaux (placages, quincaillerie spéciale) pour éviter tout délai lors de la mise en production.' },
+        { title: 'Prise de mesure finale', description: 'Mesure finale une fois le plancher fini et les joints posés. Délai de 6 semaines avant le début de l\'installation.' },
+        { title: 'Dessins d\'atelier pour production', description: 'Ajustements mineurs par rapport aux mesures initiales. Sauf changement majeur, pas de nouvelle approbation requise.' },
+        { title: 'Installation', description: 'La durée varie selon l\'ampleur du projet. Votre vision prend forme.' },
+        { title: 'Contrôle de qualité', description: 'Visite avec un représentant pour établir une liste d\'ajustements si nécessaire.' }
+    ];
+
+    function renderStepsEditor(steps) {
+        var container = document.getElementById('stepsContainer');
+        container.innerHTML = '';
+        steps.forEach(function(step, i) {
+            var div = document.createElement('div');
+            div.style.cssText = 'display:flex; gap:12px; align-items:flex-start; padding:12px; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa;';
+            div.innerHTML = '<div style="min-width:32px; height:32px; border-radius:50%; background:#0B1220; color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; margin-top:4px;">' + (i + 1) + '</div>' +
+                '<div style="flex:1; display:flex; flex-direction:column; gap:6px;">' +
+                '<input type="text" class="step-title" data-idx="' + i + '" value="' + (step.title || '').replace(/"/g, '&quot;') + '" placeholder="Titre de l\'étape" style="width:100%; padding:6px 10px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:13px; font-weight:600;" onchange="onStepChange()">' +
+                '<textarea class="step-desc" data-idx="' + i + '" rows="2" placeholder="Description courte" style="width:100%; padding:6px 10px; border:1px solid #d0d0d0; border-radius:4px; font-family:inherit; font-size:12px; resize:vertical;" onchange="onStepChange()">' + (step.description || '') + '</textarea>' +
+                '</div>';
+            container.appendChild(div);
+        });
+    }
+
+    function onStepChange() {
+        var titles = document.querySelectorAll('.step-title');
+        var descs = document.querySelectorAll('.step-desc');
+        var steps = [];
+        titles.forEach(function(el, i) {
+            steps.push({ title: el.value, description: descs[i].value });
+        });
+        saveConfig('project_steps', JSON.stringify(steps), 'stepsFeedback');
+    }
+
+    async function loadProjectSteps() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.project_steps&select=value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0 && rows[0].value) {
+                    var val = rows[0].value;
+                    var steps;
+                    if (typeof val === 'string') {
+                        try { steps = JSON.parse(val); } catch (e) { steps = null; }
+                    } else {
+                        steps = val;
+                    }
+                    if (Array.isArray(steps) && steps.length > 0) {
+                        renderStepsEditor(steps);
+                        return;
+                    }
+                }
+            }
+        } catch (e) { /* ignore */ }
+        renderStepsEditor(DEFAULT_STEPS);
+    }
+
+    loadProjectSteps();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRÉSENTATION CLIENT — FORMAT DESCRIPTION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function loadDescriptionFormat() {
+        try {
+            var r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.description_format_rules&select=value', {});
+            if (r.ok) {
+                var rows = await r.json();
+                if (rows.length > 0 && rows[0].value) {
+                    document.getElementById('descriptionFormatRules').value = rows[0].value;
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    loadDescriptionFormat();
 
     // ═══════════════════════════════════════════════════════════════════════
     // AI — PROMPTS, LEARNINGS, RÉGÉNÉRATION DE RÈGLES

@@ -20,7 +20,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 19 sections accordion | ~3 620 lignes |
+| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 22 sections accordion | ~3 970 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -102,6 +102,9 @@ Toutes les pages internes utilisent le système de tokens Scopewright :
 - Police secondaire : Cormorant Garamond (titres soumission)
 - **Images** : chargées via `get_public_room_media(p_token)` RPC (SECURITY DEFINER, bypass RLS). Migration : `sql/get_public_room_media.sql`
 - **Clauses** : `sub.clauses` via `get_public_quote` RPC (nécessite `s.clauses` dans le SELECT — migration `sql/fix_get_public_quote_clauses.sql`)
+- **Page "Pourquoi"** : titre/texte/image dynamiques depuis `app_config` (`why_title`, `why_text`, `why_image_url`). Placeholder `{designer}` interpolé avec le nom de l'architecte. Fallback hardcodé si absent
+- **Étapes du projet** : 8 étapes dynamiques depuis `app_config.project_steps` (JSONB array `[{title, description}]`). Fallback sur `STEPS_I18N` hardcodé si absent
+- **Données chargées** : `app_config` keys fetchées au chargement : cover_image, intro_*, why_*, project_steps. Migrations : `sql/presentation_sections.sql`
 
 ### Classes utilitaires
 
@@ -364,7 +367,8 @@ Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sour
 | **Prix/totaux** | Calculé live (DOM `getRowTotal`) | `room.subtotal` × modifiers | Capturé ✅ | Tableau par meuble ✅ |
 | **`approved_total`** | Non utilisé explicitement | Priorité sur total calculé ✅ | Capturé (total affiché) | ❌ |
 | **Rabais** | `currentSubmission.discount_*` ✅ | `sub.discount_*` ✅ | Capturé ✅ | ❌ |
-| **Étapes** | Hardcoded i18n (FR+EN) ✅ | Hardcoded `STEPS` (FR seulement) ⚠️ | Capturé ✅ | ❌ |
+| **Étapes** | Hardcoded i18n (FR+EN) ✅ | `app_config.project_steps` dynamique ✅ (fallback STEPS_I18N) | Capturé ✅ | ❌ |
+| **Page Pourquoi** | `introConfig` ✅ | `app_config` why_title/why_text/why_image_url ✅ (fallback hardcodé) | Capturé ✅ | ❌ |
 | **Intro page** | `introConfig` + EN via `introConfigEN` ✅ | `introConfig` (FR seulement) ⚠️ | Capturé ✅ | ❌ |
 | **Installation** | DOM checkboxes ✅ | `room.installation_included` ✅ | Capturé ✅ | ❌ |
 | **DM (matériaux)** | ❌ non rendu | ❌ non rendu | ❌ | ❌ |
@@ -593,6 +597,16 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `ai_prompt_json_catalogue` | translate | Haiku 4.5 | ❌ Manquant |
 | `ai_prompt_approval_suggest` | translate | Sonnet 4 | ❌ Manquant |
 
+### Clés `app_config` non-AI (présentation)
+
+| Clé `app_config` | Type | Rôle | Consommé par |
+|---|---|---|---|
+| `description_format_rules` | TEXT | Règles de format pour descriptions client AI | ai-assistant (`buildSystemPrompt`), translate (`calculateur_description`), admin.html (éditable) |
+| `why_title` | TEXT | Titre page "Pourquoi [Atelier]" | quote.html |
+| `why_text` | TEXT (HTML) | Texte page "Pourquoi". Placeholder `{designer}` interpolé | quote.html |
+| `why_image_url` | TEXT (URL) | Image page "Pourquoi" | quote.html |
+| `project_steps` | JSONB | 8 étapes `[{title, description}]` | quote.html (fallback `STEPS_I18N`) |
+
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 
 **Prompt final = statique (DB ou hardcodé) + dynamique (code) :**
@@ -603,7 +617,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
-- `DESCRIPTION_FORMAT_RULES` (9 lignes) — injecté via placeholder `{{DESCRIPTION_FORMAT_RULES}}`
+- ~~`DESCRIPTION_FORMAT_RULES`~~ **Remplacé** : chargé dynamiquement depuis `app_config.description_format_rules` avec fallback hardcodé `DEFAULT_DESCRIPTION_FORMAT_RULES`. Injecté via placeholder `{{DESCRIPTION_FORMAT_RULES}}` dans `buildSystemPrompt()` (ai-assistant) et dans le prompt `calculateur_description` (translate). Éditable dans admin.html volet Présentation
 - Instructions "Diagnostic cascade" et "Modification catalogue" — hardcodées dans `buildSystemPrompt()`
 - Header "Règles de calcul" (~30 lignes d'instructions) — hardcodé avant la liste des règles
 - User message templates (translate, 12 actions) — messages action-spécifiques côté code
@@ -699,6 +713,13 @@ employees, roles, user_roles, user_profiles
 quote_clauses, submission_unlock_logs (immuable)
 catalogue_change_log (audit AI modifications catalogue)
 ```
+
+### `app_config.value` — type JSONB
+
+La colonne `value` de `app_config` est de type **JSONB**. Pour les migrations SQL :
+- **String simple** → `to_jsonb('texte'::text)` — produit `"texte"` en JSONB
+- **Objet/array JSON** → `'{"key": "value"}'::jsonb` — cast direct
+- **Ne jamais** insérer une string SQL brute directement dans `value` (erreur de type ou stockage incorrect)
 
 ### Colonnes et contraintes importantes
 

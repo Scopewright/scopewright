@@ -29,7 +29,8 @@ async function loadPromptOverrides(supabase: any): Promise<Record<string, string
         "ai_prompt_client_text_catalogue", "ai_prompt_explication_catalogue",
         "ai_prompt_json_catalogue", "ai_prompt_pres_rule", "ai_prompt_calc_rule",
         "ai_prompt_description_calculateur", "ai_prompt_import_components", "ai_prompt_approval_suggest",
-        "ai_prompt_instruction_catalogue", "ai_prompt_labor_modifiers", "ai_prompt_expense_pres_rule"
+        "ai_prompt_instruction_catalogue", "ai_prompt_labor_modifiers", "ai_prompt_expense_pres_rule",
+        "description_format_rules"
       ]);
     if (error || !data) return {};
     const overrides: Record<string, string> = {};
@@ -127,12 +128,35 @@ RÈGLES :
 - Si l'explication mentionne des articles sans code, utilise un placeholder "[CODE]"
 - Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks`;
 
+// Fallback hardcoded description format rules (used when app_config.description_format_rules is absent)
+const DEFAULT_DESCRIPTION_FORMAT_RULES = `FORMAT OBLIGATOIRE — DESCRIPTION CLIENT STELE
+
+**Caisson :** [matériau]
+**Façades :** [matériau 1], [matériau 2 si même type]
+[finition sans label — ligne séparée, suite naturelle sous Façades]
+**Panneaux apparents :** [matériau]
+**Tiroirs :** [type]
+**Poignées :** [type]
+**Détails :**
+- [détail technique ou inclusion notable]
+- [ex: Installation incluse]
+**Exclusions :** Voir note générale d'exclusions, [articles non inclus dans cette pièce]
+
+RÈGLES :
+- Fusionner les DM du même type sous un seul label bold
+- Omettre une section si aucune donnée disponible pour cette pièce
+- "Exclusions" toujours en dernier, toujours présent (au minimum "Voir note générale d'exclusions")
+- Jamais de label dupliqué
+- Ordre : Caisson → Façades → Finition → Panneaux → Tiroirs → Poignées → Détails → Exclusions
+- Les composantes cascade ne sont PAS listées individuellement`;
+
 const CALCULATEUR_DESCRIPTION_SYSTEM = `Tu es un rédacteur technique pour Stele, un atelier d'ébénisterie haut de gamme sur mesure au Québec.
 Tu rédiges ou améliores les descriptions client des pièces/meubles dans les soumissions.
 
-FORMAT HTML OBLIGATOIRE :
+{{DESCRIPTION_FORMAT_RULES}}
+
+FORMAT HTML :
 - Chaque catégorie en <strong> suivi du texte : <p><strong>Caisson :</strong> ME1</p>
-- Catégories : Caisson, Façades, Panneaux, Tiroirs Legrabox, Poignées, Détails, Exclusions
 - Détails : <p><strong>Détails :</strong></p> suivi de <ul><li>...</li></ul>
 - Exclusions : <p><strong>Exclusions :</strong> texte</p> — JAMAIS de puces
 - Uniquement <p>, <strong>, <ul>, <li> — pas de <h1-h3>, <div>, <html>
@@ -468,6 +492,13 @@ serve(async (req) => {
     ]);
     const mapping = PROMPT_MAP[action] || PROMPT_MAP.translate;
     let systemPrompt = overrides[mapping.key] || mapping.prompt;
+
+    // Inject description_format_rules into calculateur_description prompt
+    if (action === "calculateur_description") {
+      const descFormatRules = overrides["description_format_rules"] || DEFAULT_DESCRIPTION_FORMAT_RULES;
+      systemPrompt = systemPrompt.replace("{{DESCRIPTION_FORMAT_RULES}}", descFormatRules);
+    }
+
     // Inject organizational learnings
     if (learnings.length > 0) {
       systemPrompt += "\n\nRègles apprises de cette organisation (à respecter) :\n"

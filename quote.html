@@ -1026,7 +1026,7 @@ var designerArchitectName = '';
             return val;
         }
         try {
-            var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_text_1_en,presentation_intro_text_2_en,presentation_intro_text_3_en,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url';
+            var configKeys = 'cover_image,intro_image,presentation_intro_text_1,presentation_intro_text_2,presentation_intro_text_3,presentation_intro_text_1_en,presentation_intro_text_2_en,presentation_intro_text_3_en,presentation_intro_atelier,presentation_intro_bureau,presentation_intro_phone,presentation_intro_url,why_title,why_text,why_image_url,project_steps';
             var ciResp = await fetch(SUPABASE_URL + '/rest/v1/app_config?key=in.(' + configKeys + ')&select=key,value', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
@@ -1289,23 +1289,33 @@ async function renderQuote() {
         html += '</div>'; // end pv-page-intro
     }
 
-    // ── Page "Pourquoi stele" ──
+    // ── Page "Pourquoi [Atelier]" — dynamic from app_config ──
     var whyDesignerName = designerArchitectName || 'votre architecte';
+    var whyTitle = introConfig.why_title || 'Pourquoi stele?';
+    var whyImageUrl = introConfig.why_image_url || 'images/why-stele.jpg';
+    var whyTextRaw = introConfig.why_text || '';
+    // Default text with designer name interpolation
+    if (!whyTextRaw) {
+        whyTextRaw = '<p>Parce que, comme vous, nous estimons et admirons le travail de ' + escapeHtml(whyDesignerName) + ', et souhaitons rendre hommage à leur vision avec la même exigence.</p>'
+            + '<p>Parce que nos années d\'expérience dans la réalisation de projets d\'ébénisterie d\'envergure nous ont appris à maîtriser la complexité, et que notre équipe se distingue par son habileté là où la technologie atteint ses limites.</p>'
+            + '<p>Parce que stele, c\'est avant tout une équipe de gens passionnés, animés par le désir de créer des pièces uniques. Si chaque projet apporte son lot de défis, nous sommes prêts à les relever pour que chaque étape se fasse en toute simplicité.</p>';
+    }
+    // Interpolate {designer} placeholder in dynamic text
+    whyTextRaw = whyTextRaw.replace(/\{designer\}/g, escapeHtml(whyDesignerName));
     html += '<div class="pv-page pv-page-why">';
     html += '<div class="pv-why-image">';
-    html += '<img src="images/why-stele.jpg" alt="Atelier stele" onerror="this.style.display=\'none\'" />';
+    html += '<img src="' + escapeAttr(whyImageUrl) + '" alt="Atelier" onerror="this.style.display=\'none\'" />';
     html += '</div>';
     html += '<div class="pv-why-content">';
     html += '<div class="pv-why-rule"></div>';
-    html += '<h2 class="pv-why-title">Pourquoi <strong>stele</strong></h2>';
+    html += '<h2 class="pv-why-title">' + whyTitle + '</h2>';
     html += '<div class="pv-why-body">';
-    html += '<p>Parce que, comme vous, nous estimons et admirons le travail de ' + escapeHtml(whyDesignerName) + ', et souhaitons rendre hommage à leur vision avec la même exigence.</p>';
-    html += '<p>Parce que nos années d\'expérience dans la réalisation de projets d\'ébénisterie d\'envergure nous ont appris à maîtriser la complexité, et que notre équipe se distingue par son habileté là où la technologie atteint ses limites.</p>';
-    html += '<p>Parce que stele, c\'est avant tout une équipe de gens passionnés, animés par le désir de créer des pièces uniques. Si chaque projet apporte son lot de défis, nous sommes prêts à les relever pour que chaque étape se fasse en toute simplicité.</p>';
+    html += whyTextRaw;
     html += '</div>';
     html += '</div>';
+    var whyBottomUrl = introConfig.presentation_intro_url || 'stele.ca';
     html += '<div class="pv-why-bottom">';
-    html += '<span class="pv-why-bottom-url">stele.ca</span>';
+    html += '<span class="pv-why-bottom-url">' + escapeHtml(whyBottomUrl) + '</span>';
     html += '<span class="pv-why-bottom-page">2</span>';
     html += '</div>';
     html += '</div>'; // end pv-page-why
@@ -1398,13 +1408,29 @@ async function renderQuote() {
     }
 
     // ── Steps page ── (before combined final page)
-    var steps = STEPS_I18N[QUOTE_LANG] || STEPS_I18N.fr;
+    // Use dynamic project_steps from app_config if available, fallback to hardcoded STEPS_I18N
+    var dynamicSteps = null;
+    if (introConfig.project_steps) {
+        var rawSteps = introConfig.project_steps;
+        if (typeof rawSteps === 'string') {
+            try { dynamicSteps = JSON.parse(rawSteps); } catch (e) { dynamicSteps = null; }
+        } else if (Array.isArray(rawSteps)) {
+            dynamicSteps = rawSteps;
+        }
+    }
+    var steps;
+    if (dynamicSteps && Array.isArray(dynamicSteps) && dynamicSteps.length > 0) {
+        // Dynamic steps from app_config — map to {label, desc} format
+        steps = dynamicSteps.map(function(s) { return { label: s.title || '', desc: s.description || '' }; });
+    } else {
+        steps = STEPS_I18N[QUOTE_LANG] || STEPS_I18N.fr;
+    }
     html += '<div class="pv-page pv-page-steps">';
     html += '<div class="pv-steps-title">' + escapeHtml(t('stepsTitle')) + '</div>';
     html += '<div class="pv-steps-grid">';
     steps.forEach(function(step, i) {
         html += '<div class="pv-step">';
-        html += '<div class="pv-step-circle" style="background:' + STEP_COLORS[i] + '">' + (i + 1) + '</div>';
+        html += '<div class="pv-step-circle" style="background:' + (STEP_COLORS[i] || STEP_COLORS[STEP_COLORS.length - 1]) + '">' + (i + 1) + '</div>';
         html += '<div class="pv-step-content">';
         html += '<div class="pv-step-label">' + escapeHtml(step.label) + '</div>';
         html += '<div class="pv-step-desc">' + escapeHtml(step.desc) + '</div>';

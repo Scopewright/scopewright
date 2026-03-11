@@ -97,10 +97,30 @@ const DESCRIPTION_SECTION = `## Descriptions client
 - Assemble les client_text : Matériau → Finition → Quincaillerie → Détails. Commence par le type d'élément.
 - Exemples : "Caisson bas en mélamine blanche, chants PVC assortis, 2 tablettes ajustables"`;
 
-const DESCRIPTION_FORMAT_RULES = `
-FORMAT HTML OBLIGATOIRE :
+// Fallback hardcoded description format rules (used when app_config.description_format_rules is absent)
+const DEFAULT_DESCRIPTION_FORMAT_RULES = `FORMAT OBLIGATOIRE — DESCRIPTION CLIENT STELE
+
+**Caisson :** [matériau]
+**Façades :** [matériau 1], [matériau 2 si même type]
+[finition sans label — ligne séparée, suite naturelle sous Façades]
+**Panneaux apparents :** [matériau]
+**Tiroirs :** [type]
+**Poignées :** [type]
+**Détails :**
+- [détail technique ou inclusion notable]
+- [ex: Installation incluse]
+**Exclusions :** Voir note générale d'exclusions, [articles non inclus dans cette pièce]
+
+RÈGLES :
+- Fusionner les DM du même type sous un seul label bold
+- Omettre une section si aucune donnée disponible pour cette pièce
+- "Exclusions" toujours en dernier, toujours présent (au minimum "Voir note générale d'exclusions")
+- Jamais de label dupliqué
+- Ordre : Caisson → Façades → Finition → Panneaux → Tiroirs → Poignées → Détails → Exclusions
+- Les composantes cascade ne sont PAS listées individuellement
+
+FORMAT HTML :
 - Chaque catégorie principale en <strong> suivi du texte sur la même ligne : <p><strong>Caisson :</strong> ME1</p>
-- Les catégories possibles : Caisson, Façades, Panneaux, Tiroirs Legrabox, Poignées, Détails, Exclusions (et autres si pertinent)
 - Détails : <p><strong>Détails :</strong></p> suivi d'une liste <ul><li>...</li></ul>
 - Exclusions : <p><strong>Exclusions :</strong> texte sur la même ligne</p> — JAMAIS de puces
 - Paragraphes informatifs sans catégorie : <p>texte</p>
@@ -202,7 +222,7 @@ async function loadPromptOverride(supabase: any, key: string = "ai_prompt_estima
   }
 }
 
-function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = [], messages: any[] = []): string {
+function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = [], messages: any[] = [], descFormatRules?: string): string {
   // Use override or default for the static instructions
   let staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
@@ -211,14 +231,15 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
     .map((t: any) => `${t.prefix} = ${t.label_fr} (${t.label_en})`)
     .join(", ");
   // Conditional sections based on context flags
+  const effectiveDescRules = descFormatRules || DEFAULT_DESCRIPTION_FORMAT_RULES;
   const plansContent = context.hasImages ? PLANS_SECTION : '';
-  const descContent = context.needsDescriptionHelp ? DESCRIPTION_SECTION.replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES) : '';
+  const descContent = context.needsDescriptionHelp ? DESCRIPTION_SECTION.replace("{{DESCRIPTION_FORMAT_RULES}}", effectiveDescRules) : '';
 
   staticPrompt = staticPrompt
     .replace("{{TAG_PREFIXES}}", tagPrefixStr || "C = Caisson, F = Filler, P = Panneau, T = Tiroir, M = Moulure, A = Accessoire")
     .replace("{{PLANS_SECTION}}", plansContent)
     .replace("{{DESCRIPTION_SECTION}}", descContent)
-    .replace("{{DESCRIPTION_FORMAT_RULES}}", DESCRIPTION_FORMAT_RULES);
+    .replace("{{DESCRIPTION_FORMAT_RULES}}", effectiveDescRules);
 
   // Build dynamic context sections
   const tauxStr = (context.tauxHoraires || [])
@@ -782,17 +803,18 @@ serve(async (req) => {
     const effectiveKey = prompt_key || "ai_prompt_estimateur";
     const useTools = tools_enabled !== false; // default true
 
-    // Load prompt override + organizational learnings in parallel
-    const [staticOverride, learnings] = await Promise.all([
+    // Load prompt override + organizational learnings + description format rules in parallel
+    const [staticOverride, learnings, descFormatRules] = await Promise.all([
       loadPromptOverride(supabase, effectiveKey),
       loadLearnings(supabase),
+      loadPromptOverride(supabase, "description_format_rules"),
     ]);
 
     let systemPrompt: string;
 
     if (effectiveKey === "ai_prompt_estimateur") {
       // Estimateur: full buildSystemPrompt with project/room/tag context
-      systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings, messages || []);
+      systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings, messages || [], descFormatRules || undefined);
       // Inject catalogue summary into context if provided
       if (context?.catalogueSummary) {
         systemPrompt += `\n\n## Catalogue disponible (résumé)\nLes articles marqués ★ sont les articles PAR DÉFAUT de l'atelier — utilise-les en priorité sauf indication contraire de l'estimateur. Les articles sans ★ sont des alternatives disponibles mais non privilégiées.\n${context.catalogueSummary}`;

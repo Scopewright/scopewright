@@ -44,7 +44,7 @@
 |---------|------|----------------|
 | `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 500 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 580 lignes |
+| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 22 sections | ~3 970 lignes |
 | `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 200 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
@@ -1195,6 +1195,9 @@ Chat drawer connecté à `contacts-import` Edge Function via SSE. Supporte :
 | AI Learnings | Table `ai_learnings` | Règles organisationnelles |
 | Image couverture | `cover_image_url` | Image de fond pour les soumissions |
 | Page introduction | `presentation_intro_*` | Textes et coordonnées |
+| Page "Pourquoi" | `why_title`, `why_text`, `why_image_url` | Titre, texte HTML, image. Placeholder `{designer}` interpolé |
+| Étapes du projet | `project_steps` | JSONB array `[{title, description}]` — 8 étapes éditables |
+| Format description | `description_format_rules` | Règles injectées dans les prompts AI (estimateur + description) |
 
 ### 10.2 Pattern de sauvegarde
 

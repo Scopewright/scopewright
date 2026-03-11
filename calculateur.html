@@ -10326,7 +10326,7 @@
             </div>
             <div class="modal-body">
                 <div class="plans-upload-zone">
-                    <input type="file" id="planFileInput" accept=".pdf" style="display:none;" onchange="handlePlanFileSelect(event)">
+                    <input type="file" id="planFileInput" accept=".pdf" multiple style="display:none;" onchange="handlePlanFileSelect(event)">
                     <button class="btn-upload-plan" id="btnUploadPlan" onclick="document.getElementById('planFileInput').click()">
                         <span style="font-size:20px;">&#128196;</span> T&eacute;l&eacute;verser un nouveau plan
                     </button>
@@ -15089,16 +15089,29 @@
         }
 
         async function handlePlanFileSelect(event) {
-            var file = event.target.files[0];
-            if (!file) return;
+            var files = Array.from(event.target.files || []);
+            if (!files.length) return;
 
-            if (file.type !== 'application/pdf') {
-                alert('Veuillez sélectionner un fichier PDF.');
+            var pdfFiles = files.filter(function(f) { return f.type === 'application/pdf'; });
+            if (pdfFiles.length === 0) {
+                alert('Veuillez sélectionner des fichiers PDF.');
                 event.target.value = '';
                 return;
             }
+            if (pdfFiles.length < files.length) {
+                showSaveIndicator(true, (files.length - pdfFiles.length) + ' fichier(s) non-PDF ignoré(s)');
+            }
 
-            await uploadNewPlan(file);
+            var status = document.getElementById('planUploadStatus');
+            for (var i = 0; i < pdfFiles.length; i++) {
+                if (pdfFiles.length > 1 && status) {
+                    status.style.display = 'block';
+                    status.style.background = '#e3f2fd';
+                    status.style.color = '#1565c0';
+                    status.innerHTML = '📄 Fichier ' + (i + 1) + '/' + pdfFiles.length + '...';
+                }
+                await uploadNewPlan(pdfFiles[i]);
+            }
             event.target.value = '';
         }
 

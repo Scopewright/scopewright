@@ -555,6 +555,7 @@ Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cas
 - **Revert** : `revertCascadeManualEdit(rowId)` restaure qty, supprime `price_override`, retire `.cascade-manual-edit`, puis `scheduleCascade` sur le **parent** (`cascadeParentMap[rowId]`)
 - **CSS** : `.cascade-manual-edit` — bordure gauche 2px indigo `#6366f1`, fond subtil. Bouton ↺ (`.btn-revert-manual`) visible uniquement quand actif
 - **Guard** : `scheduleCascade` retourne immédiatement pour les lignes `cascade-child` — empêche les enfants de déclencher leur propre cascade (évite la modale DM intempestive)
+- **Qty readonly** : les inputs qty des enfants cascade sont `readOnly = true` (appliqué dans `addRow`, `executeCascade`, et `openSubmission`). CSS `.calc-row.cascade-child .qty-input { pointer-events: none }` — empêche toute interaction utilisateur. La quantité est gérée exclusivement par le moteur cascade
 
 ### 3.10.2 Enfants cascade manuels
 

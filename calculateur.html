@@ -4591,6 +4591,7 @@
                     }
                     if (qtyChanged) {
                         childQty.value = instanceQty;
+                        childQty.readOnly = true;
                         updateRow(existing.rowId);
                     } else if (itemChanged) {
                         updateRow(existing.rowId);
@@ -5624,6 +5625,7 @@
         .calc-row.cascade-child .qty-mult-input,
         .calc-row.cascade-child .cell-unit-price,
         .calc-row.cascade-child .cell-total { font-size: 11px; color: #9CA3AF; }
+        .calc-row.cascade-child .qty-input { pointer-events: none; user-select: none; cursor: default; }
         .calc-row.cascade-child.cascade-visible { display: grid; }
         /* ── Cascade toggle triangle ── */
         .btn-cascade-toggle {
@@ -11919,12 +11921,14 @@
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
 
-            // Cascade children: tag is inherited from parent (readonly), no override button
+            // Cascade children: tag is inherited from parent (readonly), no override button, qty readonly
             if (opts.cascade) {
                 var tagEl = document.getElementById(rowId + '-tag');
                 if (tagEl) tagEl.readOnly = true;
                 var ovBtn = document.getElementById(rowId + '-ov-btn');
                 if (ovBtn) ovBtn.style.display = 'none';
+                var _cQtyIn = row.querySelector('.qty-input');
+                if (_cQtyIn) { _cQtyIn.readOnly = true; _cQtyIn.title = 'Quantité gérée par la cascade'; }
             }
 
             // Manual cascade child (added by user/AI under an existing parent)
@@ -18563,6 +18567,7 @@
                             }
 
                             qtyInput.value = item.quantity || 1;
+                            if (isCascade) { qtyInput.readOnly = true; qtyInput.title = 'Quantité gérée par la cascade'; }
 
                             // Restore qty_multiplier
                             var _qmRestore = document.getElementById(rowId + '-qty-mult');

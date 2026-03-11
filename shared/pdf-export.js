@@ -145,6 +145,15 @@ async function exportSubmissionPdf() {
             el.remove();
         });
 
+        // Resolve relative image URLs to absolute (PDFShift can't resolve relative paths)
+        var baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+        clone.querySelectorAll('img').forEach(function(img) {
+            var src = img.getAttribute('src');
+            if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                img.setAttribute('src', baseUrl + src);
+            }
+        });
+
         // Bug 2 fix: sanitize double-escaped HTML entities in descriptions.
         // Some DB descriptions contain literal "&lt;br&gt;" instead of <br> tags.
         var rawHtml = clone.innerHTML;
@@ -155,26 +164,20 @@ async function exportSubmissionPdf() {
         // All overrides use !important to guarantee they beat SNAPSHOT_CSS rules
         // at identical specificity (same class selectors, later in cascade).
         var pdfCss = SNAPSHOT_CSS +
-            // Bug 1 fix: eliminate blank pages.
-            // SNAPSHOT_CSS sets aspect-ratio:11/8.5 on .pv-page which forces a fixed
-            // height per page. When content is shorter, the remaining space creates a
-            // blank area that PDFShift's print engine treats as a separate page.
-            // Also remove gap between pages and ensure no double page-breaks.
+            // Page sizing: landscape Letter = 11×8.5 in. Each .pv-page fills one print page.
+            // aspect-ratio removed (caused blank pages) but min-height ensures vertical centering works.
             '\n.pv-content{padding:0!important;gap:0!important}' +
-            '\n.pv-page{width:100%!important;box-sizing:border-box!important;height:auto!important;aspect-ratio:unset!important;overflow:visible!important;position:relative!important;min-height:auto!important;max-height:none!important}' +
+            '\n.pv-page{width:100%!important;box-sizing:border-box!important;height:auto!important;aspect-ratio:unset!important;overflow:visible!important;position:relative!important;min-height:8.5in!important;max-height:none!important}' +
             '\n.pv-page:not(:first-child){page-break-before:always}' +
-            // Cover page: restore overflow:hidden so border-radius clips the image
-            '\n.pv-page-title{overflow:hidden!important}' +
-            '\n.pv-cover-right{-webkit-border-radius:8px!important;border-radius:8px!important;overflow:hidden!important}' +
-            '\n.pv-cover-right img{-webkit-border-radius:0!important;border-radius:0!important}' +
+            // Cover page: restore overflow:hidden for border-radius clip + force full height
+            '\n.pv-page-title{overflow:hidden!important;height:8.5in!important;min-height:8.5in!important}' +
+            '\n.pv-cover-right{-webkit-border-radius:8px!important;border-radius:8px!important;overflow:hidden!important;height:calc(8.5in - 64px)!important;min-height:calc(8.5in - 64px)!important}' +
+            '\n.pv-cover-right img{-webkit-border-radius:0!important;border-radius:0!important;height:100%!important;min-height:100%!important}' +
             // Clauses: force white background (SNAPSHOT_CSS uses #fafafa)
             '\n.pv-page-clause{background:#fff!important}' +
             '\n.pv-page-total{background:#fff!important;color:#1A1A1A!important;display:flex!important;flex-direction:column!important}' +
             '\n.pv-total-box{display:none!important}' +
-            // Bug 3 fix: constrain 2-column layouts to prevent image/text overflow.
-            // PDFShift renders at 1056px viewport. Images in .pv-page-room-media can
-            // overflow their grid cells if min-width is not constrained.
-            // Use object-fit:contain so plan images are fully visible (not cropped).
+            // 2-column layouts: constrain overflow, vertical centering via flex
             '\n.pv-page-room-body{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
             '\n.pv-page-room-text{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
             '\n.pv-page-room-media{overflow:hidden!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}' +
@@ -182,8 +185,13 @@ async function exportSubmissionPdf() {
             '\n.pv-page-room-media .pv-img-wrap img{object-fit:contain!important;object-position:center!important;max-width:100%!important}' +
             '\n.pv-page-intro{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
             '\n.pv-intro-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
-            '\n.pv-page-why{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
-            '\n.pv-why-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}';
+            // "Why" page: ensure grid fills page height for image + text centering
+            '\n.pv-page-why{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important;height:8.5in!important}' +
+            '\n.pv-why-image{min-height:0!important}' +
+            '\n.pv-why-image img{height:100%!important;min-height:100%!important}' +
+            '\n.pv-why-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
+            // Steps page: ensure grid fills page for vertical distribution
+            '\n.pv-page-steps{display:flex!important;flex-direction:column!important}';
 
         var htmlDoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
             '<meta name="viewport" content="width=1056">' +
@@ -192,6 +200,12 @@ async function exportSubmissionPdf() {
             '</head><body style="margin:0;padding:0;">' +
             '<div class="pv-content" style="width:1056px;">' + rawHtml + '</div>' +
             '</body></html>';
+
+        // Diagnostic: log HTML size and image sources for debugging
+        console.log('[PDF] HTML size:', htmlDoc.length, 'chars');
+        console.log('[PDF] Style block present:', htmlDoc.indexOf('.pv-page{') > -1);
+        var _imgMatches = htmlDoc.match(/src="([^"]+)"/g) || [];
+        console.log('[PDF] Image sources (' + _imgMatches.length + '):', _imgMatches.slice(0, 10).join(' | '));
 
         // 5. Generate filename
         var orgName = (introConfig && introConfig.org_name) ? introConfig.org_name : 'Stele';

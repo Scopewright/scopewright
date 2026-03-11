@@ -4201,10 +4201,17 @@
             }
         }
 
-        // Invalidate stale dmChoiceCache: old DM choices no longer valid after DM change
-        if (Object.keys(dmChoiceCache).length > 0) {
-            cascadeLog('info', 'reprocessDefaultCascades: clearing ' + Object.keys(dmChoiceCache).length + ' stale dmChoiceCache entries');
-            dmChoiceCache = {};
+        // Invalidate stale dmChoiceCache: only the changed group type + cross-DM entries
+        // Preserve memorized choices for unrelated types (e.g. keep Panneaux when Caisson changes)
+        var _changedSuffix = ':' + changedGroup;
+        var _crossPrefix = scopeGroupId + ':cross:';
+        var _directKey = scopeGroupId + _changedSuffix;
+        var _keysToDelete = Object.keys(dmChoiceCache).filter(function(k) {
+            return k === _directKey || k.indexOf(_crossPrefix) === 0;
+        });
+        if (_keysToDelete.length > 0) {
+            cascadeLog('info', 'reprocessDefaultCascades: clearing ' + _keysToDelete.length + ' stale dmChoiceCache entries (changed: ' + changedGroup + ')');
+            _keysToDelete.forEach(function(k) { delete dmChoiceCache[k]; });
         }
 
         var token = '$default:' + changedGroup;

@@ -810,6 +810,7 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - Google Apps Script nécessite un **redéploiement manuel** après modification du `.gs`
 - **Compression images** : les captures PDF passent par PNG lossless (temporaire) puis une seule compression JPEG 0.92 au crop. Les photos passent directement au crop JPEG 0.92. `confirmCrop()` est le seul point de compression JPEG (maxDim 3200px). AI chatbox : JPEG 0.90, 3200px (aligné sur le crop pour lisibilité des tags).
 - **Sanitisation noms fichiers** : `uploadNewPlan` sanitise `file.name` avant upload Storage — NFD strip accents, strip apostrophes `''`, em/en dash → hyphen, espaces → underscores, strip caractères non-alphanumériques restants. Le `file_name` original est conservé en DB pour affichage.
+- **Réordonnancement images** : drag & drop HTML5 natif sur `.image-preview-item` dans le calculateur. `reorderGroupImages(groupId, fromIndex, toIndex)` — splice le tableau `groupImages`, recompacte `sort_order` (0,1,2...), PATCH séquentiel en DB (`room_media`), re-render. CSS : `.img-dragging` (opacity), `.img-drag-over` / `.img-drag-over-left` (ombre navy indicatrice de position)
 
 ## Documentation
 

@@ -7133,6 +7133,11 @@
         .image-count { font-size: 11px; color: #888; margin-top: 4px; }
 
         .image-preview-item img { cursor: pointer; }
+        .image-preview-item[draggable="true"] { cursor: grab; }
+        .image-preview-item[draggable="true"]:active { cursor: grabbing; }
+        .image-preview-item.img-dragging { opacity: 0.35; }
+        .image-preview-item.img-drag-over { box-shadow: inset -3px 0 0 0 var(--sw-navy, #0B1220); }
+        .image-preview-item.img-drag-over-left { box-shadow: inset 3px 0 0 0 var(--sw-navy, #0B1220); }
 
         /* Lightbox */
         .lightbox-overlay {
@@ -14652,9 +14657,48 @@
 
             const imgs = groupImages[groupId] || [];
             container.innerHTML = '';
+            var _imgDragFrom = null;
             imgs.forEach((img, index) => {
                 const item = document.createElement('div');
                 item.className = 'image-preview-item';
+                item.draggable = true;
+                item.dataset.imgIndex = index;
+                // Drag & drop reorder handlers
+                item.addEventListener('dragstart', function(e) {
+                    _imgDragFrom = index;
+                    item.classList.add('img-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(index));
+                });
+                item.addEventListener('dragend', function() {
+                    item.classList.remove('img-dragging');
+                    container.querySelectorAll('.img-drag-over, .img-drag-over-left').forEach(function(el) {
+                        el.classList.remove('img-drag-over', 'img-drag-over-left');
+                    });
+                    _imgDragFrom = null;
+                });
+                item.addEventListener('dragover', function(e) {
+                    if (_imgDragFrom === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    container.querySelectorAll('.img-drag-over, .img-drag-over-left').forEach(function(el) {
+                        el.classList.remove('img-drag-over', 'img-drag-over-left');
+                    });
+                    var rect = item.getBoundingClientRect();
+                    var midX = rect.left + rect.width / 2;
+                    item.classList.add(e.clientX < midX ? 'img-drag-over-left' : 'img-drag-over');
+                });
+                item.addEventListener('dragleave', function() {
+                    item.classList.remove('img-drag-over', 'img-drag-over-left');
+                });
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    item.classList.remove('img-drag-over', 'img-drag-over-left');
+                    var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    var toIdx = parseInt(item.dataset.imgIndex, 10);
+                    if (isNaN(fromIdx) || fromIdx === toIdx) return;
+                    reorderGroupImages(groupId, fromIdx, toIdx);
+                });
                 var imgSrc = img.isLegacy ? img.dataUrl : (img.url || img.dataUrl);
                 var checkedAttr = img.showInQuote ? 'checked' : '';
                 var canRecrop = !img.isLegacy && img.originalUrl && isSubmissionCurrentlyEditable();
@@ -14710,6 +14754,33 @@
             renderGroupImagePreviews(groupId);
             // Only save to JSONB if there are legacy images
             if (img.isLegacy) saveGroupImages(groupId);
+            showSaveIndicator();
+        }
+
+        async function reorderGroupImages(groupId, fromIndex, toIndex) {
+            var imgs = groupImages[groupId];
+            if (!imgs || fromIndex < 0 || toIndex < 0 || fromIndex >= imgs.length || toIndex >= imgs.length) return;
+            // Move item in array
+            var moved = imgs.splice(fromIndex, 1)[0];
+            imgs.splice(toIndex, 0, moved);
+            // Re-render immediately
+            renderGroupImagePreviews(groupId);
+            // Recompact sort_order (0, 1, 2...) and save to DB
+            for (var i = 0; i < imgs.length; i++) {
+                imgs[i].sortOrder = i;
+                if (!imgs[i].isLegacy && imgs[i].mediaId) {
+                    try {
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_media?id=eq.' + imgs[i].mediaId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sort_order: i })
+                        });
+                    } catch (e) { console.error('Reorder save error:', e); }
+                }
+            }
+            // Save legacy images order via JSONB if any
+            var hasLegacy = imgs.some(function(img) { return img.isLegacy; });
+            if (hasLegacy) saveGroupImages(groupId);
             showSaveIndicator();
         }
 

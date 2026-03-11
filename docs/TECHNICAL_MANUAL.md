@@ -655,6 +655,7 @@ Déclenché quand un DM est modifié :
 1. Trouve tous les parents (lignes racine) qui ont des règles `$default:` correspondant au groupe modifié
 2. Re-exécute `executeCascade()` séquentiellement sur chacun
 3. Re-trigger les parents avec `$default:` ET `$match:` targets. Invalide `matchDefaults` (cache `$match:` persisté) ET `dmChoiceCache` (choix DM stale). Exécute sous guard `_cascadeRunning = true`
+4. **Barre de progression** (#141) : `showCascadeProgress()` / `hideCascadeProgress()` affichent un overlay semi-transparent `rgba(255,255,255,0.25)` avec barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction utilisateur pendant le recalcul. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess (updateRoomDmType appelle 2× pour old+new type, clearRoomDm appelle N× pour chaque type). Fade-out 150ms ease-out
 
 ### 4.5 UI
 

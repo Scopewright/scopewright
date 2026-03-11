@@ -4,6 +4,9 @@
 
 ## 2026-03-10
 
+### UX
+- **#141 — Barre de progression lors du recalcul cascade global** — Overlay semi-transparent `rgba(255,255,255,0.25)` + barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction pendant `reprocessDefaultCascades`. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess (updateRoomDmType 2×, clearRoomDm N×, copier-de N×). Fade-out 150ms. Aucun alert/confirm
+
 ### Bug Fixes
 - **Fix: #137 PDF — 4 bugs visuels** — (1) Page couverture : border-radius absent — `.pv-page-title{overflow:hidden!important}` + `-webkit-border-radius:8px!important` sur `.pv-cover-right`. (2) Proportions pages différentes du browser — ajout `<meta name="viewport" content="width=1056">` dans le HTML + `wait_for: "network"` dans l'appel PDFShift (attend chargement fonts/images). (3) Page clauses fond grisâtre — `.pv-page-clause{background:#fff!important}` override le `#fafafa` de SNAPSHOT_CSS. (4) Label "Façades et panneaux apparents" dans les descriptions — UPDATE `project_rooms.client_description` + `client_description_en` ajouté au script SQL phase 2
 - **Fix: #98 — Résidu "Façades et panneaux apparents" phase 2** — `'PANNEAUX APPARENTS'` → `'PANNEAUX'` dans les keywords de `formatDescriptionForDisplay()` (presentation-client.js + quote.html). Migration SQL `sql/fix_facades_label_phase2.sql` : purge le vieux label dans `catalogue_items.presentation_rule`, `presentation_rule_human`, `app_config.expense_categories`, `app_config.ai_prompt_*`, et `project_rooms.client_description`

@@ -4151,6 +4151,30 @@
         });
     }
 
+    // ── Cascade progress overlay (ref-counted) ──
+    var _cascadeProgressRef = 0;
+    function showCascadeProgress() {
+        _cascadeProgressRef++;
+        if (_cascadeProgressRef > 1) return; // already visible
+        var host = document.getElementById('calculatorView');
+        if (!host) return;
+        if (!host.style.position || host.style.position === 'static') host.style.position = 'relative';
+        var ov = document.createElement('div');
+        ov.className = 'cascade-progress-overlay';
+        ov.id = 'cascadeProgressOverlay';
+        ov.innerHTML = '<div class="cascade-progress-bar"><div class="cascade-progress-bar-inner"></div></div>' +
+            '<div class="cascade-progress-text"><span class="cp-spinner">\u27F3</span> Recalcul\u2026</div>';
+        host.appendChild(ov);
+    }
+    function hideCascadeProgress() {
+        _cascadeProgressRef = Math.max(0, _cascadeProgressRef - 1);
+        if (_cascadeProgressRef > 0) return; // other callers still running
+        var ov = document.getElementById('cascadeProgressOverlay');
+        if (!ov) return;
+        ov.classList.add('fade-out');
+        setTimeout(function() { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 160);
+    }
+
     /**
      * Re-trigger cascades on all parent rows that use $default: or $match: for the given group.
      * Called when a default material changes (dmSelectItem, removeDmEntry, updateDmType).
@@ -4194,10 +4218,12 @@
             });
             if (hasRelevant) rowIds.push(row.id);
         });
+        if (rowIds.length === 0) return;
         // Guard: set _cascadeRunning to prevent updateRow → scheduleCascade from
         // triggering parallel cascades while we're executing. Without this, each
         // updateRow(child) during item replacement fires scheduleCascade (debounce 400ms)
         // which creates duplicate children alongside the recursive cascade.
+        showCascadeProgress();
         _cascadeRunning = true;
         try {
             for (var i = 0; i < rowIds.length; i++) {
@@ -4205,6 +4231,7 @@
             }
         } finally {
             _cascadeRunning = false;
+            hideCascadeProgress();
         }
     }
 
@@ -5627,6 +5654,33 @@
         .calc-row.cascade-child .cell-total { font-size: 11px; color: #9CA3AF; }
         .calc-row.cascade-child .qty-input { pointer-events: none; user-select: none; cursor: default; }
         .calc-row.cascade-child.cascade-visible { display: grid; }
+        /* ── Cascade progress overlay ── */
+        .cascade-progress-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.25); z-index: 50; pointer-events: all;
+            display: flex; flex-direction: column; align-items: center;
+            opacity: 1; transition: opacity 150ms ease-out;
+        }
+        .cascade-progress-overlay.fade-out { opacity: 0; }
+        .cascade-progress-bar {
+            width: 100%; height: 3px; background: #E2E8F0; overflow: hidden;
+        }
+        .cascade-progress-bar-inner {
+            width: 40%; height: 100%; background: #0B1220; border-radius: 2px;
+            animation: cascadeSlide 1.2s ease-in-out infinite;
+        }
+        @keyframes cascadeSlide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+        .cascade-progress-text {
+            margin-top: 8px; font-size: 11px; color: #9CA3AF; font-weight: 500;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .cascade-progress-text .cp-spinner {
+            display: inline-block; animation: cpSpin 1s linear infinite; font-size: 12px;
+        }
+        @keyframes cpSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         /* ── Cascade toggle triangle ── */
         .btn-cascade-toggle {
             display: none; width: 20px; height: 20px; border: none; background: transparent;

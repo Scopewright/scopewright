@@ -251,15 +251,16 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
       { "key": "FAÇADES", "label": "Façades", "template": "en {client_text}" }
     ],
     "exclude": ["éléments à ne jamais mentionner au client"],
-    "notes": "instructions supplémentaires optionnelles"
+    "detail_bullets": ["Inclut la quincaillerie de fixation"]
   }
 }
 
-MÉCANIQUE :
-- "sections" : liste des sections de description où cet article apparaît
-- Chaque section a une "key" (groupe matériau en MAJUSCULES), un "label" (nom affiché), et un "template"
-- Le "template" utilise {client_text} comme placeholder pour le texte client de l'article
-- Keys standards : CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS, NOTES, PARTICULARITÉS
+CLÉS SUPPORTÉES (seules celles-ci sont consommées par le moteur) :
+- "sections" : liste des sections de description où cet article apparaît. Chaque section a une "key" (groupe matériau en MAJUSCULES), un "label" (nom affiché), et un "template". Le "template" utilise {client_text} comme placeholder pour le texte client de l'article
+- "exclude" : liste de termes à filtrer — les articles dont le texte client contient un de ces termes sont exclus de la description
+- "detail_bullets" : liste de bullets textuels ajoutés automatiquement à la section Détails de la description
+
+Keys sections standards : CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS, NOTES, PARTICULARITÉS
 - Si l'article est un matériau de base (panneau, placage), une seule section suffit
 - Si l'article est complexe (meuble complet), il peut apparaître dans plusieurs sections
 
@@ -357,9 +358,14 @@ ENVELOPPE DE RÉPONSE OBLIGATOIRE (JSON) :
       { "key": "CLÉ_SECTION", "label": "Libellé de section", "template": "{client_text}" }
     ],
     "exclude": [],
-    "notes": ""
+    "detail_bullets": []
   }
 }
+
+CLÉS SUPPORTÉES (seules celles-ci sont consommées par le moteur) :
+- "sections" : sections de description. "key" MAJUSCULE, "label" affiché, "template" avec {client_text}
+- "exclude" : termes à filtrer de la description
+- "detail_bullets" : bullets ajoutés à la section Détails
 
 RÈGLES :
 - Keys standards : CAISSON, FAÇADES, PANNEAUX, COMPTOIR, TIROIRS, POIGNÉES, QUINCAILLERIE, ÉCLAIRAGE, FINITION, RANGEMENT, DÉTAILS, EXCLUSIONS, NOTES, PARTICULARITÉS

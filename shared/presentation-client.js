@@ -173,12 +173,29 @@ function assembleRoomDescription(groupId) {
     // Collect articles with their presentation_rule
     var articlesBySection = {};
     var detailTexts = [];
+    var excludeSet = {};
+    var detailBullets = [];
 
     group.querySelectorAll('.calc-row').forEach(function(row) {
         var sel = row.querySelector('.item-select');
         if (!sel || !sel.value || sel.value === '__AJOUT__' || sel.value === '__PROPOSER__') return;
         var item = CATALOGUE_DATA.find(function(i) { return i.id === sel.value; });
         if (!item) return;
+
+        if (item.presentation_rule) {
+            // Collect exclude terms
+            if (Array.isArray(item.presentation_rule.exclude)) {
+                item.presentation_rule.exclude.forEach(function(term) {
+                    excludeSet[term.toLowerCase()] = true;
+                });
+            }
+            // Collect detail_bullets
+            if (Array.isArray(item.presentation_rule.detail_bullets)) {
+                item.presentation_rule.detail_bullets.forEach(function(b) {
+                    if (detailBullets.indexOf(b) === -1) detailBullets.push(b);
+                });
+            }
+        }
 
         if (item.presentation_rule && item.presentation_rule.sections) {
             item.presentation_rule.sections.forEach(function(sec) {
@@ -192,6 +209,21 @@ function assembleRoomDescription(groupId) {
             if (detailTexts.indexOf(item.client_text) === -1) detailTexts.push(item.client_text);
         }
     });
+
+    // Apply exclude filter — remove articles whose text matches an exclude term
+    var excludeTerms = Object.keys(excludeSet);
+    if (excludeTerms.length > 0) {
+        Object.keys(articlesBySection).forEach(function(key) {
+            articlesBySection[key] = articlesBySection[key].filter(function(a) {
+                var lower = a.text.toLowerCase();
+                return !excludeTerms.some(function(term) { return lower.indexOf(term) !== -1; });
+            });
+        });
+        detailTexts = detailTexts.filter(function(t) {
+            var lower = t.toLowerCase();
+            return !excludeTerms.some(function(term) { return lower.indexOf(term) !== -1; });
+        });
+    }
 
     var SECTION_ORDER = ['CAISSON', 'FAÇADES', 'PANNEAUX', 'COMPTOIR', 'TIROIRS', 'POIGNÉES',
         'QUINCAILLERIE', 'ÉCLAIRAGE', 'FINITION', 'RANGEMENT', 'DÉTAILS',
@@ -226,6 +258,14 @@ function assembleRoomDescription(groupId) {
     if (detailTexts.length > 0 && !articlesBySection['DÉTAILS']) {
         lines.push('Détails :');
         detailTexts.forEach(function(d) { lines.push('- ' + d); });
+    }
+
+    // Inject detail_bullets into Détails section
+    if (detailBullets.length > 0) {
+        if (!lines.some(function(l) { return l.indexOf('Détails') === 0; })) {
+            lines.push('Détails :');
+        }
+        detailBullets.forEach(function(b) { lines.push('- ' + b); });
     }
 
     return lines.join('\n');

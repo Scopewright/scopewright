@@ -4006,7 +4006,11 @@
             var showApproval = isPending && canApproveItems;
 
             document.getElementById('btnApproveItem').style.display = showApproval ? '' : 'none';
+            document.getElementById('btnApproveItem').textContent = 'Approuver';
+            document.getElementById('btnApproveItem').disabled = false;
             document.getElementById('btnRejectItem').style.display = showApproval ? '' : 'none';
+            document.getElementById('btnRejectItem').textContent = 'Rejeter';
+            document.getElementById('btnRejectItem').disabled = false;
             document.getElementById('catAiReviewBtn').style.display = showApproval ? '' : 'none';
 
             // Show proposed by

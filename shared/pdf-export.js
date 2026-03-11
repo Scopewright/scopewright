@@ -163,6 +163,12 @@ async function exportSubmissionPdf() {
             '\n.pv-content{padding:0!important;gap:0!important}' +
             '\n.pv-page{width:100%!important;box-sizing:border-box!important;height:auto!important;aspect-ratio:unset!important;overflow:visible!important;position:relative!important;min-height:auto!important;max-height:none!important}' +
             '\n.pv-page:not(:first-child){page-break-before:always}' +
+            // Cover page: restore overflow:hidden so border-radius clips the image
+            '\n.pv-page-title{overflow:hidden!important}' +
+            '\n.pv-cover-right{-webkit-border-radius:8px!important;border-radius:8px!important;overflow:hidden!important}' +
+            '\n.pv-cover-right img{-webkit-border-radius:0!important;border-radius:0!important}' +
+            // Clauses: force white background (SNAPSHOT_CSS uses #fafafa)
+            '\n.pv-page-clause{background:#fff!important}' +
             '\n.pv-page-total{background:#fff!important;color:#1A1A1A!important;display:flex!important;flex-direction:column!important}' +
             '\n.pv-total-box{display:none!important}' +
             // Bug 3 fix: constrain 2-column layouts to prevent image/text overflow.
@@ -180,6 +186,7 @@ async function exportSubmissionPdf() {
             '\n.pv-why-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}';
 
         var htmlDoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+            '<meta name="viewport" content="width=1056">' +
             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">' +
             '<style>' + pdfCss + '</style>' +
             '</head><body style="margin:0;padding:0;">' +

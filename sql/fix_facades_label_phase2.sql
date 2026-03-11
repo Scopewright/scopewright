@@ -70,7 +70,34 @@ WHERE key LIKE 'ai_prompt_%'
   AND value::text LIKE '%Facades et panneaux apparents%';
 
 -- ══════════════════════════════════════════════════════════════════════
--- 5. Verify — run after migration to confirm zero remaining
+-- 5. project_rooms.client_description — existing room descriptions in submissions
+-- ══════════════════════════════════════════════════════════════════════
+
+-- Diagnostic:
+-- SELECT id, name, left(client_description, 100)
+-- FROM project_rooms
+-- WHERE client_description LIKE '%Façades et panneaux apparents%'
+--    OR client_description LIKE '%Facades et panneaux apparents%';
+
+UPDATE project_rooms
+SET client_description = replace(client_description, 'Façades et panneaux apparents', 'Façades')
+WHERE client_description LIKE '%Façades et panneaux apparents%';
+
+UPDATE project_rooms
+SET client_description = replace(client_description, 'Facades et panneaux apparents', 'Façades')
+WHERE client_description LIKE '%Facades et panneaux apparents%';
+
+-- Also fix EN descriptions
+UPDATE project_rooms
+SET client_description_en = replace(client_description_en, 'Façades et panneaux apparents', 'Façades')
+WHERE client_description_en LIKE '%Façades et panneaux apparents%';
+
+UPDATE project_rooms
+SET client_description_en = replace(client_description_en, 'Facades et panneaux apparents', 'Façades')
+WHERE client_description_en LIKE '%Facades et panneaux apparents%';
+
+-- ══════════════════════════════════════════════════════════════════════
+-- 6. Verify — run after migration to confirm zero remaining
 -- ══════════════════════════════════════════════════════════════════════
 
 -- SELECT 'catalogue_items.presentation_rule' AS source, count(*)
@@ -83,4 +110,10 @@ WHERE key LIKE 'ai_prompt_%'
 -- FROM app_config WHERE key = 'expense_categories' AND value::text LIKE '%panneaux apparents%'
 -- UNION ALL
 -- SELECT 'app_config.ai_prompt_*', count(*)
--- FROM app_config WHERE key LIKE 'ai_prompt_%' AND value::text LIKE '%panneaux apparents%';
+-- FROM app_config WHERE key LIKE 'ai_prompt_%' AND value::text LIKE '%panneaux apparents%'
+-- UNION ALL
+-- SELECT 'project_rooms.client_description', count(*)
+-- FROM project_rooms WHERE client_description LIKE '%panneaux apparents%'
+-- UNION ALL
+-- SELECT 'project_rooms.client_description_en', count(*)
+-- FROM project_rooms WHERE client_description_en LIKE '%panneaux apparents%';

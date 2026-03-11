@@ -3,7 +3,7 @@
 > Audit indépendant de sécurité, bugs, risques architecturaux et performance.
 > Analyse en lecture seule de l'ensemble du codebase.
 >
-> **Date** : 2026-03-09 (mis à jour)
+> **Date** : 2026-03-10 (mis à jour)
 > **Périmètre** : Tous les fichiers HTML, Edge Functions, SQL migrations, Google Apps Script
 
 ---
@@ -331,6 +331,34 @@ Quand un FAB contient `$default:Caisson` + `$match:BANDE DE CHANT` + `$match:FIN
 
 **Fix** : `resolveCascadeTarget` propage désormais `materialCtx.chosenClientText` après chaque résolution `$default:` réussie (3 points de sortie : cache hit, candidat unique, modale technique). Les `$match:` suivants du même FAB scorent dans le contexte du matériau effectivement résolu.
 
+### 3.8 Bugs corrigés (2026-03-10)
+
+**[BUG-27] CORRIGÉ — PDF : centrage vertical, images manquantes, couverture coupée (#137)**
+
+Après migration vers PDFShift (server-side Chromium) : (1) `height:auto` + `aspect-ratio:unset` supprimait la hauteur fixe → `flex:1` collapsait. Fix : `min-height:8.5in!important` sur `.pv-page`. (2) URLs relatives (`images/why-stele.jpg`) non résolvables par PDFShift. Fix : résolution automatique `baseUrl + src`. (3) Couverture coupée : `.pv-page-title{height:8.5in!important}`. (4) Border-radius couverture : `.pv-page-title{overflow:hidden!important}`. (5) Clauses fond grisâtre : `.pv-page-clause{background:#fff!important}`.
+
+**[BUG-28] CORRIGÉ — `reprocessDefaultCascades` vidait tout `dmChoiceCache`**
+
+`dmChoiceCache = {}` dans `reprocessDefaultCascades` vidait **tous** les choix mémorisés, forçant la re-sélection de tous les types DM (Panneaux, Façades, etc.) même ceux non modifiés. Impact : modales intempestives à chaque changement DM.
+
+**Fix** : invalidation sélective — seules les entrées du type modifié (`groupId:changedGroup`) et les entrées cross-DM (`groupId:cross:*`) sont supprimées.
+
+**[BUG-29] CORRIGÉ — Total enfant cascade niveau 2+ agrégé au lieu d'individuel**
+
+Les enfants cascade `cascade-parent-row` (niveau 2+) affichaient le total agrégé (parent + descendants) même quand expandés ou visibles. Deux causes : (1) `_cascadeExpanded` = `undefined` par défaut (traité comme collapsé). (2) Au chargement (`openSubmission`), pas de recalcul des totaux enfants après `applyCascadeVisibility`.
+
+**Fix** : (1) `applyCascadeVisibility` appelle `updateCollapsedParentTotal` sur les enfants `cascade-parent-row` quand le parent est expandé. (2) `openSubmission` fait un second pass après le loop de visibility pour les enfants dont le parent est expandé.
+
+**[BUG-30] CORRIGÉ — Label "Façades et panneaux apparents" résiduel (#98)**
+
+Phase 1 : scission dans `app_config` (material_groups + category_group_mapping). Phase 2 : purge du vieux label dans `catalogue_items.presentation_rule`, `presentation_rule_human`, `app_config.expense_categories`, `app_config.ai_prompt_*`, `project_rooms.client_description`. Keywords `formatDescriptionForDisplay` : `'PANNEAUX APPARENTS'` → `'PANNEAUX'`.
+
+**[BUG-31] CORRIGÉ — Qty enfants cascade modifiable par l'utilisateur (#140)**
+
+Les inputs quantité des enfants cascade n'étaient pas protégés — l'utilisateur pouvait modifier une valeur gérée par le moteur, causant des incohérences au prochain recalcul.
+
+**Fix** : `readOnly = true` dans 3 points (`addRow`, `executeCascade`, `openSubmission`) + CSS `pointer-events:none`.
+
 **[FEATURE-01] Override par ligne (prix, MO, matériaux)**
 
 Nouvelles colonnes `room_items` : `labor_override` JSONB, `material_override` JSONB, `price_override` NUMERIC. Override local par soumission, ne modifie pas le catalogue. Popover 3 colonnes (Cat/Auto/Manuel) avec hiérarchie per-département : manual > auto-factored > catalogue. Tool AI `update_submission_line` (jamais auto-exécuté). Migration : `sql/line_overrides.sql`.
@@ -403,9 +431,21 @@ Bouton dans la modale d'édition. Copie toutes les données sauf `is_default` (f
 
 30 fonctions (~728 lignes) extraites de calculateur.html : helpers texte, descriptions, clauses CRUD + drag-drop, images, snapshot, status UI. Dépend de 30+ globales calculateur.
 
-**[FEATURE-19] Export PDF #137**
+**[FEATURE-19] Export PDF #137 — PDFShift server-side**
 
-Export client-side via html2pdf.js (html2canvas + jsPDF). Bouton PDF dans la toolbar preview. Landscape letter, JPEG 0.95, scale 2. Remplace la signature interactive par des lignes imprimables. Fichier `shared/pdf-export.js` (~168 lignes). Nom de fichier : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`. CDN dependency : html2pdf.js 0.10.2.
+Export server-side via PDFShift API (Chromium rendering) à travers l'Edge Function `pdf-export`. Bouton PDF dans la toolbar preview. Format landscape Letter, marges 0, `use_print: true`. HTML autoportant envoyé (SNAPSHOT_CSS inline + Google Fonts Inter). Fichier `shared/pdf-export.js` (~273 lignes). Résolution URLs relatives des images. CSS overrides `!important` : `min-height:8.5in` vertical centering, `aspect-ratio:unset` anti-pages blanches, `overflow:hidden` couverture border-radius, `background:#fff` clauses.
+
+**[FEATURE-20] QTY multiplicateur universel (#140)**
+
+Nouveau champ `qty_multiplier` (default 1) entre la colonne Type et L×H×P. Multiplie le total de la ligne. Hérité par les enfants cascade. Propagation récursive via `propagateQtyMultToCascadeChildren`. DB : `room_items.qty_multiplier`. Migration : `sql/qty_multiplier.sql`.
+
+**[FEATURE-21] Barre de progression cascade (#141)**
+
+Overlay semi-transparent sur `.calc-rows` pendant `reprocessDefaultCascades`. Barre indeterminate navy 3px + texte "⟳ Recalcul…". Ref-counting pour multi-reprocess.
+
+**[FEATURE-22] Indicateur de sauvegarde silencieux (pattern Linear)**
+
+Au repos : invisible. "Sauvegardé ✓" apparaît 2s puis fade-out 300ms. Erreur : reste visible en rouge. Pill catalogue "Données à jour" : transitoire 2s. Offline/erreur : persistant.
 
 ---
 

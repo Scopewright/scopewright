@@ -140,6 +140,12 @@ Pattern Apple/Linear. Référence : `openDatePicker()` dans calculateur.html.
 Chaque fichier HTML a sa propre implémentation (pas encore extrait dans shared/).
 Les IDs DOM et signatures varient entre fichiers — harmonisation future planifiée.
 
+### Indicateur de sauvegarde (pattern Linear)
+
+Au repos : **aucun indicateur visible**. Sauvegarde silencieuse, feedback transitoire uniquement.
+- **`showSaveIndicator()`** : "Sauvegardé ✓" `#6B7280` 12px, fade-in, visible 2s puis fade-out 300ms. `showSaveIndicator(true)` → "Erreur de sauvegarde" en rouge `#DC2626`, reste visible. CSS : `.save-indicator` `opacity:0` par défaut, `.si-visible` pour afficher, `.si-error` pour erreur
+- **`updateStatus(status, message)`** : pill `#dataStatus` pour le statut catalogue. `online` → visible 2s puis fade-out (transitoire). `offline`/`error`/loading → reste visible (persistant). CSS : `.data-status` `opacity:0` par défaut, `.ds-visible` pour afficher
+
 ## Systèmes principaux
 
 ### Moteur de cascade (`executeCascade`)
@@ -160,6 +166,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
 - Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent. `openSubmission` applique un **tri topologique** défensif (`_addWithChildren`) pour garantir que les parents précèdent toujours leurs enfants, même si `sort_order` en DB est corrompu
 - Guards : `_cascadeRunning` (re-entrance), `_isLoadingSubmission` (chargement), debounce 400ms, `opts.skipCascade` (voir règle ci-dessous), `scheduleCascade` guard cascade-child (les enfants cascade ne déclenchent jamais leur propre cascade — `if (row.classList.contains('cascade-child')) return`)
+- **Qty enfants readonly** : les inputs qty des enfants cascade sont `readOnly = true` + CSS `pointer-events:none`. Appliqué dans 3 points : `addRow()` (opts.cascade), `executeCascade()` (enfants existants), `openSubmission()` (rechargement). Empêche l'utilisateur de modifier la quantité gérée par le moteur
 - **Propagation installation** : `toggleRowInstallation` → `propagateInstallationToCascadeChildren(parentRowId, checked)` — récursif, propage le cocher/décocher à tous les enfants cascade (via `findCascadeChildren`), sauvegarde DB, `skipCascade: true`
 - **Propagation qty_multiplier** : `updateQtyMult` → `propagateQtyMultToCascadeChildren(parentRowId, val)` — récursif, même pattern que installation. Propage le QM à tous les enfants cascade + sauvegarde DB
 - **Règle `skipCascade`** : toute fonction qui appelle `updateRow()` et qui N'EST PAS un changement de dimensions (L/H/P), de n_tablettes/n_partitions/n_portes/n_tiroirs, ou d'article catalogue DOIT passer `{ skipCascade: true }`. Fonctions corrigées : `saveOverrides`, `clearOverrides`, `refreshGroupRows` (modificateurs %), AI tools `update_submission_line` et `modify_item` (sans changement dims). `applyChildDims` utilise aussi `skipCascade: true` (l'enfant ne doit pas re-déclencher la cascade du parent). **Note** : `revertCascadeManualEdit` appelle `scheduleCascade` sur le **parent** (pas l'enfant) pour une re-cascade cohérente
@@ -168,7 +175,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - **Validation target** : après résolution (`resolveCascadeTarget`), le target est vérifié dans `CATALOGUE_DATA`. Si l'ID n'existe pas dans le catalogue, traité comme résolution échouée (empêche la création de lignes vides)
 - **`cascadeRuleTarget`** : chaque enfant cascade stocke `dataset.cascadeRuleTarget = rule.target` (ex: `"$default:Façades"`). Sert à identifier quel rule a créé l'enfant, utilisé par le matching locked children et la préservation au rechargement
 - **Collapse enfants cascade** : les enfants cascade sont masqués par défaut (`display: none`, classe `.cascade-visible` pour afficher). Triangle ▶ sur le parent FAB (`btn-cascade-toggle`, classe `.cascade-parent-row`). Badge `(+N)` dans `.cell-total` quand collapsé. Checkbox globale par pièce dans le header (`.cb-show-cascade`) → classe `.show-all-cascade` sur le groupe. État en mémoire (`_cascadeExpanded[parentRowId]`), pas persisté en DB. Les calculs (`getRowTotal`, `computeRentabilityData`), saves, et propagation installation fonctionnent normalement sur les enfants masqués
-- **Total agrégé collapsé** : quand un parent FAB est collapsé, sa cellule `.cell-total` affiche la somme parent + **tous les descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte enfants + petits-enfants via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme via `getRowTotal` × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur (jamais de cache DOM — évite la circularité agrégat↔individuel). Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les totaux individuels. Dans `updateRow`, la mise à jour remonte toute la chaîne d'ancêtres (`while (_ancestor)`) pour que les changements sur un petit-enfant propagent au grand-parent collapsé. **Fix enfants niveau 2+** : `applyCascadeVisibility` appelle `updateCollapsedParentTotal` sur les enfants `cascade-parent-row` quand le parent est expandé — corrige l'agrégat stale hérité de `executeCascade` (où `_cascadeExpanded` est `undefined` = traité comme collapsé)
+- **Total agrégé collapsé** : quand un parent FAB est collapsé, sa cellule `.cell-total` affiche la somme parent + **tous les descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte enfants + petits-enfants via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme via `getRowTotal` × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur (jamais de cache DOM — évite la circularité agrégat↔individuel). Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les totaux individuels. Dans `updateRow`, la mise à jour remonte toute la chaîne d'ancêtres (`while (_ancestor)`) pour que les changements sur un petit-enfant propagent au grand-parent collapsé. **Fix enfants niveau 2+** : `applyCascadeVisibility` appelle `updateCollapsedParentTotal` sur les enfants `cascade-parent-row` quand le parent est expandé — corrige l'agrégat stale hérité de `executeCascade` (où `_cascadeExpanded` est `undefined` = traité comme collapsé). **Fix au chargement** : `openSubmission()` fait un second pass après `applyCascadeVisibility` — pour chaque `cascade-parent-row` dont le parent est expandé, appelle `updateCollapsedParentTotal()` pour afficher le total individuel au lieu de l'agrégat
 
 **Préservation au rechargement** : `findExistingChildForDynamicRule` utilise 2 niveaux de matching pour retrouver les enfants existants au lieu de les recréer :
 1. **Exact** : `catalogueId` dans `validIds` (DM entry + catégorie autorisée) — comportement normal
@@ -402,7 +409,8 @@ Export server-side de la soumission en PDF via PDFShift API (rendu Chromium) à 
 - **Page breaks** : CSS `.pv-page:not(:first-child){page-break-before:always}` + `use_print: true` dans PDFShift
 - **Page total+signature** : `.pv-page-total` reconstruite en layout 2 colonnes flex : colonne gauche (55%) texte de clôture émotionnel (titre 38px + 3 paragraphes), séparateur vertical 1px, colonne droite total (montant 48px, breakdown, taxes) + lignes signature ("Accepté par" / "Date"). Bilingue FR/EN via `currentLang`
 - **Pas de hacks html2canvas** : PDFShift utilise Chromium — flex/grid fonctionnent nativement, pas besoin de conversion table-layout. Pas de conversion base64 des images (PDFShift les fetch côté serveur). Pas d'injection CSS dans `document.head`
-- **CSS overrides PDF** : tous les overrides utilisent `!important`. `.pv-page{aspect-ratio:unset!important;height:auto!important;min-height:8.5in!important}` (landscape Letter — élimine pages blanches tout en préservant le centrage vertical via `flex:1`). `.pv-page-title{overflow:hidden!important;height:8.5in!important}` + `.pv-cover-right{height:calc(8.5in - 64px)!important}` (couverture pleine page). `.pv-page-why{height:8.5in!important}` (why page fills print page). `.pv-page-steps{display:flex!important;flex-direction:column!important}` (steps vertical fill). `.pv-page-clause{background:#fff!important}`. Images : `object-fit:contain!important`, `min-width:0!important`. Texte : `word-wrap:break-word!important`
+- **CSS overrides PDF** : tous les overrides utilisent `!important`. `.pv-page{aspect-ratio:unset!important;height:auto!important;min-height:8.5in!important}` (landscape Letter — élimine pages blanches tout en préservant le centrage vertical via `flex:1`). `.pv-page-title{overflow:hidden!important;height:8.5in!important}` + `.pv-cover-right{height:calc(8.5in - 64px)!important}` (couverture pleine page). `.pv-page-why{height:8.5in!important}` (why page fills print page). `.pv-page-steps{display:flex!important;flex-direction:column!important}` (steps vertical fill). `.pv-page-clause{background:#fff!important}`. **Images** : `object-fit:cover!important` (reproduit le rendu browser — `contain` causait des bandes vides et des hauteurs variables), `max-height:3.2in!important` sur `.pv-img-wrap` (empêche les images portrait de forcer un page-break), `height:100%!important` + `width:100%!important` sur `img`. **Room body** : `max-height:calc(8.5in - 160px)!important` sur `.pv-page-room-body` (texte+images sur une seule page). Texte : `word-wrap:break-word!important`
+- **Variant `imgs-4`** : grille 2×2 explicite (`grid-template-columns:1fr 1fr`) — ajouté dans le CSS preview et SNAPSHOT_CSS. Séquence complète : `imgs-1` (1 col) → `imgs-2` (1 col empilé) → `imgs-3` (featured + 2) → `imgs-4` (2×2) → `imgs-5`/`imgs-6` (3 cols)
 - **Résolution URLs images** : avant l'export, toutes les `<img>` avec `src` relatif sont converties en URLs absolues (`baseUrl + src`). PDFShift ne peut pas résoudre les chemins relatifs (HTML envoyé comme string, pas chargé depuis une URL)
 - **Diagnostic PDF** : `console.log` taille HTML, présence style block, et sources images (max 10) pour faciliter le debug
 - **Sanitisation HTML descriptions** : après le clone, regex remplace `&lt;br&gt;` → `<br>` et `&lt;p|strong|em|ul|ol|li&gt;` → vrais tags HTML (corrige le double-escaping de descriptions en DB)
@@ -601,6 +609,31 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 **Bugs identifiés :**
 - 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin
 - `catalogue-import` n'injecte pas les learnings (contrairement aux 3 autres EF)
+
+### Inventaire des clés `app_config` AI prompts
+
+| Clé `app_config` | Structure | Rôle | Appelé par (JS) | Edge Function |
+|---|---|---|---|---|
+| `ai_prompt_estimateur` | Texte (system prompt) | Prompt assistant estimateur | `callAiAssistant()` (calculateur) | `ai-assistant` |
+| `ai_prompt_approval_review` | Texte (system prompt) | Prompt review approbation | `callAiReviewAssistant()` (approbation) | `ai-assistant` |
+| `ai_prompt_catalogue_import` | Texte (system prompt) | Prompt import catalogue AI | `startCatalogueImport()` (catalogue) | `catalogue-import` |
+| `ai_prompt_contacts` | Texte (system prompt) | Prompt import contacts AI | `startContactsImport()` (clients) | `contacts-import` |
+| `ai_prompt_fiche_optimize` | Texte (user prompt) | Optimiser descriptions fiche produit | `aiOptimize()` (fiche) | `translate` (action `fiche_optimize`) |
+| `ai_prompt_fiche_translate_fr_en` | Texte (user prompt) | Traduire fiche FR→EN | `aiTranslate('fr_en')` (fiche) | `translate` (action `fiche_translate_fr_en`) |
+| `ai_prompt_fiche_translate_en_fr` | Texte (user prompt) | Traduire fiche EN→FR | `aiTranslate('en_fr')` (fiche) | `translate` (action `fiche_translate_en_fr`) |
+| `ai_prompt_client_text_catalogue` | Texte (user prompt) | Générer texte client | (bouton UI retiré, action conservée) | `translate` (action `catalogue_client_text`) |
+| `ai_prompt_pres_rule` | Texte (user prompt) | Générer règle présentation article | `aiCatalogueExplication()` (catalogue) | `translate` (action `catalogue_pres_rule`) |
+| `ai_prompt_calc_rule` | Texte (user prompt) | Générer règle calcul JSON | `aiCalcRuleGenerate()` (catalogue) | `translate` (action `catalogue_calc_rule`) |
+| `ai_prompt_labor_modifiers` | Texte (user prompt) | Générer barèmes dimensionnels | `aiLaborModifiers()` (catalogue) | `translate` (action `catalogue_labor_modifiers`) |
+| `ai_prompt_expense_pres_rule` | Texte (user prompt) | Générer règle présentation catégorie dépense | `aiExpensePresRule()` (admin) | `translate` (action `expense_pres_rule`) |
+| `ai_prompt_description_calculateur` | Texte (user prompt) | Générer description client pièce | `aiGenerateDescription()` (calculateur) | `translate` (action `description_calculateur`) |
+| `ai_prompt_import_components` | Texte (user prompt) | Importer composants fournisseur | `aiImportComponents()` (catalogue) | `translate` (action `import_components`) |
+| `ai_prompt_instruction_catalogue` | Texte (user prompt) | Générer instruction article | `aiInstruction()` (catalogue) | `translate` (action `catalogue_instruction`) |
+| `ai_prompt_explication_catalogue` | Texte (user prompt) | Générer explication catalogue | `aiCatalogueExplication()` (catalogue) | `translate` (action `catalogue_explication`) |
+| `ai_prompt_json_catalogue` | Texte (user prompt) | Générer JSON catalogue | `aiCatalogueJson()` (catalogue) | `translate` (action `catalogue_json`) |
+| `ai_prompt_approval_suggest` | Texte (user prompt) | Suggérer approbation | `aiApprovalSuggest()` (approbation) | `translate` (action `approval_suggest`) |
+
+Toutes les clés sont de type TEXT dans `app_config.value` (JSONB wrappé en string). Si la valeur est non-vide en DB, elle remplace le prompt hardcodé dans le code TypeScript de l'Edge Function via `loadPromptOverride()`.
 
 ### 5 Edge Functions
 
@@ -837,3 +870,43 @@ Avant tout travail UI (nouveaux composants, modifications de style, nouveaux éc
 - [ ] DM mélamine → `$match:BANDE DE CHANT` accepté (mélamine a BANDE DE CHANT dans ses cascades)
 - [ ] Changement DM mélamine → placage → finition et bande de chant bois créées
 - [ ] Changement DM placage → mélamine → finition supprimée, bande de chant PVC remplace bois
+
+### Guide de débogage cascade
+
+Ordre de vérification quand une cascade ne fonctionne pas :
+
+1. **Vérifier `calculation_rule_ai` de l'article parent** — Ouvrir la modale catalogue, onglet JSON. Vérifier : JSON valide ? `cascade` array présent ? `ask` correct (L/H/P/n_portes...) ? `child_dims` formules valides ? `override_children` pas trop large ?
+2. **Vérifier que `vars` est bien peuplé** — Console : les `cascadeLog` affichent les variables. Chercher `"vars:"` dans les logs. L/H/P doivent être > 0, n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 est valide)
+3. **Vérifier `evalFormula`** — Substituer manuellement les variables dans la formule et évaluer. Attention : `ceil()`, `floor()`, `round()`, `min()`, `max()` sont supportés. Les formules unsafe (lettres hors variables connues) retournent `null`
+4. **Vérifier `findExistingChildForDynamicRule`** — Si le log `"findExisting: $default:... MISS"` apparaît, l'enfant existant n'a pas été retrouvé. Les logs détaillent `validIds`, `dmClientTexts`, `allowedCats`, et les IDs des enfants non-matchés
+5. **Vérifier les DM de la pièce** — Console : `roomDM[groupId]`. Chaque entrée a-t-elle `type`, `client_text`, `catalogue_item_id` ? Le `type` matche-t-il le `$default:` target (normalisé via `normalizeDmType`) ?
+6. **Vérifier `getAllowedCategoriesForGroup`** — Console : `getAllowedCategoriesForGroup('Caisson')`. La catégorie de l'article résolu est-elle dans la liste retournée ? Si `null`, le `categoryGroupMapping` n'a pas de mapping pour ce groupe
+7. **Vérifier le filtre catégorie `$match:`** — Si un `$match:` est rejeté silencieusement (pas de toast), c'est le filtre `checkDefaultItemMatchCategory`. Console : chercher `"$match: category filter REJECTED"` dans les logs cascade
+
+**Commandes console utiles** :
+
+```javascript
+// Lire les 50 derniers logs cascade
+summarizeCascadeLog()
+
+// Voir les enfants d'un parent
+cascadeParentMap  // { childRowId: parentRowId }
+
+// Voir le cache DM
+dmChoiceCache  // { "groupId:TypeName": "ST-XXXX" }
+
+// Voir les overrides par ligne
+_rowOverrides  // { rowId: { labor, material, price, laborAuto, materialAuto } }
+
+// Voir les DM d'une pièce
+roomDM['group-1']  // [{ type, catalogue_item_id, client_text, description }]
+
+// Voir l'état expand/collapse
+_cascadeExpanded  // { parentRowId: true/false }
+
+// Voir les suppressions cascade
+cascadeSuppressed  // { parentRowId: ['ST-XXXX', ...] }
+
+// Forcer une re-cascade sur un parent
+scheduleCascade('row-id', true)
+```

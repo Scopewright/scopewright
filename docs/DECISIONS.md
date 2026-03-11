@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-09
+> **Dernière mise à jour** : 2026-03-10
 
 ---
 
@@ -531,6 +531,8 @@
 
 ## DEC-029 — Export PDF client-side (html2pdf.js) au lieu de serveur (Puppeteer)
 
+> **Note** : Cette décision initiale a été **supersédée par DEC-031** (migration vers PDFShift server-side, 2026-03-09). Conservée pour l'historique de la réflexion.
+
 **Date** : 2026-03-09
 
 **Contexte** : L'export PDF de la soumission est demande (#137). Le contenu a generer est le meme que le preview HTML (`renderPreview`). Deux approches possibles : generation cote serveur (Puppeteer/Playwright dans une Edge Function) ou generation cote client (librairie JS dans le navigateur).
@@ -571,3 +573,64 @@
 - Palette rentabilité formalisée : teal (#0D9488) pour OK, ambre pour warning, interdit violet/vert vif
 - Attio comme référence principale d'inspiration (tags compacts, densité d'information, node graph)
 - Règle fondamentale : réutiliser les patterns existants, ne jamais réinventer
+
+---
+
+## DEC-031 — Migration PDF : html2pdf.js → PDFShift server-side
+
+**Date** : 2026-03-09
+
+**Contexte** : html2pdf.js (DEC-029) rasterisait le HTML via html2canvas → bitmap JPEG → jsPDF. Résultat : texte non-sélectionnable, images floues, layouts flex/grid mal rendus (table-layout hacks nécessaires), pages blanches intermittentes.
+
+**Décision** : Migration vers PDFShift API (server-side Chromium rendering) via une nouvelle Edge Function `pdf-export`. Le client construit un document HTML autoportant (SNAPSHOT_CSS inline + Google Fonts) et l'envoie à l'Edge Function. PDFShift rend via Chromium headless — flex/grid natifs, texte vectoriel, images fetched directement.
+
+**Alternatives considérées** :
+- **Garder html2pdf.js avec des workarounds** : les hacks (table-layout, base64 images) s'accumulaient sans résoudre les problèmes fondamentaux de html2canvas.
+- **Puppeteer sur Deno Deploy** : non supporté (pas de Chrome headless).
+- **Playwright via service tiers** : coût récurrent, dépendance infrastructure externe.
+
+**Conséquences** :
+- PDF vectoriel avec texte sélectionnable et layouts fidèles
+- Dépendance PDFShift API (service payant, secret `PDFSHIFT_API_KEY`)
+- html2pdf.js CDN supprimé de calculateur.html
+- CSS overrides `!important` nécessaires pour contrer SNAPSHOT_CSS (aspect-ratio, height, overflow)
+- URLs relatives des images résolues côté client avant envoi
+
+---
+
+## DEC-032 — Indicateur de sauvegarde silencieux (pattern Linear)
+
+**Date** : 2026-03-10
+
+**Contexte** : L'indicateur "Données à jour" (point vert) et "Sauvegardé ✓" étaient toujours visibles, même au repos. Visuellement chargé et pas aligné avec l'esthétique Linear/Vercel de l'application.
+
+**Décision** : Les indicateurs sont invisibles au repos (`opacity: 0`). Apparition transitoire uniquement : "Sauvegardé ✓" pendant 2s puis fade-out, "Données à jour" (online) pendant 2s puis fade-out. Les états persistants (offline, erreur, chargement) restent visibles.
+
+**Alternatives considérées** :
+- **Garder l'indicateur permanent** : information constante mais bruit visuel — l'utilisateur ignore un élément toujours vert.
+- **Supprimer complètement l'indicateur** : trop minimaliste — aucun feedback quand une sauvegarde échoue.
+- **Toast à la Notion** : popup flottant — plus intrusif que le pattern inline choisi.
+
+**Conséquences** :
+- Interface plus propre au repos
+- L'utilisateur voit le feedback uniquement quand pertinent (sauvegarde en cours, erreur)
+- Les erreurs restent visibles jusqu'à résolution — pas de risque de manquer un problème
+
+---
+
+## DEC-033 — Qty enfants cascade readonly
+
+**Date** : 2026-03-10
+
+**Contexte** : Les quantités des enfants cascade sont calculées par le moteur (`evalFormula` sur `rule.qty`). L'utilisateur pouvait modifier l'input, mais la valeur était écrasée au prochain recalcul (changement de dimensions, re-cascade). Confusion et incohérences temporaires.
+
+**Décision** : `readOnly = true` sur les inputs qty des enfants cascade. CSS `pointer-events: none` pour renforcer visuellement. 3 points d'application : création (`addRow`), mise à jour (`executeCascade`), rechargement (`openSubmission`).
+
+**Alternatives considérées** :
+- **Laisser modifiable avec indicateur** : le pattern `cascade-manual-edit` (bordure indigo + bouton revert) existe déjà pour le prix. Étendre aux quantités ajouterait de la complexité pour un cas d'usage rare.
+- **Désactiver visuellement mais permettre le override** : mi-chemin qui crée de la confusion UX — l'input semble désactivé mais ne l'est pas vraiment.
+
+**Conséquences** :
+- L'utilisateur ne peut pas accidentellement modifier une quantité calculée
+- Le pattern `cascade-manual-edit` (bordure indigo) continue de fonctionner pour les prix override
+- Si l'utilisateur veut une quantité différente, il doit modifier les dimensions du parent ou les formules du catalogue

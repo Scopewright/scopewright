@@ -3134,6 +3134,9 @@
                     }
                 }
             }
+            // Diagnostic: log why $default: couldn't find existing child (dims change bug investigation)
+            var _diagChildIds = activeChildren.filter(function(ac) { return alreadyMatched.indexOf(ac.rowId) === -1; }).map(function(ac) { return ac.catalogueId; });
+            cascadeLog('warn', 'findExisting: $default:' + groupName + ' MISS — validIds: [' + Object.keys(validIds).join(',') + '], dmClientTexts: [' + dmClientTexts.join(',') + '], unmatched children: [' + _diagChildIds.join(',') + '], allowedCats: [' + (allowedCats || []).join(',') + ']');
             return null;
         }
         if (ruleTarget.startsWith('$match:')) {
@@ -3159,6 +3162,9 @@
                     }
                 }
             }
+            // Diagnostic: log why $match: couldn't find existing child
+            var _diagMatchIds = activeChildren.filter(function(ac) { return alreadyMatched.indexOf(ac.rowId) === -1; }).map(function(ac) { return ac.catalogueId; });
+            cascadeLog('warn', 'findExisting: $match:' + expCat + ' MISS — unmatched children: [' + _diagMatchIds.join(',') + ']');
             return null;
         }
         return null;
@@ -5566,7 +5572,11 @@
             padding: 6px 12px;
             border-radius: 20px;
             background: #f5f5f5;
+            opacity: 0;
+            transition: opacity 300ms ease;
+            pointer-events: none;
         }
+        .data-status.ds-visible { opacity: 1; pointer-events: auto; }
         .data-status.online { background: #e8f5e9; color: #2e7d32; }
         .data-status.offline { background: #fff3e0; color: #ef6c00; }
         .data-status.error { background: #ffebee; color: #c62828; }
@@ -7678,6 +7688,8 @@
         /* 3 images: first spans full width, 2 below side by side */
         .pv-page-room-media.imgs-3 { gap: 12px; }
         .pv-page-room-media.imgs-3 .pv-img-wrap:first-child { grid-column: 1 / -1; }
+        /* 4 images: explicit 2×2 grid */
+        .pv-page-room-media.imgs-4 { grid-template-columns: 1fr 1fr; }
         /* 5-6 images: 3 columns */
         .pv-page-room-media.imgs-5,
         .pv-page-room-media.imgs-6 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -8811,10 +8823,12 @@
         .ph-total-label { font-size: 12px; color: #888; margin-bottom: 2px; }
         .ph-total-amount { font-size: 28px; font-weight: 700; color: var(--sw-text); }
         .save-indicator {
-            font-size: 11px; color: #999; white-space: nowrap;
+            font-size: 12px; color: #6B7280; white-space: nowrap;
             position: absolute; top: 8px; right: 12px;
+            opacity: 0; transition: opacity 300ms ease;
         }
-        .save-indicator.saving { color: var(--sw-navy); }
+        .save-indicator.si-visible { opacity: 1; }
+        .save-indicator.si-error { color: #DC2626; }
 
         /* Status Timeline */
         .status-timeline {
@@ -9740,7 +9754,7 @@
     <nav class="nav-bar">
         <span class="nav-logo">scopewright</span>
         <a href="app.html" class="nav-back">&larr; Menu</a>
-        <div class="data-status" id="dataStatus">
+        <div class="data-status ds-visible" id="dataStatus">
             <span class="status-dot"></span>
             <span class="status-text" id="statusText">Chargement...</span>
         </div>
@@ -11036,11 +11050,19 @@
             return type;
         }
 
+        var _dataStatusTimer = null;
         function updateStatus(status, message) {
             const statusEl = document.getElementById('dataStatus');
             const textEl = document.getElementById('statusText');
-            statusEl.className = 'data-status ' + status;
+            if (_dataStatusTimer) { clearTimeout(_dataStatusTimer); _dataStatusTimer = null; }
+            statusEl.className = 'data-status ' + status + ' ds-visible';
             textEl.textContent = message;
+            // Online = transient (show 2s then fade out). Offline/error/loading = persistent.
+            if (status === 'online') {
+                _dataStatusTimer = setTimeout(function() {
+                    statusEl.classList.remove('ds-visible');
+                }, 2000);
+            }
         }
 
         function formatDate(date) {
@@ -16504,6 +16526,7 @@
             '.pv-page-room-media.imgs-2{grid-template-columns:1fr;gap:20px}\n' +
             '.pv-page-room-media.imgs-3{gap:12px}\n' +
             '.pv-page-room-media.imgs-3 .pv-img-wrap:first-child{grid-column:1/-1}\n' +
+            '.pv-page-room-media.imgs-4{grid-template-columns:1fr 1fr}\n' +
             '.pv-page-room-media.imgs-5,.pv-page-room-media.imgs-6{grid-template-columns:repeat(3,1fr);gap:8px}\n' +
             '.pv-page-room-media .pv-img-wrap{overflow:hidden;min-height:0;border-radius:0;background:transparent;border:none;padding:0;box-shadow:none}\n' +
             '.pv-page-room-media .pv-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}\n' +
@@ -17202,12 +17225,21 @@
             if (!e.target.closest('.kebab-menu')) closeHeaderKebab();
         }
 
-        function showSaveIndicator() {
-            const el = document.getElementById('saveIndicator');
+        var _saveIndicatorTimer = null;
+        function showSaveIndicator(error) {
+            var el = document.getElementById('saveIndicator');
+            if (_saveIndicatorTimer) { clearTimeout(_saveIndicatorTimer); _saveIndicatorTimer = null; }
+            if (error) {
+                el.textContent = 'Erreur de sauvegarde';
+                el.className = 'save-indicator si-visible si-error';
+                // Error stays visible — no auto-hide
+                return;
+            }
             el.textContent = 'Sauvegardé ✓';
-            el.className = 'save-indicator saving';
-            clearTimeout(el._timeout);
-            el._timeout = setTimeout(() => { el.textContent = ''; el.className = 'save-indicator'; }, 2000);
+            el.className = 'save-indicator si-visible';
+            _saveIndicatorTimer = setTimeout(function() {
+                el.classList.remove('si-visible');
+            }, 2000);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -18757,6 +18789,18 @@
                             });
                             markCascadeParent(pid);
                             applyCascadeVisibility(pid);
+                        });
+                        // Fix: child cascade-parent-rows loaded with _cascadeExpanded = undefined
+                        // show aggregate totals even when visible. Recalculate after all parents applied.
+                        _loadedCascadeItems.forEach(function(ci) {
+                            var childEl = document.getElementById(ci.rowId);
+                            if (childEl && childEl.classList.contains('cascade-parent-row')) {
+                                var parentRowId = cascadeParentMap[ci.rowId];
+                                if (parentRowId && _cascadeExpanded[parentRowId]) {
+                                    // Parent is expanded → child is visible → show individual total
+                                    updateCollapsedParentTotal(ci.rowId);
+                                }
+                            }
                         });
                     }
                 }

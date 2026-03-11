@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-09
+> **Dernière mise à jour** : 2026-03-10
 
 ---
 
@@ -52,7 +52,7 @@
 | `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~685 lignes |
 | `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
 | `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~728 lignes |
-| `shared/pdf-export.js` | Export PDF client-side — `exportSubmissionPdf()`, `_sanitizePdfFilename()`, `_convertImagesToBase64()` | ~268 lignes |
+| `shared/pdf-export.js` | Export PDF server-side via PDFShift — `exportSubmissionPdf()`, `_sanitizePdfFilename()` | ~273 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 
@@ -516,6 +516,7 @@ Quand une règle cascade déclare `child_dims`, les dimensions L/H/P de l'enfant
 | Contraintes | `dataset.constraintsProcessed` | Empêche le re-triggering des contraintes sur le même article |
 | Article changé | `dataset.lastCatalogueId` | Détecte le changement pour reset les enfants |
 | Locked children | `cascade-locked` CSS class | Enfants verrouillés invisibles au moteur (override manuel) |
+| Qty readonly | `readOnly = true` + CSS `pointer-events:none` | Inputs qty des enfants cascade non-modifiables. Appliqué dans `addRow`, `executeCascade`, `openSubmission` |
 | Cascade suppressed | `cascadeSuppressed[parentRowId]` | Enfants manuellement supprimés ne sont pas recréés. Reset quand le parent change d'article |
 | Persist immédiat | `updateItem()` après chaque enfant | Bypass le debounce global pour persister `catalogue_item_id`, `description`, `unit_price`, `quantity`, `tag` immédiatement |
 | Skip cascade | `opts.skipCascade` dans `updateRow` | **Règle** : tout `updateRow()` qui N'EST PAS un changement de dims (L/H/P/n_tablettes/n_partitions/n_portes/n_tiroirs) ou d'article catalogue DOIT passer `skipCascade: true`. Corrigé dans : `saveOverrides`, `clearOverrides`, `refreshGroupRows`, `toggleInstallation`, AI tools `update_submission_line`, `modify_item` (sans dims), `applyChildDims` |
@@ -542,7 +543,7 @@ Les enfants cascade sont **masqués par défaut** pour réduire le bruit visuel 
 
 **État** : `_cascadeExpanded[parentRowId]` en mémoire. Pas de persistance DB — reset à collapsé au chargement.
 
-**Total agrégé** : quand un parent est collapsé, sa cellule `.cell-total` affiche la somme du parent + **tous ses descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte l'arbre complet via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme `getRowTotal` de tout l'arbre × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur. Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les prix individuels modifiés. Dans `updateRow`, un changement sur un petit-enfant remonte toute la chaîne d'ancêtres (`while (_ancestor)`). **Fix enfants niveau 2+** : `applyCascadeVisibility` appelle `updateCollapsedParentTotal` sur chaque enfant `cascade-parent-row` quand le parent est expandé — corrige l'agrégat stale hérité de `executeCascade` (où `_cascadeExpanded` est `undefined` = traité comme collapsé).
+**Total agrégé** : quand un parent est collapsé, sa cellule `.cell-total` affiche la somme du parent + **tous ses descendants** récursivement (classe `.aggregate-total`, texte bold navy). `getAllCascadeDescendants(parentRowId)` collecte l'arbre complet via `cascadeParentMap`. `updateCollapsedParentTotal(parentRowId)` : collapsé → somme `getRowTotal` de tout l'arbre × `getModifierMultiplier(groupId)`, expanded → `getRowTotal(parentRow)` × multiplicateur. Le multiplicateur room+global est appliqué au total affiché pour cohérence avec les prix individuels modifiés. Dans `updateRow`, un changement sur un petit-enfant remonte toute la chaîne d'ancêtres (`while (_ancestor)`). **Fix enfants niveau 2+** : `applyCascadeVisibility` appelle `updateCollapsedParentTotal` sur chaque enfant `cascade-parent-row` quand le parent est expandé — corrige l'agrégat stale hérité de `executeCascade` (où `_cascadeExpanded` est `undefined` = traité comme collapsé). **Fix au chargement** : `openSubmission()` fait un second pass après `applyCascadeVisibility` — pour chaque `cascade-parent-row` dont le parent est expandé, appelle `updateCollapsedParentTotal()` pour afficher le total individuel au lieu de l'agrégat.
 
 **Invariants préservés** : `getRowTotal`, `computeRentabilityData`, `debouncedSaveItem`, `propagateInstallationToCascadeChildren` opèrent sur les éléments DOM par ID, pas par visibilité — fonctionnent normalement sur enfants masqués.
 
@@ -612,6 +613,32 @@ Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le ca
 6. **Fallback catégorie supprimé** : L'ancien fallback par catégorie catalogue dans `findExistingChildForDynamicRule` a été supprimé car il permettait aux règles `$default:` de "voler" les enfants `$match:` (ex: panneau et bande de chant mal assignés).
 7. ~~**Debounce global causait perte de données**~~ **CORRIGÉ** : `debouncedSaveItem` utilisait un timer global unique — les créations rapides de 3+ enfants cascade annulaient les saves intermédiaires. Corrigé par `updateItem()` immédiat dans `executeCascade`.
 8. ~~**Ask guard bloquait 0 tablettes/partitions**~~ **CORRIGÉ** : `n_tablettes`/`n_partitions` vérifiaient `> 0` mais 0 est valide pour les caissons sans tablettes. Corrigé : vérifie `== null` (défini, pas > 0).
+9. **`dmChoiceCache` invalidation sélective** : `reprocessDefaultCascades` invalide uniquement les entrées du type DM modifié (`groupId:changedGroup`) et les entrées cross-DM (`groupId:cross:*`). Les choix "Mémoriser pour cette pièce" des autres types sont préservés.
+10. **Diagnostic `findExistingChildForDynamicRule` MISS** : quand `$default:` ou `$match:` ne retrouve pas un enfant existant, un log `cascadeLog('warn')` détaille `validIds`, `dmClientTexts`, `allowedCats`, et IDs enfants non-matchés.
+
+### 3.13 Indicateur de sauvegarde (pattern Linear)
+
+Au repos : aucun indicateur visible (opacity: 0). Feedback transitoire uniquement.
+
+**`showSaveIndicator(error)`** :
+- Normal : "Sauvegardé ✓" en `#6B7280` 12px, opacity 1 pendant 2s puis fade-out 300ms
+- Erreur (`error=true`) : "Erreur de sauvegarde" en `#DC2626`, reste visible (pas de fade-out)
+- CSS : `.save-indicator` opacity 0, `.si-visible` opacity 1, `.si-error` pour erreur
+
+**`updateStatus(status, message)`** :
+- Pill `#dataStatus` pour le statut catalogue (online/offline/error/loading)
+- `online` : visible 2s puis fade-out (transitoire)
+- `offline`/`error`/loading : reste visible (persistant)
+- CSS : `.data-status` opacity 0, `.ds-visible` opacity 1
+
+### 3.14 Barre de progression cascade (#141)
+
+Overlay semi-transparent sur la zone articles (`.calc-rows`) pendant `reprocessDefaultCascades`.
+
+- **HTML** : div `.cascade-progress-overlay` (position absolute, z-index 50, pointer-events all) avec barre `.cascade-progress-bar` (3px, animation `cascadeSlide` 1.2s) + texte "⟳ Recalcul…"
+- **Ref-counting** : `_cascadeProgressRef` incrémenté à chaque `showCascadeProgress(scopeGroupId)`, décrémenté à chaque `hideCascadeProgress()`. Overlay retiré uniquement quand ref = 0 (gère les callers multi-reprocess)
+- **Fade-out** : classe `.fade-out` (opacity 0, transition 150ms), removal DOM après 160ms
+- **Target** : `{scopeGroupId}-rows` (zone articles uniquement, pas le header)
 
 ---
 
@@ -1092,7 +1119,7 @@ Export server-side de la soumission en PDF via PDFShift API (rendu Chromium) a t
 2. Clone le contenu, supprime les elements interactifs (boutons, contenteditable). Textareas converties en divs avec `innerHTML = escapeHtml(value) + newlines→<br>`
 3. Reconstruit la page total+signature (`.pv-page-total`) en layout flex 2 colonnes : colonne gauche (55%) texte de cloture emotionnel (titre 38px, 3 paragraphes), separateur vertical 1px, colonne droite total (montant 48px) + lignes signature. `.pv-total-box` masque via `display:none`
 3b. **Sanitisation HTML descriptions** : apres le clone, regex remplace les entites HTML double-escapees (`&lt;br&gt;` → `<br>`, `&lt;p&gt;` → `<p>`, etc.) pour corriger les descriptions en DB contenant du HTML echappe
-4. Construit un document HTML complet autoportant : DOCTYPE + head (`<meta name="viewport" content="width=1056">` + Google Fonts Inter, SNAPSHOT_CSS + overrides inline) + body (contenu clone dans div `.pv-content` width 1056px). **Overrides CSS** (tous avec `!important` pour garantir la priorite sur SNAPSHOT_CSS) : `.pv-page{aspect-ratio:unset!important;height:auto!important;overflow:visible!important}` (elimine les pages blanches). `.pv-page-title{overflow:hidden!important}` (exception couverture — clip border-radius). `.pv-cover-right{-webkit-border-radius:8px!important;overflow:hidden!important}` (border-radius couverture Chromium). `.pv-page-clause{background:#fff!important}` (clauses fond blanc). `.pv-content{gap:0!important}`. Images : `object-fit:contain!important`, `min-width:0!important`. Conteneurs 2 colonnes : `overflow:hidden!important;max-width:100%!important`. Texte : `word-wrap:break-word!important`
+4. **Resolution URLs relatives** : les images avec `src` relatif (ex: `shared/logo.png`) sont prefixees avec `baseUrl` (origin du site) pour que PDFShift puisse les fetch cote serveur. Construit un document HTML complet autoportant : DOCTYPE + head (`<meta name="viewport" content="width=1056">` + Google Fonts Inter, SNAPSHOT_CSS + overrides inline) + body (contenu clone dans div `.pv-content` width 1056px). **Overrides CSS** (tous avec `!important` pour garantir la priorite sur SNAPSHOT_CSS) : `.pv-page{aspect-ratio:unset!important;height:auto!important;overflow:visible!important}` (elimine les pages blanches). `.pv-page{min-height:8.5in!important}` (centrage vertical du contenu court). `.pv-page-title{overflow:hidden!important;height:100%!important}` (couverture pleine hauteur — clip border-radius). `.pv-cover-right{-webkit-border-radius:8px!important;overflow:hidden!important}` (border-radius couverture Chromium). `.pv-page-clause{background:#fff!important}` (clauses fond blanc). `.pv-content{gap:0!important}`. Images : `object-fit:contain!important`, `min-width:0!important`. Conteneurs 2 colonnes : `overflow:hidden!important;max-width:100%!important`. Texte : `word-wrap:break-word!important`
 5. Appelle l'Edge Function `pdf-export` via `authenticatedFetch()` avec `{ html: htmlDoc }`
 6. L'Edge Function envoie le HTML a PDFShift API (`https://api.pdfshift.io/v3/convert/pdf`) avec params : format Letter, landscape, margin 0, use_print true, wait_for "network"
 7. Recoit le PDF binaire, cree un blob URL, declenche le telechargement

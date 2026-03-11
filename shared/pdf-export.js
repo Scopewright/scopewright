@@ -177,12 +177,12 @@ async function exportSubmissionPdf() {
             '\n.pv-page-clause{background:#fff!important}' +
             '\n.pv-page-total{background:#fff!important;color:#1A1A1A!important;display:flex!important;flex-direction:column!important}' +
             '\n.pv-total-box{display:none!important}' +
-            // 2-column layouts: constrain overflow, vertical centering via flex
-            '\n.pv-page-room-body{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
+            // 2-column layouts: constrain overflow + heights so grid stays on one page
+            '\n.pv-page-room-body{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important;max-height:calc(8.5in - 160px)!important}' +
             '\n.pv-page-room-text{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
-            '\n.pv-page-room-media{overflow:hidden!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}' +
-            '\n.pv-page-room-media .pv-img-wrap{overflow:hidden!important;min-width:0!important;max-width:100%!important}' +
-            '\n.pv-page-room-media .pv-img-wrap img{object-fit:contain!important;object-position:center!important;max-width:100%!important}' +
+            '\n.pv-page-room-media{overflow:hidden!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;max-height:100%!important}' +
+            '\n.pv-page-room-media .pv-img-wrap{overflow:hidden!important;min-width:0!important;max-width:100%!important;max-height:3.2in!important}' +
+            '\n.pv-page-room-media .pv-img-wrap img{object-fit:cover!important;object-position:center!important;max-width:100%!important;height:100%!important;width:100%!important}' +
             '\n.pv-page-intro{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
             '\n.pv-intro-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
             // "Why" page: ensure grid fills page height for image + text centering

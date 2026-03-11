@@ -105,6 +105,7 @@ Toutes les pages internes utilisent le système de tokens Scopewright :
 - **Page "Pourquoi"** : titre/texte/image dynamiques depuis `app_config` (`why_title`, `why_text`, `why_image_url`). Placeholder `{designer}` interpolé avec le nom de l'architecte. Fallback hardcodé si absent
 - **Étapes du projet** : 8 étapes dynamiques depuis `app_config.project_steps` (JSONB array `[{title, description}]`). Fallback sur `STEPS_I18N` hardcodé si absent
 - **Données chargées** : `app_config` keys fetchées au chargement : cover_image, intro_*, why_*, project_steps. Migrations : `sql/presentation_sections.sql`
+- **RLS anon** : la policy `anon_read_branding` sur `app_config` doit lister toutes les clés nécessaires à quote.html (16 clés). Migration : `sql/anon_read_presentation.sql`
 
 ### Classes utilitaires
 

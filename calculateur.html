@@ -11624,6 +11624,15 @@
             if (toggleBtn) toggleBtn.classList.toggle('expanded', expanded);
             if (parentRow) parentRow.classList.toggle('cascade-expanded', expanded);
             updateCollapsedParentTotal(parentRowId);
+            // Fix: when expanding, update totals on child cascade-parents
+            // so they show individual (not aggregate) totals when visible
+            if (expanded) {
+                children.forEach(function(child) {
+                    if (child.classList.contains('cascade-parent-row')) {
+                        updateCollapsedParentTotal(child.id);
+                    }
+                });
+            }
         }
 
         /**

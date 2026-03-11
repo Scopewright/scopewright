@@ -20,7 +20,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 22 sections accordion | ~3 970 lignes |
+| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion + chat AI | ~4 300 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -574,13 +574,14 @@ La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast nav
 
 ### Architecture des prompts AI
 
-**18 prompts** (15 dans le dropdown admin + 3 invisibles) répartis dans 4 Edge Functions. Les catégories de dépense dans admin.html réutilisent les actions `catalogue_calc_rule` et `catalogue_pres_rule` de l'edge function `translate` pour générer les JSON `calc_rule` et `presentation_rule` respectivement.
+**19 prompts** (16 dans le dropdown admin + 3 invisibles) répartis dans 5 Edge Functions. Les catégories de dépense dans admin.html réutilisent les actions `catalogue_calc_rule` et `catalogue_pres_rule` de l'edge function `translate` pour générer les JSON `calc_rule` et `presentation_rule` respectivement.
 Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override DB** dans `app_config`. Si la DB a une valeur non-vide → utilisée. Sinon → hardcodé.
 
 | Clé `app_config` | Edge Function | Modèle | Admin visible |
 |---|---|---|---|
 | `ai_prompt_estimateur` | ai-assistant | Sonnet 4.5 | ✅ |
 | `ai_prompt_approval_review` | ai-assistant | Sonnet 4.5 | ✅ |
+| `ai_prompt_master` | ai-master | Sonnet 4.5 | ✅ |
 | `ai_prompt_catalogue_import` | catalogue-import | Sonnet 4.5 | ✅ |
 | `ai_prompt_contacts` | contacts-import | Sonnet 4.5 | ✅ |
 | `ai_prompt_fiche_optimize` | translate | Haiku 4.5 | ✅ |
@@ -607,6 +608,8 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `why_text` | TEXT (HTML) | Texte page "Pourquoi". Placeholder `{designer}` interpolé | quote.html |
 | `why_image_url` | TEXT (URL) | Image page "Pourquoi" | quote.html |
 | `project_steps` | JSONB | 8 étapes `[{title, description}]` | quote.html (fallback `STEPS_I18N`) |
+| `master_context` | TEXT | MASTER_CONTEXT.md synchronisé | ai-master (system prompt) |
+| `master_claude_md` | TEXT | CLAUDE.md synchronisé | ai-master (system prompt) |
 
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 
@@ -615,6 +618,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
+- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~25 lignes) + `master_context` + `master_claude_md` + learnings. Pas de tools (lecture seule)
 - Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
@@ -633,6 +637,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 |---|---|---|---|---|
 | `ai_prompt_estimateur` | Texte (system prompt) | Prompt assistant estimateur | `callAiAssistant()` (calculateur) | `ai-assistant` |
 | `ai_prompt_approval_review` | Texte (system prompt) | Prompt review approbation | `callAiReviewAssistant()` (approbation) | `ai-assistant` |
+| `ai_prompt_master` | Texte (system prompt) | Prompt Agent Maître (conseil architecture) | `masterCallApi()` (admin) | `ai-master` |
 | `ai_prompt_catalogue_import` | Texte (system prompt) | Prompt import catalogue AI | `startCatalogueImport()` (catalogue) | `catalogue-import` |
 | `ai_prompt_contacts` | Texte (system prompt) | Prompt import contacts AI | `startContactsImport()` (clients) | `contacts-import` |
 | `ai_prompt_fiche_optimize` | Texte (user prompt) | Optimiser descriptions fiche produit | `aiOptimize()` (fiche) | `translate` (action `fiche_optimize`) |
@@ -652,11 +657,12 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 
 Toutes les clés sont de type TEXT dans `app_config.value` (JSONB wrappé en string). Si la valeur est non-vide en DB, elle remplace le prompt hardcodé dans le code TypeScript de l'Edge Function via `loadPromptOverride()`.
 
-### 5 Edge Functions
+### 6 Edge Functions
 
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | calculateur, approbation, catalogue |
+| `ai-master` | Sonnet 4.5 | Non | 0 | admin (Agent Maître — lecture seule, conseil) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (12 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |
@@ -667,6 +673,7 @@ Toutes les clés sont de type TEXT dans `app_config.value` (JSONB wrappé en str
 ```bash
 # CLI pas installé globalement, utiliser npx
 npx supabase functions deploy ai-assistant --no-verify-jwt
+npx supabase functions deploy ai-master --no-verify-jwt
 npx supabase functions deploy translate --no-verify-jwt
 npx supabase functions deploy catalogue-import --no-verify-jwt
 npx supabase functions deploy contacts-import --no-verify-jwt
@@ -680,7 +687,7 @@ npx supabase secrets set PDFSHIFT_API_KEY=sk_...
 
 ### Authentification Edge Functions
 
-Les 5 Edge Functions sont déployées avec `--no-verify-jwt`. La vérification JWT est effectuée manuellement via `_shared/auth.ts` (bibliothèque `jose`) :
+Les 6 Edge Functions sont déployées avec `--no-verify-jwt`. La vérification JWT est effectuée manuellement via `_shared/auth.ts` (bibliothèque `jose`) :
 - **Primaire** : ES256 via JWKS (clé publique Supabase Auth v2, cachée 1h)
 - **Fallback** : HS256 avec `JWT_SECRET` (tokens legacy)
 - Tolérance horloge : 30s sur l'expiration
@@ -814,6 +821,7 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 
 ## Documentation
 
+- `docs/MASTER_CONTEXT.md` — Synthèse système optimisée AI : architecture, tables, agents, risques, conventions (system prompt de l'Agent Maître)
 - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif : architecture, systèmes (cascade, DM, permissions, workflow), Edge Functions, tables, triggers
 - `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 18 bugs, 13 risques architecturaux, 27 recommandations priorisées
 - `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-030) : contexte, alternatives, conséquences

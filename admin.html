@@ -372,6 +372,123 @@
             border-radius: 10px; margin-left: 8px;
         }
 
+        /* ── Master Agent Chat ── */
+        .master-panel {
+            display: none;
+            flex-direction: column;
+            height: calc(100vh - 56px - 100px); /* nav + title area */
+        }
+        .section[data-panel="master"].panel-visible .master-panel { display: flex; }
+        .admin-main.master-active { max-width: 960px; }
+        .master-sync-bar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0; margin-bottom: 12px;
+            border-bottom: 1px solid var(--sw-border);
+        }
+        .master-sync-btn {
+            background: none; border: 1px solid var(--sw-border);
+            padding: 6px 14px; font-size: 12px; font-weight: 500;
+            border-radius: 8px; cursor: pointer; font-family: inherit;
+            color: var(--sw-text-2); transition: all 0.15s;
+        }
+        .master-sync-btn:hover { border-color: var(--sw-navy); color: var(--sw-navy); }
+        .master-sync-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .master-sync-status {
+            font-size: 11px; color: var(--sw-muted);
+        }
+        .master-messages {
+            flex: 1; overflow-y: auto; padding: 8px 0;
+            display: flex; flex-direction: column; gap: 16px;
+            scrollbar-width: thin; scrollbar-color: #d1d5db transparent;
+        }
+        .master-messages::-webkit-scrollbar { width: 5px; }
+        .master-messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        .master-msg {
+            max-width: 92%; padding: 12px 16px;
+            font-size: 13px; line-height: 1.6;
+            border-radius: 12px; word-wrap: break-word;
+        }
+        .master-msg.user {
+            align-self: flex-end;
+            background: var(--sw-navy); color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .master-msg.assistant {
+            align-self: flex-start;
+            background: #f1f5f9; color: var(--sw-text);
+            border-bottom-left-radius: 4px;
+        }
+        .master-msg.assistant h1,
+        .master-msg.assistant h2,
+        .master-msg.assistant h3,
+        .master-msg.assistant h4 { margin: 12px 0 6px; font-size: 14px; font-weight: 700; }
+        .master-msg.assistant h1:first-child,
+        .master-msg.assistant h2:first-child,
+        .master-msg.assistant h3:first-child { margin-top: 0; }
+        .master-msg.assistant ul, .master-msg.assistant ol { margin: 4px 0; padding-left: 20px; }
+        .master-msg.assistant li { margin: 2px 0; }
+        .master-msg.assistant code {
+            background: rgba(0,0,0,0.06); padding: 1px 5px;
+            border-radius: 4px; font-size: 12px;
+            font-family: 'SF Mono','Cascadia Code','Consolas',monospace;
+        }
+        .master-msg.assistant pre {
+            background: #1e293b; color: #e2e8f0;
+            padding: 10px 12px; border-radius: 6px;
+            overflow-x: auto; margin: 8px 0; font-size: 12px;
+        }
+        .master-msg.assistant pre code { background: none; padding: 0; color: inherit; }
+        .master-msg.assistant table { border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+        .master-msg.assistant th, .master-msg.assistant td { border: 1px solid #d1d5db; padding: 4px 8px; text-align: left; }
+        .master-msg.assistant th { background: #e2e8f0; font-weight: 600; }
+        .master-msg.assistant strong { font-weight: 700; }
+        .master-msg.system {
+            align-self: center; text-align: center;
+            background: none; color: var(--sw-muted);
+            font-size: 12px; font-style: italic;
+            padding: 4px 8px;
+        }
+        .master-typing {
+            align-self: flex-start; padding: 12px 16px;
+            background: #f1f5f9; border-radius: 12px;
+            border-bottom-left-radius: 4px;
+            display: flex; gap: 4px; align-items: center;
+        }
+        .master-typing-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #94a3b8;
+            animation: masterTyping 1.4s ease-in-out infinite;
+        }
+        .master-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .master-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes masterTyping {
+            0%,60%,100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+        }
+        .master-input-bar {
+            display: flex; gap: 8px; padding: 12px 0;
+            border-top: 1px solid var(--sw-border);
+            align-items: flex-end;
+        }
+        .master-input {
+            flex: 1; padding: 10px 14px;
+            border: 1px solid var(--sw-border); border-radius: 10px;
+            font-family: inherit; font-size: 13px;
+            resize: none; min-height: 42px; max-height: 120px;
+            line-height: 1.5; color: var(--sw-text);
+            transition: border-color 0.15s;
+        }
+        .master-input:focus { outline: none; border-color: var(--sw-navy); }
+        .master-send-btn {
+            width: 42px; height: 42px; flex-shrink: 0;
+            background: var(--sw-navy); color: #fff; border: none;
+            border-radius: 10px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.15s;
+        }
+        .master-send-btn:hover { opacity: 0.85; }
+        .master-send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
         /* Footer */
         .app-footer {
             padding: 20px 40px; text-align: center;
@@ -588,6 +705,10 @@
                 <div class="admin-nav-item" data-nav="ai" onclick="switchPanel('ai')">
                     <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
                     Prompts AI
+                </div>
+                <div class="admin-nav-item" data-nav="master" onclick="switchPanel('master')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a7 7 0 017 7c0 2.8-1.6 5.2-4 6.3V17a1 1 0 01-1 1h-4a1 1 0 01-1-1v-1.7A7 7 0 0112 2z"/><line x1="9" y1="21" x2="15" y2="21"/><line x1="10" y1="24" x2="14" y2="24"/></svg>
+                    Agent Ma&icirc;tre
                 </div>
             </nav>
 
@@ -941,6 +1062,7 @@
                             <option value="ai_prompt_instruction_catalogue">Catalogue &mdash; Instruction article</option>
                             <option value="ai_prompt_labor_modifiers">Catalogue &mdash; Bar&egrave;mes et modificateurs</option>
                             <option value="ai_prompt_expense_pres_rule">D&eacute;penses &mdash; R&egrave;gle de pr&eacute;sentation</option>
+                            <option value="ai_prompt_master">Agent Ma&icirc;tre</option>
                         </select>
                         <span id="aiPromptStatus" style="font-size:11px; color:#aaa;"></span>
                     </div>
@@ -980,6 +1102,26 @@
                         Aucune r&egrave;gle enregistr&eacute;e. Les r&egrave;gles apparaissent ici quand un utilisateur corrige un assistant AI et confirme l&rsquo;enregistrement.
                     </div>
                     <span class="save-feedback" id="aiMemoryFeedback"></span>
+                </div>
+            </div>
+
+            <!-- ═══ Agent Maître panel ═══ -->
+            <div class="section" id="sectionMaster" data-panel="master" style="border:none; background:none; overflow:visible;">
+                <div class="master-panel">
+                    <div class="master-sync-bar">
+                        <button class="master-sync-btn" id="masterSyncBtn" onclick="masterSyncDocs()">
+                            &#x21BB; Synchroniser les docs
+                        </button>
+                        <span class="master-sync-status" id="masterSyncStatus"></span>
+                        <button class="master-sync-btn" onclick="masterClearChat()" style="margin-left:auto;">Nouvelle conversation</button>
+                    </div>
+                    <div class="master-messages" id="masterMessages"></div>
+                    <div class="master-input-bar">
+                        <textarea class="master-input" id="masterInput" placeholder="Posez une question sur le syst&egrave;me Scopewright..." rows="1" onkeydown="masterInputKeydown(event)"></textarea>
+                        <button class="master-send-btn" id="masterSendBtn" onclick="masterSendMessage()" title="Envoyer">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1457,7 +1599,8 @@
         catalogue: { title: 'Catalogue', sub: 'Cat\u00e9gories, d\u00e9penses, taux horaires et nomenclature.' },
         workflow: { title: 'Workflow', sub: 'Pipeline, sources, types de projet et contacts CRM.' },
         equipe: { title: '\u00c9quipe', sub: 'Permissions, r\u00f4les et attribution des utilisateurs.' },
-        ai: { title: 'Prompts AI', sub: 'Personnalisez les instructions syst\u00e8me et la m\u00e9moire des assistants.' }
+        ai: { title: 'Prompts AI', sub: 'Personnalisez les instructions syst\u00e8me et la m\u00e9moire des assistants.' },
+        master: { title: 'Agent Ma\u00eetre', sub: 'Conseiller architecture et syst\u00e8me — d\u00e9tection d\u2019incoh\u00e9rences, risques et opportunit\u00e9s.' }
     };
 
     function switchPanel(panelId) {
@@ -3953,6 +4096,282 @@
 
     // Load badge count on page load
     setTimeout(updateRegenBadge, 2000);
+
+    // ═══════════════════════════════════════════════════════════
+    // ██  AGENT MAÎTRE — Conversation + Doc Sync
+    // ═══════════════════════════════════════════════════════════
+
+    var _masterMessages = [];     // { role, content }
+    var _masterBusy = false;
+    var _masterInitDone = false;
+
+    // ── Markdown → HTML (lightweight) ──
+    function masterMdToHtml(md) {
+        var html = escapeHtml(md);
+        // Code blocks ```
+        html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+            return '<pre><code>' + code.trim() + '</code></pre>';
+        });
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Bold
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Italic
+        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        // Headers
+        html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+        // Tables (simple)
+        html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm, function(_, headerLine, sepLine, bodyLines) {
+            var headers = headerLine.split('|').filter(function(c) { return c.trim(); });
+            var rows = bodyLines.trim().split('\n');
+            var t = '<table><thead><tr>';
+            headers.forEach(function(h) { t += '<th>' + h.trim() + '</th>'; });
+            t += '</tr></thead><tbody>';
+            rows.forEach(function(row) {
+                var cols = row.split('|').filter(function(c) { return c.trim(); });
+                t += '<tr>';
+                cols.forEach(function(c) { t += '<td>' + c.trim() + '</td>'; });
+                t += '</tr>';
+            });
+            t += '</tbody></table>';
+            return t;
+        });
+        // Unordered lists
+        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+        html = html.replace(/<\/ul>\s*<ul>/g, '');
+        // Ordered lists
+        html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+        // Paragraphs (double newline)
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = '<p>' + html + '</p>';
+        // Clean up empty paragraphs
+        html = html.replace(/<p>\s*<\/p>/g, '');
+        // Line breaks
+        html = html.replace(/\n/g, '<br>');
+        // Clean up br inside pre
+        html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, function(m, code) {
+            return '<pre><code>' + code.replace(/<br>/g, '\n') + '</code></pre>';
+        });
+        return html;
+    }
+
+    // ── Render messages ──
+    function masterRenderMessages() {
+        var container = document.getElementById('masterMessages');
+        var html = '';
+        for (var i = 0; i < _masterMessages.length; i++) {
+            var m = _masterMessages[i];
+            if (m.role === 'user') {
+                html += '<div class="master-msg user">' + escapeHtml(m.content) + '</div>';
+            } else if (m.role === 'assistant') {
+                html += '<div class="master-msg assistant">' + masterMdToHtml(m.content) + '</div>';
+            } else if (m.role === 'system') {
+                html += '<div class="master-msg system">' + escapeHtml(m.content) + '</div>';
+            }
+        }
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function masterShowTyping() {
+        var container = document.getElementById('masterMessages');
+        var el = document.createElement('div');
+        el.className = 'master-typing';
+        el.id = 'masterTypingIndicator';
+        el.innerHTML = '<div class="master-typing-dot"></div><div class="master-typing-dot"></div><div class="master-typing-dot"></div>';
+        container.appendChild(el);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function masterHideTyping() {
+        var el = document.getElementById('masterTypingIndicator');
+        if (el) el.remove();
+    }
+
+    // ── Send message ──
+    async function masterSendMessage() {
+        if (_masterBusy) return;
+        var input = document.getElementById('masterInput');
+        var text = input.value.trim();
+        if (!text) return;
+
+        // Add user message
+        _masterMessages.push({ role: 'user', content: text });
+        input.value = '';
+        input.style.height = 'auto';
+        masterRenderMessages();
+
+        await masterCallApi();
+    }
+
+    async function masterCallApi() {
+        _masterBusy = true;
+        document.getElementById('masterSendBtn').disabled = true;
+        masterShowTyping();
+
+        try {
+            // Build messages for API (only user/assistant roles)
+            var apiMessages = _masterMessages.filter(function(m) {
+                return m.role === 'user' || m.role === 'assistant';
+            }).map(function(m) {
+                return { role: m.role, content: m.content };
+            });
+
+            var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-master', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: apiMessages })
+            });
+
+            masterHideTyping();
+
+            if (!resp.ok) {
+                var errText = '';
+                try { errText = await resp.text(); } catch(e) {}
+                if (resp.status === 429 || resp.status === 529) {
+                    _masterMessages.push({ role: 'system', content: 'Le serveur est occup\u00e9. R\u00e9essayez dans quelques secondes.' });
+                } else {
+                    _masterMessages.push({ role: 'system', content: 'Erreur ' + resp.status + (errText ? ' \u2014 ' + errText.substring(0, 200) : '') });
+                }
+                masterRenderMessages();
+                return;
+            }
+
+            var result = await resp.json();
+            var text = '';
+            if (result.content && Array.isArray(result.content)) {
+                for (var i = 0; i < result.content.length; i++) {
+                    if (result.content[i].type === 'text') {
+                        text += result.content[i].text;
+                    }
+                }
+            }
+
+            if (text) {
+                _masterMessages.push({ role: 'assistant', content: text });
+            } else {
+                _masterMessages.push({ role: 'system', content: 'Aucune r\u00e9ponse re\u00e7ue.' });
+            }
+            masterRenderMessages();
+
+        } catch (err) {
+            masterHideTyping();
+            _masterMessages.push({ role: 'system', content: 'Erreur r\u00e9seau : ' + err.message });
+            masterRenderMessages();
+        } finally {
+            _masterBusy = false;
+            document.getElementById('masterSendBtn').disabled = false;
+            document.getElementById('masterInput').focus();
+        }
+    }
+
+    // ── Input auto-resize + Enter to send ──
+    function masterInputKeydown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            masterSendMessage();
+        }
+        // Auto-resize
+        setTimeout(function() {
+            var ta = document.getElementById('masterInput');
+            ta.style.height = 'auto';
+            ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+        }, 0);
+    }
+
+    // ── Clear chat ──
+    function masterClearChat() {
+        _masterMessages = [];
+        _masterInitDone = false;
+        document.getElementById('masterMessages').innerHTML = '';
+    }
+
+    // ── Doc sync ──
+    async function masterSyncDocs() {
+        var btn = document.getElementById('masterSyncBtn');
+        var status = document.getElementById('masterSyncStatus');
+        btn.disabled = true;
+        status.textContent = 'Synchronisation en cours...';
+
+        try {
+            // Fetch docs from static files (Netlify serves them)
+            var docs = {};
+            var baseUrl = window.location.origin + '/';
+
+            // Fetch MASTER_CONTEXT.md
+            try {
+                var r1 = await fetch(baseUrl + 'docs/MASTER_CONTEXT.md');
+                if (r1.ok) docs.master_context = await r1.text();
+            } catch(e) { console.warn('Failed to fetch MASTER_CONTEXT.md:', e); }
+
+            // Fetch CLAUDE.md
+            try {
+                var r2 = await fetch(baseUrl + 'CLAUDE.md');
+                if (r2.ok) docs.master_claude_md = await r2.text();
+            } catch(e) { console.warn('Failed to fetch CLAUDE.md:', e); }
+
+            // Save to app_config
+            var saved = 0;
+            var keys = Object.keys(docs);
+            for (var i = 0; i < keys.length; i++) {
+                var key = keys[i];
+                var val = docs[key];
+                if (!val || !val.trim()) continue;
+
+                var r = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/app_config',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify({ key: key, value: JSON.stringify(val) })
+                    }
+                );
+                if (r.ok) saved++;
+            }
+
+            var now = new Date();
+            var timeStr = now.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+            status.textContent = saved + '/' + keys.length + ' docs synchronis\u00e9s \u2014 ' + timeStr;
+            status.style.color = saved === keys.length ? '#16a34a' : '#d97706';
+
+        } catch (err) {
+            status.textContent = 'Erreur : ' + err.message;
+            status.style.color = '#dc2626';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ── Auto-init on first panel switch ──
+    var _origSwitchPanel = switchPanel;
+    switchPanel = function(panelId) {
+        _origSwitchPanel(panelId);
+        // Toggle wider layout for master panel
+        var main = document.getElementById('adminMain');
+        if (main) main.classList.toggle('master-active', panelId === 'master');
+        if (panelId === 'master' && !_masterInitDone && _masterMessages.length === 0) {
+            _masterInitDone = true;
+            // Auto-send initial analysis question
+            _masterMessages.push({
+                role: 'user',
+                content: 'Analyse le syst\u00e8me Scopewright. Identifie les incoh\u00e9rences, risques architecturaux, et opportunit\u00e9s d\u2019am\u00e9lioration les plus critiques.'
+            });
+            masterRenderMessages();
+            masterCallApi();
+        }
+        // Show/hide master panel
+        var mp = document.querySelector('.master-panel');
+        if (mp) {
+            mp.style.display = panelId === 'master' ? 'flex' : 'none';
+        }
+    };
 
     </script>
 

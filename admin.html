@@ -47,15 +47,55 @@
         .data-status.error .status-dot { background: #f44336; }
         .status-text { white-space: nowrap; }
 
-        /* Content */
+        /* Content — sidebar + main layout */
         .app-content {
-            flex: 1; padding: 40px;
-            padding-top: 96px; /* 56px nav + 40px spacing */
-            max-width: 1000px; margin: 0 auto; width: 100%;
+            flex: 1; display: flex;
+            padding-top: 56px; /* nav height */
+            width: 100%;
         }
 
-        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-        .page-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
+        /* Sidebar navigation */
+        .admin-sidebar {
+            width: 220px; flex-shrink: 0;
+            position: sticky; top: 56px; height: calc(100vh - 56px);
+            overflow-y: auto; overflow-x: hidden;
+            background: var(--sw-bg); border-right: 1px solid var(--sw-border);
+            padding: 24px 0 32px;
+            scrollbar-width: thin; scrollbar-color: #d1d5db transparent;
+        }
+        .admin-sidebar::-webkit-scrollbar { width: 4px; }
+        .admin-sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+        .admin-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .admin-nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 24px; font-size: 13px; font-weight: 500;
+            color: var(--sw-text-2); cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+            white-space: nowrap; user-select: none;
+            border-left: 2px solid transparent;
+        }
+        .admin-nav-item:hover { background: #f1f5f9; color: var(--sw-text); }
+        .admin-nav-item.active {
+            color: var(--sw-navy); font-weight: 600;
+            background: rgba(11,18,32,0.04);
+            border-left-color: var(--sw-navy);
+        }
+        .admin-nav-icon { width: 16px; height: 16px; opacity: 0.55; flex-shrink: 0; }
+        .admin-nav-item.active .admin-nav-icon { opacity: 0.85; }
+
+        /* Main panel area */
+        .admin-main {
+            flex: 1; padding: 40px;
+            max-width: 860px; overflow-y: auto;
+            height: calc(100vh - 56px);
+        }
+
+        .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em; }
+        .page-sub { font-size: 13px; color: var(--sw-text-2); margin-bottom: 28px; }
+
+        /* Panel show/hide */
+        .section[data-panel] { display: none; }
+        .section[data-panel].panel-visible { display: block; }
 
         /* Sections */
         .section {
@@ -415,9 +455,28 @@
             background: var(--sw-navy); color: #fff;
         }
 
+        @media (max-width: 900px) {
+            .admin-sidebar {
+                position: fixed; top: 56px; left: 0; right: 0;
+                width: 100%; height: auto; max-height: none;
+                border-right: none; border-bottom: 1px solid var(--sw-border);
+                display: flex; overflow-x: auto; overflow-y: hidden;
+                padding: 0; z-index: 50; background: var(--sw-surface);
+            }
+            .admin-nav-item {
+                padding: 12px 16px; border-left: none;
+                border-bottom: 2px solid transparent;
+                flex-shrink: 0; font-size: 12px;
+            }
+            .admin-nav-item.active { border-bottom-color: var(--sw-navy); border-left-color: transparent; }
+            .admin-nav-icon { display: none; }
+            .admin-main { padding: 24px 16px; padding-top: 16px; max-width: 100%; height: auto; overflow-y: visible; }
+            .app-content { flex-direction: column; padding-top: 56px; }
+            /* Extra top space for the horizontal tab bar */
+            .admin-main { margin-top: 0; }
+        }
         @media (max-width: 768px) {
             .nav-bar { padding: 0 20px; gap: 16px; }
-            .app-content { padding: 24px 16px; padding-top: 80px; }
             .section-toggle { padding: 16px; }
             .section-content { padding: 0 16px 20px; }
             .perm-table th, .perm-table td { padding: 8px 6px; font-size: 12px; }
@@ -508,11 +567,37 @@
         </nav>
 
         <main class="app-content">
-            <div class="page-title">Administration</div>
-            <div class="page-sub">G&eacute;rez les permissions d'acc&egrave;s et les r&ocirc;les utilisateurs.</div>
+            <!-- Sidebar navigation -->
+            <nav class="admin-sidebar" id="adminSidebar">
+                <div class="admin-nav-item active" data-nav="presentation" onclick="switchPanel('presentation')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                    Pr&eacute;sentation
+                </div>
+                <div class="admin-nav-item" data-nav="catalogue" onclick="switchPanel('catalogue')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    Catalogue
+                </div>
+                <div class="admin-nav-item" data-nav="workflow" onclick="switchPanel('workflow')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Workflow
+                </div>
+                <div class="admin-nav-item" data-nav="equipe" onclick="switchPanel('equipe')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    &Eacute;quipe
+                </div>
+                <div class="admin-nav-item" data-nav="ai" onclick="switchPanel('ai')">
+                    <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    Prompts AI
+                </div>
+            </nav>
+
+            <!-- Main panel area -->
+            <div class="admin-main" id="adminMain">
+                <div class="page-title" id="panelTitle">Pr&eacute;sentation</div>
+                <div class="page-sub" id="panelSub">Image de couverture et page d'introduction des soumissions client.</div>
 
             <!-- Permissions par role -->
-            <div class="section collapsed" id="sectionPerm">
+            <div class="section collapsed" id="sectionPerm" data-panel="equipe">
                 <div class="section-toggle" onclick="toggleSection('sectionPerm')">
                     <div class="section-toggle-left">
                         <div class="section-title">Permissions par r&ocirc;le</div>
@@ -535,7 +620,7 @@
             </div>
 
             <!-- Gestion des rôles -->
-            <div class="section collapsed" id="sectionManageRoles">
+            <div class="section collapsed" id="sectionManageRoles" data-panel="equipe">
                 <div class="section-toggle" onclick="toggleSection('sectionManageRoles')">
                     <div class="section-toggle-left">
                         <div class="section-title">Gestion des r&ocirc;les</div>
@@ -560,7 +645,7 @@
             </div>
 
             <!-- Attribution des roles -->
-            <div class="section collapsed" id="sectionRoles">
+            <div class="section collapsed" id="sectionRoles" data-panel="equipe">
                 <div class="section-toggle" onclick="toggleSection('sectionRoles')">
                     <div class="section-toggle-left">
                         <div class="section-title">Attribution des r&ocirc;les</div>
@@ -591,7 +676,7 @@
             </div>
 
             <!-- Categories du catalogue -->
-            <div class="section collapsed" id="sectionCategories">
+            <div class="section collapsed" id="sectionCategories" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionCategories')">
                     <div class="section-toggle-left">
                         <div class="section-title">Cat&eacute;gories du catalogue<span class="section-badge" id="unmappedBadge" style="display:none"></span></div>
@@ -619,7 +704,7 @@
             </div>
 
             <!-- Groupes materiaux soumission -->
-            <div class="section collapsed" id="sectionMaterialGroups">
+            <div class="section collapsed" id="sectionMaterialGroups" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionMaterialGroups')">
                     <div class="section-toggle-left">
                         <div class="section-title">Groupes mat&eacute;riaux (soumission)</div>
@@ -646,7 +731,7 @@
             </div>
 
             <!-- Tags medias -->
-            <div class="section collapsed" id="sectionTags">
+            <div class="section collapsed" id="sectionTags" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionTags')">
                     <div class="section-toggle-left">
                         <div class="section-title">Tags m&eacute;dias</div>
@@ -672,7 +757,7 @@
                 </div>
             </div>
             <!-- Types d'entreprise -->
-            <div class="section collapsed" id="sectionCompanyTypes">
+            <div class="section collapsed" id="sectionCompanyTypes" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionCompanyTypes')">
                     <div class="section-toggle-left">
                         <div class="section-title">Types d'entreprise</div>
@@ -694,7 +779,7 @@
             </div>
 
             <!-- R&ocirc;les de contact -->
-            <div class="section collapsed" id="sectionContactRoles">
+            <div class="section collapsed" id="sectionContactRoles" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionContactRoles')">
                     <div class="section-toggle-left">
                         <div class="section-title">R&ocirc;les de contact</div>
@@ -716,7 +801,7 @@
             </div>
 
             <!-- Types de communication -->
-            <div class="section collapsed" id="sectionCommTypes">
+            <div class="section collapsed" id="sectionCommTypes" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionCommTypes')">
                     <div class="section-toggle-left">
                         <div class="section-title">Types de communication</div>
@@ -738,7 +823,7 @@
             </div>
 
             <!-- Catégories de dépenses -->
-            <div class="section collapsed" id="sectionExpenses">
+            <div class="section collapsed" id="sectionExpenses" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionExpenses')">
                     <div class="section-toggle-left">
                         <div class="section-title">Cat&eacute;gories de d&eacute;penses</div>
@@ -769,7 +854,7 @@
             </div>
 
             <!-- Données de base — Taux horaires -->
-            <div class="section collapsed" id="sectionTaux">
+            <div class="section collapsed" id="sectionTaux" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionTaux')">
                     <div class="section-toggle-left">
                         <div class="section-title">Donn&eacute;es de base</div>
@@ -798,7 +883,7 @@
             </div>
 
             <!-- Nomenclature des tags -->
-            <div class="section collapsed" id="sectionTagPrefixes">
+            <div class="section collapsed" id="sectionTagPrefixes" data-panel="catalogue">
                 <div class="section-toggle" onclick="toggleSection('sectionTagPrefixes')">
                     <div class="section-toggle-left">
                         <div class="section-title">Nomenclature des tags</div>
@@ -825,7 +910,7 @@
                 </div>
             </div>
 
-            <div class="section collapsed" id="sectionAiPrompts">
+            <div class="section collapsed" id="sectionAiPrompts" data-panel="ai">
                 <div class="section-toggle" onclick="toggleSection('sectionAiPrompts')">
                     <div class="section-toggle-left">
                         <div class="section-title">Prompts AI</div>
@@ -868,7 +953,7 @@
                 </div>
             </div>
 
-            <div class="section collapsed" id="sectionAiMemory">
+            <div class="section collapsed" id="sectionAiMemory" data-panel="ai">
                 <div class="section-toggle" onclick="toggleSection('sectionAiMemory')">
                     <div class="section-toggle-left">
                         <div class="section-title">M&eacute;moire AI</div>
@@ -898,7 +983,7 @@
                 </div>
             </div>
 
-            <div class="section collapsed" id="sectionCoverImage">
+            <div class="section collapsed" id="sectionCoverImage" data-panel="presentation">
                 <div class="section-toggle" onclick="toggleSection('sectionCoverImage')">
                     <div class="section-toggle-left">
                         <div class="section-title">Image de couverture</div>
@@ -929,7 +1014,7 @@
             </div>
 
             <!-- Pr&eacute;sentation soumission : Page Introduction -->
-            <div class="section collapsed" id="sectionPresentationIntro">
+            <div class="section collapsed" id="sectionPresentationIntro" data-panel="presentation">
                 <div class="section-toggle" onclick="toggleSection('sectionPresentationIntro')">
                     <div class="section-toggle-left">
                         <div class="section-title">Page Introduction</div>
@@ -996,7 +1081,7 @@
             </div>
 
             <!-- Statuts du pipeline -->
-            <div class="section collapsed" id="sectionPipelineStatuses">
+            <div class="section collapsed" id="sectionPipelineStatuses" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionPipelineStatuses')">
                     <div class="section-toggle-left">
                         <div class="section-title">Statuts du pipeline</div>
@@ -1025,7 +1110,7 @@
             </div>
 
             <!-- Sources de projet -->
-            <div class="section collapsed" id="sectionProjectSources">
+            <div class="section collapsed" id="sectionProjectSources" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionProjectSources')">
                     <div class="section-toggle-left">
                         <div class="section-title">Sources de projet</div>
@@ -1047,7 +1132,7 @@
             </div>
 
             <!-- Types de projet -->
-            <div class="section collapsed" id="sectionProjectTypes">
+            <div class="section collapsed" id="sectionProjectTypes" data-panel="workflow">
                 <div class="section-toggle" onclick="toggleSection('sectionProjectTypes')">
                     <div class="section-toggle-left">
                         <div class="section-title">Types de projet</div>
@@ -1067,9 +1152,10 @@
                     </div>
                 </div>
             </div>
+            </div><!-- .admin-main -->
         </main>
 
-        <footer class="app-footer">stele — stele.ca</footer>
+        <footer class="app-footer" style="display:none;">stele — stele.ca</footer>
     </div>
 
     <!-- Role management modal -->
@@ -1287,6 +1373,48 @@
     function toggleSection(id) {
         document.getElementById(id).classList.toggle('collapsed');
     }
+
+    // ── Panel navigation ──
+    var _panelMeta = {
+        presentation: { title: 'Pr\u00e9sentation', sub: 'Image de couverture et page d\u2019introduction des soumissions client.' },
+        catalogue: { title: 'Catalogue', sub: 'Cat\u00e9gories, d\u00e9penses, taux horaires et nomenclature.' },
+        workflow: { title: 'Workflow', sub: 'Pipeline, sources, types de projet et contacts CRM.' },
+        equipe: { title: '\u00c9quipe', sub: 'Permissions, r\u00f4les et attribution des utilisateurs.' },
+        ai: { title: 'Prompts AI', sub: 'Personnalisez les instructions syst\u00e8me et la m\u00e9moire des assistants.' }
+    };
+
+    function switchPanel(panelId) {
+        // Hide all sections
+        document.querySelectorAll('.section[data-panel]').forEach(function(s) {
+            s.classList.remove('panel-visible');
+        });
+        // Show sections for this panel
+        document.querySelectorAll('.section[data-panel="' + panelId + '"]').forEach(function(s) {
+            s.classList.add('panel-visible');
+        });
+        // Update nav active state
+        document.querySelectorAll('.admin-nav-item').forEach(function(n) {
+            n.classList.toggle('active', n.getAttribute('data-nav') === panelId);
+        });
+        // Update title/subtitle
+        var meta = _panelMeta[panelId];
+        if (meta) {
+            document.getElementById('panelTitle').textContent = meta.title;
+            document.getElementById('panelSub').textContent = meta.sub;
+        }
+        // Scroll main to top
+        var main = document.getElementById('adminMain');
+        if (main) main.scrollTop = 0;
+        // Persist
+        try { localStorage.setItem('admin_panel', panelId); } catch(e) {}
+    }
+
+    // Restore last panel or default
+    (function() {
+        var saved = null;
+        try { saved = localStorage.getItem('admin_panel'); } catch(e) {}
+        switchPanel(saved && _panelMeta[saved] ? saved : 'presentation');
+    })();
 
     // Init
     loadConfig();

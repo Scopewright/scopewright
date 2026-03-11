@@ -2112,6 +2112,184 @@ describe('28. computeRentabilityPure — rentability calculations', function() {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 29 — evaluateLaborModifiers: labor_minutes_add (absolute additive minutes)
+// ════════════════════════════════════════════════════════════════
+
+describe('29. evaluateLaborModifiers — labor_minutes_add', function() {
+    var evaluateLaborModifiers = helpers.evaluateLaborModifiers;
+
+    var baseItem = {
+        id: 'TEST-LMA',
+        labor_minutes: { 'Assemblage': 20, 'Machinage': 15 },
+        material_costs: { 'PANNEAU MÉLAMINE': 5 }
+    };
+
+    // ── 29.1: labor_minutes with fixed number ──
+    it('fixed number labor_minutes adds absolute minutes', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    label: 'Partitions assemblage',
+                    labor_minutes: { 'Assemblage': 30 }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 2 });
+        assert(r != null, 'should match');
+        assert(r.labor_minutes_add != null, 'should have labor_minutes_add');
+        assertEqual(r.labor_minutes_add['Assemblage'], 30);
+        assertEqual(r.labor_factor, null);
+    });
+
+    // ── 29.2: labor_minutes with expression string ──
+    it('expression string evaluates with vars', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    label: 'Partitions',
+                    labor_minutes: { 'Assemblage': 'n_partitions * 12' }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 3 });
+        assert(r != null, 'should match');
+        assertEqual(r.labor_minutes_add['Assemblage'], 36);
+    });
+
+    // ── 29.3: labor_minutes combined with labor_factor ──
+    it('labor_minutes and labor_factor coexist', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    label: 'Partitions combo',
+                    labor_factor: { 'Assemblage': 1.15 },
+                    labor_minutes: { 'Assemblage': 'n_partitions * 12' }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 2 });
+        assert(r != null, 'should match');
+        assertEqual(r.labor_factor['Assemblage'], 1.15);
+        assertEqual(r.labor_minutes_add['Assemblage'], 24);
+    });
+
+    // ── 29.4: condition false → no labor_minutes_add ──
+    it('condition false returns null', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    labor_minutes: { 'Assemblage': 30 }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 0 });
+        assertEqual(r, null);
+    });
+
+    // ── 29.5: no labor_minutes on modifier → labor_minutes_add is null ──
+    it('modifier without labor_minutes returns null labor_minutes_add', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'L > 36',
+                    label: 'Grand',
+                    labor_factor: 1.5
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { L: 48 });
+        assert(r != null, 'should match');
+        assertEqual(r.labor_minutes_add, null);
+    });
+
+    // ── 29.6: cumulative mode — labor_minutes summed ──
+    it('cumulative: labor_minutes are summed across modifiers', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                cumulative: true,
+                modifiers: [
+                    { condition: 'n_partitions >= 1', label: 'Part', labor_minutes: { 'Assemblage': 'n_partitions * 12' } },
+                    { condition: 'n_tablettes >= 1', label: 'Tab', labor_minutes: { 'Assemblage': 'n_tablettes * 8' } }
+                ]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 2, n_tablettes: 3 });
+        assert(r != null, 'should match');
+        // 2*12 + 3*8 = 24 + 24 = 48
+        assertEqual(r.labor_minutes_add['Assemblage'], 48);
+        assertEqual(r.label, 'Part + Tab');
+    });
+
+    // ── 29.7: cumulative — one modifier has labor_minutes, another has labor_factor ──
+    it('cumulative: mixed factor + minutes', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                cumulative: true,
+                modifiers: [
+                    { condition: 'L > 36', label: 'Grand', labor_factor: { 'Machinage': 1.5 } },
+                    { condition: 'n_partitions >= 1', label: 'Part', labor_minutes: { 'Assemblage': 'n_partitions * 12' } }
+                ]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { L: 48, n_partitions: 2 });
+        assert(r != null, 'should match');
+        assertEqual(r.labor_factor['Machinage'], 1.5);
+        assertEqual(r.labor_minutes_add['Assemblage'], 24);
+    });
+
+    // ── 29.8: labor_minutes with new department not in catalogue ──
+    it('labor_minutes can add minutes to new department', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    labor_minutes: { 'Finition': 'n_partitions * 5' }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 3 });
+        assert(r != null, 'should match');
+        assertEqual(r.labor_minutes_add['Finition'], 15);
+    });
+
+    // ── 29.9: effective minutes = (catalogue × factor) + additive ──
+    it('effective computation: factor then add', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    labor_factor: { 'Assemblage': 1.5 },
+                    labor_minutes: { 'Assemblage': 'n_partitions * 12' }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 2 });
+        // Catalogue: 20 min. Factor: 1.5 → 30. Add: 2*12=24. Effective: 30 + 24 = 54
+        var effective = Math.round(baseItem.labor_minutes['Assemblage'] * r.labor_factor['Assemblage']) + r.labor_minutes_add['Assemblage'];
+        assertEqual(effective, 54);
+    });
+
+    // ── 29.10: invalid expression string → skipped ──
+    it('invalid expression string is skipped', function() {
+        var item = Object.assign({}, baseItem, {
+            labor_modifiers: {
+                modifiers: [{
+                    condition: 'n_partitions >= 1',
+                    labor_minutes: { 'Assemblage': 'invalid_var * 12' }
+                }]
+            }
+        });
+        var r = evaluateLaborModifiers(item, { n_partitions: 2 });
+        assert(r != null, 'should match condition');
+        assertEqual(r.labor_minutes_add, null);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

@@ -20,7 +20,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — permissions, rôles, catégories, taux, tags, prompts AI, présentation | ~3 580 lignes |
+| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 19 sections accordion | ~3 620 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -470,7 +470,8 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
       "condition": "L > 48",
       "label": "Grand (> 48 po)",
       "labor_factor": { "Machinage": 1.5 },
-      "material_factor": { "PANNEAU MÉLAMINE": 1.20 }
+      "material_factor": { "PANNEAU MÉLAMINE": 1.20 },
+      "labor_minutes": { "Assemblage": "n_partitions * 12" }
     }
   ]
 }
@@ -478,6 +479,7 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 
 - **`condition`** : expression évaluée par `evalFormula` (variables : L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
 - **`labor_factor`** / **`material_factor`** : multiplicateurs par département MO / catégorie matériau. 3 formats acceptés : objet `{dept: multiplier}`, **nombre scalaire** (appliqué à tous), ou **objet clé vide** `{"": multiplier}` (AI génère parfois ce format, normalisé en per-key). 1.0 = base, 1.25 = +25%
+- **`labor_minutes`** : minutes **absolues ajoutées** par département MO. Accepte nombre fixe (`30`) ou expression string évaluée via `evalFormula` (`"n_partitions * 12"`). Additif après le facteur multiplicatif : `effective = (catalogue × labor_factor) + labor_minutes`. En mode cumulatif, les minutes sont **sommées** (pas multipliées). Peut ajouter des minutes à des départements absents du catalogue. Stocké dans `_rowOverrides[rowId].laborMinutesAdd` et persisté dans `labor_auto_modifier.labor_minutes_add`
 - **First-match** (défaut) : premier modificateur dont la condition est vraie gagne
 - **Cumulatif** (`"cumulative": true` au niveau racine du JSON) : TOUS les modificateurs dont la condition est vraie sont appliqués — les facteurs sont **multipliés** entre eux (pas additionnés). Utile quand les axes dimensionnels sont indépendants (ex: largeur × longueur × épaisseur)
 - **Hierarchie d'override per-département** : `price` (override global, remplace tout) > sinon pour chaque département/catégorie : `manual` si défini, sinon `auto-factored` (catalogue × facteur), sinon `catalogue`. Les tiers manual et auto ne sont **pas mutuellement exclusifs** — un override manuel sur un département préserve les valeurs auto-factorisées des autres départements
@@ -488,15 +490,15 @@ Ajustements automatiques de prix basés sur les dimensions de l'article. Section
 - `catalogue_items.labor_modifiers_human` TEXT — explication humaine
 - `room_items.labor_auto_modifier` JSONB — résultat auto-calculé persisté (pour quote.html)
 
-**Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, label}` ou null. **Fallback** : lit `item.labor_modifiers` (colonne DB séparée) en priorité, puis `item.calculation_rule_ai.labor_modifiers` si absent — permet aux articles MAT d'avoir leurs barèmes dans `calculation_rule_ai` sans colonne dédiée. Appelé **inline** dans `updateRow()` à chaque appel (pas de pattern deferred) — lookup direct via `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque changement de dimensions. **Normalisation clé vide** : `labor_factor: {"": 1.25}` (généré par l'AI) est expandé à tous les départements MO de l'article
+**Fonction** : `evaluateLaborModifiers(item, vars)` — évalue les barèmes, retourne `{labor_factor, material_factor, labor_minutes_add, label}` ou null. `labor_minutes_add` est un objet `{dept: minutes}` avec les expressions déjà évaluées (nombres). **Fallback** : lit `item.labor_modifiers` (colonne DB séparée) en priorité, puis `item.calculation_rule_ai.labor_modifiers` si absent — permet aux articles MAT d'avoir leurs barèmes dans `calculation_rule_ai` sans colonne dédiée. Appelé **inline** dans `updateRow()` à chaque appel (pas de pattern deferred) — lookup direct via `selectedId` → `CATALOGUE_DATA`. Réévalue à chaque changement de dimensions. **Normalisation clé vide** : `labor_factor: {"": 1.25}` (généré par l'AI) est expandé à tous les départements MO de l'article
 
-**Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche les valeurs après application du facteur. Banner bleu quand un barème est actif. **Important** : les valeurs `autoFactor`/`autoVal` sont des nombres — utiliser `!= null` (pas de truthy check) pour les conditionnels, sinon facteur `0` est traité comme absent. Classe `ov-auto-active` appliquée seulement quand `autoVal !== catVal`
+**Popover override** : 3 colonnes (Cat | Auto | Manuel). La colonne Auto affiche la valeur effective = `(catalogue × factor) + additive`. Banner bleu quand un barème est actif. **Important** : les valeurs `autoFactor`/`autoVal` sont des nombres — utiliser `!= null` (pas de truthy check) pour les conditionnels, sinon facteur `0` est traité comme absent. Classe `ov-auto-active` appliquée seulement quand `autoVal !== catVal`
 
 **AI** : bouton AI dans la section barèmes catalogue, action `catalogue_labor_modifiers` dans `translate` edge function, prompt `ai_prompt_labor_modifiers`. **AI merge protection** dans `aiCalcRuleGenerate()` : quand l'AI régénère le JSON `calculation_rule_ai`, les clés `ask`, `override_children`, `child_dims`, `labor_modifiers` sont préservées depuis le JSON existant si l'AI ne les retourne pas
 
 **Dims sur MAT** : les champs dims (L/H/P) sont affichés pour tout article avec `dims_config` explicite, pas seulement les FAB. Permet aux MAT avec barèmes dimensionnels d'avoir des champs dims éditables. Le guard `formula auto-qty` est aussi étendu : `calculation_rule_ai` est évalué pour tout article avec `dims_config` (pas seulement FAB). La modale catalogue sauvegarde `dims_config` pour tout type d'article si au moins une checkbox dim est cochée (ne force plus `null` pour les non-FAB).
 
-**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) + groupe 27 (calculation_rule_ai fallback) dans `tests/cascade-engine.test.js`
+**Tests** : groupes 17-19 (evaluateLaborModifiers basic + formulas + integration) + groupe 24 (cumulative mode) + groupe 25 (MAT with dims_config) + groupe 27 (calculation_rule_ai fallback) + groupe 29 (labor_minutes_add) dans `tests/cascade-engine.test.js`
 
 ### Parser fractions dims (`parseFraction`)
 
@@ -858,6 +860,11 @@ Avant tout travail UI (nouveaux composants, modifications de style, nouveaux éc
 - [ ] Article sans `labor_modifiers` → pas de colonne Auto, pas de `.has-auto-modifier`
 - [ ] `cumulative: true` → tous les modificateurs vrais sont appliqués, facteurs multipliés
 - [ ] `cumulative: false`/absent → first-match (comportement inchangé)
+- [ ] `labor_minutes` avec nombre fixe → minutes ajoutées au département
+- [ ] `labor_minutes` avec expression (`"n_partitions * 12"`) → évaluée avec les variables dims
+- [ ] `labor_minutes` + `labor_factor` coexistent → effective = (catalogue × factor) + additive
+- [ ] Cumulative `labor_minutes` → sommées entre modificateurs
+- [ ] Popover Auto affiche la valeur effective (factor + additive)
 
 ### Catégorie de dépense dynamique
 - [ ] `$match:PANNEAU BOIS` + DM "Placage chêne blanc" (material_costs: {"PANNEAU MÉLAMINE": 5.2}) → détecte via mot commun "PANNEAU"

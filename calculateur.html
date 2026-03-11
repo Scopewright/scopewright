@@ -1181,11 +1181,16 @@
                 return;
             }
 
-            // Build effective values: catalogue → auto factors → manual override
+            // Build effective values: catalogue → auto factors + additive → manual override
             var laborMinutes = Object.assign({}, item.labor_minutes || {});
             if (ov && ov.laborAuto) {
                 Object.keys(ov.laborAuto).forEach(function(dept) {
                     if (laborMinutes[dept] != null) laborMinutes[dept] = Math.round(laborMinutes[dept] * ov.laborAuto[dept]);
+                });
+            }
+            if (ov && ov.laborMinutesAdd) {
+                Object.keys(ov.laborMinutesAdd).forEach(function(dept) {
+                    laborMinutes[dept] = (laborMinutes[dept] || 0) + ov.laborMinutesAdd[dept];
                 });
             }
             if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);
@@ -3253,7 +3258,9 @@
 
     /**
      * Evaluate labor_modifiers for a catalogue item given current dims.
-     * Returns { labor_factor: {dept: multiplier}, material_factor: {cat: multiplier}, label } or null.
+     * Returns { labor_factor, material_factor, labor_minutes_add, label } or null.
+     * labor_factor/material_factor: {key: multiplier} — multiplicative.
+     * labor_minutes_add: {dept: minutes} — absolute minutes added (expressions evaluated via evalFormula).
      * First-match: first modifier whose condition is truthy wins.
      */
     function evaluateLaborModifiers(item, vars) {
@@ -3287,6 +3294,27 @@
             return raw;
         }
 
+        // Evaluate labor_minutes entries: numbers pass through, strings evaluated via evalFormula
+        function evalMinutes(raw) {
+            if (!raw || typeof raw !== 'object') return null;
+            var result = {};
+            var hasAny = false;
+            Object.keys(raw).forEach(function(dept) {
+                var v = raw[dept];
+                if (typeof v === 'number') {
+                    result[dept] = v;
+                    hasAny = true;
+                } else if (typeof v === 'string') {
+                    var evaluated = evalFormula(v, vars, cascadeLog);
+                    if (evaluated != null) {
+                        result[dept] = Math.round(evaluated);
+                        hasAny = true;
+                    }
+                }
+            });
+            return hasAny ? result : null;
+        }
+
         if (!isCumulative) {
             // First-match: return first modifier whose condition is truthy
             for (var i = 0; i < mods.length; i++) {
@@ -3296,6 +3324,7 @@
                     return {
                         labor_factor: normFactor(m.labor_factor, item.labor_minutes),
                         material_factor: normFactor(m.material_factor, item.material_costs),
+                        labor_minutes_add: evalMinutes(m.labor_minutes),
                         label: m.label || m.condition
                     };
                 }
@@ -3303,9 +3332,10 @@
             return null;
         }
 
-        // Cumulative: collect all matching modifiers, multiply factors
+        // Cumulative: collect all matching modifiers, multiply factors, sum minutes
         var mergedLf = null;
         var mergedMf = null;
+        var mergedLma = null;
         var labels = [];
         for (var j = 0; j < mods.length; j++) {
             var mc = mods[j];
@@ -3326,9 +3356,16 @@
                     mergedMf[k] = (mergedMf[k] || 1) * mf[k];
                 });
             }
+            var lma = evalMinutes(mc.labor_minutes);
+            if (lma) {
+                if (!mergedLma) { mergedLma = {}; }
+                Object.keys(lma).forEach(function(k) {
+                    mergedLma[k] = (mergedLma[k] || 0) + lma[k];
+                });
+            }
         }
-        if (!mergedLf && !mergedMf) return null;
-        return { labor_factor: mergedLf, material_factor: mergedMf, label: labels.join(' + ') };
+        if (!mergedLf && !mergedMf && !mergedLma) return null;
+        return { labor_factor: mergedLf, material_factor: mergedMf, labor_minutes_add: mergedLma, label: labels.join(' + ') };
     }
 
     /**
@@ -11620,7 +11657,7 @@
             if (_rowOverrides[rowId] && _rowOverrides[rowId].price != null) {
                 delete _rowOverrides[rowId].price;
                 var ovk = Object.keys(_rowOverrides[rowId]);
-                if (ovk.length === 0 || (ovk.length === 1 && ovk[0] === 'laborAuto') || ovk.every(function(k) { return k === 'laborAuto' || k === 'materialAuto' || k === 'autoLabel'; })) {
+                if (ovk.length === 0 || (ovk.length === 1 && ovk[0] === 'laborAuto') || ovk.every(function(k) { return k === 'laborAuto' || k === 'materialAuto' || k === 'laborMinutesAdd' || k === 'autoLabel'; })) {
                     // Keep auto modifiers, clear only manual
                 }
             }
@@ -12207,12 +12244,16 @@
                 var dept = t.department;
                 var catVal = laborMins[dept] || 0;
                 var autoFactor = ov.laborAuto && ov.laborAuto[dept] != null ? ov.laborAuto[dept] : null;
-                var autoVal = autoFactor != null ? Math.round(catVal * autoFactor) : null;
+                var addMin = ov.laborMinutesAdd && ov.laborMinutesAdd[dept] != null ? ov.laborMinutesAdd[dept] : null;
+                var autoVal = autoFactor != null ? Math.round(catVal * autoFactor) : (addMin != null ? catVal : null);
+                if (addMin != null && autoVal != null) autoVal += addMin;
                 var ovVal = ov.labor && ov.labor[dept] != null ? ov.labor[dept] : '';
-                if (catVal > 0 || ovVal !== '' || autoVal != null) {
+                var hasAuto = autoVal != null || addMin != null;
+                if (catVal > 0 || ovVal !== '' || hasAuto) {
                     laborRows += '<div class="ov-row"><span class="ov-lbl">' + escapeHtml(dept) + '</span>';
                     laborRows += '<span class="ov-ref">Cat: ' + catVal + '</span>';
-                    laborRows += '<span class="ov-auto' + (autoVal != null && autoVal !== catVal ? ' ov-auto-active' : '') + '">' + (autoVal != null ? autoVal : '\u2014') + '</span>';
+                    var effectiveAuto = hasAuto ? autoVal : null;
+                    laborRows += '<span class="ov-auto' + (effectiveAuto != null && effectiveAuto !== catVal ? ' ov-auto-active' : '') + '">' + (effectiveAuto != null ? effectiveAuto : '\u2014') + '</span>';
                     laborRows += '<input type="number" class="ov-inp" data-ov-labor="' + escapeAttr(dept) + '" step="1" min="0" placeholder="\u2014" value="' + ovVal + '"></div>';
                 }
             });
@@ -12322,8 +12363,8 @@
                 if (row) row.classList.add('has-override');
             } else {
                 // Keep auto fields, remove manual
-                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, autoLabel: existing.autoLabel };
-                if (!existing.laborAuto && !existing.materialAuto) delete _rowOverrides[rowId];
+                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, laborMinutesAdd: existing.laborMinutesAdd, autoLabel: existing.autoLabel };
+                if (!existing.laborAuto && !existing.materialAuto && !existing.laborMinutesAdd) delete _rowOverrides[rowId];
                 if (row) row.classList.remove('has-override');
             }
 
@@ -12351,8 +12392,8 @@
         function clearOverrides(rowId) {
             // Only clear manual overrides, preserve auto (managed by updateRow)
             var existing = _rowOverrides[rowId] || {};
-            if (existing.laborAuto || existing.materialAuto) {
-                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, autoLabel: existing.autoLabel };
+            if (existing.laborAuto || existing.materialAuto || existing.laborMinutesAdd) {
+                _rowOverrides[rowId] = { laborAuto: existing.laborAuto, materialAuto: existing.materialAuto, laborMinutesAdd: existing.laborMinutesAdd, autoLabel: existing.autoLabel };
             } else {
                 delete _rowOverrides[rowId];
             }
@@ -13003,11 +13044,13 @@
                         if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
                         _rowOverrides[rowId].laborAuto = autoModResult.labor_factor;
                         _rowOverrides[rowId].materialAuto = autoModResult.material_factor;
+                        _rowOverrides[rowId].laborMinutesAdd = autoModResult.labor_minutes_add;
                         _rowOverrides[rowId].autoLabel = autoModResult.label;
                         row.classList.add('has-auto-modifier');
                     } else if (_rowOverrides[rowId]) {
                         delete _rowOverrides[rowId].laborAuto;
                         delete _rowOverrides[rowId].materialAuto;
+                        delete _rowOverrides[rowId].laborMinutesAdd;
                         delete _rowOverrides[rowId].autoLabel;
                         row.classList.remove('has-auto-modifier');
                         if (Object.keys(_rowOverrides[rowId]).every(function(k) { return _rowOverrides[rowId][k] == null; })) {
@@ -13017,17 +13060,22 @@
                         row.classList.remove('has-auto-modifier');
                     }
 
-                    // Per-line override (hierarchy per dept: manual > auto-factored > catalogue)
+                    // Per-line override (hierarchy per dept: manual > auto-factored + additive > catalogue)
                     var effectivePriceB = _bPrice;
                     var ov = _rowOverrides[rowId];
                     if (ov && ov.price != null) {
                         effectivePriceB = ov.price;
-                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto)) {
-                        // Start with catalogue, apply auto factors, then overlay manual
+                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto || ov.laborMinutesAdd)) {
+                        // Start with catalogue, apply auto factors + additive minutes, then overlay manual
                         var _mLabor = Object.assign({}, _bItem.labor_minutes || {});
                         if (ov.laborAuto) {
                             Object.keys(ov.laborAuto).forEach(function(dept) {
                                 if (_mLabor[dept] != null) _mLabor[dept] = Math.round(_mLabor[dept] * ov.laborAuto[dept]);
+                            });
+                        }
+                        if (ov.laborMinutesAdd) {
+                            Object.keys(ov.laborMinutesAdd).forEach(function(dept) {
+                                _mLabor[dept] = (_mLabor[dept] || 0) + ov.laborMinutesAdd[dept];
                             });
                         }
                         if (ov.labor) Object.assign(_mLabor, ov.labor);
@@ -13155,9 +13203,10 @@
                         fields.material_override = ov.material && Object.keys(ov.material).length > 0 ? ov.material : null;
                         fields.price_override = ov.price != null ? ov.price : null;
                         // Auto labor modifier (barèmes)
-                        fields.labor_auto_modifier = (ov.laborAuto || ov.materialAuto) ? {
+                        fields.labor_auto_modifier = (ov.laborAuto || ov.materialAuto || ov.laborMinutesAdd) ? {
                             labor_factor: ov.laborAuto || null,
                             material_factor: ov.materialAuto || null,
+                            labor_minutes_add: ov.laborMinutesAdd || null,
                             label: ov.autoLabel || null
                         } : null;
                         // Save effective (overridden) price for quote.html compatibility
@@ -13170,14 +13219,21 @@
                             });
                             var mc = computeComposedPrice(merged, includeInstall);
                             if (mc !== null) fields.unit_price = mc;
-                        } else if (ov.laborAuto || ov.materialAuto) {
+                        } else if (ov.laborAuto || ov.materialAuto || ov.laborMinutesAdd) {
                             // Auto modifier affects effective price for quote.html
                             var autoM2 = Object.assign({}, item);
-                            if (ov.laborAuto) {
+                            if (ov.laborAuto || ov.laborMinutesAdd) {
                                 autoM2.labor_minutes = Object.assign({}, item.labor_minutes || {});
-                                Object.keys(ov.laborAuto).forEach(function(dept) {
-                                    if (autoM2.labor_minutes[dept] != null) autoM2.labor_minutes[dept] = Math.round(autoM2.labor_minutes[dept] * ov.laborAuto[dept]);
-                                });
+                                if (ov.laborAuto) {
+                                    Object.keys(ov.laborAuto).forEach(function(dept) {
+                                        if (autoM2.labor_minutes[dept] != null) autoM2.labor_minutes[dept] = Math.round(autoM2.labor_minutes[dept] * ov.laborAuto[dept]);
+                                    });
+                                }
+                                if (ov.laborMinutesAdd) {
+                                    Object.keys(ov.laborMinutesAdd).forEach(function(dept) {
+                                        autoM2.labor_minutes[dept] = (autoM2.labor_minutes[dept] || 0) + ov.laborMinutesAdd[dept];
+                                    });
+                                }
                             }
                             if (ov.materialAuto) {
                                 autoM2.material_costs = Object.assign({}, item.material_costs || {});
@@ -13538,11 +13594,16 @@
                     var ov = _rowOverrides[row.id];
                     if (ov && ov.price != null) {
                         eff = ov.price;
-                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto)) {
+                    } else if (ov && (ov.labor || ov.material || ov.laborAuto || ov.materialAuto || ov.laborMinutesAdd)) {
                         var _gLabor = Object.assign({}, item.labor_minutes || {});
                         if (ov.laborAuto) {
                             Object.keys(ov.laborAuto).forEach(function(dept) {
                                 if (_gLabor[dept] != null) _gLabor[dept] = Math.round(_gLabor[dept] * ov.laborAuto[dept]);
+                            });
+                        }
+                        if (ov.laborMinutesAdd) {
+                            Object.keys(ov.laborMinutesAdd).forEach(function(dept) {
+                                _gLabor[dept] = (_gLabor[dept] || 0) + ov.laborMinutesAdd[dept];
                             });
                         }
                         if (ov.labor) Object.assign(_gLabor, ov.labor);
@@ -18838,6 +18899,7 @@
                                 if (!_rowOverrides[rowId]) _rowOverrides[rowId] = {};
                                 _rowOverrides[rowId].laborAuto = item.labor_auto_modifier.labor_factor || null;
                                 _rowOverrides[rowId].materialAuto = item.labor_auto_modifier.material_factor || null;
+                                _rowOverrides[rowId].laborMinutesAdd = item.labor_auto_modifier.labor_minutes_add || null;
                                 _rowOverrides[rowId].autoLabel = item.labor_auto_modifier.label || null;
                                 if (item.labor_auto_modifier.labor_factor || item.labor_auto_modifier.material_factor) {
                                     row.classList.add('has-auto-modifier');
@@ -21147,11 +21209,16 @@
                     return;
                 }
 
-                // Build effective values: catalogue → auto factors → manual override
+                // Build effective values: catalogue → auto factors + additive → manual override
                 var laborMinutes = Object.assign({}, item.labor_minutes || {});
                 if (ov && ov.laborAuto) {
                     Object.keys(ov.laborAuto).forEach(function(dept) {
                         if (laborMinutes[dept] != null) laborMinutes[dept] = Math.round(laborMinutes[dept] * ov.laborAuto[dept]);
+                    });
+                }
+                if (ov && ov.laborMinutesAdd) {
+                    Object.keys(ov.laborMinutesAdd).forEach(function(dept) {
+                        laborMinutes[dept] = (laborMinutes[dept] || 0) + ov.laborMinutesAdd[dept];
                     });
                 }
                 if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);

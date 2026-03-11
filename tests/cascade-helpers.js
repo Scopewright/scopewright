@@ -332,6 +332,27 @@ function evaluateLaborModifiers(item, vars, log) {
         return raw;
     }
 
+    // Evaluate labor_minutes entries: numbers pass through, strings evaluated via evalFormula
+    function evalMinutes(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        var result = {};
+        var hasAny = false;
+        Object.keys(raw).forEach(function(dept) {
+            var v = raw[dept];
+            if (typeof v === 'number') {
+                result[dept] = v;
+                hasAny = true;
+            } else if (typeof v === 'string') {
+                var evaluated = evalFormula(v, vars, log);
+                if (evaluated != null) {
+                    result[dept] = Math.round(evaluated);
+                    hasAny = true;
+                }
+            }
+        });
+        return hasAny ? result : null;
+    }
+
     if (!isCumulative) {
         // First-match: return first modifier whose condition is truthy
         for (var i = 0; i < mods.length; i++) {
@@ -341,6 +362,7 @@ function evaluateLaborModifiers(item, vars, log) {
                 return {
                     labor_factor: normFactor(m.labor_factor, item.labor_minutes),
                     material_factor: normFactor(m.material_factor, item.material_costs),
+                    labor_minutes_add: evalMinutes(m.labor_minutes),
                     label: m.label || m.condition
                 };
             }
@@ -348,9 +370,10 @@ function evaluateLaborModifiers(item, vars, log) {
         return null;
     }
 
-    // Cumulative: collect all matching modifiers, multiply factors
+    // Cumulative: collect all matching modifiers, multiply factors, sum minutes
     var mergedLf = null;
     var mergedMf = null;
+    var mergedLma = null;
     var labels = [];
     for (var j = 0; j < mods.length; j++) {
         var mc = mods[j];
@@ -371,9 +394,16 @@ function evaluateLaborModifiers(item, vars, log) {
                 mergedMf[k] = (mergedMf[k] || 1) * mf[k];
             });
         }
+        var lma = evalMinutes(mc.labor_minutes);
+        if (lma) {
+            if (!mergedLma) { mergedLma = {}; }
+            Object.keys(lma).forEach(function(k) {
+                mergedLma[k] = (mergedLma[k] || 0) + lma[k];
+            });
+        }
     }
-    if (!mergedLf && !mergedMf) return null;
-    return { labor_factor: mergedLf, material_factor: mergedMf, label: labels.join(' + ') };
+    if (!mergedLf && !mergedMf && !mergedLma) return null;
+    return { labor_factor: mergedLf, material_factor: mergedMf, labor_minutes_add: mergedLma, label: labels.join(' + ') };
 }
 
 // ── checkMaterialCtxOverlap (calculateur.html — inline in executeCascade) ──

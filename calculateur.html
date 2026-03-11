@@ -8853,6 +8853,9 @@
             padding: 0; width: 100%; user-select: none; pointer-events: none; cursor: default;
         }
         .ph-sub-number { font-size: 13px; color: #999; font-weight: 400; display: block; margin-top: 2px; }
+        .ph-sub-title { font-size: 13px; color: var(--sw-text, #0F172A); font-weight: 400; border: none; background: transparent; padding: 0 2px; margin-left: 4px; outline: none; max-width: 220px; }
+        .ph-sub-title:hover { background: var(--sw-border-2, #F1F5F9); border-radius: 4px; }
+        .ph-sub-title:focus { background: var(--sw-surface, #fff); box-shadow: 0 0 0 1.5px var(--sw-navy, #0B1220); border-radius: 4px; }
         .ph-status-row { margin: 4px 0; }
         .ph-total-section { margin: 12px 0 4px; }
         .ph-total-label { font-size: 12px; color: #888; margin-bottom: 2px; }
@@ -9901,7 +9904,7 @@
                     </div>
                 </div>
                 <input type="text" class="ph-project-name" id="projName" placeholder="Nom du projet" readonly>
-                <span class="ph-sub-number" id="headerSubNumber"></span>
+                <span class="ph-sub-number" id="headerSubNumber"></span><input type="text" class="ph-sub-title" id="subTitle" placeholder="Sans titre" onblur="saveSubmissionField()" onkeydown="if(event.key==='Enter')this.blur()">
                 <span class="save-indicator" id="saveIndicator"></span>
                 <div class="ph-info-bloc" id="projInfoBloc">
                     <div id="projInfoText" class="ph-info-empty">Ajouter les infos du projet</div>
@@ -9950,7 +9953,6 @@
                         <input type="date" id="saClientDeadline" onchange="saveSubAssignment()">
                     </div>
                 </div>
-                <input type="hidden" id="subTitle" value="">
                 <span id="subNumber" style="display:none;"></span>
                 <label style="display:none;"><input type="checkbox" id="projInstallation" checked onchange="toggleProjectInstallation()"></label>
             </div>
@@ -18778,7 +18780,7 @@
             if (exclEl) exclEl.value = currentSubmission.exclusions || '';
             updateStatusBadge(currentSubmission.status || 'draft');
             document.getElementById('subNumber').textContent = '#' + currentSubmission.submission_number;
-            document.getElementById('headerSubNumber').textContent = 'Soumission #' + currentSubmission.submission_number;
+            document.getElementById('headerSubNumber').textContent = 'Soumission #' + currentSubmission.submission_number + ' —';
             document.getElementById('projInstallation').checked = true;
             renderProjectInfoBloc();
 
@@ -19262,7 +19264,7 @@
             var subs = project.submissions || [];
             if (subs.length === 0) {
                 // Pas de soumission → en créer une
-                var newSub = await createSubmission(projectId, project.name || 'Soumission initiale');
+                var newSub = await createSubmission(projectId, 'Soumission 1');
                 await openSubmission(newSub.id, project);
             } else {
                 // Ouvrir la plus récente

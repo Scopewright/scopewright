@@ -6711,6 +6711,17 @@
                     envelope.explication = '';
                 }
             }
+            // Case 4: json keys are at the top level of the envelope (AI flattened the structure)
+            if (!envelope.json && jsonKeys.some(function(k) { return envelope[k] !== undefined; })) {
+                var extracted = {};
+                jsonKeys.forEach(function(k) {
+                    if (envelope[k] !== undefined) {
+                        extracted[k] = envelope[k];
+                        delete envelope[k];
+                    }
+                });
+                envelope.json = extracted;
+            }
         }
 
         /**
@@ -7036,7 +7047,7 @@
             try {
                 var results = await callEdgeFunction([{ key: 'pr', text: prompt }], 'catalogue_pres_rule');
                 var envelope = parseAiEnvelope(results['pr'], 'explication');
-                fixEnvelopeJsonSplit(envelope, ['sections', 'exclude', 'notes']);
+                fixEnvelopeJsonSplit(envelope, ['sections', 'exclude', 'detail_bullets']);
 
                 // Strip "prefix" field if AI hallucinated it
                 if (envelope.json && envelope.json.sections) {
@@ -7281,7 +7292,7 @@
                 var calcEnv = parseAiEnvelope(results[0]['cr'], 'explication');
                 fixEnvelopeJsonSplit(calcEnv, ['cascade', 'ask']);
                 var presEnv = parseAiEnvelope(results[1]['pr'], 'explication');
-                fixEnvelopeJsonSplit(presEnv, ['sections', 'exclude', 'notes']);
+                fixEnvelopeJsonSplit(presEnv, ['sections', 'exclude', 'detail_bullets']);
 
                 var patch = {};
                 if (calcEnv.json) patch.calculation_rule_ai = calcEnv.json;

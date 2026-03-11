@@ -5,7 +5,14 @@
 ## 2026-03-11
 
 ### Bug Fixes
+- **Fix: #98 — Description client HTML rendu en texte brut** — `refreshDescriptionDisplay()` lisait `textarea.value` (texte brut) et passait par `formatDescriptionForDisplay()` qui échappe le HTML. Fix : utilise `roomDescHTML[groupId]` en priorité quand disponible (HTML déjà sanitisé depuis AI, preview, ou DB). Fallback sur `formatDescriptionForDisplay(textarea.value)` pour le texte brut legacy
 - **Fix: #137 PDF — layout multi-images incorrect** — (1) `object-fit:contain` remplacé par `object-fit:cover` dans les CSS overrides PDF — `contain` créait des bandes vides autour des images et des hauteurs variables dans la grille, `cover` reproduit fidèlement le rendu browser. (2) Contrainte hauteur images : `max-height:3.2in` sur `.pv-img-wrap` + `height:100%` sur `img` — empêche les images portrait de déborder et forcer un page-break au milieu de la grille. (3) Contrainte hauteur room-body : `max-height:calc(8.5in - 160px)` sur `.pv-page-room-body` — le contenu texte+images reste sur une seule page PDF. (4) Variant `imgs-4` manquant ajouté (`grid-template-columns:1fr 1fr`) dans le CSS preview et dans SNAPSHOT_CSS — les pièces à 4 images ont maintenant une grille 2×2 explicite
+
+### Features
+- **#133 — Bouton AI description : comportement intelligent première vs suivantes** — (1) Bouton éclair ⚡ supprimé — le bouton AI (bulle breathing dot) absorbe les deux comportements. (2) Première génération (description vide) : appelle `assembleRoomDescription()` pour un squelette déterministe, l'envoie à l'AI pour enrichissement, écrit directement dans la description (pas de panneau proposition). (3) Générations suivantes (description existante) : snapshot le contexte (DM + articles), compare avec `lastGeneratedContext[groupId]` (sauvegardé lors de la dernière génération), envoie le diff à l'AI pour révision ciblée, affiche dans le panneau "PROPOSITION AI" avec boutons Remplacer/Insérer/Ignorer. (4) `lastGeneratedContext` : variable mémoire `{ dms, items, timestamp }`, persistée en DB (`project_rooms.last_generated_context` JSONB), chargée au `openSubmission()`. Migration : `sql/last_generated_context.sql`
+
+### Refactor
+- **Refactor: #137 PDF — élimination des CSS overrides dans pdf-export.js** — Migration de 29 propriétés CSS overrides (`!important`) depuis `pdf-export.js` vers un bloc `@media print` dans `SNAPSHOT_CSS`. pdf-export.js ne contient plus que `@page{size:Letter landscape;margin:0}` + 2 overrides pour la page total (HTML structurellement différent). Clause background corrigé à la source (`#fafafa` → `#fff`). Résultat : une seule source de vérité CSS, pas de duplication entre browser et PDF
 
 ---
 

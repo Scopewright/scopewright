@@ -161,37 +161,13 @@ async function exportSubmissionPdf() {
         rawHtml = rawHtml.replace(/&lt;(\/?(p|strong|em|ul|ol|li|b|i|u|h[1-6]))&gt;/gi, '<$1>');
 
         // 4. Build self-contained HTML document for PDFShift
-        // All overrides use !important to guarantee they beat SNAPSHOT_CSS rules
-        // at identical specificity (same class selectors, later in cascade).
+        // SNAPSHOT_CSS contains @media print rules for pagination, sizing, and image constraints.
+        // pdf-export.js only adds @page directive and total-page overrides (HTML rebuilt by JS).
         var pdfCss = SNAPSHOT_CSS +
-            // Page sizing: landscape Letter = 11×8.5 in. Each .pv-page fills one print page.
-            // aspect-ratio removed (caused blank pages) but min-height ensures vertical centering works.
-            '\n.pv-content{padding:0!important;gap:0!important}' +
-            '\n.pv-page{width:100%!important;box-sizing:border-box!important;height:auto!important;aspect-ratio:unset!important;overflow:visible!important;position:relative!important;min-height:8.5in!important;max-height:none!important}' +
-            '\n.pv-page:not(:first-child){page-break-before:always}' +
-            // Cover page: restore overflow:hidden for border-radius clip + force full height
-            '\n.pv-page-title{overflow:hidden!important;height:8.5in!important;min-height:8.5in!important}' +
-            '\n.pv-cover-right{-webkit-border-radius:8px!important;border-radius:8px!important;overflow:hidden!important;height:calc(8.5in - 64px)!important;min-height:calc(8.5in - 64px)!important}' +
-            '\n.pv-cover-right img{-webkit-border-radius:0!important;border-radius:0!important;height:100%!important;min-height:100%!important}' +
-            // Clauses: force white background (SNAPSHOT_CSS uses #fafafa)
-            '\n.pv-page-clause{background:#fff!important}' +
+            '\n@page{size:Letter landscape;margin:0}' +
+            // Total page: HTML is structurally different (rebuilt as 2-column signature layout)
             '\n.pv-page-total{background:#fff!important;color:#1A1A1A!important;display:flex!important;flex-direction:column!important}' +
-            '\n.pv-total-box{display:none!important}' +
-            // 2-column layouts: constrain overflow + heights so grid stays on one page
-            '\n.pv-page-room-body{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important;max-height:calc(8.5in - 160px)!important}' +
-            '\n.pv-page-room-text{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
-            '\n.pv-page-room-media{overflow:hidden!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;max-height:100%!important}' +
-            '\n.pv-page-room-media .pv-img-wrap{overflow:hidden!important;min-width:0!important;max-width:100%!important;max-height:3.2in!important}' +
-            '\n.pv-page-room-media .pv-img-wrap img{object-fit:cover!important;object-position:center!important;max-width:100%!important;height:100%!important;width:100%!important}' +
-            '\n.pv-page-intro{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important}' +
-            '\n.pv-intro-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
-            // "Why" page: ensure grid fills page height for image + text centering
-            '\n.pv-page-why{overflow:hidden!important;max-width:100%!important;box-sizing:border-box!important;height:8.5in!important}' +
-            '\n.pv-why-image{min-height:0!important}' +
-            '\n.pv-why-image img{height:100%!important;min-height:100%!important}' +
-            '\n.pv-why-content{overflow:hidden!important;word-wrap:break-word!important;overflow-wrap:break-word!important;min-width:0!important}' +
-            // Steps page: ensure grid fills page for vertical distribution
-            '\n.pv-page-steps{display:flex!important;flex-direction:column!important}';
+            '\n.pv-total-box{display:none!important}';
 
         var htmlDoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
             '<meta name="viewport" content="width=1056">' +

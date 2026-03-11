@@ -131,9 +131,13 @@ function refreshDescriptionDisplay(groupId) {
     var display = document.getElementById(groupId + '-clientDescDisplay');
     var textarea = document.getElementById(groupId + '-clientDesc');
     if (!display || !textarea) return;
+    // Prefer cached HTML (from AI, preview edits, or DB load) — already sanitized
+    var html = (typeof roomDescHTML !== 'undefined') ? roomDescHTML[groupId] : '';
     var text = textarea.value.trim();
-    if (!text) {
+    if (!html && !text) {
         display.innerHTML = '<span class="desc-placeholder">Description visible par le client...</span>';
+    } else if (html) {
+        display.innerHTML = html;
     } else {
         display.innerHTML = formatDescriptionForDisplay(text);
     }

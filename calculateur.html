@@ -6729,14 +6729,7 @@
         }
         .btn-proposal-ignore:hover { background: #F1F5F9; }
 
-        .btn-assemble-desc {
-            position: absolute; top: 6px; right: 30px; z-index: 2;
-            width: 22px; height: 22px; border-radius: 50%;
-            background: transparent; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            padding: 0; flex-shrink: 0; font-size: 13px; opacity: 0.4;
-        }
-        .btn-assemble-desc:hover { opacity: 1; transform: scale(1.2); }
+        /* .btn-assemble-desc removed (#133) — AI button absorbs both behaviors */
 
         /* Toggle showInQuote sur images */
         .image-quote-toggle {
@@ -7731,7 +7724,7 @@
         .pv-page-clauses-body { flex: 1; overflow: hidden; }
         .pv-page-clause {
             margin-bottom: 8px; padding: 6px 14px;
-            border-left: 1px solid #1A1A1A; background: #fafafa;
+            border-left: 1px solid #1A1A1A; background: #fff;
             border-radius: 0;
         }
         .pv-page-clause-title {
@@ -11844,7 +11837,7 @@
                         <button class="btn-ai-dot" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
-                        <button class="btn-assemble-desc" id="${groupId}-assembleDesc" onclick="onAssembleDescription('${groupId}')" title="Assembler la description &agrave; partir des articles">&#9889;</button>
+                        <!-- Lightning bolt removed (#133) — AI button absorbs both behaviors -->
                     </div>
                 </div>
                 <div class="room-dm-section" id="${groupId}-dmSection">
@@ -14878,6 +14871,7 @@
         var roomDescEN = {}; // { groupDomId: 'english description (HTML)' }
         var introConfigEN = {}; // { presentation_intro_text_1: '...', ... }
         var roomDescHTML = {}; // { groupDomId: 'HTML description from optimizer' }
+        var lastGeneratedContext = {}; // { groupDomId: { dms, items, timestamp } }
         var i18n = {
             fr: {
                 coverLabel: 'Soumission préparée pour',
@@ -16122,7 +16116,66 @@
             return null;
         }
 
-        // ── AI Generate / Revise client description ──
+        // ── Snapshot context for description generation ──
+
+        function _snapshotDescContext(groupId) {
+            var dm = getDefaultMaterialsForGroup(groupId);
+            var dms = dm.map(function(d) { return { type: d.type || '', client_text: d.client_text || '' }; });
+            var items = [];
+            var group = document.getElementById(groupId);
+            if (group) {
+                group.querySelectorAll('.calc-row').forEach(function(row) {
+                    var sel = row.querySelector('.item-select');
+                    if (!sel || !sel.value || sel.value === '__AJOUT__' || sel.value === '__PROPOSER__') return;
+                    var qtyInput = row.querySelector('.qty-input');
+                    var tagEl = row.querySelector('.tag-select');
+                    items.push({
+                        code: sel.value,
+                        client_text: (CATALOGUE_DATA.find(function(c) { return c.id === sel.value; }) || {}).client_text || '',
+                        qty: qtyInput ? parseFloat(qtyInput.value) || 0 : 0,
+                        tag: tagEl ? tagEl.value || '' : ''
+                    });
+                });
+            }
+            return { dms: dms, items: items, timestamp: new Date().toISOString() };
+        }
+
+        function _diffDescContext(prev, curr) {
+            if (!prev) return null; // no previous context — full generate
+            var changes = [];
+            // DM changes
+            var prevDmKeys = prev.dms.map(function(d) { return d.type + ':' + d.client_text; });
+            var currDmKeys = curr.dms.map(function(d) { return d.type + ':' + d.client_text; });
+            currDmKeys.forEach(function(k, i) {
+                if (prevDmKeys.indexOf(k) === -1) changes.push('DM ajouté : ' + curr.dms[i].type + ' → ' + curr.dms[i].client_text);
+            });
+            prevDmKeys.forEach(function(k, i) {
+                if (currDmKeys.indexOf(k) === -1) changes.push('DM retiré : ' + prev.dms[i].type + ' (' + prev.dms[i].client_text + ')');
+            });
+            // Item changes
+            var prevItemKeys = prev.items.map(function(it) { return it.code + ':' + it.qty + ':' + it.tag; });
+            var currItemKeys = curr.items.map(function(it) { return it.code + ':' + it.qty + ':' + it.tag; });
+            currItemKeys.forEach(function(k, i) {
+                if (prevItemKeys.indexOf(k) === -1) changes.push('Article ajouté/modifié : ' + curr.items[i].client_text + ' (x' + curr.items[i].qty + ')');
+            });
+            prevItemKeys.forEach(function(k, i) {
+                if (currItemKeys.indexOf(k) === -1) changes.push('Article retiré/modifié : ' + prev.items[i].client_text + ' (x' + prev.items[i].qty + ')');
+            });
+            return changes.length > 0 ? changes : null;
+        }
+
+        function _saveDescContext(groupId, ctx) {
+            lastGeneratedContext[groupId] = ctx;
+            if (roomMap[groupId]) {
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ last_generated_context: ctx })
+                });
+            }
+        }
+
+        // ── AI Generate / Revise client description (#133 smart behavior) ──
         async function aiGenerateDescription(groupId) {
             var btn = document.getElementById(groupId + '-aiDesc');
             if (!btn) return;
@@ -16131,10 +16184,11 @@
 
             var existingHTML = roomDescHTML[groupId] || '';
             var existingText = textarea.value.trim();
+            var hasExisting = !!(existingText || existingHTML);
             var detail = collectRoomDetail(groupId);
             if (!detail) return;
 
-            var prompt = '';
+            // Build item lines for AI prompt
             var itemLines = '';
             detail.items.forEach(function(item) {
                 itemLines += '- ' + item.description + ' (x' + item.qty + ')';
@@ -16144,7 +16198,6 @@
                     if (catItem && catItem.presentation_rule_human) {
                         itemLines += ' [règle: ' + catItem.presentation_rule_human + ']';
                     } else if (catItem && expenseCategories && expenseCategories.length) {
-                        // Fallback: group-level presentation_rule via material_costs keys
                         var groupRule = _findGroupPresRule(catItem);
                         if (groupRule) itemLines += ' [règle groupe: ' + JSON.stringify(groupRule) + ']';
                     }
@@ -16154,18 +16207,39 @@
             });
             if (!itemLines) itemLines = '(aucun article)\n';
 
-            if (existingText || existingHTML) {
+            // Snapshot current context
+            var currentCtx = _snapshotDescContext(groupId);
+            var prevCtx = lastGeneratedContext[groupId] || null;
+
+            var prompt = '';
+            if (hasExisting) {
+                // ── Subsequent generation: diff-based revision ──
                 var textToRevise = existingHTML || existingText;
-                prompt = '<context>\nPièce : ' + detail.name + '\nArticles :\n' + itemLines + '</context>\n\n';
-                prompt += 'Révise et améliore cette description client existante :\n' + textToRevise;
+                prompt = '<context>\nPièce : ' + detail.name + '\nArticles :\n' + itemLines;
+                // Include diff if previous context exists
+                var diff = _diffDescContext(prevCtx, currentCtx);
+                if (diff) {
+                    prompt += '\nChangements depuis la dernière génération :\n';
+                    diff.forEach(function(d) { prompt += '- ' + d + '\n'; });
+                }
+                prompt += '</context>\n\n';
+                prompt += 'Révise cette description client en intégrant les changements. Garde ce qui est encore pertinent, modifie uniquement les sections impactées :\n' + textToRevise;
             } else {
+                // ── First generation: deterministic skeleton + AI polish ──
+                var skeleton = assembleRoomDescription(groupId);
                 prompt = '<context>\nPièce : ' + detail.name + '\n';
                 prompt += 'Installation incluse : ' + (detail.installationIncluded ? 'oui' : 'non') + '\n';
-                prompt += 'Articles :\n' + itemLines + '</context>\n\n';
-                prompt += 'Génère une description client complète pour cette pièce à partir des articles listés.';
+                prompt += 'Articles :\n' + itemLines;
+                if (skeleton) {
+                    prompt += '\nSquelette déterministe (assemblé depuis les règles de présentation) :\n' + skeleton + '\n';
+                }
+                prompt += '</context>\n\n';
+                prompt += 'Génère une description client complète pour cette pièce. ' +
+                    (skeleton ? 'Utilise le squelette comme base et enrichis-le avec un ton professionnel et chaleureux.' :
+                                'Génère à partir des articles listés avec un ton professionnel et chaleureux.');
             }
 
-            // Close any existing proposal panel for this group
+            // Close any existing proposal panel
             aiDescIgnore(groupId);
 
             btn.disabled = true;
@@ -16174,12 +16248,31 @@
             try {
                 var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description');
                 if (results['desc']) {
-                    var proposalHtml = results['desc'];
-                    showAiDescProposal(groupId, proposalHtml);
+                    var resultHtml = results['desc'];
+                    if (!hasExisting) {
+                        // First generation: write directly (no proposal panel)
+                        roomDescHTML[groupId] = resultHtml;
+                        textarea.value = htmlToText(resultHtml);
+                        refreshDescriptionDisplay(groupId);
+                        roomDescEN[groupId] = '';
+                        if (roomMap[groupId]) {
+                            authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                                body: JSON.stringify({ client_description: resultHtml, client_description_en: '' })
+                            });
+                        }
+                        showSaveIndicator();
+                    } else {
+                        // Subsequent: show proposal panel
+                        showAiDescProposal(groupId, resultHtml);
+                    }
+                    // Save context snapshot
+                    _saveDescContext(groupId, currentCtx);
                 }
             } catch (err) {
                 var msg = err.message || '';
-                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surcharg\u00e9. R\u00e9essayez dans quelques secondes.';
+                if (/overload/i.test(msg) || /529/.test(msg)) msg = 'Le service AI est temporairement surchargé. Réessayez dans quelques secondes.';
                 steleAlert(msg, 'Erreur AI');
             } finally {
                 btn.disabled = false;
@@ -16539,7 +16632,7 @@
             '.pv-page-room-desc strong{font-weight:500;color:#1A1A1A;letter-spacing:0.01em}\n' +
             '.pv-page-clauses-header{font-family:Inter,-apple-system,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#1A1A1A;font-weight:500;margin-bottom:14px;padding-bottom:6px;border-bottom:1px solid #1A1A1A}\n' +
             '.pv-page-clauses-body{flex:1;overflow:hidden}\n' +
-            '.pv-page-clause{margin-bottom:8px;padding:6px 14px;border-left:1px solid #1A1A1A;background:#fafafa;border-radius:0}\n' +
+            '.pv-page-clause{margin-bottom:8px;padding:6px 14px;border-left:1px solid #1A1A1A;background:#fff;border-radius:0}\n' +
             '.pv-page-clause-title{font-family:Inter,-apple-system,sans-serif;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px;color:#1A1A1A}\n' +
             '.pv-page-clause-text{width:100%;border:none;border-radius:3px;padding:2px 4px;font-family:Inter,-apple-system,sans-serif;font-size:12px;line-height:1.3;color:#555555;resize:none;background:transparent}\n' +
             '.pv-page-clause-actions{display:none}\n' +
@@ -16598,7 +16691,21 @@
             '.pv-why-bottom{position:absolute;bottom:8px;left:32px;right:56px;display:flex;justify-content:space-between;align-items:center}\n' +
             '.pv-why-bottom-url{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;letter-spacing:0.02em;color:#1a1a1a}\n' +
             '.pv-why-bottom-page{font-family:Inter,-apple-system,sans-serif;font-size:9px;font-weight:400;color:#888}\n' +
-            '@media print{.pv-page-room-media .pv-img-wrap{box-shadow:none} .pv-page-why{break-inside:avoid}}';
+            '@media print{' +
+            '.pv-content{padding:0;gap:0}' +
+            '.pv-page{aspect-ratio:unset;overflow:visible;height:auto;min-height:8.5in;max-height:none;width:100%;box-sizing:border-box}' +
+            '.pv-page:not(:first-child){page-break-before:always}' +
+            '.pv-page-title{overflow:hidden;height:8.5in;min-height:8.5in}' +
+            '.pv-cover-right{-webkit-border-radius:8px;height:calc(8.5in - 64px);min-height:calc(8.5in - 64px)}' +
+            '.pv-cover-right img{-webkit-border-radius:0}' +
+            '.pv-page-room-body{max-height:calc(8.5in - 160px)}' +
+            '.pv-page-room-text{word-wrap:break-word;overflow-wrap:break-word}' +
+            '.pv-page-room-media .pv-img-wrap{max-height:3.2in;box-shadow:none}' +
+            '.pv-page-why{height:8.5in;break-inside:avoid}' +
+            '.pv-page-steps{display:flex;flex-direction:column}' +
+            '.pv-intro-content{word-wrap:break-word;overflow-wrap:break-word}' +
+            '.pv-why-content{word-wrap:break-word;overflow-wrap:break-word}' +
+            '}';
 
         // generateSnapshotHtml, uploadSnapshot, getSnapshotUrl
         // → extracted to shared/presentation-client.js
@@ -17184,6 +17291,7 @@
             _pendingMaterialCtx = {};
             roomDescEN = {};
             roomDescHTML = {};
+            lastGeneratedContext = {};
             renderProjectList();
         }
 
@@ -18513,6 +18621,7 @@
             hideUndoButton();
             roomDescEN = {};
             roomDescHTML = {};
+            lastGeneratedContext = {};
             resetAiChat();
 
             // Remplir le header
@@ -18567,6 +18676,9 @@
                     }
                     if (room.client_description_en) {
                         roomDescEN[groupId] = room.client_description_en;
+                    }
+                    if (room.last_generated_context) {
+                        lastGeneratedContext[groupId] = room.last_generated_context;
                     }
 
                     // Load room price modifier

@@ -706,8 +706,13 @@
     // Sync docs
     // ══════════════════════════════════════════
     window.masterAgentSyncDocs = async function() {
-        var status = document.getElementById('maSyncStatus');
-        if (status) { status.textContent = 'Synchronisation...'; status.style.color = '#64748B'; }
+        // Find status element — drawer (#maSyncStatus) or admin panel (#masterSyncStatus)
+        var status = document.getElementById('maSyncStatus') || document.getElementById('masterSyncStatus');
+        var btn = document.getElementById('masterSyncBtn');
+
+        // Show feedback immediately
+        if (status) { status.textContent = 'Synchronisation en cours...'; status.style.color = '#64748B'; }
+        if (btn) btn.disabled = true;
 
         try {
             var docs = {};
@@ -715,15 +720,27 @@
 
             try {
                 var r1 = await fetch(baseUrl + 'docs/MASTER_CONTEXT.md');
-                if (r1.ok) docs.master_context = await r1.text();
-            } catch(e) {}
+                if (r1.ok) {
+                    docs.master_context = await r1.text();
+                } else {
+                    console.warn('[masterAgentSyncDocs] MASTER_CONTEXT.md fetch failed:', r1.status);
+                }
+            } catch(e) { console.warn('[masterAgentSyncDocs] MASTER_CONTEXT.md fetch error:', e.message); }
             try {
                 var r2 = await fetch(baseUrl + 'CLAUDE.md');
-                if (r2.ok) docs.master_claude_md = await r2.text();
-            } catch(e) {}
+                if (r2.ok) {
+                    docs.master_claude_md = await r2.text();
+                } else {
+                    console.warn('[masterAgentSyncDocs] CLAUDE.md fetch failed:', r2.status);
+                }
+            } catch(e) { console.warn('[masterAgentSyncDocs] CLAUDE.md fetch error:', e.message); }
 
             var saved = 0;
             var keys = Object.keys(docs);
+            if (keys.length === 0) {
+                if (status) { status.textContent = 'Aucun document trouv\u00e9'; status.style.color = '#d97706'; }
+                return;
+            }
             for (var i = 0; i < keys.length; i++) {
                 var key = keys[i];
                 var val = docs[key];
@@ -736,17 +753,22 @@
                         body: JSON.stringify({ key: key, value: JSON.stringify(val) })
                     }
                 );
+                if (!r.ok) console.warn('[masterAgentSyncDocs] Save failed for', key, ':', r.status);
                 if (r.ok) saved++;
             }
 
             var now = new Date();
             var ts = now.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+            console.log('[masterAgentSyncDocs] Done:', saved + '/' + keys.length, 'docs saved');
             if (status) {
                 status.textContent = saved + '/' + keys.length + ' docs sync \u2014 ' + ts;
                 status.style.color = saved === keys.length ? '#16a34a' : '#d97706';
             }
         } catch (err) {
+            console.error('[masterAgentSyncDocs] Error:', err);
             if (status) { status.textContent = 'Erreur : ' + err.message; status.style.color = '#dc2626'; }
+        } finally {
+            if (btn) btn.disabled = false;
         }
     };
 

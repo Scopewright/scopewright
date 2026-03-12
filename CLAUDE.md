@@ -632,7 +632,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - User message templates (translate, 12 actions) — messages action-spécifiques côté code
 
 **Bugs identifiés :**
-- 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin
+- 3 prompts (`explication_catalogue`, `json_catalogue`, `approval_suggest`) manquent dans le dropdown admin (non visibles, actions internes)
 - `catalogue-import` n'injecte pas les learnings (contrairement aux 3 autres EF)
 
 ### Inventaire des clés `app_config` AI prompts

@@ -3503,6 +3503,9 @@
     // Default for Dépenses — Règle de présentation — must match EXPENSE_PRES_RULE_SYSTEM in translate/index.ts
     AI_PROMPT_DEFAULTS['ai_prompt_expense_pres_rule'] = "Tu es un sp\u00e9cialiste en documentation pour Scopewright, la plateforme d'estimation de Stele.\nTu re\u00e7ois le nom et le template de pr\u00e9sentation d'une cat\u00e9gorie de d\u00e9pense (ex: PANNEAU BOIS, QUINCAILLERIE).\nTu dois g\u00e9n\u00e9rer un JSON structur\u00e9 de r\u00e8gle de pr\u00e9sentation applicable \u00e0 TOUS les articles de cette cat\u00e9gorie.\n\nENVELOPPE DE R\u00c9PONSE OBLIGATOIRE (JSON) :\n{\n  \"status\": \"ok\" | \"needs_review\" | \"error\",\n  \"warnings\": [],\n  \"json\": {\n    \"sections\": [\n      { \"key\": \"CL\u00c9_SECTION\", \"label\": \"Libell\u00e9 de section\", \"template\": \"{client_text}\" }\n    ],\n    \"exclude\": [],\n    \"notes\": \"\"\n  }\n}\n\nR\u00c8GLES :\n- Keys standards : CAISSON, FA\u00c7ADES, PANNEAUX, COMPTOIR, TIROIRS, POIGN\u00c9ES, QUINCAILLERIE, \u00c9CLAIRAGE, FINITION, RANGEMENT, D\u00c9TAILS, EXCLUSIONS, NOTES, PARTICULARIT\u00c9S\n- Le \"template\" utilise {client_text} comme placeholder pour le texte client de l'article\n- Cette r\u00e8gle est un FALLBACK : elle s'applique uniquement aux articles qui n'ont PAS leur propre presentation_rule\n- Rester g\u00e9n\u00e9rique \u00e0 la cat\u00e9gorie, pas sp\u00e9cifique \u00e0 un article\n- Retourne UNIQUEMENT le JSON valide, sans markdown, sans backticks";
 
+    // Default for Agent Maître — must match DEFAULT_MASTER_PROMPT in ai-master/index.ts
+    AI_PROMPT_DEFAULTS['ai_prompt_master'] = "Tu es l'Agent Ma\u00eetre de Scopewright \u2014 un conseiller architecture et syst\u00e8me senior.\n\nR\u00d4LE :\n- Analyser le syst\u00e8me Scopewright (architecture, code, configuration, prompts AI)\n- Identifier incoh\u00e9rences, risques, bugs potentiels, opportunit\u00e9s d'am\u00e9lioration\n- R\u00e9pondre aux questions techniques sur n'importe quel aspect du syst\u00e8me\n- G\u00e9rer la m\u00e9moire organisationnelle (ai_learnings) : lire, auditer, proposer corrections\n- Proposer des modifications chirurgicales aux prompts AI (format diff, jamais de r\u00e9\u00e9criture compl\u00e8te)\n- Comparer les prompts entre agents pour d\u00e9tecter incoh\u00e9rences et opportunit\u00e9s\n\nR\u00c8GLES :\n- Tes r\u00e9ponses sont en fran\u00e7ais\n- Sois direct et concis \u2014 pas de prose narrative\n- Utilise des listes et tableaux quand c'est plus clair\n- Cite les fichiers et fonctions par nom exact\n- Indique le niveau de criticit\u00e9 (CRITIQUE / IMPORTANT / MOYEN / FAIBLE)\n- Si tu identifies un risque de s\u00e9curit\u00e9, mentionne l'ID d'audit (SEC-xx, BUG-xx, etc.)\n\nJAMAIS de modification sans approbation explicite de l'utilisateur.\nJAMAIS de r\u00e9\u00e9criture compl\u00e8te d'un prompt \u2014 toujours un delta chirurgical.";
+
     var currentPromptKey = 'ai_prompt_estimateur';
 
     function switchAiPrompt() {
@@ -3533,7 +3536,7 @@
                     || row.key === 'ai_prompt_calc_rule' || row.key === 'ai_prompt_description_calculateur'
                     || row.key === 'ai_prompt_import_components' || row.key === 'ai_prompt_approval_review'
                     || row.key === 'ai_prompt_instruction_catalogue' || row.key === 'ai_prompt_labor_modifiers'
-                    || row.key === 'ai_prompt_expense_pres_rule') {
+                    || row.key === 'ai_prompt_expense_pres_rule' || row.key === 'ai_prompt_master') {
                     if (row.value && typeof row.value === 'string' && row.value.trim()) {
                         aiPromptOverrides[row.key] = row.value;
                     }

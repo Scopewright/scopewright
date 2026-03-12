@@ -622,7 +622,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
-- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~40 lignes, inclut section "LIMITES DE MES OUTILS") + `master_context` (section-based, 21 sections, keyword-matched) + `master_claude_md` + données vivantes (`description_format_rules`, `expense_categories`, `taux_horaires`) + fraîcheur contexte (`master_context_synced_at`, alerte si >24h) + learnings. 7 tools : 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts` — retourne métadonnées + char_count, pas le contenu), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`). **Auto-question** : au premier open du drawer, question d'analyse contextuelle envoyée automatiquement (adaptée à la page courante via `_buildAutoQuestion`)
+- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~40 lignes, inclut section "LIMITES DE MES OUTILS") + `master_context` (section-based, 21 sections, keyword-matched) + `master_claude_md` + données vivantes (`description_format_rules`, `expense_categories`, `taux_horaires`) + fraîcheur contexte (`master_context_synced_at`, alerte si >24h) + learnings. 8 tools : 4 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts` — retourne métadonnées + char_count, pas le contenu, `get_catalogue_item` — recherche par code ou texte, max 5 résultats), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`). **Auto-question** : au premier open du drawer, question d'analyse contextuelle envoyée automatiquement (adaptée à la page courante via `_buildAutoQuestion`)
 - Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
@@ -666,7 +666,7 @@ Toutes les clés sont de type TEXT dans `app_config.value` (JSONB wrappé en str
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | calculateur, approbation, catalogue |
-| `ai-master` | Sonnet 4.5 | Non | 7 | Global drawer (Agent Maître — 3 read-only + 4 write tools, section-based context, sanity checks) |
+| `ai-master` | Sonnet 4.5 | Non | 8 | Global drawer (Agent Maître — 4 read-only + 4 write tools, section-based context, sanity checks) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (12 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |

@@ -147,8 +147,9 @@ npx supabase functions deploy <nom> --no-verify-jwt
 
 ### Agent Maître (`ai-master`, prompt_key: `ai_prompt_master`)
 - **Rôle** : Conseil architecture, gestion prompts/learnings, audit système, recommandations
-- **Modèle** : Sonnet 4.5. **Tools** : 7 — 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
+- **Modèle** : Sonnet 4.5. **Tools** : 8 — 4 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
 - **`list_all_prompts`** : retourne métadonnées uniquement (clé, label, edge_function, modèle, char_count, has_override) — pas le contenu. Utiliser `read_prompt` pour le contenu complet
+- **`get_catalogue_item`** : recherche par code exact (`code: "ST-0042"`) ou texte (`search: "placage"`) sur description/client_text. Max 5 résultats. Retourne id, description, client_text, item_type, category, labor_modifiers, calculation_rule_ai, instruction, labor_minutes, material_costs, is_default, dims_config, loss_override_pct
 - **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus. Fraîcheur vérifiée via `master_context_synced_at` (alerte si >24h)
 - **Prompt rules** : section "LIMITES DE MES OUTILS" dans `DEFAULT_MASTER_PROMPT` — interdit modifications code, SQL, app_config (hors prompts), déploiements. Simulation obligatoire avant changement
 - **UI** : `shared/master-agent.js` — drawer global (FAB 30px/0.28 au repos, 44px/1.0 hover, 200ms transition). Session-only (pas de persistance messages). **Auto-question** au 1er open (analyse contextuelle adaptée à la page via `_buildAutoQuestion`)

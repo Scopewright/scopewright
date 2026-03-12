@@ -28,6 +28,7 @@ OUTILS DISPONIBLES :
 - list_learnings : lire toutes les règles mémoire (auto-exécuté, lecture seule)
 - read_prompt : lire un prompt spécifique (auto-exécuté, lecture seule)
 - list_all_prompts : lire tous les prompts pour comparaison (auto-exécuté, lecture seule)
+- get_catalogue_item : chercher un article par code (ex: ST-0042) ou par texte (auto-exécuté, lecture seule)
 - update_learning : modifier une règle — TOUJOURS proposer d'abord, appliquer après approbation
 - delete_learning : supprimer une règle — TOUJOURS proposer d'abord, appliquer après approbation
 - update_prompt_section : modifier une section d'un prompt — format diff obligatoire :
@@ -43,7 +44,7 @@ JAMAIS de modification sans approbation explicite de l'utilisateur.
 JAMAIS de réécriture complète d'un prompt — toujours un delta chirurgical.
 
 LIMITES DE MES OUTILS :
-- Mes outils read-only (list_learnings, read_prompt, list_all_prompts) sont auto-exécutés côté serveur — pas de confirmation nécessaire.
+- Mes outils read-only (list_learnings, read_prompt, list_all_prompts, get_catalogue_item) sont auto-exécutés côté serveur — pas de confirmation nécessaire.
 - Mes outils write (update_learning, delete_learning, update_prompt_section) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
 - Je ne peux PAS modifier le code source — seulement les prompts AI et les learnings en DB.
 - Je ne peux PAS exécuter de SQL, modifier les tables, ou toucher aux RLS policies.
@@ -394,11 +395,23 @@ const TOOLS = [
       },
       required: ["prompt_key", "reason"]
     }
+  },
+  {
+    name: "get_catalogue_item",
+    description: "Chercher un article du catalogue par code exact (ex: ST-0042) ou par recherche textuelle sur le nom/client_text. Lecture seule, max 5 résultats.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        code: { type: "string", description: "Code exact de l'article (ex: ST-0042). Prioritaire sur search." },
+        search: { type: "string", description: "Recherche textuelle sur description ou client_text (max 5 résultats)." }
+      },
+      required: [] as string[]
+    }
   }
 ];
 
 // Read-only tools that are auto-executed server-side
-const READ_ONLY_TOOLS = ["list_learnings", "read_prompt", "list_all_prompts"];
+const READ_ONLY_TOOLS = ["list_learnings", "read_prompt", "list_all_prompts", "get_catalogue_item"];
 
 serve(async (req: Request) => {
   const cors = getCorsHeaders(req);
@@ -528,6 +541,27 @@ serve(async (req: Request) => {
           }
         } else if (tool.name === "list_all_prompts") {
           resultData = await loadAllPromptsSummary(supabase);
+        } else if (tool.name === "get_catalogue_item") {
+          const code = tool.input?.code;
+          const search = tool.input?.search;
+          const selectCols = "id, description, client_text, item_type, category, labor_modifiers, calculation_rule_ai, instruction, labor_minutes, material_costs, is_default, dims_config, loss_override_pct";
+          if (code) {
+            const { data, error } = await supabase
+              .from("catalogue_items")
+              .select(selectCols)
+              .eq("id", code)
+              .maybeSingle();
+            resultData = data ? data : { error: error?.message || `Article ${code} introuvable` };
+          } else if (search) {
+            const { data, error } = await supabase
+              .from("catalogue_items")
+              .select(selectCols)
+              .or(`description.ilike.%${search}%,client_text.ilike.%${search}%`)
+              .limit(5);
+            resultData = data && data.length > 0 ? data : { error: error?.message || `Aucun article trouvé pour "${search}"`, count: 0 };
+          } else {
+            resultData = { error: "Paramètre code ou search requis" };
+          }
         }
         toolResults.push({
           type: "tool_result",

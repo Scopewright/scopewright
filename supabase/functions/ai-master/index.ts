@@ -42,6 +42,17 @@ OUTILS DISPONIBLES :
 JAMAIS de modification sans approbation explicite de l'utilisateur.
 JAMAIS de réécriture complète d'un prompt — toujours un delta chirurgical.
 
+LIMITES DE MES OUTILS :
+- Mes outils read-only (list_learnings, read_prompt, list_all_prompts) sont auto-exécutés côté serveur — pas de confirmation nécessaire.
+- Mes outils write (update_learning, delete_learning, update_prompt_section) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
+- Je ne peux PAS modifier le code source — seulement les prompts AI et les learnings en DB.
+- Je ne peux PAS exécuter de SQL, modifier les tables, ou toucher aux RLS policies.
+- Je ne peux PAS modifier app_config (sauf les prompts ai_prompt_* via update_prompt_section).
+- Je ne peux PAS déployer d'Edge Functions ni modifier les fichiers HTML/JS/CSS.
+- Si une correction nécessite du code, je dois la DÉCRIRE précisément (fichier, fonction, ligne) pour qu'un développeur l'applique.
+- En cas de doute sur l'impact d'une modification de prompt, je SIMULE d'abord en texte avant de proposer l'outil.
+- Je SIGNALE toujours le niveau de risque (CRITIQUE/IMPORTANT/MOYEN/FAIBLE) avant toute proposition de changement.
+
 CONTEXTE ROUTING :
 Quand tu prépares des recommandations pour un agent spécifique, filtre le contexte pour ne garder que ce qui est pertinent. Indique ce que tu as retiré et pourquoi.
 
@@ -153,7 +164,8 @@ async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
         "ai_prompt_master",
         "description_format_rules",
         "expense_categories",
-        "taux_horaires"
+        "taux_horaires",
+        "master_context_synced_at"
       ]);
     if (error) {
       console.error("loadMasterDocs error:", error.message);
@@ -200,23 +212,54 @@ async function loadLearnings(supabase: any): Promise<any[]> {
   }
 }
 
-// ── Load all prompts ──
-async function loadAllPrompts(supabase: any): Promise<Record<string, string>> {
+// ── Prompt metadata (static reference table) ──
+const PROMPT_METADATA: Record<string, { label: string; edge_function: string; model: string; visible_in_admin: boolean }> = {
+  ai_prompt_estimateur:             { label: "Assistant estimateur",           edge_function: "ai-assistant",    model: "Sonnet 4.5",  visible_in_admin: true },
+  ai_prompt_approval_review:        { label: "Review approbation",            edge_function: "ai-assistant",    model: "Sonnet 4.5",  visible_in_admin: true },
+  ai_prompt_catalogue_import:       { label: "Import catalogue AI",           edge_function: "catalogue-import",model: "Sonnet 4.5",  visible_in_admin: true },
+  ai_prompt_contacts:               { label: "Import contacts AI",            edge_function: "contacts-import", model: "Sonnet 4.5",  visible_in_admin: true },
+  ai_prompt_fiche_optimize:         { label: "Optimiser fiche produit",       edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_fiche_translate_fr_en:  { label: "Traduire fiche FR→EN",          edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_fiche_translate_en_fr:  { label: "Traduire fiche EN→FR",          edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_client_text_catalogue:  { label: "Texte client catalogue",        edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_pres_rule:              { label: "Règle présentation article",    edge_function: "translate",       model: "Sonnet 4",    visible_in_admin: true },
+  ai_prompt_calc_rule:              { label: "Règle calcul JSON",             edge_function: "translate",       model: "Sonnet 4",    visible_in_admin: true },
+  ai_prompt_labor_modifiers:        { label: "Barèmes dimensionnels",         edge_function: "translate",       model: "Sonnet 4",    visible_in_admin: true },
+  ai_prompt_expense_pres_rule:      { label: "Règle présentation dépense",   edge_function: "translate",       model: "Sonnet 4",    visible_in_admin: true },
+  ai_prompt_description_calculateur:{ label: "Description client pièce",      edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_import_components:      { label: "Importer composants fournisseur",edge_function: "translate",      model: "Sonnet 4",    visible_in_admin: true },
+  ai_prompt_instruction_catalogue:  { label: "Instruction article catalogue", edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: true },
+  ai_prompt_explication_catalogue:  { label: "Explication catalogue",         edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: false },
+  ai_prompt_json_catalogue:         { label: "JSON catalogue",                edge_function: "translate",       model: "Haiku 4.5",   visible_in_admin: false },
+  ai_prompt_approval_suggest:       { label: "Suggestion approbation",        edge_function: "translate",       model: "Sonnet 4",    visible_in_admin: false },
+  ai_prompt_master:                 { label: "Agent Maître (system)",         edge_function: "ai-master",       model: "Sonnet 4.5",  visible_in_admin: false },
+};
+
+// ── Load all prompts (summary only — use read_prompt for full content) ──
+async function loadAllPromptsSummary(supabase: any): Promise<any[]> {
   try {
     const { data } = await supabase
       .from("app_config")
       .select("key, value")
       .like("key", "ai_prompt_%");
-    if (!data) return {};
-    const prompts: Record<string, string> = {};
+    if (!data) return [];
+    const result: any[] = [];
     for (const row of data) {
-      if (row.value && typeof row.value === "string") {
-        prompts[row.key] = row.value;
-      }
+      const val = row.value && typeof row.value === "string" ? row.value : "";
+      const meta = PROMPT_METADATA[row.key] || { label: row.key, edge_function: "?", model: "?", visible_in_admin: false };
+      result.push({
+        key: row.key,
+        label: meta.label,
+        edge_function: meta.edge_function,
+        model: meta.model,
+        visible_in_admin: meta.visible_in_admin,
+        char_count: val.length,
+        has_override: val.trim().length > 0,
+      });
     }
-    return prompts;
+    return result;
   } catch {
-    return {};
+    return [];
   }
 }
 
@@ -228,6 +271,19 @@ function buildSystemPrompt(
 ): string {
   const staticPrompt = docs["ai_prompt_master"] || DEFAULT_MASTER_PROMPT;
   const sections: string[] = [staticPrompt];
+
+  // Inject sync timestamp for freshness awareness
+  if (docs["master_context_synced_at"]) {
+    const syncedAt = docs["master_context_synced_at"].replace(/"/g, "");
+    const syncDate = new Date(syncedAt);
+    const now = new Date();
+    const hoursSinceSync = Math.round((now.getTime() - syncDate.getTime()) / (1000 * 60 * 60));
+    let freshness = `Dernière synchronisation : ${syncedAt} (il y a ${hoursSinceSync}h)`;
+    if (hoursSinceSync > 24) {
+      freshness += "\n⚠ Les documents de contexte ont plus de 24h — suggère à l'utilisateur de resynchroniser via le bouton ↻.";
+    }
+    sections.push("\n\n--- FRAÎCHEUR CONTEXTE ---\n" + freshness);
+  }
 
   // Inject MASTER_CONTEXT.md (filtered by relevance)
   if (docs["master_context"]) {
@@ -286,7 +342,7 @@ const TOOLS = [
   },
   {
     name: "list_all_prompts",
-    description: "Lister tous les prompts AI avec leur contenu pour comparaison inter-agents.",
+    description: "Lister tous les prompts AI avec métadonnées (clé, label, edge_function, modèle, char_count, has_override). Pour lire le contenu complet d'un prompt, utilise read_prompt.",
     input_schema: { type: "object" as const, properties: {}, required: [] as string[] }
   },
   {
@@ -471,7 +527,7 @@ serve(async (req: Request) => {
             resultData = { error: "prompt_key requis" };
           }
         } else if (tool.name === "list_all_prompts") {
-          resultData = await loadAllPrompts(supabase);
+          resultData = await loadAllPromptsSummary(supabase);
         }
         toolResults.push({
           type: "tool_result",

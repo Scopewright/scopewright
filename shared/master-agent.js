@@ -37,14 +37,15 @@
 /* Master Agent — FAB button */
 .ma-fab {
     position: fixed; bottom: 24px; right: 24px; z-index: 9000;
-    width: 44px; height: 44px; border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     background: #0B1220; border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    opacity: 0.45; transition: opacity 0.2s, transform 0.2s;
+    opacity: 0.28; transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.18);
 }
-.ma-fab:hover { opacity: 1; transform: scale(1.1); }
-.ma-fab svg { width: 22px; height: 22px; color: #fff; }
+.ma-fab:hover { opacity: 1; width: 44px; height: 44px; }
+.ma-fab svg { width: 15px; height: 15px; color: #fff; transition: all 0.2s ease; }
+.ma-fab:hover svg { width: 22px; height: 22px; }
 .ma-fab-badge {
     position: absolute; top: -4px; right: -4px;
     min-width: 18px; height: 18px; padding: 0 5px;
@@ -320,7 +321,7 @@
     window.masterAgentOpen = function() {
         document.getElementById('maOverlay').classList.add('open');
         document.getElementById('maDrawer').classList.add('open');
-        // Inject context on first open
+        // Inject context on first open + auto-question
         if (!_contextSent) {
             _contextSent = true;
             var ctx = {};
@@ -330,12 +331,38 @@
             if (ctx && Object.keys(ctx).length > 0) {
                 _messages.push({ role: 'user', content: '[CONTEXTE PAGE]\n' + JSON.stringify(ctx, null, 2), hidden: true });
             }
+            // Auto-question on first open — contextual analysis
+            if (_messages.length <= 1) {
+                var page = (ctx && ctx.page) || 'inconnue';
+                var autoQ = _buildAutoQuestion(page, ctx);
+                _messages.push({ role: 'user', content: autoQ, hidden: true });
+                setTimeout(function() { callApi(); }, 100);
+            }
         }
         setTimeout(function() {
             var input = document.getElementById('maInput');
             if (input) input.focus();
         }, 300);
     };
+
+    function _buildAutoQuestion(page, ctx) {
+        var base = 'Analyse rapide de la page "' + page + '". ';
+        if (page === 'calculateur') {
+            base += 'Contexte : soumission ouverte, pièces actives. Signale tout avertissement pertinent (DM manquants, cascade, prix à 0, incohérences).';
+        } else if (page === 'catalogue') {
+            base += 'Signale les articles problématiques visibles : prix manquants, catégories non liées, textes clients manquants.';
+        } else if (page === 'admin') {
+            var panel = (ctx && ctx.activePanel) || '';
+            base += 'Volet actif : "' + panel + '". Vérifie la cohérence de la configuration visible.';
+        } else if (page === 'approbation') {
+            base += 'Vérifie la soumission en approbation : marges, prix aberrants, articles manquants.';
+        } else if (page === 'clients') {
+            base += 'Vérifie la cohérence des contacts et entreprises visibles.';
+        } else {
+            base += 'Fais une analyse générale du contexte.';
+        }
+        return base;
+    }
 
     window.masterAgentClose = function() {
         document.getElementById('maOverlay').classList.remove('open');
@@ -757,12 +784,26 @@
                 if (r.ok) saved++;
             }
 
+            // Save sync timestamp
             var now = new Date();
+            var isoTs = now.toISOString();
+            try {
+                await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/app_config',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                        body: JSON.stringify({ key: 'master_context_synced_at', value: JSON.stringify(isoTs) })
+                    }
+                );
+                saved++;
+            } catch(e) { console.warn('[masterAgentSyncDocs] Timestamp save error:', e.message); }
+
             var ts = now.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
-            console.log('[masterAgentSyncDocs] Done:', saved + '/' + keys.length, 'docs saved');
+            console.log('[masterAgentSyncDocs] Done:', saved + '/' + (keys.length + 1), 'items saved');
             if (status) {
-                status.textContent = saved + '/' + keys.length + ' docs sync \u2014 ' + ts;
-                status.style.color = saved === keys.length ? '#16a34a' : '#d97706';
+                status.textContent = saved + '/' + (keys.length + 1) + ' docs sync \u2014 ' + ts;
+                status.style.color = saved === (keys.length + 1) ? '#16a34a' : '#d97706';
             }
         } catch (err) {
             console.error('[masterAgentSyncDocs] Error:', err);

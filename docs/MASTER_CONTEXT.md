@@ -148,10 +148,13 @@ npx supabase functions deploy <nom> --no-verify-jwt
 ### Agent Maître (`ai-master`, prompt_key: `ai_prompt_master`)
 - **Rôle** : Conseil architecture, gestion prompts/learnings, audit système, recommandations
 - **Modèle** : Sonnet 4.5. **Tools** : 7 — 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
-- **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus
-- **UI** : `shared/master-agent.js` — drawer global (FAB button bas-droite sur 5 pages). Session-only (pas de persistance messages)
+- **`list_all_prompts`** : retourne métadonnées uniquement (clé, label, edge_function, modèle, char_count, has_override) — pas le contenu. Utiliser `read_prompt` pour le contenu complet
+- **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus. Fraîcheur vérifiée via `master_context_synced_at` (alerte si >24h)
+- **Prompt rules** : section "LIMITES DE MES OUTILS" dans `DEFAULT_MASTER_PROMPT` — interdit modifications code, SQL, app_config (hors prompts), déploiements. Simulation obligatoire avant changement
+- **UI** : `shared/master-agent.js` — drawer global (FAB 30px/0.28 au repos, 44px/1.0 hover, 200ms transition). Session-only (pas de persistance messages). **Auto-question** au 1er open (analyse contextuelle adaptée à la page via `_buildAutoQuestion`)
 - **Sanity checks** : `shared/sanity-checks.js` — 4 checks déterministes (presRuleKeys, descriptionsNotEmpty, totalNotZero, cascadeOrphans). Badge sur FAB. Hooks dans `openSubmitModal()`
 - **Prompt changelog** : `app_config.prompt_change_log` JSONB array `[{key, old_text, new_text, reason, timestamp}]`
+- **Sync timestamp** : `app_config.master_context_synced_at` — écrit par `masterAgentSyncDocs()`, lu par `ai-master` pour injection fraîcheur. Migration : `sql/master_sync_timestamp.sql`
 
 ### Actions Translate (`translate`, 13 actions)
 - **Rôle** : Génération règles (calc_rule, pres_rule, labor_modifiers, expense_pres_rule), traductions (FR↔EN), descriptions, instructions, composants
@@ -427,8 +430,8 @@ Synchronisation déclenchée depuis admin.html volet "Agent Maître" ou le drawe
 
 | Section | Contenu |
 |---------|---------|
-| Synchroniser les docs | Bouton fetch MASTER_CONTEXT.md + CLAUDE.md depuis Netlify → stocke dans `app_config` (`master_context`, `master_claude_md`) |
-| Ouvrir l'Agent Maître | Bouton ouvre le drawer global `shared/master-agent.js` |
+| Synchroniser les docs | Bouton fetch MASTER_CONTEXT.md + CLAUDE.md depuis Netlify → stocke dans `app_config` (`master_context`, `master_claude_md`, `master_context_synced_at`) |
+| Ouvrir l'Agent Maître | Bouton ouvre le drawer global `shared/master-agent.js`. Auto-question contextuelle au 1er open |
 
 ---
 
@@ -453,6 +456,7 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 | `pipeline_statuses` | JSONB array | Statuts visuels pipeline `[{value, label, color}]` | Vue pipeline commercial |
 | `permissions` | JSONB | Matrice 13 permissions × 6 rôles | Vérification côté client uniquement |
 | `prompt_change_log` | JSONB array | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | Traçabilité Agent Maître |
+| `master_context_synced_at` | TEXT (ISO datetime) | Timestamp dernière synchronisation docs → ai-master | Fraîcheur contexte (alerte >24h) |
 
 ---
 

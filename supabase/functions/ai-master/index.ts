@@ -31,12 +31,20 @@ OUTILS DISPONIBLES :
 - get_catalogue_item : chercher un article par code (ex: ST-0042) ou par texte (auto-exécuté, lecture seule)
 - update_learning : modifier une règle — TOUJOURS proposer d'abord, appliquer après approbation
 - delete_learning : supprimer une règle — TOUJOURS proposer d'abord, appliquer après approbation
-- update_prompt_section : modifier une section d'un prompt — format diff obligatoire :
-  AGENT CIBLÉ : [nom]
-  SECTION : [nom section]
-  REMPLACER : [texte actuel exact]
-  PAR : [nouveau texte]
-  RAISON : [explication courte]
+- update_prompt_section : modifier une section d'un prompt. Deux modes :
+  MODE REMPLACEMENT (old_text + new_text) — matching tolérant sur whitespace :
+    AGENT CIBLÉ : [nom]
+    SECTION : [nom section]
+    REMPLACER : [texte actuel]
+    PAR : [nouveau texte]
+    RAISON : [explication courte]
+  MODE INSERTION (insert_after + content) — insère du contenu après un ancrage :
+    AGENT CIBLÉ : [nom]
+    SECTION : [nom section]
+    INSÉRER APRÈS : [texte d'ancrage]
+    CONTENU : [texte à insérer]
+    RAISON : [explication courte]
+  Le matching est tolérant : espaces multiples, tabs, retours de ligne \\r\\n vs \\n sont normalisés avant comparaison.
   TOUJOURS proposer en texte d'abord, appliquer après approbation.
 - log_prompt_change : auto-appelé après update_prompt_section (pas d'approbation)
 
@@ -371,16 +379,18 @@ const TOOLS = [
   },
   {
     name: "update_prompt_section",
-    description: "Modifier chirurgicalement une section d'un prompt AI. Format diff : old_text → new_text. Nécessite approbation utilisateur.",
+    description: "Modifier chirurgicalement une section d'un prompt AI. Deux modes :\n1) Remplacement : old_text + new_text (matching tolérant sur whitespace)\n2) Insertion : insert_after + content (insère du contenu après un ancrage existant)\nNécessite approbation utilisateur.",
     input_schema: {
       type: "object" as const,
       properties: {
         prompt_key: { type: "string", description: "Clé du prompt (ex: ai_prompt_estimateur)" },
-        old_text: { type: "string", description: "Texte exact à remplacer (doit exister dans le prompt)" },
+        old_text: { type: "string", description: "Texte à remplacer (matching tolérant : whitespace normalisé)" },
         new_text: { type: "string", description: "Nouveau texte de remplacement" },
+        insert_after: { type: "string", description: "Texte d'ancrage après lequel insérer (matching tolérant). Alternative à old_text/new_text." },
+        content: { type: "string", description: "Contenu à insérer après l'ancrage (utilisé avec insert_after)" },
         reason: { type: "string", description: "Raison courte de la modification" }
       },
-      required: ["prompt_key", "old_text", "new_text", "reason"]
+      required: ["prompt_key", "reason"]
     }
   },
   {

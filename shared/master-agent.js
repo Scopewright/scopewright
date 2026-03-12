@@ -768,26 +768,97 @@
                     var currentValue = (data && data[0] && data[0].value) ? data[0].value : '';
                     if (typeof currentValue !== 'string') currentValue = '';
 
-                    if (input.old_text && input.new_text) {
-                        var newValue = currentValue.replace(input.old_text, input.new_text);
-                        if (newValue === currentValue) {
+                    // Tolerant matching helper: normalize whitespace for comparison
+                    function _normWs(s) { return (s || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').trim(); }
+                    // Find the original substring in currentValue that matches needle after normalization
+                    function _tolerantFind(haystack, needle) {
+                        var normNeedle = _normWs(needle);
+                        if (!normNeedle) return -1;
+                        // Try exact first
+                        var exact = haystack.indexOf(needle);
+                        if (exact !== -1) return exact;
+                        // Sliding window: find a substring whose normalized form matches
+                        var normHay = _normWs(haystack);
+                        var nIdx = normHay.indexOf(normNeedle);
+                        if (nIdx === -1) return -1;
+                        // Map normalized index back to original — scan original char by char
+                        var oi = 0, ni = 0;
+                        // Skip leading whitespace that was trimmed
+                        while (oi < haystack.length && /\s/.test(haystack[oi])) oi++;
+                        while (ni < nIdx && oi < haystack.length) {
+                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; ni++; }
+                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; ni++; }
+                            else { oi++; ni++; }
+                        }
+                        var startOi = oi;
+                        // Now find the end: consume normNeedle.length normalized chars
+                        var consumed = 0;
+                        while (consumed < normNeedle.length && oi < haystack.length) {
+                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; consumed++; }
+                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; consumed++; }
+                            else { oi++; consumed++; }
+                        }
+                        return startOi;
+                    }
+                    function _tolerantFindEnd(haystack, needle) {
+                        var normNeedle = _normWs(needle);
+                        if (!normNeedle) return -1;
+                        var exact = haystack.indexOf(needle);
+                        if (exact !== -1) return exact + needle.length;
+                        var start = _tolerantFind(haystack, needle);
+                        if (start === -1) return -1;
+                        // Consume the original chars matching the normalized needle
+                        var oi = start, consumed = 0;
+                        while (consumed < normNeedle.length && oi < haystack.length) {
+                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; consumed++; }
+                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; consumed++; }
+                            else { oi++; consumed++; }
+                        }
+                        return oi;
+                    }
+
+                    var newValue = null;
+                    var logOld = '', logNew = '';
+
+                    if (input.insert_after && input.content) {
+                        // Insert mode: find anchor, insert content after it
+                        var anchorEnd = _tolerantFindEnd(currentValue, input.insert_after);
+                        if (anchorEnd === -1) {
+                            _messages.push({ role: 'system', content: 'Ancrage introuvable dans le prompt.' });
+                        } else {
+                            newValue = currentValue.slice(0, anchorEnd) + input.content + currentValue.slice(anchorEnd);
+                            logOld = '(insertion apr\u00e8s) ' + input.insert_after.substring(0, 80);
+                            logNew = input.content;
+                        }
+                    } else if (input.old_text && input.new_text) {
+                        // Replace mode with tolerant matching
+                        var matchStart = _tolerantFind(currentValue, input.old_text);
+                        if (matchStart === -1) {
                             _messages.push({ role: 'system', content: 'Texte \u00e0 remplacer introuvable dans le prompt.' });
                         } else {
-                            var rs = await authenticatedFetch(
-                                SUPABASE_URL + '/rest/v1/app_config',
-                                {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                                    body: JSON.stringify({ key: input.prompt_key, value: JSON.stringify(newValue) })
-                                }
-                            );
-                            if (rs.ok) {
-                                _messages.push({ role: 'system', content: 'Prompt mis \u00e0 jour : ' + escapeHtml(input.prompt_key) });
-                                // Log the change
-                                logPromptChange(input.prompt_key, input.old_text, input.new_text, input.reason || '');
-                            } else {
-                                _messages.push({ role: 'system', content: 'Erreur sauvegarde prompt.' });
+                            var matchEnd = _tolerantFindEnd(currentValue, input.old_text);
+                            newValue = currentValue.slice(0, matchStart) + input.new_text + currentValue.slice(matchEnd);
+                            logOld = input.old_text;
+                            logNew = input.new_text;
+                        }
+                    } else {
+                        _messages.push({ role: 'system', content: 'Param\u00e8tres manquants : old_text+new_text ou insert_after+content requis.' });
+                    }
+
+                    if (newValue !== null) {
+                        var rs = await authenticatedFetch(
+                            SUPABASE_URL + '/rest/v1/app_config',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                                body: JSON.stringify({ key: input.prompt_key, value: JSON.stringify(newValue) })
                             }
+                        );
+                        if (rs.ok) {
+                            _messages.push({ role: 'system', content: 'Prompt mis \u00e0 jour : ' + escapeHtml(input.prompt_key) });
+                            logPromptChange(input.prompt_key, logOld, logNew, input.reason || '');
+                        } else {
+                            _messages.push({ role: 'system', content: 'Erreur sauvegarde prompt.' });
                         }
                     }
                 }

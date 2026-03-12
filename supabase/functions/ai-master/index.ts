@@ -67,6 +67,11 @@ const SECTION_KEYWORDS: Record<string, string[]> = {
   "RENDU": ["rendu", "snapshot", "preview", "quote", "pdf", "email"],
   "TESTS": ["test", "assertion", "cascade-engine", "fixture"],
   "SYNC": ["sync", "master_context", "master_claude_md", "app_config"],
+  "ADMIN": ["admin", "volet", "sidebar", "section", "couverture", "introduction", "équipe", "dépense", "taux"],
+  "APP_CONFIG": ["app_config", "config", "clé", "description_format", "expense_categories", "taux_horaires", "pipeline_statuses", "project_steps", "vivant"],
+  "ARTICLE": ["article", "catalogue", "fab", "mat", "fabrication", "material", "labor_minutes", "material_costs", "calculation_rule", "presentation_rule", "labor_modifiers", "barème", "dims_config"],
+  "VUES": ["vue", "flux", "pipeline", "kanban", "calculateur", "aperçu", "présentation", "pièce", "room"],
+  "DM": ["dm", "matériau", "défaut", "caisson", "façade", "tiroir", "panneau", "finition", "poignée", "roomDM", "client_text"],
 };
 
 function selectRelevantSections(masterContext: string, userMessage: string): string {
@@ -136,7 +141,7 @@ function selectRelevantSections(masterContext: string, userMessage: string): str
   return preamble + "\n" + selected.map(s => s.content).join("\n");
 }
 
-// ── Load docs from app_config ──
+// ── Load docs + live config from app_config ──
 async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
   try {
     const { data, error } = await supabase
@@ -145,7 +150,10 @@ async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
       .in("key", [
         "master_context",
         "master_claude_md",
-        "ai_prompt_master"
+        "ai_prompt_master",
+        "description_format_rules",
+        "expense_categories",
+        "taux_horaires"
       ]);
     if (error) {
       console.error("loadMasterDocs error:", error.message);
@@ -154,12 +162,23 @@ async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
     if (!data) return {};
     const docs: Record<string, string> = {};
     for (const row of data) {
-      if (row.value && typeof row.value === "string" && row.value.trim()) {
-        docs[row.key] = row.value;
+      if (row.value != null) {
+        // JSONB values can be strings, arrays, or objects
+        const val = typeof row.value === "string" ? row.value : JSON.stringify(row.value);
+        if (val.trim()) {
+          docs[row.key] = val;
+        }
       }
     }
-    // #147-fix: Log confirmation of loaded docs
-    console.log(`[ai-master] Docs loaded: master_context=${(docs["master_context"] || "").length} chars, master_claude_md=${(docs["master_claude_md"] || "").length} chars, ai_prompt_master=${(docs["ai_prompt_master"] || "").length > 0 ? "custom" : "default"}`);
+    // #147-fix + #150: Log confirmation of loaded docs
+    const masterLen = (docs["master_context"] || "").length;
+    const claudeLen = (docs["master_claude_md"] || "").length;
+    const formatLen = (docs["description_format_rules"] || "").length;
+    const expenseLen = (docs["expense_categories"] || "").length;
+    const tauxLen = (docs["taux_horaires"] || "").length;
+    console.log(`[ai-master] Docs loaded: master_context=${masterLen} chars, master_claude_md=${claudeLen} chars, ai_prompt_master=${(docs["ai_prompt_master"] || "").length > 0 ? "custom" : "default"}, description_format_rules=${formatLen} chars, expense_categories=${expenseLen} chars, taux_horaires=${tauxLen} chars`);
+    if (masterLen === 0) console.warn("[ai-master] WARNING: master_context is empty — click 'Synchroniser les docs' in admin");
+    if (claudeLen === 0) console.warn("[ai-master] WARNING: master_claude_md is empty — click 'Synchroniser les docs' in admin");
     return docs;
   } catch (err) {
     console.error("loadMasterDocs exception:", err);
@@ -223,6 +242,17 @@ function buildSystemPrompt(
     sections.push("\n\n--- CLAUDE.md ---\n" + docs["master_claude_md"]);
   } else {
     sections.push("\n\n⚠ CLAUDE.md non chargé — cliquer 'Synchroniser les docs' dans le drawer.");
+  }
+
+  // Inject live config data (critical for accurate analysis)
+  if (docs["description_format_rules"]) {
+    sections.push("\n\n--- DONNÉES VIVANTES : description_format_rules ---\n" + docs["description_format_rules"]);
+  }
+  if (docs["expense_categories"]) {
+    sections.push("\n\n--- DONNÉES VIVANTES : expense_categories (catégories dépenses + markup% + perte%) ---\n" + docs["expense_categories"]);
+  }
+  if (docs["taux_horaires"]) {
+    sections.push("\n\n--- DONNÉES VIVANTES : taux_horaires (départements MO + taux + salaire + frais fixes) ---\n" + docs["taux_horaires"]);
   }
 
   // Inject learnings

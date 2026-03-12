@@ -1,7 +1,7 @@
 # MASTER_CONTEXT.md — Scopewright System Knowledge (AI-optimized)
 
 > Ce document est optimisé pour être lu par une AI. Pas de prose — sections courtes, labels clairs, règles explicites.
-> Dernière mise à jour : 2026-03-11
+> Dernière mise à jour : 2026-03-12
 
 ---
 
@@ -213,7 +213,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - `materialCtx` propagé parent→enfant→petit-enfant, mis à jour par `$default:` après résolution
 - `child_dims` : formules dimensionnelles. Multi-instance quand `child_dims` + qty > 1
 - Persistance immédiate (pas de debounce). Enfants locked protégés. `cascade_suppressed` pour suppressions manuelles
-- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (282 assertions, 28 groupes)
+- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (292 assertions, 28 groupes)
 
 ### 8.2 Matériaux par défaut (DM)
 - Room-level uniquement (`roomDM[groupId]`). `client_text` = identifiant primaire
@@ -354,7 +354,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 
 ## 15. TESTS AUTOMATISÉS
 
-- **Fichier** : `tests/cascade-engine.test.js` — 282 assertions, 28 groupes
+- **Fichier** : `tests/cascade-engine.test.js` — 292 assertions, 28 groupes
 - **Runner** : Inline, 0 dépendances (`node tests/cascade-engine.test.js`)
 - **Helpers** : `tests/cascade-helpers.js` — 19 fonctions pures copiées de calculateur.html
 - **Fixtures** : `tests/fixtures/catalogue.js` (21 articles), `tests/fixtures/room-dm.js` (5 configs DM)
@@ -370,4 +370,288 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | `master_context` | `docs/MASTER_CONTEXT.md` | Ce document — connaissance système |
 | `master_claude_md` | `CLAUDE.md` | Instructions projet + conventions |
 
-Synchronisation déclenchée depuis admin.html volet "Agent Maître" (fetch fichiers statiques → PATCH app_config).
+Synchronisation déclenchée depuis admin.html volet "Agent Maître" ou le drawer global (fetch fichiers statiques → PATCH app_config).
+
+---
+
+## 17. CARTE COMPLÈTE ADMIN.HTML (6 volets)
+
+### Volet 1 — Présentation
+
+| Section | Clé `app_config` | Contenu |
+|---------|-------------------|---------|
+| Image de couverture | `cover_image` | URL image plein écran page couverture quote.html. JPEG/PNG paysage haute-résolution |
+| Page Introduction | `intro_title`, `intro_text`, `intro_signature` | Titre, texte riche HTML, signature architecte. Aussi `intro_title_en`, `intro_text_en`, `intro_signature_en` pour EN |
+| Page Pourquoi | `why_title`, `why_text`, `why_image_url` | Titre, texte HTML (placeholder `{designer}` interpolé), image. Aussi `why_title_en`, `why_text_en` pour EN |
+| Étapes du projet | `project_steps` | JSONB array de 8 objets `[{title, description}]`. Affiché dans quote.html. Fallback `STEPS_I18N` hardcodé si absent |
+| Format description client | `description_format_rules` | TEXT — règles de formatage obligatoires pour toutes les descriptions AI (injecté dans `ai-assistant` et `translate` action `description_calculateur`) |
+
+### Volet 2 — Catalogue
+
+| Section | Clé `app_config` | Contenu |
+|---------|-------------------|---------|
+| Catégories du catalogue | `catalogue_categories` | JSONB array — liste des catégories catalogue. Auto-sync avec les catégories distinctes des articles |
+| Groupes matériaux | `category_group_mapping` | JSONB object `{catégorie: groupe_DM}` — mapping catégories catalogue → groupes DM (Caisson, Façades, Tiroirs, etc.) |
+| Tags médias | `media_tags` | JSONB array — tags disponibles pour annoter les images/plans |
+| Catégories de dépenses | `expense_categories` | JSONB array `[{name, markup_pct, waste_pct, calc_rule_template, pres_rule_template, presentation_rule}]` — chaque catégorie a : nom, % markup, % perte, template JSON règle calcul, template JSON règle présentation, et JSON présentation |
+| Données de base | `taux_horaires` | JSONB array `[{department, rate, salary, fixed_cost}]` — 7 départements MO (Gestion/dessin, Coupe/edge, Assemblage, Machinage, Sablage, Peinture, Installation) + taux horaire, salaire, frais fixe |
+| Nomenclature des tags | `tag_nomenclature` | JSONB array — préfixes tags plans (C=Caisson, P=Panneau, E=Étagère, PI=Île, F=Façade, A=Accessoire, PO=Poignée, EC=Éclairage, RM=Range-manteau) |
+
+### Volet 3 — Workflow
+
+| Section | Clé `app_config` | Contenu |
+|---------|-------------------|---------|
+| Types d'entreprise | `company_types` | JSONB array — types d'entreprise pour CRM |
+| Rôles de contact | `contact_roles` | JSONB array — rôles possibles pour les contacts (architecte, entrepreneur, client, etc.) |
+| Types de communication | `communication_types` | JSONB array — types de communication (appel, courriel, réunion, etc.) |
+| Statuts du pipeline | `pipeline_statuses` | JSONB array `[{value, label, color}]` — statuts visuels pour le pipeline commercial |
+| Sources de projet | `project_sources` | JSONB array — sources d'acquisition des projets |
+| Types de projet | `project_types` | JSONB array — classification des projets (Résidentiel, Commercial, etc.) |
+
+### Volet 4 — Équipe
+
+| Section | Contenu |
+|---------|---------|
+| Permissions par rôle | Matrice 13 permissions × 6 rôles (clé `app_config.permissions`). Checkboxes par rôle. Vérification côté client uniquement |
+| Gestion des rôles | CRUD rôles dans table `roles`. Modale ajout/modification. Un rôle peut être supprimé seulement s'il n'est pas attribué |
+| Attribution des rôles | Table `user_roles` (email → rôle). Dropdown rôle par employé. Clé `app_config.user_roles` aussi utilisée (legacy) |
+
+### Volet 5 — Prompts AI
+
+| Section | Contenu |
+|---------|---------|
+| Prompts AI | Dropdown de 16 prompts (sur 19 existants — 3 manquants : explication_catalogue, json_catalogue, approval_suggest). Textarea éditable. Sauvegarde dans `app_config` |
+| Mémoire AI | Table `ai_learnings` — CRUD de règles organisationnelles textuelles. Chaque règle a un contexte source |
+
+### Volet 6 — Agent Maître
+
+| Section | Contenu |
+|---------|---------|
+| Synchroniser les docs | Bouton fetch MASTER_CONTEXT.md + CLAUDE.md depuis Netlify → stocke dans `app_config` (`master_context`, `master_claude_md`) |
+| Ouvrir l'Agent Maître | Bouton ouvre le drawer global `shared/master-agent.js` |
+
+---
+
+## 18. CLÉS `app_config` DE CONTENU VIVANT
+
+Ces clés définissent le comportement du produit et changent **sans déploiement** :
+
+| Clé | Type | Rôle | Impact |
+|-----|------|------|--------|
+| `description_format_rules` | TEXT | Format obligatoire descriptions client FR/EN | Injecté dans `ai-assistant` (via `buildSystemPrompt`) et `translate` (action `description_calculateur`) |
+| `project_steps` | JSONB array | 8 étapes `[{title, description}]` affichées dans quote.html | Fallback `STEPS_I18N` si absent |
+| `why_title` | TEXT | Titre page "Pourquoi [Atelier]" dans quote.html | Placeholder `{designer}` interpolé avec nom architecte |
+| `why_text` | TEXT (HTML) | Texte page "Pourquoi" | Contient du HTML riche |
+| `why_image_url` | TEXT (URL) | Image page "Pourquoi" | URL vers Storage Supabase |
+| `cover_image` | TEXT (URL) | Image couverture quote.html | Fond plein écran page 1 |
+| `intro_title` / `intro_text` / `intro_signature` | TEXT | Page introduction quote.html | Aussi versions `_en` pour traduction |
+| `expense_categories` | JSONB array | Catégories dépenses + markup% + perte% + templates | Source de vérité pour prix composé et rentabilité |
+| `taux_horaires` | JSONB array | 7 départements MO + taux horaire + salaire + frais fixe | Base de calcul main-d'œuvre |
+| `tag_nomenclature` | JSONB array | Préfixes tags plans (C, P, E, PI, F, A, PO, EC, RM) | Annotations + cascade matching |
+| `catalogue_categories` | JSONB array | Catégories catalogue (auto-sync) | Filtrage et classification articles |
+| `category_group_mapping` | JSONB object | Mapping catégories → groupes DM | `getAllowedCategoriesForGroup()` |
+| `pipeline_statuses` | JSONB array | Statuts visuels pipeline `[{value, label, color}]` | Vue pipeline commercial |
+| `permissions` | JSONB | Matrice 13 permissions × 6 rôles | Vérification côté client uniquement |
+| `prompt_change_log` | JSONB array | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | Traçabilité Agent Maître |
+
+---
+
+## 19. STRUCTURE COMPLÈTE D'UN ARTICLE CATALOGUE
+
+### Champs principaux
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | TEXT PK | Code auto ST-XXXX (trigger `trg_catalogue_auto_code`) |
+| `category` | TEXT | Catégorie catalogue (ex: "Base", "Haut", "Tiroirs") |
+| `item_type` | TEXT | Classification : `fabrication` (FAB) ou `material` (MAT) |
+| `unit_type` | TEXT | Type unité : `pi²`, `pi³`, `unitaire`, `pi.lin` |
+| `description` | TEXT | Description technique interne |
+| `client_text` | TEXT | Texte visible par le client (nom commercial) |
+| `instruction` | TEXT | Instructions spéciales pour fabrication |
+| `price` | NUMERIC | Prix manuel (si pas de prix composé) |
+| `in_calculator` | BOOLEAN | Visible dans le calculateur |
+| `is_default` | BOOLEAN | Article par défaut ★ (affiché en premier dans combobox) |
+| `status` | TEXT | `approved`, `pending`, `rejected` |
+| `dims_config` | JSONB | `{l:bool, h:bool, p:bool}` — champs dims affichés |
+| `loss_override_pct` | NUMERIC | % perte spécifique (remplace le `waste` catégorie) |
+
+### Prix composé
+
+| Champ | Type | Contenu |
+|-------|------|---------|
+| `labor_minutes` | JSONB | `{département: minutes}` — 7 départements : Gestion/dessin, Coupe/edge, Assemblage, Machinage, Sablage, Peinture, Installation |
+| `material_costs` | JSONB | `{catégorie: coût}` — 17 catégories : BANDE DE CHANT, BOIS BRUT, DIVERS, ÉCLAIRAGE, FINITION, FOURNITURE, MÉTAL, PANNEAU BOIS, PANNEAU MDF, PANNEAU MÉLAMINE, PLACAGE, POIGNÉES, QUINCAILLERIE, SOUS TRAITANCE, STRATIFIÉ, TIROIRS, VITRIER, PORTES SOUS TRAITANCE |
+
+### Règle de calcul (`calculation_rule_ai` JSONB)
+
+```json
+{
+  "ask": ["L", "H", "P", "n_tablettes"],
+  "cascade": [
+    { "target": "$default:Caisson", "qty": "1" },
+    { "target": "$match:PANNEAU BOIS", "qty": "L * H / 144", "child_dims": { "L": "L", "H": "H" } },
+    { "target": "ST-0042", "qty": "2" }
+  ],
+  "override_children": ["Caisson", "Panneaux"],
+  "notes": "Texte explicatif pour l'AI"
+}
+```
+
+- **`ask`** : variables requises avant cascade (L, H, P, QTY, n_tablettes, n_partitions, n_portes, n_tiroirs)
+- **`cascade`** : règles enfants (3 types cibles). `child_dims` : formules dimensionnelles
+- **`override_children`** : catégories bloquées chez les descendants
+- **`notes`** : contexte pour l'AI (pas fonctionnel)
+
+### Règle de présentation (`presentation_rule` JSONB)
+
+```json
+{
+  "sections": [
+    { "key": "CAISSON", "label": "Caisson", "template": "Caisson en {client_text}" },
+    { "key": "FAÇADES", "label": "Façades", "template": "{qty} façade(s) en {client_text}" }
+  ],
+  "exclude": ["quincaillerie", "vis"],
+  "detail_bullets": [
+    { "text": "Finition intérieure", "sub": "Mélamine blanche" }
+  ]
+}
+```
+
+- **`sections`** : groupement visuel par clé (CAISSON, FAÇADES, PANNEAUX, TIROIRS, POIGNÉES, DÉTAILS, FINITION, EXCLUSIONS)
+- **`exclude`** : articles filtrés de la description client (par client_text substring)
+- **`detail_bullets`** : bullets injectés dans la section DÉTAILS
+
+### Barèmes dimensionnels (`labor_modifiers` JSONB)
+
+```json
+{
+  "cumulative": false,
+  "modifiers": [
+    {
+      "condition": "L > 48",
+      "label": "Grand (> 48 po)",
+      "labor_factor": { "Machinage": 1.5, "Assemblage": 1.25 },
+      "material_factor": { "PANNEAU MÉLAMINE": 1.20 },
+      "labor_minutes": { "Assemblage": "n_partitions * 12" }
+    }
+  ]
+}
+```
+
+- **`condition`** : expression évaluée par `evalFormula` (variables dims)
+- **`labor_factor`** / **`material_factor`** : multiplicateurs par département/catégorie
+- **`labor_minutes`** : minutes absolues ajoutées (nombre ou expression)
+- **`cumulative`** : si true, tous les modificateurs vrais sont appliqués (facteurs multipliés, minutes sommées)
+
+### Flags et métadonnées
+
+| Champ | Rôle |
+|-------|------|
+| `in_calculator` | Article visible dans le calculateur (false = catalogue seulement) |
+| `is_default` | Article ★ par défaut — affiché en premier dans le combobox |
+| `is_fiche` | Article avec fiche de vente publique (`fiche.html`) |
+| `fiche_*` | Champs fiche de vente (titre, sous-titre, description, specs, prix affiché) |
+| `supplier_code` | Code fournisseur de référence |
+| `status` | `approved` (actif), `pending` (en attente d'approbation), `rejected` |
+
+---
+
+## 20. VUES ET FLUX UTILISATEUR
+
+### Pipeline commercial (`calculateur.html` — Vue 1)
+
+3 vues interchangeables :
+- **Table** : colonnes ★, Prio, Nom, Archit., Montant, Prob%, Statut, Remise, Resp., Type. Tri par colonne, filtres texte/statut/type/assigné/suivi
+- **Cartes** : Kanban par statut pipeline. Drag & drop entre colonnes
+- **Soumissions** : liste plate de toutes les soumissions avec statut workflow
+
+### Vue projet (`calculateur.html` — drawer latéral)
+
+- **Onglets** : Estimateur (lead), Vendeur/CP, Approbateur, Remise interne, Remise client
+- **Infos** : Client, Adresse, Ville, Code postal, Source, Type, Montant, Probabilité, Dates
+- **Soumissions** : liste des soumissions du projet avec statut, montant, actions
+
+### Calculateur (`calculateur.html` — Vue 2)
+
+Flux par pièce (room group) :
+1. **Pièce** : nom éditable, DM (7 matériaux par défaut), modificateur % sous-total
+2. **Lignes** : TAG, article (combobox), QM, L×H×P, n_tab/n_part/n_portes/n_tiroirs, prix unit., quantité, installation ☑, total
+3. **Cascade** : FAB parent → enfants automatiques (collapsibles, badge +N)
+4. **Sous-total** pièce + modificateur % = total pièce
+5. **Grand total** : somme des pièces × modificateur global
+
+### Aperçu soumission (`calculateur.html` — renderPreview)
+
+Layout par pièce :
+- **Gauche** : description client HTML (générée par AI ou manuelle)
+- **Droite** : grille d'images annotées (plans avec tags), max 6 images
+- **Footer** : bibliothèque de clauses (drag-drop ordre), toggle FR/EN
+- **Page total** : texte clôture + breakdown montants + taxes + lignes signature
+
+### Présentation client (`quote.html`)
+
+Pages séquentielles :
+1. **Couverture** : image fond plein écran + logo + titre projet
+2. **Introduction** : titre + texte + signature architecte
+3. **Pourquoi [Atelier]** : titre + texte + image (données dynamiques `app_config`)
+4. **Pièces** : 1 page par pièce (description + images + sous-total)
+5. **Étapes** : 8 étapes projet (données dynamiques `app_config.project_steps`)
+6. **Total + signature** : montant + taxes + formulaire acceptation + signature canvas
+
+### Export PDF
+
+- PDFShift Chromium server-side (Edge Function `pdf-export`)
+- Layout identique à l'aperçu (landscape Letter, marges 0)
+- `@media print` dans SNAPSHOT_CSS pour pagination
+- Nom fichier : `{OrgName}_{ProjectCode}_{SubNumber}_v{Version}.pdf`
+
+---
+
+## 21. MATÉRIAUX PAR DÉFAUT (DM) — DÉTAIL
+
+### Structure
+
+Room-level uniquement (`roomDM[groupId]`). Chaque pièce a ses propres DM.
+
+**7 types visibles** (groupes requis par `DM_REQUIRED_GROUPS`) :
+1. **Caisson** — matériau principal du caisson (mélamine, placage, etc.)
+2. **Façades** — matériau des portes/façades
+3. **Tiroirs** — matériau des tiroirs
+4. **Panneaux** — panneaux apparents (peut avoir 2 entrées)
+5. **Finition** — finition de surface (laque, vernis, etc.)
+6. **Poignées** — type de poignées
+
+**2 types cachés** (`DM_HIDDEN_GROUPS`) : Autre, Éclairage — filtrés du dropdown.
+
+### Format d'une entrée DM
+
+```json
+{
+  "type": "Caisson",
+  "client_text": "Placage de chêne blanc",
+  "catalogue_item_id": "ST-0015",
+  "description": "Placage chêne blanc 1/4 feuille"
+}
+```
+
+- **`client_text`** = identifiant primaire pour la résolution cascade (pas `catalogue_item_id`)
+- **`catalogue_item_id`** = optionnel — référence article technique
+- Un DM avec `client_text` sans `catalogue_item_id` est valide
+
+### Actions UI
+
+- **+ Ajouter** : dropdown type → recherche catalogue (groupé par `client_text` dédupliqué) → sélection
+- **Copier de...** : copie les DM d'une autre pièce de la même soumission
+- **Effacer tout** : supprime tous les DM de la pièce
+- **Indicateur DM vide** : flèche `←` avec animation pulse quand aucun DM et ≥1 article dans la pièce
+- **Validation** : `addRow()` bloque l'ajout d'articles si DM requis manquent (toast + ouvre panneau DM)
+
+### Résolution cascade depuis DM
+
+1. `$default:Façades` → cherche DM de type "Façades" dans la pièce
+2. Si 1 seul DM → utilise son `client_text` pour trouver l'article catalogue
+3. Si multiple → modale choix matériau (`showDmChoiceModal`)
+4. Filtre `CATALOGUE_DATA` par `client_text` + catégories autorisées (`getAllowedCategoriesForGroup`)
+5. Si multiple articles techniques → modale choix technique (`showTechnicalItemModal`)
+6. Résultat = `catalogue_item_id` final pour la ligne enfant

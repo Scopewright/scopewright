@@ -621,7 +621,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
-- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~25 lignes) + `master_context` (section-based, keyword-matched) + `master_claude_md` + learnings. 7 tools : 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
+- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~25 lignes) + `master_context` (section-based, 21 sections, keyword-matched) + `master_claude_md` + données vivantes (`description_format_rules`, `expense_categories`, `taux_horaires`) + learnings. 7 tools : 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
 - Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**

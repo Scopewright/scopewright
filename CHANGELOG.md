@@ -2,6 +2,13 @@
 
 ---
 
+## 2026-03-12
+
+### Features
+- **#150 — Enrichir MASTER_CONTEXT.md + injection données vivantes ai-master** — (1) MASTER_CONTEXT.md enrichi avec 5 nouvelles sections (17-21) : carte complète admin.html (6 volets, toutes sous-sections), clés app_config vivantes (16 clés documentées), structure complète article catalogue (champs, JSON structures, barèmes), vues et flux utilisateur (pipeline→calculateur→aperçu→quote→PDF), DM détail (7 types, résolution cascade). (2) ai-master edge function charge désormais `description_format_rules`, `expense_categories`, `taux_horaires` depuis app_config et les injecte dans le system prompt comme données vivantes. Logs enrichis avec longueur de chaque doc. Warnings si docs vides. (3) SECTION_KEYWORDS étendu avec 5 nouvelles entrées (ADMIN, APP_CONFIG, ARTICLE, VUES, DM) pour le keyword matching des nouvelles sections
+
+---
+
 ## 2026-03-11
 
 ### Features

@@ -590,11 +590,32 @@
     // ══════════════════════════════════════════
     // Send message
     // ══════════════════════════════════════════
+    // Auto-dismiss any pending tool approvals — marks as handled + injects synthetic tool_results
+    function _autoDismissPendingTools() {
+        for (var i = 0; i < _messages.length; i++) {
+            var m = _messages[i];
+            if (m.role === 'assistant' && m.tools && m.tools.length > 0 && !m.toolsHandled) {
+                m.toolsHandled = true;
+                // Inject synthetic tool_result so Anthropic API doesn't error on orphan tool_use
+                if (!m.toolResults) m.toolResults = [];
+                for (var t = 0; t < m.tools.length; t++) {
+                    m.toolResults.push({
+                        type: 'tool_result',
+                        tool_use_id: m.tools[t].id,
+                        content: JSON.stringify({ dismissed: true })
+                    });
+                }
+            }
+        }
+    }
+
     window.masterAgentSendMessage = function() {
         if (_busy) return;
         var input = document.getElementById('maInput');
         var text = (input.value || '').trim();
         if (!text && _pendingImages.length === 0) return;
+        // Auto-dismiss any pending tool approvals before sending new message
+        _autoDismissPendingTools();
         var msg = { role: 'user', content: text || '(image)', images: _pendingImages.length > 0 ? _pendingImages.slice() : null };
         _messages.push(msg);
         _pendingImages = [];
@@ -687,7 +708,7 @@
 
             // Auto-execute read-only tools
             if (toolUses.length > 0) {
-                var readOnlyTools = ['list_learnings', 'read_prompt', 'list_all_prompts'];
+                var readOnlyTools = ['list_learnings', 'read_prompt', 'list_all_prompts', 'get_catalogue_item'];
                 var allReadOnly = toolUses.every(function(tu) { return readOnlyTools.indexOf(tu.name) >= 0; });
                 if (allReadOnly) {
                     assistantMsg.toolsHandled = true;
@@ -735,6 +756,17 @@
         var msg = _messages[msgIndex];
         if (!msg) return;
         msg.toolsHandled = true;
+        // Inject synthetic tool_result so next API call doesn't have orphan tool_use
+        if (msg.tools && !msg.toolResults) {
+            msg.toolResults = [];
+            for (var t = 0; t < msg.tools.length; t++) {
+                msg.toolResults.push({
+                    type: 'tool_result',
+                    tool_use_id: msg.tools[t].id,
+                    content: JSON.stringify({ dismissed: true })
+                });
+            }
+        }
         var toolBar = document.getElementById('maToolBar-' + msgIndex);
         if (toolBar) toolBar.innerHTML = '<span style="font-size:11px;color:#94a3b8;">Ignor\u00e9</span>';
     };

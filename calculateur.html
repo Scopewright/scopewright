@@ -18,6 +18,25 @@
     <script src="shared/pricing.js"></script>
     <script src="shared/presentation-client.js"></script>
     <script src="shared/pdf-export.js"></script>
+    <script src="shared/master-agent.js"></script>
+    <script src="shared/sanity-checks.js"></script>
+    <script>
+    window.getMasterContext = function() {
+        var ctx = { page: 'calculateur' };
+        if (typeof currentProject !== 'undefined' && currentProject) {
+            ctx.project = { id: currentProject.id, name: currentProject.name, code: currentProject.project_code };
+        }
+        if (typeof currentSubmission !== 'undefined' && currentSubmission) {
+            ctx.submission = { id: currentSubmission.id, number: currentSubmission.submission_number, status: currentSubmission.status, title: currentSubmission.title };
+        }
+        if (typeof aiFocusGroupId !== 'undefined' && aiFocusGroupId) {
+            var roomName = '';
+            try { roomName = document.querySelector('#' + aiFocusGroupId + ' .room-name-input').value; } catch(e) {}
+            ctx.focusRoom = { groupId: aiFocusGroupId, name: roomName };
+        }
+        return ctx;
+    };
+    </script>
 
     <script>
     // ═══════════════════════════════════════════════════════════════════════
@@ -14281,6 +14300,14 @@
             if (rows.length === 0) {
                 steleAlert('Veuillez ajouter au moins un article au calculateur.');
                 return;
+            }
+            // Sanity checks before submit
+            if (typeof runSanityChecks === 'function') {
+                var _rooms = [];
+                document.querySelectorAll('.room-group').forEach(function(g) {
+                    _rooms.push({ groupId: g.id, name: (g.querySelector('.room-name-input') || {}).value || '?' });
+                });
+                runSanityChecks({ rooms: _rooms, grandTotal: calculerGrandTotal(), checkCascade: true });
             }
             document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('projectDescription').value = '';

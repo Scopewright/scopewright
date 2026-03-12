@@ -9,6 +9,15 @@
     <!-- Shared modules -->
     <script src="shared/auth.js"></script>
     <script src="shared/utils.js"></script>
+    <script src="shared/master-agent.js"></script>
+    <script>
+    window.getMasterContext = function() {
+        var ctx = { page: 'clients' };
+        var sel = document.querySelector('.contact-card.active .contact-name');
+        if (sel) ctx.selectedContact = sel.textContent.trim();
+        return ctx;
+    };
+    </script>
 
     <script>
         if (!localStorage.getItem('sb_access_token')) { window.location.href = 'login.html'; }

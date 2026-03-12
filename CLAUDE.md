@@ -20,7 +20,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion + chat AI | ~4 300 lignes |
+| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~3 800 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -39,6 +39,8 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | `shared/pricing.js` | `computeComposedPrice(item, includeInstallation)` (flat costs), `computeCatItemPrice(item)` ({cost,qty} objects) | calculateur, catalogue, approbation |
 | `shared/presentation-client.js` | Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (`assembleRoomDescription`, `editClientDescription`, `saveClientDescription`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
 | `shared/pdf-export.js` | `exportSubmissionPdf()`, `_sanitizePdfFilename()` — Export PDF server-side via PDFShift API (Edge Function `pdf-export`) | calculateur |
+| `shared/master-agent.js` | Agent Maître global drawer — FAB button, chat UI, tool approval, doc sync, sanity badge. `masterAgentOpen()`, `masterAgentClose()`, `masterAgentSyncDocs()`, `masterSanityReport(issues)` | calculateur, catalogue, admin, approbation, clients |
+| `shared/sanity-checks.js` | Deterministic sanity checks (no AI) — `runSanityChecks(opts)`, `SANITY_CHECKS` registry. Checks: `presRuleKeys`, `descriptionsNotEmpty`, `totalNotZero`, `cascadeOrphans` | calculateur, catalogue |
 
 **Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags.
 
@@ -610,6 +612,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `project_steps` | JSONB | 8 étapes `[{title, description}]` | quote.html (fallback `STEPS_I18N`) |
 | `master_context` | TEXT | MASTER_CONTEXT.md synchronisé | ai-master (system prompt) |
 | `master_claude_md` | TEXT | CLAUDE.md synchronisé | ai-master (system prompt) |
+| `prompt_change_log` | JSONB | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | shared/master-agent.js |
 
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 
@@ -618,7 +621,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 - `ai_prompt_approval_review` : `DEFAULT_APPROVAL_REVIEW_PROMPT` (~50 lignes) + learnings. Pas de contexte dynamique riche
 - `ai_prompt_catalogue_import` : `DEFAULT_STATIC_PROMPT` (~170 lignes) + `buildSystemPrompt()` (stats, catégories, taux, article ouvert, usage). **Bug** : n'injecte pas les learnings
 - `ai_prompt_contacts` : `DEFAULT_STATIC_PROMPT` (~120 lignes) + `buildSystemPrompt()` (counts, types, rôles, learnings)
-- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~25 lignes) + `master_context` + `master_claude_md` + learnings. Pas de tools (lecture seule)
+- `ai_prompt_master` : `DEFAULT_MASTER_PROMPT` (~25 lignes) + `master_context` (section-based, keyword-matched) + `master_claude_md` + learnings. 7 tools : 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
 - Prompts translate (13 actions) : prompt statique remplacé 1:1 + learnings auto-ajoutés
 
 **Sections hardcodées non-éditables depuis admin :**
@@ -662,7 +665,7 @@ Toutes les clés sont de type TEXT dans `app_config.value` (JSONB wrappé en str
 | Edge Function | Modèle | Streaming | Tools | Appelé par |
 |---------------|--------|-----------|-------|------------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | calculateur, approbation, catalogue |
-| `ai-master` | Sonnet 4.5 | Non | 0 | admin (Agent Maître — lecture seule, conseil) |
+| `ai-master` | Sonnet 4.5 | Non | 7 | Global drawer (Agent Maître — 3 read-only + 4 write tools, section-based context, sanity checks) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | — (12 actions) | catalogue, calculateur, approbation |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | clients |

@@ -11,6 +11,16 @@
     <script src="shared/auth.js"></script>
     <script src="shared/utils.js"></script>
     <script src="shared/pricing.js"></script>
+    <script src="shared/master-agent.js"></script>
+    <script>
+    window.getMasterContext = function() {
+        var ctx = { page: 'approbation' };
+        if (typeof currentSubmission !== 'undefined' && currentSubmission) {
+            ctx.submission = { id: currentSubmission.id, number: currentSubmission.submission_number, status: currentSubmission.status };
+        }
+        return ctx;
+    };
+    </script>
 
     <!-- Auth guard -->
     <script>

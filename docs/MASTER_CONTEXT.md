@@ -97,12 +97,12 @@ catalogue_change_log (audit AI)
 
 ---
 
-## 5. EDGE FUNCTIONS (5)
+## 5. EDGE FUNCTIONS (6)
 
 | Fonction | Modèle AI | Streaming | Tools | Rôle |
 |----------|-----------|-----------|-------|------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | Assistant estimateur + approbation + catalogue |
-| `ai-master` | Sonnet 4.5 | Non | 0 | Agent Maître (admin, conseil architecture, read-only) |
+| `ai-master` | Sonnet 4.5 | Non | 7 | Agent Maître global (3 read-only + 4 write, section-based context) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | 0 (13 actions) | Traductions, génération règles, descriptions |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | Import articles catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | Import contacts CRM |
@@ -146,9 +146,12 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **Limites** : Confirmation par boutons Apply/Ignore uniquement (pas de double confirmation texte)
 
 ### Agent Maître (`ai-master`, prompt_key: `ai_prompt_master`)
-- **Rôle** : Conseil architecture, détection incohérences, audit système, recommandations
-- **Modèle** : Sonnet 4.5. **Tools** : 0 (lecture seule, consultatif)
-- **Limites** : Admin only. Pas de modifications. Session-only (pas de persistance messages)
+- **Rôle** : Conseil architecture, gestion prompts/learnings, audit système, recommandations
+- **Modèle** : Sonnet 4.5. **Tools** : 7 — 3 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`)
+- **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus
+- **UI** : `shared/master-agent.js` — drawer global (FAB button bas-droite sur 5 pages). Session-only (pas de persistance messages)
+- **Sanity checks** : `shared/sanity-checks.js` — 4 checks déterministes (presRuleKeys, descriptionsNotEmpty, totalNotZero, cascadeOrphans). Badge sur FAB. Hooks dans `openSubmitModal()`
+- **Prompt changelog** : `app_config.prompt_change_log` JSONB array `[{key, old_text, new_text, reason, timestamp}]`
 
 ### Actions Translate (`translate`, 13 actions)
 - **Rôle** : Génération règles (calc_rule, pres_rule, labor_modifiers, expense_pres_rule), traductions (FR↔EN), descriptions, instructions, composants

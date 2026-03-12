@@ -321,7 +321,7 @@
     window.masterAgentOpen = function() {
         document.getElementById('maOverlay').classList.add('open');
         document.getElementById('maDrawer').classList.add('open');
-        // Inject context on first open + auto-question
+        // Inject page context on first open (silent — no auto-question)
         if (!_contextSent) {
             _contextSent = true;
             var ctx = {};
@@ -331,38 +331,12 @@
             if (ctx && Object.keys(ctx).length > 0) {
                 _messages.push({ role: 'user', content: '[CONTEXTE PAGE]\n' + JSON.stringify(ctx, null, 2), hidden: true });
             }
-            // Auto-question on first open — contextual analysis
-            if (_messages.length <= 1) {
-                var page = (ctx && ctx.page) || 'inconnue';
-                var autoQ = _buildAutoQuestion(page, ctx);
-                _messages.push({ role: 'user', content: autoQ, hidden: true });
-                setTimeout(function() { callApi(); }, 100);
-            }
         }
         setTimeout(function() {
             var input = document.getElementById('maInput');
             if (input) input.focus();
         }, 300);
     };
-
-    function _buildAutoQuestion(page, ctx) {
-        var base = 'Analyse rapide de la page "' + page + '". ';
-        if (page === 'calculateur') {
-            base += 'Contexte : soumission ouverte, pièces actives. Signale tout avertissement pertinent (DM manquants, cascade, prix à 0, incohérences).';
-        } else if (page === 'catalogue') {
-            base += 'Signale les articles problématiques visibles : prix manquants, catégories non liées, textes clients manquants.';
-        } else if (page === 'admin') {
-            var panel = (ctx && ctx.activePanel) || '';
-            base += 'Volet actif : "' + panel + '". Vérifie la cohérence de la configuration visible.';
-        } else if (page === 'approbation') {
-            base += 'Vérifie la soumission en approbation : marges, prix aberrants, articles manquants.';
-        } else if (page === 'clients') {
-            base += 'Vérifie la cohérence des contacts et entreprises visibles.';
-        } else {
-            base += 'Fais une analyse générale du contexte.';
-        }
-        return base;
-    }
 
     window.masterAgentClose = function() {
         document.getElementById('maOverlay').classList.remove('open');

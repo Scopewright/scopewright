@@ -1441,6 +1441,7 @@
                 if (it.type) slim.type = it.type;
                 if (it.catalogueId) slim.catalogueId = it.catalogueId;
                 if (it.dims) slim.dims = it.dims;
+                if (it.qtyMult && it.qtyMult !== 1) slim.qtyMult = it.qtyMult;
                 if (it.overrides) slim.overrides = it.overrides;
                 if (it.itemId) slim.itemId = it.itemId;
                 if (it.isFabParent) slim.isFabParent = true;
@@ -2022,6 +2023,12 @@
                 var qtyInput = document.getElementById(rowId + '-qty');
                 if (qtyInput && input.quantity) qtyInput.value = input.quantity;
 
+                // 2b) Set qty_multiplier
+                if (input.qty_multiplier != null && input.qty_multiplier !== 1) {
+                    var qmInput = row ? row.querySelector('.qty-mult-input') : null;
+                    if (qmInput) { qmInput.value = input.qty_multiplier; qmInput.classList.add('qty-mult-active'); }
+                }
+
                 // 3) Set tag
                 if (input.tag) {
                     var tagInput = document.getElementById(rowId + '-tag');
@@ -2107,6 +2114,7 @@
                     saveFields.n_partitions = input.n_partitions != null ? (parseInt(input.n_partitions) || 0) : 0;
                     saveFields.n_portes = input.n_portes != null ? (parseInt(input.n_portes) || 0) : 0;
                     saveFields.n_tiroirs = input.n_tiroirs != null ? (parseInt(input.n_tiroirs) || 0) : 0;
+                    if (input.qty_multiplier != null && input.qty_multiplier !== 1) saveFields.qty_multiplier = input.qty_multiplier;
                     await updateItem(itemMap[rowId], saveFields);
                     showSaveIndicator();
                 }
@@ -2212,6 +2220,11 @@
                     var nTiroirM = document.getElementById(targetRow.id + '-n-tiroir');
                     if (nTiroirM) { nTiroirM.value = changes.n_tiroirs; applied.push('n_tiroirs'); }
                     if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { n_tiroirs: changes.n_tiroirs });
+                }
+                if (changes.qty_multiplier != null) {
+                    var qmInputM = targetRow.querySelector('.qty-mult-input');
+                    if (qmInputM) { qmInputM.value = changes.qty_multiplier; qmInputM.classList.toggle('qty-mult-active', changes.qty_multiplier !== 1); applied.push('qty_multiplier'); }
+                    if (itemMap[targetRow.id]) updateItem(itemMap[targetRow.id], { qty_multiplier: changes.qty_multiplier });
                 }
                 var hasDimChange = changes.length != null || changes.height != null || changes.depth != null || changes.n_portes != null || changes.n_tiroirs != null || changes.n_tablettes != null || changes.n_partitions != null;
                 updateRow(targetRow.id, hasDimChange ? {} : { skipCascade: true });

@@ -421,7 +421,7 @@ Sous-total (avant rabais) : ${context.subtotalBeforeDiscount || context.grandTot
   if (context.focusRoomDetail) {
     const f = context.focusRoomDetail;
     const itemsStr = (f.items || []).map((it: any, i: number) =>
-      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}× ${it.unitPrice}$ = ${it.lineTotal}$${it.itemId ? ' [itemId=' + it.itemId + ']' : ''}${it.isFabParent ? ' [FAB parent]' : ''}`
+      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}×${it.qtyMult && it.qtyMult !== 1 ? ' (QM=' + it.qtyMult + ')' : ''} ${it.unitPrice}$ = ${it.lineTotal}$${it.itemId ? ' [itemId=' + it.itemId + ']' : ''}${it.isFabParent ? ' [FAB parent]' : ''}`
     ).join("\n");
     dynamicParts += `\n\n## Pièce en focus : ${f.name}
 Installation: ${f.installationIncluded ? 'Oui' : 'Non'}
@@ -549,6 +549,10 @@ const TOOLS = [
           type: "number",
           description: "Nombre de tiroirs — pour les caissons",
         },
+        qty_multiplier: {
+          type: "number",
+          description: "Multiplicateur de quantité (QM). Défaut 1. Exemple : 2 panneaux identiques → quantity=1, qty_multiplier=2. Utile quand le même article est répété N fois avec les mêmes dimensions.",
+        },
         parent_item_id: {
           type: "string",
           description: "UUID Supabase d'un article FAB parent existant dans la pièce. Si fourni, l'article est ajouté comme enfant manuel (cascade-locked) sous ce parent. Utiliser le champ itemId des articles marqués isFabParent dans le contexte de la pièce.",
@@ -599,6 +603,7 @@ const TOOLS = [
             n_partitions: { type: "number", description: "Nombre de partitions" },
             n_portes: { type: "number", description: "Nombre de portes" },
             n_tiroirs: { type: "number", description: "Nombre de tiroirs" },
+            qty_multiplier: { type: "number", description: "Multiplicateur de quantité (QM). Défaut 1." },
           },
         },
       },

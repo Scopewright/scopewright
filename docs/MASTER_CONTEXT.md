@@ -102,7 +102,7 @@ catalogue_change_log (audit AI)
 | Fonction | Modèle AI | Streaming | Tools | Rôle |
 |----------|-----------|-----------|-------|------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | Assistant estimateur + approbation + catalogue |
-| `ai-master` | Sonnet 4.5 | Non | 7 | Agent Maître global (3 read-only + 4 write, section-based context) |
+| `ai-master` | Sonnet 4.5 | Non | 8 | Agent Maître global (4 read-only + 4 write, section-based context, images multimodal) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | 0 (13 actions) | Traductions, génération règles, descriptions |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | Import articles catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | Import contacts CRM |
@@ -152,7 +152,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **`get_catalogue_item`** : recherche par code exact (`code: "ST-0042"`) ou texte (`search: "placage"`) sur description/client_text. Max 5 résultats. Retourne id, description, client_text, item_type, category, labor_modifiers, calculation_rule_ai, instruction, labor_minutes, material_costs, is_default, dims_config, loss_override_pct
 - **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus. Fraîcheur vérifiée via `master_context_synced_at` (alerte si >24h)
 - **Prompt rules** : section "LIMITES DE MES OUTILS" dans `DEFAULT_MASTER_PROMPT` — interdit modifications code, SQL, app_config (hors prompts), déploiements. Simulation obligatoire avant changement
-- **UI** : `shared/master-agent.js` — drawer global (FAB 30px/0.28 au repos, 44px/1.0 hover, 200ms transition). Session-only (pas de persistance messages). **Auto-question** au 1er open (analyse contextuelle adaptée à la page via `_buildAutoQuestion`)
+- **UI** : `shared/master-agent.js` — drawer global (FAB 30px/0.28 au repos, 44px/1.0 hover, 200ms transition). Session-only (pas de persistance messages). Ouverture silencieuse (pas d'auto-question). **Images** : paste + drag-drop, compressées JPEG 0.90 max 3200px, envoyées en base64 multimodal via `images[]` dans le body
 - **Sanity checks** : `shared/sanity-checks.js` — 4 checks déterministes (presRuleKeys, descriptionsNotEmpty, totalNotZero, cascadeOrphans). Badge sur FAB. Hooks dans `openSubmitModal()`
 - **Prompt changelog** : `app_config.prompt_change_log` JSONB array `[{key, old_text, new_text, reason, timestamp}]`
 - **Sync timestamp** : `app_config.master_context_synced_at` — écrit par `masterAgentSyncDocs()`, lu par `ai-master` pour injection fraîcheur. Migration : `sql/master_sync_timestamp.sql`

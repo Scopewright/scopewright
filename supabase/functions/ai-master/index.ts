@@ -437,7 +437,7 @@ serve(async (req: Request) => {
     });
   }
 
-  const { messages, page_context } = body;
+  const { messages, page_context, images } = body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return new Response(JSON.stringify({ error: "messages array required" }), {
       status: 400,
@@ -480,6 +480,29 @@ serve(async (req: Request) => {
     if (Array.isArray(m.content)) return m.content.length > 0;
     return false;
   });
+
+  // Inject images into the last user message (multimodal format)
+  if (images && Array.isArray(images) && images.length > 0) {
+    for (let i = cleanMessages.length - 1; i >= 0; i--) {
+      if (cleanMessages[i].role === "user") {
+        const textContent = typeof cleanMessages[i].content === "string"
+          ? cleanMessages[i].content
+          : (Array.isArray(cleanMessages[i].content)
+            ? cleanMessages[i].content.map((b: any) => b.text || "").join(" ")
+            : "");
+        const multimodal: any[] = [];
+        for (const img of images) {
+          multimodal.push({
+            type: "image",
+            source: { type: "base64", media_type: img.media_type || "image/jpeg", data: img.data }
+          });
+        }
+        multimodal.push({ type: "text", text: textContent || "(image)" });
+        cleanMessages[i] = { role: "user", content: multimodal };
+        break;
+      }
+    }
+  }
 
   // Call Anthropic API
   try {

@@ -205,6 +205,44 @@
 .ma-tool-btn.dismiss { background: #fff; color: #64748B; border-color: #E2E8F0; }
 .ma-tool-btn.dismiss:hover { background: #F1F5F9; }
 
+/* Image preview (pending images under input) */
+.ma-img-preview {
+    display: flex; gap: 6px; padding: 4px 20px 0;
+    flex-wrap: wrap; flex-shrink: 0;
+}
+.ma-img-preview:empty { display: none; }
+.ma-img-thumb {
+    position: relative; width: 52px; height: 52px;
+    border-radius: 6px; overflow: hidden; border: 1px solid #E2E8F0;
+}
+.ma-img-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.ma-img-thumb-remove {
+    position: absolute; top: 1px; right: 1px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff;
+    font-size: 10px; line-height: 16px; text-align: center;
+    cursor: pointer; border: none; padding: 0;
+}
+.ma-img-thumb-remove:hover { background: rgba(0,0,0,0.8); }
+/* Image in chat messages */
+.ma-msg-img {
+    max-width: 180px; max-height: 140px;
+    border-radius: 8px; margin-bottom: 6px;
+    display: block; cursor: pointer;
+}
+/* Drag overlay */
+.ma-drag-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(11,18,32,0.08);
+    border: 2px dashed #0B1220; border-radius: 12px;
+    z-index: 10; align-items: center; justify-content: center;
+    font-size: 13px; color: #0B1220; font-weight: 600;
+    pointer-events: none;
+}
+.ma-drawer.drag-active .ma-drag-overlay { display: flex; }
+
 /* Typing indicator */
 .ma-typing {
     align-self: flex-start; padding: 10px 14px;
@@ -259,6 +297,7 @@
     var _contextSent = false;
     var _sanityDetailsOpen = false;
     var _pendingTools = [];
+    var _pendingImages = []; // { data: base64, media_type: 'image/jpeg' }
 
     window._masterSanityIssues = [];
 
@@ -306,13 +345,116 @@
             '</div>' +
             '<div class="ma-sanity-details" id="maSanityDetails"></div>' +
             '<div class="ma-messages" id="maMessages"></div>' +
+            '<div class="ma-img-preview" id="maImgPreview"></div>' +
             '<div class="ma-input-bar">' +
                 '<textarea class="ma-input" id="maInput" placeholder="Posez une question..." rows="1" onkeydown="masterAgentKeydown(event)"></textarea>' +
                 '<button class="ma-send-btn" id="maSendBtn" onclick="masterAgentSendMessage()" title="Envoyer">' +
                     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
                 '</button>' +
-            '</div>';
+            '</div>' +
+            '<div class="ma-drag-overlay">D\u00e9poser une image</div>';
         document.body.appendChild(drawer);
+    }
+
+    // ══════════════════════════════════════════
+    // Image handling (paste + drag-drop)
+    // ══════════════════════════════════════════
+    function compressImage(file, cb) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var maxDim = 3200;
+                var w = img.width, h = img.height;
+                if (w > maxDim || h > maxDim) {
+                    var ratio = Math.min(maxDim / w, maxDim / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+                var base64 = dataUrl.split(',')[1];
+                cb({ data: base64, media_type: 'image/jpeg' });
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function addPendingImage(imgObj) {
+        _pendingImages.push(imgObj);
+        renderImgPreview();
+    }
+
+    function removePendingImage(idx) {
+        _pendingImages.splice(idx, 1);
+        renderImgPreview();
+    }
+
+    function renderImgPreview() {
+        var container = document.getElementById('maImgPreview');
+        if (!container) return;
+        var html = '';
+        for (var i = 0; i < _pendingImages.length; i++) {
+            html += '<div class="ma-img-thumb">' +
+                '<img src="data:' + _pendingImages[i].media_type + ';base64,' + _pendingImages[i].data + '">' +
+                '<button class="ma-img-thumb-remove" onclick="masterAgentRemoveImage(' + i + ')">\u00d7</button>' +
+                '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    window.masterAgentRemoveImage = function(idx) { removePendingImage(idx); };
+
+    function handleImageFile(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        compressImage(file, function(imgObj) { addPendingImage(imgObj); });
+    }
+
+    function setupImageListeners() {
+        // Paste on textarea
+        var input = document.getElementById('maInput');
+        if (input) {
+            input.addEventListener('paste', function(e) {
+                var items = e.clipboardData && e.clipboardData.items;
+                if (!items) return;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        handleImageFile(items[i].getAsFile());
+                        return;
+                    }
+                }
+            });
+        }
+
+        // Drag-drop on drawer
+        var drawer = document.getElementById('maDrawer');
+        if (!drawer) return;
+        var dragCount = 0;
+        drawer.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            dragCount++;
+            if (dragCount === 1) drawer.classList.add('drag-active');
+        });
+        drawer.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            dragCount--;
+            if (dragCount <= 0) { dragCount = 0; drawer.classList.remove('drag-active'); }
+        });
+        drawer.addEventListener('dragover', function(e) { e.preventDefault(); });
+        drawer.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dragCount = 0;
+            drawer.classList.remove('drag-active');
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files) {
+                for (var i = 0; i < files.length; i++) { handleImageFile(files[i]); }
+            }
+        });
     }
 
     // ══════════════════════════════════════════
@@ -404,7 +546,14 @@
             var m = _messages[i];
             if (m.hidden) continue;
             if (m.role === 'user') {
-                html += '<div class="ma-msg user">' + escapeHtml(m.content) + '</div>';
+                var userHtml = '';
+                if (m.images && m.images.length > 0) {
+                    for (var gi = 0; gi < m.images.length; gi++) {
+                        userHtml += '<img class="ma-msg-img" src="data:' + m.images[gi].media_type + ';base64,' + m.images[gi].data + '">';
+                    }
+                }
+                userHtml += escapeHtml(m.content);
+                html += '<div class="ma-msg user">' + userHtml + '</div>';
             } else if (m.role === 'assistant') {
                 html += '<div class="ma-msg assistant">' + mdToHtml(m.content) + '</div>';
                 // Tool approval buttons
@@ -445,8 +594,11 @@
         if (_busy) return;
         var input = document.getElementById('maInput');
         var text = (input.value || '').trim();
-        if (!text) return;
-        _messages.push({ role: 'user', content: text });
+        if (!text && _pendingImages.length === 0) return;
+        var msg = { role: 'user', content: text || '(image)', images: _pendingImages.length > 0 ? _pendingImages.slice() : null };
+        _messages.push(msg);
+        _pendingImages = [];
+        renderImgPreview();
         input.value = '';
         input.style.height = 'auto';
         renderMessages();
@@ -462,6 +614,7 @@
         try {
             // Build API messages (user + assistant only, exclude hidden context for display but include for API)
             var apiMessages = [];
+            var apiImages = null; // images from the last user message
             for (var i = 0; i < _messages.length; i++) {
                 var m = _messages[i];
                 if (m.role === 'user' || m.role === 'assistant') {
@@ -474,6 +627,12 @@
                     } else {
                         apiMessages.push({ role: m.role, content: m.content });
                     }
+                    // Track images on the last user message
+                    if (m.role === 'user' && m.images && m.images.length > 0) {
+                        apiImages = m.images;
+                    } else if (m.role === 'user') {
+                        apiImages = null; // reset — only latest user msg images matter
+                    }
                 }
             }
 
@@ -483,13 +642,12 @@
                 try { pageContext = window.getMasterContext(); } catch(e) {}
             }
 
+            var payload = { messages: apiMessages, page_context: pageContext };
+            if (apiImages && apiImages.length > 0) payload.images = apiImages;
             var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-master', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: apiMessages,
-                    page_context: pageContext
-                })
+                body: JSON.stringify(payload)
             });
 
             hideTyping();
@@ -832,9 +990,10 @@
     // Init
     // ══════════════════════════════════════════
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', createDOM);
+        document.addEventListener('DOMContentLoaded', function() { createDOM(); setupImageListeners(); });
     } else {
         createDOM();
+        setupImageListeners();
     }
 
 })();

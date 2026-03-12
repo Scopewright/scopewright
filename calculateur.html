@@ -13053,15 +13053,22 @@
                     var _almL = document.getElementById(rowId + '-dim-l');
                     var _almH = document.getElementById(rowId + '-dim-h');
                     var _almP = document.getElementById(rowId + '-dim-p');
+                    var _almDimsEl = document.getElementById(rowId + '-dims');
+                    function _readCaisson(inputId, dsKey) {
+                        var inp = document.getElementById(inputId);
+                        if (inp) { var v = parseInt(inp.value); return isNaN(v) ? 0 : v; }
+                        if (_almDimsEl && _almDimsEl.dataset[dsKey]) { var v2 = parseInt(_almDimsEl.dataset[dsKey]); return isNaN(v2) ? 0 : v2; }
+                        return 0;
+                    }
                     var _almVars = {
-                        L: _almL ? (parseFloat(_almL.value) || 0) : 0,
-                        H: _almH ? (parseFloat(_almH.value) || 0) : 0,
-                        P: _almP ? (parseFloat(_almP.value) || 0) : 0,
+                        L: _almL ? (parseFloat(_almL.value) || 0) : (_almDimsEl ? (parseFloat(_almDimsEl.dataset.l) || 0) : 0),
+                        H: _almH ? (parseFloat(_almH.value) || 0) : (_almDimsEl ? (parseFloat(_almDimsEl.dataset.h) || 0) : 0),
+                        P: _almP ? (parseFloat(_almP.value) || 0) : (_almDimsEl ? (parseFloat(_almDimsEl.dataset.p) || 0) : 0),
                         QTY: parseFloat(qtyInput.value) || 0,
-                        n_tablettes: parseInt((document.getElementById(rowId + '-n-tab') || {}).value) || 0,
-                        n_partitions: parseInt((document.getElementById(rowId + '-n-part') || {}).value) || 0,
-                        n_portes: parseInt((document.getElementById(rowId + '-n-porte') || {}).value) || 0,
-                        n_tiroirs: parseInt((document.getElementById(rowId + '-n-tiroir') || {}).value) || 0
+                        n_tablettes: _readCaisson(rowId + '-n-tab', 'tab'),
+                        n_partitions: _readCaisson(rowId + '-n-part', 'part'),
+                        n_portes: _readCaisson(rowId + '-n-porte', 'porte'),
+                        n_tiroirs: _readCaisson(rowId + '-n-tiroir', 'tiroir')
                     };
                     console.log('[BAREMES] evaluating for', _bItem.id, 'vars:', JSON.stringify(_almVars), 'labor_minutes:', JSON.stringify(_bItem.labor_minutes));
                     var autoModResult = evaluateLaborModifiers(_bItem, _almVars);
@@ -19014,7 +19021,7 @@
                                 _rowOverrides[rowId].materialAuto = item.labor_auto_modifier.material_factor || null;
                                 _rowOverrides[rowId].laborMinutesAdd = item.labor_auto_modifier.labor_minutes_add || null;
                                 _rowOverrides[rowId].autoLabel = item.labor_auto_modifier.label || null;
-                                if (item.labor_auto_modifier.labor_factor || item.labor_auto_modifier.material_factor) {
+                                if (item.labor_auto_modifier.labor_factor || item.labor_auto_modifier.material_factor || item.labor_auto_modifier.labor_minutes_add) {
                                     row.classList.add('has-auto-modifier');
                                 }
                             }

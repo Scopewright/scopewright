@@ -11461,15 +11461,18 @@
 
         function positionCombobox(dd, anchor) {
             var r = anchor.getBoundingClientRect();
-            var spaceBelow = window.innerHeight - r.bottom;
+            var spaceBelow = window.innerHeight - r.bottom - 8;
+            var spaceAbove = r.top - 8;
             dd.style.left = r.left + 'px';
             dd.style.width = Math.max(r.width, 360) + 'px';
-            if (spaceBelow < 200) {
+            if (spaceBelow < 200 && spaceAbove > spaceBelow) {
                 dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
                 dd.style.top = 'auto';
+                dd.style.maxHeight = Math.min(340, spaceAbove) + 'px';
             } else {
                 dd.style.top = (r.bottom + 4) + 'px';
                 dd.style.bottom = 'auto';
+                dd.style.maxHeight = Math.min(340, spaceBelow) + 'px';
             }
         }
 

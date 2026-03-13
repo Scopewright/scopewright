@@ -237,8 +237,7 @@ Prix = Σ(labor_minutes[dept] / 60 × taux_horaire[dept])
 - **Marge brute** = `(PV - coûtant mat - perte - salaires) / PV × 100`
 - **Profit net** = `(PV - coûtant mat - perte - salaires - frais fixes) / PV × 100`
 - **Marge visée** : 38% (hardcodé)
-- `price_override` est traité comme montant flat (pas de décomposition MO/matériaux)
-- `__AJOUT__` (custom items) : décomposé en salaires + matériaux + perte + markup via `labor_minutes` et `material_costs` stockés dans `custom_data` JSONB. Fallback legacy : si labor_minutes et material_costs absents, traité comme montant flat
+- `price_override` et `__AJOUT__` sont traités comme ajouts flat (pas de décomposition MO/matériaux)
 - `openRentab` applique les overrides (laborAuto, materialAuto, manual) — même hiérarchie que `computeRentabilityData`
 
 **Modale rentabilité** (refonte #132) :
@@ -594,7 +593,7 @@ Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le ca
 2. Si `labor_override`, `material_override`, `laborAuto` ou `materialAuto` → catalogue × auto factors → overlay manual → `computeComposedPrice(merged, includeInstall)`. Per-département : manual gagne si défini, sinon auto-factorisé, sinon catalogue
 3. `debouncedSaveItem` sauvegarde le prix effectif dans `unit_price` (compatibilité `quote.html`)
 
-**Rentabilité** : `computeRentabilityData` utilise les overrides. `price_override` → montant flat. `__AJOUT__` avec `labor_minutes`/`material_costs` → décomposition complète (salaires, matériaux coûtant, perte, markup). Legacy sans ces champs → montant flat.
+**Rentabilité** : `computeRentabilityData` utilise les overrides. `price_override` → montant flat (comme `__AJOUT__`), pas de décomposition MO/matériaux.
 
 **UI** : Bouton `⚙` (`.btn-ov`) dans `.cell-unit-price`, visible au hover, violet si override actif. Popover `ov-pop` avec 3 sections. Indicateur `.has-override` (bordure gauche violette).
 

@@ -303,6 +303,18 @@ Ajustements par ligne, par soumission, sans modifier le catalogue. Stocké dans 
 - **AI tool** : `update_submission_line` — jamais auto-exécuté, simulation obligatoire. Migration : `sql/line_overrides.sql`
 - **Undo stack** : `_undoStack[]` (max 10 entrées) — snapshot avant suppression ou modification d'overrides. Bouton flottant `↩ Annuler` (bas gauche, 8s auto-hide) après toute action destructive. `executeUndo()` restaure le dernier état (recrée la ligne pour delete, restaure les overrides pour override). Stack vidé à chaque changement de soumission
 
+### Note interne par ligne (`internal_note`)
+
+Documentation interne par ligne — visible uniquement par l'estimateur, jamais dans la présentation client.
+- **Parents uniquement** : les enfants cascade n'ont pas de bouton note (CSS `.cascade-child .btn-note { display: none }`)
+- **Bouton** : icône 💬 dans `.cell-remove`, grisée quand vide, bleue `#3B82F6` quand une note existe (`.has-note`)
+- **Popover** : `openNotePopover()` — textarea, save au blur ou click outside, `position: fixed`
+- **Stockage mémoire** : `_internalNotes[rowId]` — sauvegardé via `debouncedSaveItem` → `room_items.internal_note`
+- **Restauration** : `openSubmission()` lit `item.internal_note` → `_internalNotes[rowId]` + classe `.has-note`
+- **Contexte AI** : `collectRoomDetail` → `rowData.internalNote`, slim mapping → `slim.note`, `buildSystemPrompt` → `[note: ...]`
+- **`setEditable(false)`** : bouton note désactivé (comme `.btn-ov`)
+- **Migration** : `sql/internal_note.sql`
+
 ### Dropdown combobox articles
 
 `renderComboboxItems()` affiche les articles groupés par type puis catégorie :
@@ -739,6 +751,7 @@ La colonne `value` de `app_config` est de type **JSONB**. Pour les migrations SQ
 - `room_items.labor_override` JSONB — override MO par ligne (`{ dept: minutes }`). NULL = valeurs catalogue. Migration : `sql/line_overrides.sql`
 - `room_items.material_override` JSONB — override matériaux par ligne (`{ cat: cost }`). NULL = valeurs catalogue
 - `room_items.price_override` NUMERIC — prix de vente fixe par ligne. NULL = prix composé calculé. Remplace entièrement `computeComposedPrice`
+- `room_items.internal_note` TEXT — note interne par ligne (parent seulement, jamais affiché au client). Migration : `sql/internal_note.sql`
 - `catalogue_items.id` est un TEXT PK auto-généré (ST-XXXX) par trigger `trg_catalogue_auto_code`
 - `project_code` auto-généré par trigger `trg_project_auto_code` (préfixe configurable)
 - `submission_number` séquence globale démarrant à 100

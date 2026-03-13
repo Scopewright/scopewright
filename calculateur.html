@@ -1089,6 +1089,7 @@
                         rowData.isFabParent = true;
                     }
                     if (item.instruction) rowData.instruction = item.instruction;
+                    if (_internalNotes[row.id]) rowData.internalNote = _internalNotes[row.id];
                     var ovCtx = _rowOverrides[row.id];
                     if (ovCtx) {
                         rowData.overrides = ovCtx;
@@ -1442,6 +1443,7 @@
                 if (it.catalogueId) slim.catalogueId = it.catalogueId;
                 if (it.dims) slim.dims = it.dims;
                 if (it.qtyMult && it.qtyMult !== 1) slim.qtyMult = it.qtyMult;
+                if (it.internalNote) slim.note = it.internalNote;
                 if (it.overrides) slim.overrides = it.overrides;
                 if (it.itemId) slim.itemId = it.itemId;
                 if (it.isFabParent) slim.isFabParent = true;
@@ -5860,6 +5862,30 @@
             transition: background 0.12s;
         }
         .suppressed-menu-item .sup-restore:hover { background: #f1f5f9; }
+
+        /* ── Internal note button & popover ── */
+        .btn-note {
+            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            color: var(--sw-muted); cursor: pointer; border-radius: 4px;
+            font-size: 12px; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .calc-row:hover .btn-note { display: inline-flex; }
+        .btn-note:hover { background: #f1f5f9; color: var(--sw-navy); }
+        .calc-row.has-note .btn-note { display: inline-flex !important; color: #3B82F6; }
+        .calc-row.cascade-child .btn-note { display: none !important; }
+        .note-pop {
+            position: fixed; z-index: 10000; background: #fff;
+            border: 1px solid var(--sw-border); border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.12); width: 300px;
+            animation: sdFadeIn 0.12s ease; padding: 12px;
+        }
+        .note-pop-title { font-size: 12px; font-weight: 600; color: var(--sw-text-2); margin-bottom: 8px; }
+        .note-pop textarea {
+            width: 100%; min-height: 72px; border: 1px solid var(--sw-border); border-radius: 8px;
+            padding: 8px 10px; font-size: 13px; font-family: inherit; color: var(--sw-text);
+            resize: vertical; outline: none; box-sizing: border-box;
+        }
+        .note-pop textarea:focus { border-color: var(--sw-navy); }
 
         /* ── Per-line override button & popover ── */
         .cell-unit-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--sw-text-2, #64748B); font-variant-numeric: tabular-nums; }
@@ -12077,6 +12103,7 @@
                 </div>
                 <div class="cell-total" id="${rowId}-total">0,00 $<span class="cascade-count-badge" id="${rowId}-cascade-badge"></span></div>
                 <div class="cell-remove">
+                    <button class="btn-note" onclick="openNotePopover('${rowId}', this)" title="Note interne">&#128172;</button>
                     <button class="btn-revert-manual" onclick="revertCascadeManualEdit('${rowId}')" title="Restaurer la valeur cascade">&#8634;</button>
                     <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
                 </div>
@@ -12085,12 +12112,14 @@
             const container = document.getElementById(`${groupId}-rows`);
             const addContainer = container.querySelector('.add-row-container');
 
-            // Cascade children: tag is inherited from parent (readonly), no override button, qty readonly
+            // Cascade children: tag is inherited from parent (readonly), no override/note button, qty readonly
             if (opts.cascade) {
                 var tagEl = document.getElementById(rowId + '-tag');
                 if (tagEl) tagEl.readOnly = true;
                 var ovBtn = document.getElementById(rowId + '-ov-btn');
                 if (ovBtn) ovBtn.style.display = 'none';
+                var noteBtn = row.querySelector('.btn-note');
+                if (noteBtn) noteBtn.style.display = 'none';
                 var _cQtyIn = row.querySelector('.qty-input');
                 if (_cQtyIn) { _cQtyIn.readOnly = true; _cQtyIn.title = 'Quantité gérée par la cascade'; }
             }
@@ -12240,6 +12269,68 @@
                 if (btn && btn.contains(e.target)) return;
                 closeOverridePopover();
             }
+        }
+
+        // ── Internal notes per line ──
+        var _internalNotes = {}; // { rowId: 'note text' }
+        var _activeNotePop = null;
+
+        function openNotePopover(rowId, btn) {
+            closeNotePopover();
+            var pop = document.createElement('div');
+            pop.className = 'note-pop';
+            pop.id = 'notePopover';
+            pop.innerHTML = '<div class="note-pop-title">Note interne</div>' +
+                '<textarea id="notePopText" placeholder="Ex: prix n\u00e9goci\u00e9 lot de 3...">' + escapeHtml(_internalNotes[rowId] || '') + '</textarea>';
+            document.body.appendChild(pop);
+            var rect = btn.getBoundingClientRect();
+            var popW = 300, popH = pop.offsetHeight;
+            var left = Math.min(rect.right + 4, window.innerWidth - popW - 8);
+            var top = rect.top - popH / 2 + rect.height / 2;
+            if (top + popH > window.innerHeight - 8) top = window.innerHeight - popH - 8;
+            if (top < 8) top = 8;
+            pop.style.left = left + 'px';
+            pop.style.top = top + 'px';
+            _activeNotePop = rowId;
+            var ta = document.getElementById('notePopText');
+            if (ta) {
+                ta.focus();
+                ta.addEventListener('blur', function() { setTimeout(function() { saveInternalNote(rowId); }, 150); });
+            }
+            setTimeout(function() {
+                document.addEventListener('mousedown', _closeNoteOnOutside);
+            }, 50);
+        }
+
+        function _closeNoteOnOutside(e) {
+            var pop = document.getElementById('notePopover');
+            if (pop && !pop.contains(e.target) && !e.target.classList.contains('btn-note')) {
+                saveInternalNote(_activeNotePop);
+            }
+        }
+
+        function closeNotePopover() {
+            document.removeEventListener('mousedown', _closeNoteOnOutside);
+            var pop = document.getElementById('notePopover');
+            if (pop) pop.remove();
+            _activeNotePop = null;
+        }
+
+        function saveInternalNote(rowId) {
+            var ta = document.getElementById('notePopText');
+            if (!ta) { closeNotePopover(); return; }
+            var text = ta.value.trim();
+            var row = document.getElementById(rowId);
+            if (text) {
+                _internalNotes[rowId] = text;
+                if (row) row.classList.add('has-note');
+            } else {
+                delete _internalNotes[rowId];
+                if (row) row.classList.remove('has-note');
+            }
+            closeNotePopover();
+            // Persist via debouncedSaveItem
+            if (row) debouncedSaveItem(rowId, row);
         }
 
         function openOverridePopover(rowId) {
@@ -13309,6 +13400,9 @@
             // Include tag
             var tagInput = document.getElementById(rowId + '-tag');
             if (tagInput) fields.tag = tagInput.value.trim() || null;
+
+            // Internal note
+            fields.internal_note = _internalNotes[rowId] || null;
 
             // Dimensions L/H/P
             var dimL = document.getElementById(rowId + '-dim-l');
@@ -19039,6 +19133,12 @@
                                 }
                             }
 
+                            // Restore internal note
+                            if (item.internal_note) {
+                                _internalNotes[rowId] = item.internal_note;
+                                row.classList.add('has-note');
+                            }
+
                             // Restore dimensions L/H/P + caisson fields
                             if (item.length_in || item.height_in || item.depth_in) {
                                 var dimsEl = document.getElementById(rowId + '-dims');
@@ -19380,8 +19480,8 @@
                 el.disabled = !editable;
             });
 
-            // Override buttons
-            container.querySelectorAll('.btn-ov').forEach(function(el) {
+            // Override + note buttons
+            container.querySelectorAll('.btn-ov, .btn-note').forEach(function(el) {
                 el.disabled = !editable;
                 el.style.opacity = editable ? '' : '0.4';
             });

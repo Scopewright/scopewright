@@ -421,7 +421,7 @@ Sous-total (avant rabais) : ${context.subtotalBeforeDiscount || context.grandTot
   if (context.focusRoomDetail) {
     const f = context.focusRoomDetail;
     const itemsStr = (f.items || []).map((it: any, i: number) =>
-      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}×${it.qtyMult && it.qtyMult !== 1 ? ' (QM=' + it.qtyMult + ')' : ''} ${it.unitPrice}$ = ${it.lineTotal}$${it.itemId ? ' [itemId=' + it.itemId + ']' : ''}${it.isFabParent ? ' [FAB parent]' : ''}`
+      `  ${i}. ${it.tag ? '[' + it.tag + '] ' : ''}${it.description} — ${it.qty}×${it.qtyMult && it.qtyMult !== 1 ? ' (QM=' + it.qtyMult + ')' : ''} ${it.unitPrice}$ = ${it.lineTotal}$${it.itemId ? ' [itemId=' + it.itemId + ']' : ''}${it.isFabParent ? ' [FAB parent]' : ''}${it.note ? ' [note: ' + it.note + ']' : ''}`
     ).join("\n");
     dynamicParts += `\n\n## Pièce en focus : ${f.name}
 Installation: ${f.installationIncluded ? 'Oui' : 'Non'}

@@ -915,7 +915,7 @@
                             {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                                body: JSON.stringify({ key: input.prompt_key, value: JSON.stringify(newValue) })
+                                body: JSON.stringify({ key: input.prompt_key, value: newValue })
                             }
                         );
                         if (rs.ok) {
@@ -945,7 +945,9 @@
             if (r.ok) {
                 var data = await r.json();
                 if (data && data[0] && data[0].value) {
-                    try { log = JSON.parse(data[0].value); } catch(e) {}
+                    var raw = data[0].value;
+                    if (Array.isArray(raw)) { log = raw; }
+                    else if (typeof raw === 'string') { try { log = JSON.parse(raw); } catch(e) {} }
                     if (!Array.isArray(log)) log = [];
                 }
             }
@@ -963,7 +965,7 @@
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                    body: JSON.stringify({ key: 'prompt_change_log', value: JSON.stringify(log) })
+                    body: JSON.stringify({ key: 'prompt_change_log', value: log })
                 }
             );
         } catch(e) {
@@ -1044,7 +1046,7 @@
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                        body: JSON.stringify({ key: key, value: JSON.stringify(val) })
+                        body: JSON.stringify({ key: key, value: val })
                     }
                 );
                 if (!r.ok) console.warn('[masterAgentSyncDocs] Save failed for', key, ':', r.status);
@@ -1060,7 +1062,7 @@
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-                        body: JSON.stringify({ key: 'master_context_synced_at', value: JSON.stringify(isoTs) })
+                        body: JSON.stringify({ key: 'master_context_synced_at', value: isoTs })
                     }
                 );
                 saved++;

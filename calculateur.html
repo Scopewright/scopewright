@@ -667,11 +667,16 @@
             aiFocusGroupId = null;
             aiCurrentScope = 'project';
         } else {
-            // Focus on this room and open the AI drawer
+            // Focus on this room — also expand it (accordion)
             aiFocusGroupId = groupId;
             aiCurrentScope = 'room';
             var btn = document.getElementById(groupId + '-aiFocus');
             if (btn) btn.classList.add('active');
+            // Accordion: expand target, collapse others
+            document.querySelectorAll('.furniture-group').forEach(function(g) {
+                if (g.id === groupId) g.classList.remove('collapsed');
+                else g.classList.add('collapsed');
+            });
             openAiDrawer();
         }
         updateAiScope();
@@ -679,32 +684,9 @@
     }
 
     function setAiScopeFromScroll(groupId) {
-        // groupId = null means project scope, otherwise room scope
-        if (groupId === aiFocusGroupId) return; // no change
-
-        // Update focus buttons
-        document.querySelectorAll('.btn-ai-focus.active').forEach(function(btn) { btn.classList.remove('active'); });
-
-        if (groupId) {
-            aiFocusGroupId = groupId;
-            aiCurrentScope = 'room';
-            var btn = document.getElementById(groupId + '-aiFocus');
-            if (btn) btn.classList.add('active');
-        } else {
-            aiFocusGroupId = null;
-            aiCurrentScope = 'project';
-        }
-
-        updateAiScope();
-        onAiFocusChanged(aiFocusGroupId);
-
-        // Flash the badge
-        var badge = document.getElementById('aiScopeBadge');
-        if (badge) {
-            badge.classList.remove('flash');
-            void badge.offsetWidth;
-            badge.classList.add('flash');
-        }
+        // #175: AI focus is now driven by accordion (toggleGroup), not scroll
+        // Keep function signature for compatibility but no-op
+        return;
     }
 
     function initAiScopeObserver() {
@@ -11601,7 +11583,32 @@
         });
 
         function toggleGroup(groupId) {
-            document.getElementById(groupId).classList.toggle('collapsed');
+            var el = document.getElementById(groupId);
+            if (!el) return;
+            var wasCollapsed = el.classList.contains('collapsed');
+            // Sync AI focus buttons
+            document.querySelectorAll('.btn-ai-focus.active').forEach(function(b) { b.classList.remove('active'); });
+            if (wasCollapsed) {
+                // Accordion: collapse all others first
+                document.querySelectorAll('.furniture-group:not(.collapsed)').forEach(function(g) {
+                    if (g.id !== groupId) g.classList.add('collapsed');
+                });
+                el.classList.remove('collapsed');
+                // Sync AI focus to the opened room
+                aiFocusGroupId = groupId;
+                aiCurrentScope = 'room';
+                var focusBtn = document.getElementById(groupId + '-aiFocus');
+                if (focusBtn) focusBtn.classList.add('active');
+                updateAiScope();
+                onAiFocusChanged(aiFocusGroupId);
+            } else {
+                el.classList.add('collapsed');
+                // All collapsed → project scope
+                aiFocusGroupId = null;
+                aiCurrentScope = 'project';
+                updateAiScope();
+                onAiFocusChanged(null);
+            }
         }
 
         function toggleProjectInstallation() {
@@ -12028,6 +12035,17 @@
             if (aiScopeObserver) {
                 var header = group.querySelector('.furniture-group-header');
                 if (header) aiScopeObserver.observe(header);
+            }
+
+            // Accordion: when user adds a new group (not during bulk load), open it and collapse others
+            if (!opts.skipSave) {
+                document.querySelectorAll('.furniture-group').forEach(function(g) {
+                    if (g.id !== groupId) g.classList.add('collapsed');
+                });
+                aiFocusGroupId = groupId;
+                aiCurrentScope = 'room';
+                updateAiScope();
+                onAiFocusChanged(groupId);
             }
 
             return groupId;
@@ -16501,11 +16519,11 @@
             if (!detail) return;
 
             // Build item lines for AI prompt
-            var itemLines = 'IMPORTANT: Utiliser effective_qty (quantité réelle après multiplicateur) pour tous les calculs cumulatifs (pi², unités totales, etc.).\n';
+            var itemLines = '';
             detail.items.forEach(function(item) {
-                var eqLabel = (item.effectiveQty && item.effectiveQty !== item.qty)
-                    ? ' (qty=' + item.qty + ', QM=' + item.qtyMult + ', effective_qty=' + item.effectiveQty + ')'
-                    : ' (x' + item.qty + ')';
+                // Show only effective_qty to avoid AI confusion with qty vs QM vs effective_qty
+                var displayQty = (item.effectiveQty && item.effectiveQty !== item.qty) ? item.effectiveQty : item.qty;
+                var eqLabel = ' (x' + displayQty + ')';
                 itemLines += '- ' + item.description + eqLabel;
                 if (item.catalogueId) {
                     var catItem = CATALOGUE_DATA.find(function(c) { return c.id === item.catalogueId; });
@@ -19264,6 +19282,13 @@
             updateDiscountDisplay();
 
             showCalculator();
+
+            // Collapse all rooms by default (accordion: one at a time)
+            document.querySelectorAll('.furniture-group').forEach(function(g) {
+                g.classList.add('collapsed');
+            });
+            aiFocusGroupId = null;
+            aiCurrentScope = 'project';
 
             // Init AI scope observer and observe all rendered group headers
             initAiScopeObserver();

@@ -1538,7 +1538,7 @@
         if (orphaned.length === 0) return messages;
         console.warn('[AI] Sanitizing ' + orphaned.length + ' orphaned tool_use block(s):', orphaned);
         var result = messages.slice();
-        // Find each assistant message with orphaned tool_use and inject tool_result right after
+        // Find each assistant message with orphaned tool_use and inject/merge tool_result
         for (var i = result.length - 1; i >= 0; i--) {
             var msg = result[i];
             if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
@@ -1549,7 +1549,15 @@
             var syntheticResults = msgOrphans.map(function(b) {
                 return { type: 'tool_result', tool_use_id: b.id, content: '{"skipped":true,"reason":"sanitized"}' };
             });
-            result.splice(i + 1, 0, { role: 'user', content: syntheticResults });
+            // Merge into existing user message right after if present (avoid double-user violation)
+            var nextMsg = result[i + 1];
+            if (nextMsg && nextMsg.role === 'user' && Array.isArray(nextMsg.content)) {
+                nextMsg.content = syntheticResults.concat(nextMsg.content);
+            } else if (nextMsg && nextMsg.role === 'user' && typeof nextMsg.content === 'string') {
+                nextMsg.content = syntheticResults.concat([{ type: 'text', text: nextMsg.content }]);
+            } else {
+                result.splice(i + 1, 0, { role: 'user', content: syntheticResults });
+            }
             // Remove these from orphaned list
             msgOrphans.forEach(function(b) { orphaned.splice(orphaned.indexOf(b.id), 1); });
             if (orphaned.length === 0) break;

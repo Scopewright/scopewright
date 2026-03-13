@@ -658,3 +658,26 @@
 - Les analyses complexes gardent la qualité Sonnet 4.5
 - Le `model_used` permet de monitorer la distribution et ajuster les seuils
 - Risque : Haiku peut être moins précis sur les tool calls complexes — mitigé car les requêtes simples n'impliquent généralement pas de tools multi-étapes
+
+## DEC-035 — Ajout personnalisé : prix composé au lieu de prix simple
+
+**Date** : 2026-03-13
+**Contexte** : Les ajouts personnalisés (`item_type: 'custom'`) utilisaient un simple `prix × (1 + markup%)`. Cela empêchait la décomposition en rentabilité (salaires vs matériaux vs profit) et créait une asymétrie avec les articles catalogue qui ont `labor_minutes` + `material_costs`.
+
+**Décision** : Refonte modale + ligne calculateur pour aligner les custom items sur la structure catalogue.
+- Modale agrandie (min-width 700px) avec titre libre, grilles MO par département et coûts par catégorie de dépense
+- Prix calculé en temps réel via `computeComposedPrice()` (même formule que le catalogue)
+- Ligne calculateur : titre inline éditable (remplace combobox), dims masquées, cellule code = fournisseur
+- `_customItemDataMap[rowId]` enrichi avec `labor_minutes` et `material_costs`
+- Stockage DB : `custom_data` JSONB contient labor_minutes + material_costs + supplier + notes + attachments
+- `unit_price` en DB = prix composé calculé (compatibilité quote.html)
+- Fallback legacy : si labor_minutes et material_costs sont vides, utilise `unit_price × (1 + markup/100)`
+
+**Alternatives considérées** :
+- **Prix simple avec décomposition manuelle** : l'estimateur saisit les salaires/matériaux séparément — UX lourde, double saisie
+- **Copier l'article au catalogue d'abord** : workflow trop long pour un ajout ponctuel
+
+**Conséquences** :
+- `computeRentabilityData` décompose correctement les ajouts en salaires + matériaux + perte + markup
+- Le contexte AI (`collectRoomDetail`) inclut la structure MO/matériaux des custom items
+- Backward compatible : les anciens ajouts sans labor_minutes fonctionnent via fallback legacy

@@ -278,6 +278,38 @@ Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-conta
 - `.dm-blocked` si DM requis manquants (bloque l'ajout)
 - AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
+### Ajout personnalisé (custom items) — Refonte #179b
+
+Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'custom'`, stockés dans `room_items` avec `custom_data` JSONB.
+
+**Modale** (`.custom-item-modal`, min-width 700px, max-width 780px) :
+- **Titre** : `#cimTitle` — champ texte libre en haut (ex: "Métal pour vanité")
+- **Minutes MO** : `#cimLaborGrid` — grille 3 colonnes, un input par département (`tauxHoraires`). Dataset `data-dept`
+- **Coûts matériaux** : `#cimMaterialGrid` — grille 3 colonnes, un input par catégorie de dépense (`expenseCategories`). Dataset `data-cat`
+- **Barre de prix** : `#cimPriceBar` — affiche MO | Matériaux | Prix de vente calculé en temps réel via `updateCimComputedPrice()`
+- **Conservés** : fournisseur (`#cimSupplier`), notes (`#cimNotes`), pièces jointes, "Sauvegarder au catalogue"
+- **Helpers** : `_readCimLaborMinutes()`, `_readCimMaterialCosts()`, `updateCimComputedPrice()`
+- **`openCustomItemModal(rowId)`** : construit dynamiquement les grilles depuis `tauxHoraires` et `expenseCategories`, pré-remplit depuis `_customItemDataMap[rowId]`
+- **`saveCustomItemModal()`** : lit titre + MO + matériaux, calcule `effectivePrice` via `computeComposedPrice()`, stocke dans `_customItemDataMap` et `custom_data` JSONB, sauvegarde `unit_price = effectivePrice, markup = 0`
+
+**Ligne calculateur** :
+- **Titre inline** : le combobox est remplacé par un input `.ajout-title-input` (borderless, focus underline navy). Sauvegarde au blur via `_saveAjoutTitle(rowId, title)`
+- **Dims masquées** : `dimsEl.classList.add('dims-hidden')` — pas de L×H×P pour les ajouts
+- **Cellule code** : affiche le fournisseur ou ⚙ (cliquable → ouvre la modale)
+- **Orange si prix=0** : badge `updateMissingPriceBadge` utilise `computeComposedPrice` avec fallback legacy
+- **`transformToAjoutMode(row, rowId)`** : transforme la ligne catalogue en mode ajout
+- **`transformToNormalMode(row, rowId)`** : restaure la ligne en mode catalogue normal (combobox + handlers)
+
+**Calcul de prix** : `computeComposedPrice({ labor_minutes, material_costs }, includeInstallation)` — même formule que les articles catalogue. **Fallback legacy** : si `labor_minutes` et `material_costs` sont vides, utilise `unit_price × (1 + markup/100)` pour les anciens ajouts
+
+**Mémoire** : `_customItemDataMap[rowId]` — `{ description, labor_minutes, material_costs, custom_data: { supplier, notes, attachments } }`
+
+**Persistance DB** : `room_items.custom_data` JSONB contient `labor_minutes`, `material_costs`, supplier, notes, attachments. `unit_price` = prix composé calculé (pour compatibilité `quote.html`)
+
+**Rentabilité** : `computeRentabilityData` décompose les ajouts personnalisés en salaires + matériaux coûtant + perte + markup (même structure que les articles catalogue) au lieu du montant flat précédent
+
+**Contexte AI** : `collectRoomDetail` inclut `laborMinutes` et `materialCosts` pour les custom items
+
 ### Enfants cascade manuels
 
 Ajout manuel d'articles enfants sous un parent FAB, en dehors du moteur cascade automatique.

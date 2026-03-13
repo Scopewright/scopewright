@@ -1038,12 +1038,17 @@
             var tag = tagInput ? tagInput.value.trim() : '';
             if (selectedId === '__AJOUT__') {
                 var cdCtx = _customItemDataMap[row.id] || {};
-                var ajP = cdCtx.unit_price || 0;
-                var ajM = cdCtx.markup || 0;
-                var lt = ajP * qty * qtyMult * (1 + ajM / 100);
-                var ajoutDims = collectRowDims(row);
+                var _ctxInstCb = document.getElementById(row.id + '-install');
+                var _ctxInclInst = _ctxInstCb ? _ctxInstCb.checked : true;
+                var _ctxComposed = computeComposedPrice({
+                    labor_minutes: cdCtx.labor_minutes || {},
+                    material_costs: cdCtx.material_costs || {}
+                }, _ctxInclInst);
+                var ajPrice = _ctxComposed || 0;
+                if (ajPrice === 0 && cdCtx.unit_price) ajPrice = cdCtx.unit_price * (1 + (cdCtx.markup || 0) / 100);
+                var lt = ajPrice * qty * qtyMult;
                 var ajSupplier = (cdCtx.custom_data && cdCtx.custom_data.supplier_name) || '';
-                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, qtyMult: qtyMult, effectiveQty: Math.round(qty * qtyMult * 1000) / 1000, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: Math.round(ajPrice * 100) / 100, qty: qty, qtyMult: qtyMult, effectiveQty: Math.round(qty * qtyMult * 1000) / 1000, lineTotal: Math.round(lt * 100) / 100, supplier: ajSupplier, laborMinutes: cdCtx.labor_minutes || {}, materialCosts: cdCtx.material_costs || {} });
                 subtotal += lt;
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -1167,9 +1172,38 @@
             var qty = (parseFloat(qtyInput.value) || 0) * ((_qmR ? parseFloat(_qmR.value) : 1) || 1);
             if (!selectedId || selectedId === '__PROPOSER__') return;
             if (selectedId === '__AJOUT__') {
-                var ajt = getRowTotal(row);
-                totalPrixVente += ajt;
-                totalAjout += ajt;
+                var _rCd = _customItemDataMap[row.id] || {};
+                var _rLm = _rCd.labor_minutes || {};
+                var _rMc = _rCd.material_costs || {};
+                var _hasDecomp = Object.keys(_rLm).length > 0 || Object.keys(_rMc).length > 0;
+                if (_hasDecomp) {
+                    // Decompose like a catalogue item
+                    var _rInstCb = document.getElementById(row.id + '-install');
+                    var _rInclInst = _rInstCb ? _rInstCb.checked : true;
+                    tauxHoraires.forEach(function(th) {
+                        var mins = _rLm[th.department] || 0;
+                        if (mins > 0) {
+                            if (!_rInclInst && th.department === 'Installation') return;
+                            totalSalaires += (mins / 60) * (th.taux_horaire || 0) * qty;
+                        }
+                    });
+                    expenseCategories.forEach(function(ec) {
+                        var cost = _rMc[ec.name] || 0;
+                        if (cost > 0) {
+                            var waste = (ec.waste || 0) / 100;
+                            var markup = (ec.markup || 0) / 100;
+                            totalMatCoutant += cost * qty;
+                            totalPerte += cost * waste * qty;
+                            totalMarkup += cost * (1 + waste) * markup * qty;
+                        }
+                    });
+                    var _rTotal = getRowTotal(row);
+                    totalPrixVente += _rTotal;
+                } else {
+                    var ajt = getRowTotal(row);
+                    totalPrixVente += ajt;
+                    totalAjout += ajt;
+                }
                 return;
             }
             var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -6953,33 +6987,47 @@
 
         /* Custom item modal */
         .custom-item-modal {
-            background: #fff; border-radius: 12px; width: 520px; max-height: 90vh;
+            background: #fff; border-radius: 12px; min-width: 700px; max-width: 780px; max-height: 90vh;
             overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         }
         .cim-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; }
         .cim-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
         .cim-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; padding: 4px 8px; }
         .cim-close:hover { color: #000; }
-        .cim-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+        .cim-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 14px; }
         .cim-label { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: -6px; }
-        .cim-body textarea, .cim-body input[type="number"], .cim-body select {
+        .cim-body textarea, .cim-body input[type="text"], .cim-body input[type="number"], .cim-body select {
             padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px;
             font-size: 13px; font-family: inherit; width: 100%; box-sizing: border-box;
         }
         .cim-body textarea:focus, .cim-body input:focus, .cim-body select:focus {
-            outline: none; border-color: var(--stele-green);
+            outline: none; border-color: var(--sw-navy);
         }
         .cim-body textarea { resize: vertical; }
+        .cim-title-input { font-size: 15px !important; font-weight: 600; padding: 10px 12px !important; }
+        .cim-section-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; margin-bottom: -4px; }
+        .cim-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .cim-grid-cell { display: flex; flex-direction: column; gap: 2px; }
+        .cim-grid-cell label { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cim-grid-cell input { padding: 6px 8px !important; font-size: 12px !important; text-align: right; }
+        .cim-price-bar {
+            display: flex; gap: 16px; align-items: center; padding: 10px 14px;
+            background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+        }
+        .cim-price-part { display: flex; flex-direction: column; gap: 1px; }
+        .cim-price-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        .cim-price-val { font-size: 14px; font-weight: 600; color: #374151; }
+        .cim-price-total .cim-price-val { font-size: 16px; color: var(--sw-navy); }
+        .cim-price-sep { width: 1px; height: 28px; background: #e2e8f0; }
         .cim-row { display: flex; gap: 12px; }
         .cim-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .cim-computed { font-size: 15px; font-weight: 700; padding: 8px 0; color: var(--stele-green); }
         .cim-dropzone {
-            border: 2px dashed #d1d5db; border-radius: 8px; padding: 20px;
+            border: 2px dashed #d1d5db; border-radius: 8px; padding: 16px;
             text-align: center; color: #666; font-size: 13px; cursor: pointer;
             transition: border-color 0.2s, background 0.2s;
         }
-        .cim-dropzone.dragover { border-color: var(--stele-green); background: #f0fdf4; }
-        .cim-dropzone a { color: var(--stele-green); text-decoration: underline; }
+        .cim-dropzone.dragover { border-color: var(--sw-navy); background: #f0f4ff; }
+        .cim-dropzone a { color: var(--sw-navy); text-decoration: underline; }
         .cim-file-list { display: flex; flex-direction: column; gap: 6px; }
         .cim-file-item {
             display: flex; align-items: center; gap: 8px; padding: 6px 10px;
@@ -6997,6 +7045,10 @@
         .cim-btn-save:hover { background: var(--sw-navy-hover); }
         .cim-btn-catalogue { background: none; border: 1px solid #d1d5db; color: #64748b; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
         .cim-btn-catalogue:hover { border-color: var(--sw-navy); color: var(--sw-navy); }
+        /* Inline title for ajout rows */
+        .ajout-title-input { border: none !important; background: transparent; font-size: 12px; font-weight: 600; color: var(--sw-text); padding: 4px 0; width: 100%; }
+        .ajout-title-input:focus { outline: none; border-bottom: 1px solid var(--sw-navy) !important; }
+        .ajout-title-input::placeholder { color: #94a3b8; font-weight: 400; font-style: italic; }
 
         /* Modal */
         .modal-overlay {
@@ -11348,6 +11400,9 @@
         }
 
         function openCombobox(rowId) {
+            // Don't open combobox on ajout rows (title input mode)
+            var _cbRow = document.getElementById(rowId);
+            if (_cbRow && _cbRow.dataset.mode === 'ajout') return;
             if (_cbActiveRowId === rowId) return; // already open
             closeCombobox();
             _cbActiveRowId = rowId;
@@ -12317,28 +12372,58 @@
         function transformToAjoutMode(row, rowId) {
             row.dataset.mode = 'ajout';
             row.dataset.ajoutMode = 'fixed';
-            row.style.background = '#edf0f5';
 
             var cd = _customItemDataMap[rowId] || {};
             var desc = cd.description || '';
             var supplierName = (cd.custom_data && cd.custom_data.supplier_name) || '';
-            var cost = cd.unit_price || 0;
-            var markup = cd.markup || 0;
-            var sellPrice = cost * (1 + markup / 100);
+
+            // Compute price via composed price formula
+            var composed = computeComposedPrice({
+                labor_minutes: cd.labor_minutes || {},
+                material_costs: cd.material_costs || {}
+            }, true);
+            var sellPrice = composed || 0;
+            // Fallback for legacy items (old unit_price + markup format)
+            if (sellPrice === 0 && cd.unit_price) {
+                sellPrice = cd.unit_price * (1 + (cd.markup || 0) / 100);
+            }
+
+            // Inline title: replace combobox with editable title input
+            var cbInput = document.getElementById(rowId + '-cb');
+            if (cbInput) {
+                cbInput.value = desc;
+                cbInput.placeholder = 'Titre de l\u2019article...';
+                cbInput.className = 'ajout-title-input';
+                cbInput.removeAttribute('onclick');
+                cbInput.removeAttribute('onfocus');
+                cbInput.onblur = function() { _saveAjoutTitle(rowId, this.value.trim()); };
+            }
+            var editBtn = document.getElementById(rowId + '-edit-btn');
+            if (editBtn) editBtn.style.display = 'none';
 
             var codeEl = document.getElementById(rowId + '-code');
-            var typeEl = document.getElementById(rowId + '-type');
-            var unitPriceEl = document.getElementById(rowId + '-unit-price');
-
             codeEl.innerHTML = '<span style="font-size:11px;color:#64748b;cursor:pointer;" onclick="openCustomItemModal(\'' + rowId + '\')">' +
-                escapeHtml(supplierName || 'Personnalis\u00e9') + '</span>';
-            codeEl.style.gridColumn = 'span 1';
+                escapeHtml(supplierName || '\u2699') + '</span>';
 
-            typeEl.innerHTML = '<button class="ajout-edit-btn" onclick="openCustomItemModal(\'' + rowId + '\')" title="Modifier">' +
-                escapeHtml(desc || 'Cliquer pour configurer...') + '</button>';
+            var typeEl = document.getElementById(rowId + '-type');
+            typeEl.innerHTML = '<span style="font-size:10px;color:#94a3b8;">Ajout</span>';
 
-            var upxEl = unitPriceEl.querySelector('.upx');
-            if (upxEl) upxEl.textContent = formatPrice(sellPrice); else unitPriceEl.textContent = formatPrice(sellPrice);
+            // Hide dims
+            var dimsEl = document.getElementById(rowId + '-dims');
+            if (dimsEl) { dimsEl.classList.add('dims-hidden'); dimsEl.innerHTML = '&mdash;'; }
+
+            var unitPriceEl = document.getElementById(rowId + '-unit-price');
+            var upxEl = unitPriceEl ? unitPriceEl.querySelector('.upx') : null;
+            if (upxEl) upxEl.textContent = formatPrice(sellPrice); else if (unitPriceEl) unitPriceEl.textContent = formatPrice(sellPrice);
+        }
+
+        function _saveAjoutTitle(rowId, title) {
+            var cd = _customItemDataMap[rowId];
+            if (!cd) return;
+            cd.description = title;
+            if (itemMap[rowId]) {
+                updateItem(itemMap[rowId], { description: title });
+            }
         }
 
         function updateMissingPriceBadge(groupId) {
@@ -12348,7 +12433,13 @@
                 var sel = r.querySelector('.item-select');
                 if (sel && sel.value === '__AJOUT__') {
                     var cd = _customItemDataMap[r.id] || {};
-                    if (!cd.unit_price || cd.unit_price === 0) missing++;
+                    var _bComposed = computeComposedPrice({
+                        labor_minutes: cd.labor_minutes || {},
+                        material_costs: cd.material_costs || {}
+                    }, true);
+                    var _bPrice = _bComposed || 0;
+                    if (_bPrice === 0 && cd.unit_price) _bPrice = cd.unit_price * (1 + (cd.markup || 0) / 100);
+                    if (_bPrice === 0) missing++;
                 }
             });
             var badge = document.getElementById(groupId + '-missingPrice');
@@ -12374,6 +12465,16 @@
             delete row.dataset.ajoutMode;
             row.style.background = '';
             row.classList.remove('custom-no-price');
+            // Restore combobox from ajout title mode
+            var cbInput = document.getElementById(rowId + '-cb');
+            if (cbInput) {
+                cbInput.className = 'combobox-input';
+                cbInput.value = '';
+                cbInput.placeholder = 'Rechercher un article...';
+                cbInput.setAttribute('onclick', "openCombobox('" + rowId + "')");
+                cbInput.setAttribute('onfocus', "openCombobox('" + rowId + "')");
+                cbInput.onblur = null;
+            }
             document.getElementById(rowId + '-code').innerHTML = '\u2014';
             document.getElementById(rowId + '-code').style.gridColumn = '';
             document.getElementById(rowId + '-type').innerHTML = '\u2014';
@@ -12695,7 +12796,7 @@
 
         function openCustomItemModal(rowId) {
             _cimRowId = rowId;
-            var cd = _customItemDataMap[rowId] || { description: '', unit_price: 0, markup: 30, custom_data: {} };
+            var cd = _customItemDataMap[rowId] || { description: '', labor_minutes: {}, material_costs: {}, custom_data: {} };
             var cData = cd.custom_data || {};
 
             // Populate supplier dropdown
@@ -12709,10 +12810,48 @@
                 sel.appendChild(opt);
             });
 
-            // Populate fields
-            document.getElementById('cimDescription').value = cd.description || '';
-            document.getElementById('cimCost').value = cd.unit_price || 0;
-            document.getElementById('cimMarkup').value = cd.markup != null ? cd.markup : 30;
+            // Title
+            document.getElementById('cimTitle').value = cd.description || '';
+
+            // Build labor grid from tauxHoraires
+            var laborGrid = document.getElementById('cimLaborGrid');
+            laborGrid.innerHTML = '';
+            var lm = cd.labor_minutes || {};
+            tauxHoraires.forEach(function(th) {
+                var cell = document.createElement('div');
+                cell.className = 'cim-grid-cell';
+                var lbl = document.createElement('label');
+                lbl.textContent = th.department;
+                var inp = document.createElement('input');
+                inp.type = 'number'; inp.min = '0'; inp.step = '1'; inp.value = lm[th.department] || '';
+                inp.dataset.dept = th.department;
+                inp.className = 'cim-labor-input';
+                inp.placeholder = '0';
+                inp.oninput = updateCimComputedPrice;
+                cell.appendChild(lbl); cell.appendChild(inp);
+                laborGrid.appendChild(cell);
+            });
+
+            // Build material grid from expenseCategories
+            var matGrid = document.getElementById('cimMaterialGrid');
+            matGrid.innerHTML = '';
+            var mc = cd.material_costs || {};
+            expenseCategories.forEach(function(ec) {
+                var cell = document.createElement('div');
+                cell.className = 'cim-grid-cell';
+                var lbl = document.createElement('label');
+                lbl.textContent = ec.name;
+                lbl.title = 'Perte: ' + (ec.waste || 0) + '% | Markup: ' + (ec.markup || 0) + '%';
+                var inp = document.createElement('input');
+                inp.type = 'number'; inp.min = '0'; inp.step = '0.01'; inp.value = mc[ec.name] || '';
+                inp.dataset.cat = ec.name;
+                inp.className = 'cim-material-input';
+                inp.placeholder = '0,00';
+                inp.oninput = updateCimComputedPrice;
+                cell.appendChild(lbl); cell.appendChild(inp);
+                matGrid.appendChild(cell);
+            });
+
             document.getElementById('cimSupplierNotes').value = cData.supplier_notes || '';
 
             // Populate attachments
@@ -12722,7 +12861,7 @@
             _cimAttachmentsToDelete = [];
             renderCimFiles();
 
-            updateCimSellPrice();
+            updateCimComputedPrice();
             document.getElementById('customItemModal').classList.add('active');
 
             // Setup drag & drop
@@ -12736,20 +12875,53 @@
             _cimAttachmentsToDelete = [];
         }
 
-        function updateCimSellPrice() {
-            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
-            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
-            var sell = cost * (1 + markup / 100);
-            document.getElementById('cimSellPrice').textContent = formatPrice(sell);
+        function _readCimLaborMinutes() {
+            var lm = {};
+            document.querySelectorAll('#cimLaborGrid .cim-labor-input').forEach(function(inp) {
+                var v = parseFloat(inp.value) || 0;
+                if (v > 0) lm[inp.dataset.dept] = v;
+            });
+            return lm;
+        }
+
+        function _readCimMaterialCosts() {
+            var mc = {};
+            document.querySelectorAll('#cimMaterialGrid .cim-material-input').forEach(function(inp) {
+                var v = parseFloat(inp.value) || 0;
+                if (v > 0) mc[inp.dataset.cat] = v;
+            });
+            return mc;
+        }
+
+        function updateCimComputedPrice() {
+            var lm = _readCimLaborMinutes();
+            var mc = _readCimMaterialCosts();
+            var laborTotal = 0;
+            tauxHoraires.forEach(function(th) {
+                var mins = lm[th.department] || 0;
+                if (mins > 0) laborTotal += (mins / 60) * (th.taux_horaire || 0);
+            });
+            var matTotal = 0;
+            expenseCategories.forEach(function(ec) {
+                var cost = mc[ec.name] || 0;
+                if (cost > 0) {
+                    var waste = (ec.waste || 0) / 100;
+                    var markup = (ec.markup || 0) / 100;
+                    matTotal += cost * (1 + waste) * (1 + markup);
+                }
+            });
+            document.getElementById('cimPriceLabor').textContent = formatPrice(laborTotal);
+            document.getElementById('cimPriceMat').textContent = formatPrice(matTotal);
+            document.getElementById('cimPriceTotal').textContent = formatPrice(laborTotal + matTotal);
         }
 
         async function saveCustomItemModal() {
             if (!_cimRowId) return;
             var rowId = _cimRowId;
 
-            var description = document.getElementById('cimDescription').value.trim();
-            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
-            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
+            var description = document.getElementById('cimTitle').value.trim();
+            var laborMinutes = _readCimLaborMinutes();
+            var materialCosts = _readCimMaterialCosts();
             var supplierId = document.getElementById('cimSupplier').value || null;
             var supplierName = '';
             if (supplierId) {
@@ -12757,6 +12929,10 @@
                 if (found) supplierName = found.name;
             }
             var supplierNotes = document.getElementById('cimSupplierNotes').value.trim();
+
+            // Compute effective sell price for DB (quote.html compatibility)
+            var composed = computeComposedPrice({ labor_minutes: laborMinutes, material_costs: materialCosts }, true);
+            var effectivePrice = composed || 0;
 
             // Upload new files
             var itemId = itemMap[rowId];
@@ -12790,14 +12966,18 @@
                 supplier_id: supplierId,
                 supplier_name: supplierName,
                 supplier_notes: supplierNotes || null,
-                attachments: uploadedAttachments
+                attachments: uploadedAttachments,
+                labor_minutes: laborMinutes,
+                material_costs: materialCosts
             };
 
             // Update in-memory map
             _customItemDataMap[rowId] = {
                 description: description,
-                unit_price: cost,
-                markup: markup,
+                labor_minutes: laborMinutes,
+                material_costs: materialCosts,
+                unit_price: effectivePrice,
+                markup: 0,
                 custom_data: customData
             };
 
@@ -12807,8 +12987,8 @@
                     item_type: 'custom',
                     catalogue_item_id: null,
                     description: description,
-                    unit_price: cost,
-                    markup: markup,
+                    unit_price: effectivePrice,
+                    markup: 0,
                     unit_type: '',
                     custom_data: customData
                 });
@@ -12819,7 +12999,7 @@
             var row = document.getElementById(rowId);
             if (row) {
                 transformToAjoutMode(row, rowId);
-                row.classList.toggle('custom-no-price', cost === 0);
+                row.classList.toggle('custom-no-price', effectivePrice === 0);
                 updateRow(rowId);
                 var grp = row.closest('.furniture-group');
                 if (grp) updateMissingPriceBadge(grp.id);
@@ -12830,21 +13010,20 @@
 
         async function saveCustomToCatalogue() {
             if (!_cimRowId) return;
-            var desc = document.getElementById('cimDescription').value.trim();
-            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
-            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
+            var desc = document.getElementById('cimTitle').value.trim();
             if (!desc) {
-                steleAlert('Entrez une description avant de sauvegarder au catalogue.');
+                steleAlert('Entrez un titre avant de sauvegarder au catalogue.');
                 return;
             }
             // Save current modal state first
             await saveCustomItemModal();
+            var cd = _customItemDataMap[_cimRowId] || {};
             // Open catalogue editor in iframe with pre-filled data
             var params = new URLSearchParams({
                 new: '1',
                 embedded: '1',
                 prefill_desc: desc,
-                prefill_price: String(Math.round(cost * (1 + markup / 100) * 100) / 100),
+                prefill_price: String(cd.unit_price || 0),
                 prefill_type: 'unitaire'
             });
             var overlay = document.getElementById('catEditOverlay');
@@ -13126,13 +13305,26 @@
                     setTimeout(function() { openCustomItemModal(rowId); }, 100);
                 }
                 var cd = _customItemDataMap[rowId] || {};
-                var cost = cd.unit_price || 0;
-                var markup = cd.markup || 0;
+                var installCbAjout = document.getElementById(rowId + '-install');
+                var inclInstAjout = installCbAjout ? installCbAjout.checked : true;
+                var composedAjout = computeComposedPrice({
+                    labor_minutes: cd.labor_minutes || {},
+                    material_costs: cd.material_costs || {}
+                }, inclInstAjout);
+                var ajoutPrice = composedAjout || 0;
+                // Fallback for legacy items
+                if (ajoutPrice === 0 && cd.unit_price) {
+                    ajoutPrice = cd.unit_price * (1 + (cd.markup || 0) / 100);
+                }
                 var ajoutGroup = row.closest('.furniture-group');
                 var ajoutMult = ajoutGroup ? getModifierMultiplier(ajoutGroup.id) : 1;
-                totalEl.textContent = formatPrice(cost * (1 + markup / 100) * qty * ajoutMult);
+                // Update unit price display
+                var _upxAjout = document.getElementById(rowId + '-unit-price');
+                var _upxInnerAjout = _upxAjout ? _upxAjout.querySelector('.upx') : null;
+                if (_upxInnerAjout) _upxInnerAjout.textContent = formatPrice(ajoutPrice * ajoutMult);
+                totalEl.textContent = formatPrice(ajoutPrice * qty * qm * ajoutMult);
                 // Orange highlight when no price
-                row.classList.toggle('custom-no-price', cost === 0);
+                row.classList.toggle('custom-no-price', ajoutPrice === 0);
                 if (ajoutGroup) updateMissingPriceBadge(ajoutGroup.id);
             } else {
                 if (currentMode === 'ajout') transformToNormalMode(row, rowId);
@@ -13176,7 +13368,7 @@
                 var showDims = false;
                 var dimItem = null;
                 if (selectedId === '__AJOUT__') {
-                    showDims = true;
+                    showDims = false; // No dims for custom items
                 } else if (selectedId && selectedId !== '__PROPOSER__') {
                     dimItem = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
                     if (dimItem && (dimItem.item_type === 'fabrication' || dimItem.dims_config)) showDims = true;
@@ -13479,11 +13671,19 @@
 
             if (selectedId === '__AJOUT__') {
                 var cd = _customItemDataMap[rowId] || {};
+                var _dbInstCb = document.getElementById(rowId + '-install');
+                var _dbInclInst = _dbInstCb ? _dbInstCb.checked : true;
+                var _dbComposed = computeComposedPrice({
+                    labor_minutes: cd.labor_minutes || {},
+                    material_costs: cd.material_costs || {}
+                }, _dbInclInst);
+                var _dbPrice = _dbComposed || 0;
+                if (_dbPrice === 0 && cd.unit_price) _dbPrice = cd.unit_price * (1 + (cd.markup || 0) / 100);
                 fields.item_type = 'custom';
                 fields.catalogue_item_id = null;
                 fields.description = cd.description || '';
-                fields.unit_price = cd.unit_price || 0;
-                fields.markup = cd.markup || 0;
+                fields.unit_price = _dbPrice;
+                fields.markup = 0;
                 fields.unit_type = '';
                 fields.custom_data = cd.custom_data || null;
             } else if (selectedId) {
@@ -13899,9 +14099,18 @@
                 return 0;
             } else if (selectedId === '__AJOUT__') {
                 var cd = _customItemDataMap[row.id] || {};
-                var ajCost = cd.unit_price || 0;
-                var ajMarkup = cd.markup || 0;
-                return ajCost * (1 + ajMarkup / 100) * qty * qm;
+                var _ajInstCb = document.getElementById(row.id + '-install');
+                var _ajInclInst = _ajInstCb ? _ajInstCb.checked : true;
+                var _ajComposed = computeComposedPrice({
+                    labor_minutes: cd.labor_minutes || {},
+                    material_costs: cd.material_costs || {}
+                }, _ajInclInst);
+                var _ajPrice = _ajComposed || 0;
+                // Fallback for legacy items
+                if (_ajPrice === 0 && cd.unit_price) {
+                    _ajPrice = cd.unit_price * (1 + (cd.markup || 0) / 100);
+                }
+                return _ajPrice * qty * qm;
             } else if (selectedId) {
                 const item = CATALOGUE_DATA.find(i => i.id === selectedId);
                 if (item) {
@@ -19229,11 +19438,14 @@
 
                             if (item.item_type === 'custom') {
                                 select.value = '__AJOUT__';
+                                var _cData = item.custom_data || {};
                                 _customItemDataMap[rowId] = {
                                     description: item.description || '',
+                                    labor_minutes: _cData.labor_minutes || {},
+                                    material_costs: _cData.material_costs || {},
                                     unit_price: item.unit_price || 0,
                                     markup: item.markup || 0,
-                                    custom_data: item.custom_data || {}
+                                    custom_data: _cData
                                 };
                                 transformToAjoutMode(row, rowId);
                             } else if (item.catalogue_item_id) {
@@ -22485,29 +22697,31 @@
       <button class="cim-close" onclick="closeCustomItemModal()">&times;</button>
     </div>
     <div class="cim-body">
-      <label class="cim-label">Description</label>
-      <textarea id="cimDescription" rows="2" placeholder="Description de l'article..."></textarea>
+      <input type="text" id="cimTitle" class="cim-title-input" placeholder="Titre de l'article (ex: M&eacute;tal pour vanit&eacute;)...">
 
-      <label class="cim-label">Fournisseur</label>
-      <select id="cimSupplier"><option value="">— Aucun —</option></select>
+      <div class="cim-section-label">Main-d'&oelig;uvre (minutes)</div>
+      <div class="cim-grid" id="cimLaborGrid"></div>
+
+      <div class="cim-section-label">Mat&eacute;riaux (co&ucirc;t $)</div>
+      <div class="cim-grid" id="cimMaterialGrid"></div>
+
+      <div class="cim-price-bar" id="cimPriceBar">
+        <div class="cim-price-part"><span class="cim-price-label">MO</span><span class="cim-price-val" id="cimPriceLabor">0,00 $</span></div>
+        <div class="cim-price-sep"></div>
+        <div class="cim-price-part"><span class="cim-price-label">Mat&eacute;riaux</span><span class="cim-price-val" id="cimPriceMat">0,00 $</span></div>
+        <div class="cim-price-sep"></div>
+        <div class="cim-price-part cim-price-total"><span class="cim-price-label">Prix de vente</span><span class="cim-price-val" id="cimPriceTotal">0,00 $</span></div>
+      </div>
 
       <div class="cim-row">
         <div class="cim-field">
-          <label class="cim-label">Co&ucirc;t fournisseur ($)</label>
-          <input id="cimCost" type="number" min="0" step="0.01" value="0" oninput="updateCimSellPrice()">
-        </div>
-        <div class="cim-field">
-          <label class="cim-label">Marge (%)</label>
-          <input id="cimMarkup" type="number" min="0" step="1" value="30" oninput="updateCimSellPrice()">
-        </div>
-        <div class="cim-field">
-          <label class="cim-label">Prix de vente</label>
-          <div id="cimSellPrice" class="cim-computed">0,00 $</div>
+          <label class="cim-label">Fournisseur</label>
+          <select id="cimSupplier"><option value="">— Aucun —</option></select>
         </div>
       </div>
 
       <label class="cim-label">Notes / Soumission fournisseur</label>
-      <textarea id="cimSupplierNotes" rows="3" placeholder="D&eacute;tails de la soumission, conditions, d&eacute;lais..."></textarea>
+      <textarea id="cimSupplierNotes" rows="2" placeholder="D&eacute;tails de la soumission, conditions, d&eacute;lais..."></textarea>
 
       <label class="cim-label">Pi&egrave;ces jointes</label>
       <div id="cimDropZone" class="cim-dropzone">

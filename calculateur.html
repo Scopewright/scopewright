@@ -1061,7 +1061,7 @@
                 var lt = ajP * qty * qtyMult * (1 + ajM / 100);
                 var ajoutDims = collectRowDims(row);
                 var ajSupplier = (cdCtx.custom_data && cdCtx.custom_data.supplier_name) || '';
-                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, qtyMult: qtyMult, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
+                items.push({ index: idx, tag: tag || null, type: 'ajout', description: cdCtx.description || '', unitPrice: ajP, qty: qty, qtyMult: qtyMult, effectiveQty: Math.round(qty * qtyMult * 1000) / 1000, markup: ajM, lineTotal: Math.round(lt * 100) / 100, dims: ajoutDims, supplier: ajSupplier });
                 subtotal += lt;
             } else if (selectedId !== '__PROPOSER__') {
                 var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -1075,6 +1075,7 @@
                         index: idx, tag: tag || null, type: 'catalogue', catalogueId: item.id,
                         description: item.description, itemType: item.type,
                         unitPrice: Math.round(effPrice * 100) / 100, qty: qty, qtyMult: qtyMult,
+                        effectiveQty: Math.round(qty * qtyMult * 1000) / 1000,
                         lineTotal: Math.round(lt2 * 100) / 100,
                         laborMinutes: item.labor_minutes || {},
                         materialCosts: item.material_costs || {},
@@ -1443,7 +1444,7 @@
                 if (it.type) slim.type = it.type;
                 if (it.catalogueId) slim.catalogueId = it.catalogueId;
                 if (it.dims) slim.dims = it.dims;
-                if (it.qtyMult && it.qtyMult !== 1) slim.qtyMult = it.qtyMult;
+                if (it.qtyMult && it.qtyMult !== 1) { slim.qtyMult = it.qtyMult; slim.effectiveQty = it.effectiveQty; }
                 if (it.internalNote) slim.note = it.internalNote;
                 if (it.presRuleHuman) slim.presRuleHuman = it.presRuleHuman;
                 if (it.overrides) slim.overrides = it.overrides;
@@ -16500,9 +16501,12 @@
             if (!detail) return;
 
             // Build item lines for AI prompt
-            var itemLines = '';
+            var itemLines = 'IMPORTANT: Utiliser effective_qty (quantité réelle après multiplicateur) pour tous les calculs cumulatifs (pi², unités totales, etc.).\n';
             detail.items.forEach(function(item) {
-                itemLines += '- ' + item.description + ' (x' + item.qty + ')';
+                var eqLabel = (item.effectiveQty && item.effectiveQty !== item.qty)
+                    ? ' (qty=' + item.qty + ', QM=' + item.qtyMult + ', effective_qty=' + item.effectiveQty + ')'
+                    : ' (x' + item.qty + ')';
+                itemLines += '- ' + item.description + eqLabel;
                 if (item.catalogueId) {
                     var catItem = CATALOGUE_DATA.find(function(c) { return c.id === item.catalogueId; });
                     if (catItem && catItem.client_text) itemLines += ' [client: ' + catItem.client_text + ']';

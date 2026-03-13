@@ -19529,14 +19529,14 @@
             updateGlobalModifierDisplay();
             updateDiscountDisplay();
 
-            showCalculator();
-
-            // Collapse all rooms by default (accordion: one at a time)
+            // Collapse all rooms before showing (accordion: one at a time, no flash)
             document.querySelectorAll('.furniture-group').forEach(function(g) {
                 g.classList.add('collapsed');
             });
             aiFocusGroupId = null;
             aiCurrentScope = 'project';
+
+            showCalculator();
 
             // Init AI scope observer and observe all rendered group headers
             initAiScopeObserver();

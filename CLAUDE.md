@@ -400,6 +400,8 @@ Ou via tables DB `roles` + `user_roles`.
 
 Au chargement, l'admin fetch les catégories distinctes depuis `catalogue_items` et les compare à `app_config.catalogue_categories`. Les catégories présentes dans les articles mais absentes de la config sont **auto-ajoutées** et persistées. Elles apparaissent avec "⚠ Non liée" dans la table catégories, incitant l'admin à les mapper à un groupe matériau.
 
+**Libellés table** : "Catégorie catalogue (dropdown articles)" et "Groupes DM associés (matériaux par défaut)" — clarifie la distinction entre catégorie catalogue (utilisée dans le dropdown combobox) et groupe DM (utilisé par le moteur cascade `$default:`/`$match:` via `getAllowedCategoriesForGroup`). Migration : `sql/fix_category_group_mapping_facades.sql`
+
 ### Architecture de rendu soumission
 
 Le contenu d'une soumission est rendu dans **4 chemins distincts** avec des sources de données différentes :

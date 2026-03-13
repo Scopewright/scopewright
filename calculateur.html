@@ -1089,6 +1089,7 @@
                         rowData.isFabParent = true;
                     }
                     if (item.instruction) rowData.instruction = item.instruction;
+                    if (item.presentation_rule_human) rowData.presRuleHuman = item.presentation_rule_human;
                     if (_internalNotes[row.id]) rowData.internalNote = _internalNotes[row.id];
                     var ovCtx = _rowOverrides[row.id];
                     if (ovCtx) {
@@ -1444,6 +1445,7 @@
                 if (it.dims) slim.dims = it.dims;
                 if (it.qtyMult && it.qtyMult !== 1) slim.qtyMult = it.qtyMult;
                 if (it.internalNote) slim.note = it.internalNote;
+                if (it.presRuleHuman) slim.presRuleHuman = it.presRuleHuman;
                 if (it.overrides) slim.overrides = it.overrides;
                 if (it.itemId) slim.itemId = it.itemId;
                 if (it.isFabParent) slim.isFabParent = true;
@@ -11200,7 +11202,7 @@
                 updateStatus('', 'Chargement...');
 
                 var userEmail = getUserEmail();
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,item_type,dims_config,loss_override_pct,labor_modifiers&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,status,proposed_by,labor_minutes,material_costs,calculation_rule_ai,is_default,client_text,presentation_rule,presentation_rule_human,item_type,dims_config,loss_override_pct,labor_modifiers&or=(status.eq.approved,status.is.null,and(status.eq.pending,proposed_by.eq.' + encodeURIComponent(userEmail) + '))&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -16484,7 +16486,10 @@
                     var catItem = CATALOGUE_DATA.find(function(c) { return c.id === item.catalogueId; });
                     if (catItem && catItem.client_text) itemLines += ' [client: ' + catItem.client_text + ']';
                     if (catItem && catItem.presentation_rule_human) {
-                        itemLines += ' [règle: ' + catItem.presentation_rule_human + ']';
+                        itemLines += '\n  presentation_rule_explication: "' + catItem.presentation_rule_human + '"';
+                    }
+                    if (catItem && catItem.presentation_rule) {
+                        itemLines += '\n  presentation_rule: ' + JSON.stringify(catItem.presentation_rule);
                     } else if (catItem && expenseCategories && expenseCategories.length) {
                         var groupRule = _findGroupPresRule(catItem);
                         if (groupRule) itemLines += ' [règle groupe: ' + JSON.stringify(groupRule) + ']';

@@ -508,7 +508,11 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 - **`override_children`** : catégories bloquées chez les descendants
 - **`notes`** : contexte pour l'AI (pas fonctionnel)
 
-### Règle de présentation (`presentation_rule` JSONB)
+### Règle de présentation (`presentation_rule` JSONB + `presentation_rule_human` TEXT)
+
+- `presentation_rule` : JSON structuré (squelette déterministe pour `assembleRoomDescription`)
+- `presentation_rule_human` : explication texte libre (ex: "Inscrire dans la section détail le total de pi² de recouvrement")
+- Les deux sont injectés dans le contexte AI : description (`aiGenerateDescription`) et chatbox estimateur (`collectRoomDetail` → `presRuleHuman`)
 
 ```json
 {

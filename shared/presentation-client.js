@@ -109,46 +109,45 @@ function formatDescriptionForDisplay(text) {
 
 function editClientDescription(groupId) {
     var display = document.getElementById(groupId + '-clientDescDisplay');
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!display || !textarea) return;
+    var editor = document.getElementById(groupId + '-clientDesc');
+    if (!display || !editor) return;
     if (currentSubmission && !isSubmissionCurrentlyEditable()) return;
     display.style.display = 'none';
-    textarea.style.display = '';
-    textarea.focus();
+    // Populate contenteditable from cached HTML
+    editor.innerHTML = roomDescHTML[groupId] || '';
+    editor.style.display = '';
+    editor.focus();
 }
 
 function finishEditDescription(groupId) {
     saveClientDescription(groupId);
     var display = document.getElementById(groupId + '-clientDescDisplay');
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!display || !textarea) return;
-    textarea.style.display = 'none';
+    var editor = document.getElementById(groupId + '-clientDesc');
+    if (!display || !editor) return;
+    editor.style.display = 'none';
     display.style.display = '';
     refreshDescriptionDisplay(groupId);
 }
 
 function refreshDescriptionDisplay(groupId) {
     var display = document.getElementById(groupId + '-clientDescDisplay');
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!display || !textarea) return;
-    // Prefer cached HTML (from AI, preview edits, or DB load) — already sanitized
+    if (!display) return;
     var html = (typeof roomDescHTML !== 'undefined') ? roomDescHTML[groupId] : '';
-    var text = textarea.value.trim();
-    if (!html && !text) {
+    if (!html) {
         display.innerHTML = '<span class="desc-placeholder">Description visible par le client...</span>';
-    } else if (html) {
-        display.innerHTML = html;
     } else {
-        display.innerHTML = formatDescriptionForDisplay(text);
+        display.innerHTML = html;
     }
 }
 
 function saveClientDescription(groupId) {
     if (!roomMap[groupId]) return;
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!textarea) return;
-    // Convert plain text to HTML for storage, update HTML cache, clear stale EN
-    var html = textToHtml(textarea.value);
+    var editor = document.getElementById(groupId + '-clientDesc');
+    if (!editor) return;
+    // Read HTML directly from contenteditable — no textToHtml conversion needed
+    var html = editor.innerHTML;
+    // Clean empty contenteditable artifacts
+    if (html === '<br>' || html === '<div><br></div>') html = '';
     roomDescHTML[groupId] = html;
     if (roomDescEN[groupId]) {
         roomDescEN[groupId] = '';
@@ -272,16 +271,13 @@ function assembleRoomDescription(groupId) {
 }
 
 function onAssembleDescription(groupId) {
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!textarea) return;
-
     var assembled = assembleRoomDescription(groupId);
     if (!assembled) {
         showConstraintToast('Aucun article avec texte client dans cette pièce');
         return;
     }
 
-    var existing = textarea.value.trim();
+    var existing = roomDescHTML[groupId] || '';
     if (existing) {
         showConstraintModal('Remplacer la description ?',
             'La description actuelle sera remplacée par la version assemblée.',
@@ -296,9 +292,6 @@ function onAssembleDescription(groupId) {
 }
 
 function applyAssembledDescription(groupId, text) {
-    var textarea = document.getElementById(groupId + '-clientDesc');
-    if (!textarea) return;
-    textarea.value = text;
     var html = textToHtml(text);
     roomDescHTML[groupId] = html;
     refreshDescriptionDisplay(groupId);

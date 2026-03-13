@@ -16677,7 +16677,7 @@
             var prompt = '';
             if (hasExisting) {
                 // ── Subsequent generation: diff-based revision ──
-                var textToRevise = existingHTML || existingText;
+                var textToRevise = existingHTML;
                 prompt = '<context>\nPièce : ' + detail.name + '\nArticles :\n' + itemLines;
                 // Include diff if previous context exists
                 var diff = _diffDescContext(prevCtx, currentCtx);
@@ -16715,7 +16715,6 @@
                     if (!hasExisting) {
                         // First generation: write directly (no proposal panel)
                         roomDescHTML[groupId] = resultHtml;
-                        textarea.value = htmlToText(resultHtml);
                         refreshDescriptionDisplay(groupId);
                         roomDescEN[groupId] = '';
                         if (roomMap[groupId]) {

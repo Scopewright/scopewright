@@ -13478,7 +13478,7 @@
             });
         }
 
-        function confirmRemoveRow(rowId) {
+        async function confirmRemoveRow(rowId) {
             var row = document.getElementById(rowId);
             if (!row) return;
             var sel = row.querySelector('.item-select');
@@ -13488,7 +13488,8 @@
                 desc = catItem ? catItem.description : sel.value;
             }
             var msg = desc ? 'Supprimer \u00ab\u00a0' + desc.substring(0, 50) + '\u00a0\u00bb ?' : 'Supprimer cette ligne ?';
-            steleConfirm(msg, 'Supprimer', function() { removeRow(rowId); });
+            if (!(await steleConfirm(msg, 'Supprimer', 'Supprimer', true))) return;
+            removeRow(rowId);
         }
 
         function removeRow(rowId, opts) {

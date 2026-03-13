@@ -926,6 +926,66 @@
                         }
                     }
                 }
+            } else if (toolName === 'update_catalogue_item') {
+                var catId = input.catalogue_item_id;
+                var fields = input.fields || {};
+                var reason = input.reason || '';
+                // Whitelist fields
+                var ALLOWED = ['calculation_rule_ai', 'instruction', 'loss_override_pct', 'labor_modifiers'];
+                var patchData = {};
+                var changed = [];
+                for (var k in fields) {
+                    if (ALLOWED.indexOf(k) !== -1 && fields[k] !== undefined) {
+                        patchData[k] = fields[k];
+                        changed.push(k);
+                    }
+                }
+                if (changed.length === 0) {
+                    _messages.push({ role: 'system', content: 'Aucun champ autorisé à modifier.' });
+                } else {
+                    // Read snapshot before
+                    var snapR = await authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(catId) + '&select=id,description,' + ALLOWED.join(','),
+                        {}
+                    );
+                    var snapBefore = null;
+                    if (snapR.ok) {
+                        var snapData = await snapR.json();
+                        if (snapData && snapData[0]) snapBefore = snapData[0];
+                    }
+                    // PATCH
+                    var pr = await authenticatedFetch(
+                        SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(catId),
+                        {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patchData)
+                        }
+                    );
+                    if (pr.ok) {
+                        _messages.push({ role: 'system', content: 'Article ' + escapeHtml(catId) + ' mis à jour (' + changed.join(', ') + ').' });
+                        // Audit log in catalogue_change_log
+                        try {
+                            await authenticatedFetch(
+                                SUPABASE_URL + '/rest/v1/catalogue_change_log',
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        catalogue_item_id: catId,
+                                        changed_fields: changed,
+                                        snapshot_before: snapBefore,
+                                        snapshot_after: Object.assign({}, snapBefore || {}, patchData),
+                                        reason: reason,
+                                        source: 'agent-maitre'
+                                    })
+                                }
+                            );
+                        } catch(e) { console.warn('catalogue_change_log error:', e); }
+                    } else {
+                        _messages.push({ role: 'system', content: 'Erreur PATCH article ' + escapeHtml(catId) + '.' });
+                    }
+                }
             }
             renderMessages();
         } catch (err) {

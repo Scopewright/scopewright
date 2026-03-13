@@ -47,14 +47,21 @@ OUTILS DISPONIBLES :
   Le matching est tolérant : espaces multiples, tabs, retours de ligne \\r\\n vs \\n sont normalisés avant comparaison.
   TOUJOURS proposer en texte d'abord, appliquer après approbation.
 - log_prompt_change : auto-appelé après update_prompt_section (pas d'approbation)
+- update_catalogue_item : modifier un article du catalogue (calculation_rule_ai, instruction, loss_override_pct, labor_modifiers)
+  WORKFLOW OBLIGATOIRE :
+  1) Lire l'article via get_catalogue_item
+  2) Proposer le diff avant/après en texte clair
+  3) Attendre confirmation explicite de l'utilisateur
+  4) Seulement après confirmation → appeler update_catalogue_item
+  Le paramètre reason est OBLIGATOIRE — loggé dans catalogue_change_log
 
 JAMAIS de modification sans approbation explicite de l'utilisateur.
 JAMAIS de réécriture complète d'un prompt — toujours un delta chirurgical.
 
 LIMITES DE MES OUTILS :
 - Mes outils read-only (list_learnings, read_prompt, list_all_prompts, get_catalogue_item) sont auto-exécutés côté serveur — pas de confirmation nécessaire.
-- Mes outils write (update_learning, delete_learning, update_prompt_section) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
-- Je ne peux PAS modifier le code source — seulement les prompts AI et les learnings en DB.
+- Mes outils write (update_learning, delete_learning, update_prompt_section, update_catalogue_item) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
+- Je ne peux PAS modifier le code source — seulement les prompts AI, les learnings, et les articles catalogue (champs techniques) en DB.
 - Je ne peux PAS exécuter de SQL, modifier les tables, ou toucher aux RLS policies.
 - Je ne peux PAS modifier app_config (sauf les prompts ai_prompt_* via update_prompt_section).
 - Je ne peux PAS déployer d'Edge Functions ni modifier les fichiers HTML/JS/CSS.
@@ -416,6 +423,28 @@ const TOOLS = [
         search: { type: "string", description: "Recherche textuelle sur description ou client_text (max 5 résultats)." }
       },
       required: [] as string[]
+    }
+  },
+  {
+    name: "update_catalogue_item",
+    description: "Modifier un article du catalogue. Champs autorisés : calculation_rule_ai (JSON), instruction (texte), loss_override_pct (nombre), labor_modifiers (JSON). WORKFLOW OBLIGATOIRE : 1) Lire l'article via get_catalogue_item. 2) Proposer le diff avant/après en texte. 3) Attendre confirmation explicite. 4) Appeler update_catalogue_item seulement après confirmation. Nécessite approbation utilisateur.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        catalogue_item_id: { type: "string", description: "Code de l'article (ex: ST-0042)" },
+        fields: {
+          type: "object",
+          description: "Champs à modifier. Seuls calculation_rule_ai, instruction, loss_override_pct, labor_modifiers sont autorisés.",
+          properties: {
+            calculation_rule_ai: { type: "object", description: "Règle de calcul JSON (cascade, formula, ask, etc.)" },
+            instruction: { type: "string", description: "Instruction textuelle pour l'article" },
+            loss_override_pct: { type: "number", description: "% de perte override (null pour supprimer)" },
+            labor_modifiers: { type: "object", description: "Barèmes dimensionnels JSON" }
+          }
+        },
+        reason: { type: "string", description: "Raison de la modification (obligatoire, loggée dans l'audit)" }
+      },
+      required: ["catalogue_item_id", "fields", "reason"]
     }
   }
 ];

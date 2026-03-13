@@ -279,25 +279,24 @@ Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-conta
 - `.dm-blocked` si DM requis manquants (bloque l'ajout)
 - AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
-### Ajout personnalisé (custom items) — Refonte #179d
+### Ajout personnalisé (custom items) — Refonte #179e
 
-Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'custom'`, stockés dans `room_items` avec `custom_data` JSONB.
+Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'custom'`, stockés dans `room_items` avec `custom_data` JSONB. **Modal identique au catalogue** avec 4 différences : titre libre, fournisseur + notes, pas de code ST-XXXX, bouton "Sauvegarder au catalogue".
 
-**Modale** (`.custom-item-modal`, width 700px) :
+**Modale** (`.custom-item-modal`, width 800px) :
 - **Titre** : `#cimTitle` — champ texte libre en haut (ex: "Métal pour vanité")
 - **Texte client** : `#cimClientText` — textarea description pour la présentation client
-- **Fournisseur** : `#cimSupplier` — dropdown contacts type fournisseur
-- **Coût fournisseur / Marge / Prix de vente** : ligne 3 champs. Prix de vente auto = coût × (1 + marge/100) via `updateCimSellPrice()`
-- **Main-d'œuvre (minutes)** : `#cimLaborGrid` — grille par département (même layout que modal catalogue), construit dynamiquement depuis `tauxHoraires`
-- **Matériaux (coût $)** : `#cimMaterialGrid` — grille par catégorie de dépense, construit dynamiquement depuis `expenseCategories`
-- **JSON présentation** : `#cimPresRule` — textarea règles de présentation (monospace)
-- **Notes** : `#cimSupplierNotes` — textarea soumission fournisseur
+- **Fournisseur + Notes** : ligne 2 champs — dropdown contacts type fournisseur + textarea notes/soumission
+- **Comment décrire au client** : `#cimPresRuleHuman` — textarea explication humaine avec bouton AI (`cimAiPresRule()` → edge function `translate` action `catalogue_pres_rule`) + `#cimPresRule` — textarea JSON présentation
+- **Prix composé — MO + Matériaux** : tables identiques au catalogue (`#cimLaborBody` + `#cimMaterialBody`), layout `.composed-price-section` / `.cp-table`. Prix calculé automatiquement depuis MO+matériaux via `updateCimComposedPrice()` (non éditable). Affichage `.cp-calculated` avec breakdown MO + Mat
 - **Pièces jointes** : drag & drop + parcourir
 - **Footer** : "Sauvegarder au catalogue", "Annuler", "Enregistrer"
-- **`openCustomItemModal(rowId)`** : pré-remplit depuis `_customItemDataMap[rowId]`, construit les grilles MO/matériaux
-- **`saveCustomItemModal()`** : lit tous les champs + grilles via `_readCimLaborMinutes()` et `_readCimMaterialCosts()`, stocke dans `_customItemDataMap` et `custom_data` JSONB
-- **`_readCimLaborMinutes()`** : lit les inputs `data-dept` du grid MO, retourne `{dept: minutes}` ou null
-- **`_readCimMaterialCosts()`** : lit les inputs `data-cat` du grid matériaux, retourne `{cat: cost}` ou null
+- **`openCustomItemModal(rowId)`** : pré-remplit depuis `_customItemDataMap[rowId]`, construit les tables MO/matériaux (mêmes `<table>` que catalogue)
+- **`updateCimComposedPrice()`** : calcule le prix composé = Σ(mins/60 × taux) + Σ(coût × (1+waste%) × (1+markup%)), affiche dans `.cp-calculated`
+- **`_computeCimPrice()`** : retourne le prix composé numérique (utilisé par `saveCustomItemModal`)
+- **`saveCustomItemModal()`** : lit tous les champs + tables, stocke `unit_price = composedPrice, markup = 0`
+- **`cimAiPresRule()`** : appelle edge function `translate` action `catalogue_pres_rule`, peuple `cimPresRuleHuman` + `cimPresRule`
+- **`_readCimLaborMinutes()`** / **`_readCimMaterialCosts()`** : listent les inputs des tables, retournent `{key: value}` ou null
 
 **Ligne calculateur** :
 - **Titre inline** : le combobox est remplacé par un input `.ajout-title-input` (borderless, focus underline navy). Sauvegarde au blur via `_saveAjoutTitle(rowId, title)`
@@ -307,11 +306,11 @@ Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'c
 - **`transformToAjoutMode(row, rowId)`** : transforme la ligne catalogue en mode ajout
 - **`transformToNormalMode(row, rowId)`** : restaure la ligne en mode catalogue normal (combobox + handlers)
 
-**Calcul de prix** : `coût × (1 + marge/100)` — formule simple, pas de `computeComposedPrice`. MO/matériaux sont des métadonnées pour la rentabilité, pas pour le prix de vente. Appliqué dans `updateRow`, `getRowTotal`, `debouncedSaveItem`, `transformToAjoutMode`, `collectRoomDetail`
+**Calcul de prix** : prix composé = Σ(MO) + Σ(Matériaux avec waste+markup). Stocké dans `unit_price` avec `markup = 0`. Formule `unit_price * (1 + 0/100) = unit_price` dans `updateRow`/`getRowTotal`/`debouncedSaveItem`
 
-**Mémoire** : `_customItemDataMap[rowId]` — `{ description, unit_price, markup, client_text, presentation_rule, labor_minutes, material_costs, custom_data: { supplier, notes, attachments, client_text, presentation_rule, labor_minutes, material_costs } }`
+**Mémoire** : `_customItemDataMap[rowId]` — `{ description, unit_price, markup, client_text, presentation_rule, labor_minutes, material_costs, custom_data: { supplier, notes, attachments, client_text, presentation_rule, presentation_rule_human, labor_minutes, material_costs } }`
 
-**Persistance DB** : `room_items.custom_data` JSONB contient supplier, notes, attachments, client_text, presentation_rule, labor_minutes, material_costs. `unit_price` = coût fournisseur, `markup` = marge%
+**Persistance DB** : `room_items.custom_data` JSONB contient supplier, notes, attachments, client_text, presentation_rule, presentation_rule_human, labor_minutes, material_costs. `unit_price` = prix composé calculé, `markup` = 0
 
 **Rentabilité** : `computeRentabilityData` et `openRentab` décomposent les ajouts avec MO/matériaux (si renseignés) — minutes par département, coûts par catégorie, waste et markup appliqués. Si aucun MO/matériaux → traité comme montant flat (`totalAjout`)
 
@@ -368,7 +367,7 @@ CSS : `.cb-section-label` (navy, bold, border-bottom) vs `.cb-group-label` (gris
 
 ### Ajout personnalisé (custom items)
 
-Modal `#customItemModal` pour articles hors catalogue. Champs : description, fournisseur (peuplé depuis `companies` table `company_type='Fournisseurs'`), coût fournisseur, marge %, prix de vente calculé, notes fournisseur, pièces jointes (drag-drop).
+Modal `#customItemModal` (800px) pour articles hors catalogue — identique au modal catalogue avec titre libre, fournisseur, pas de code ST-XXXX. Champs : titre, texte client, fournisseur + notes, présentation humaine (AI) + JSON, MO par département, matériaux par catégorie, prix composé calculé automatiquement, pièces jointes.
 - **Ligne orange** : classe `.custom-no-price` (fond `#FFF7ED`, bordure `#F97316`) tant que le coût fournisseur = 0. Appliqué dans `updateRow` et `saveCustomItemModal`. Disparaît dès qu'un prix est entré
 - **Badge "X prix manquants"** : `updateMissingPriceBadge(groupId)` — badge `.missing-price-badge` (pill orange) inséré dans le header de la pièce. Compte les lignes `__AJOUT__` sans prix dans le groupe. Mis à jour dans `updateRow`, `saveCustomItemModal`, `transformToNormalMode`
 - **Sauvegarder au catalogue** : bouton `⬆ Sauvegarder au catalogue` dans le footer du modal. `saveCustomToCatalogue()` sauvegarde d'abord le modal, puis ouvre la modale catalogue en iframe avec `prefill_desc`, `prefill_price`, `prefill_type` pré-remplis

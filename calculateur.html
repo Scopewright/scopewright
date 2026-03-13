@@ -6982,9 +6982,9 @@
             margin-left: 8px; white-space: nowrap;
         }
 
-        /* Custom item modal */
+        /* Custom item modal — mirrors catalogue edit modal */
         .custom-item-modal {
-            background: #fff; border-radius: 12px; width: 700px; max-height: 90vh;
+            background: #fff; border-radius: 12px; width: 800px; max-height: 90vh;
             overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         }
         .cim-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; }
@@ -7002,19 +7002,44 @@
         }
         .cim-body textarea { resize: vertical; }
         .cim-title-input { font-size: 15px !important; font-weight: 600; padding: 10px 12px !important; }
-        .cim-computed { font-size: 15px; font-weight: 700; padding: 8px 0; color: var(--sw-navy); }
         .cim-row { display: flex; gap: 12px; }
         .cim-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .cim-section-label { font-size: 12px; font-weight: 700; color: var(--sw-navy); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -4px; }
-        .cim-grids { display: flex; gap: 16px; }
-        .cim-grid-wrap { flex: 1; }
-        .cim-grid-wrap h4 { font-size: 11px; font-weight: 600; color: #64748B; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.3px; }
-        .cim-grid { display: grid; grid-template-columns: 1fr 80px; gap: 1px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-        .cim-grid-cell { background: #fff; padding: 5px 8px; font-size: 12px; display: flex; align-items: center; }
-        .cim-grid-cell.cim-gc-label { color: #374151; }
-        .cim-grid-cell input { border: none; background: transparent; width: 100%; font-size: 12px; text-align: right; padding: 0; font-family: inherit; }
-        .cim-grid-cell input:focus { outline: none; }
-        .cim-grid-cell input::placeholder { color: #d1d5db; }
+        /* Composed price tables — same as catalogue modal */
+        .cim-body .cp-section-title {
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--sw-navy); margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #f0f0f0;
+        }
+        .cim-body .composed-price-section { display: flex; gap: 16px; margin-top: 8px; }
+        .cim-body .cp-table-wrap { flex: 1; min-width: 0; }
+        .cim-body .cp-sub-title { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; }
+        .cim-body .cp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .cim-body .cp-table th { text-align: left; font-weight: 600; font-size: 11px; color: #888; padding: 4px 6px; border-bottom: 1px solid #e0e0e0; }
+        .cim-body .cp-table th:last-child { text-align: right; }
+        .cim-body .cp-table td { padding: 3px 6px; }
+        .cim-body .cp-table td:first-child { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; font-size: 11px; }
+        .cim-body .cp-table input[type="number"] { width: 100%; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 3px; font-size: 12px; text-align: right; font-family: inherit; }
+        .cim-body .cp-table input[type="number"]:focus { outline: none; border-color: var(--sw-navy); }
+        .cim-body .cp-calculated {
+            margin-top: 12px; padding: 10px 14px; background: #f8f8f4; border-radius: 6px;
+            display: flex; justify-content: space-between; align-items: center; font-size: 14px;
+        }
+        .cim-body .cp-total-label { font-weight: 600; color: #555; }
+        .cim-body .cp-total-value { font-weight: 700; font-size: 16px; color: var(--sw-navy); }
+        .cim-body .cp-breakdown { font-size: 11px; color: #888; margin-left: 8px; }
+        /* AI dot inside textarea wrap */
+        .cim-body .ai-field-wrap { position: relative; }
+        .cim-body .btn-ai-dot {
+            position: absolute; top: 6px; right: 6px; z-index: 2;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: transparent; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cim-body .btn-ai-dot .ai-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            animation: aiBreathe 3.5s ease-in-out infinite;
+        }
         .cim-dropzone {
             border: 2px dashed #d1d5db; border-radius: 8px; padding: 16px;
             text-align: center; color: #666; font-size: 13px; cursor: pointer;
@@ -12795,33 +12820,34 @@
 
             // Populate fields
             document.getElementById('cimTitle').value = cd.description || '';
-            document.getElementById('cimCost').value = cd.unit_price || 0;
-            document.getElementById('cimMarkup').value = cd.markup != null ? cd.markup : 30;
             document.getElementById('cimClientText').value = cd.client_text || '';
+            document.getElementById('cimPresRuleHuman').value = cData.presentation_rule_human || '';
             document.getElementById('cimPresRule').value = cd.presentation_rule || '';
             document.getElementById('cimSupplierNotes').value = cData.supplier_notes || '';
 
-            // Build MO grid
+            // Build MO table (same as catalogue)
             var laborMinutes = cd.labor_minutes || {};
-            var laborHtml = '';
+            var mHtml = '';
             tauxHoraires.forEach(function(t) {
                 var dept = t.department;
                 var val = laborMinutes[dept] || '';
-                laborHtml += '<div class="cim-grid-cell cim-gc-label">' + escapeHtml(dept) + '</div>' +
-                    '<div class="cim-grid-cell"><input type="number" step="0.1" placeholder="0" value="' + val + '" data-dept="' + escapeAttr(dept) + '"></div>';
+                mHtml += '<tr><td>' + escapeHtml(dept) + '</td>' +
+                    '<td><input type="number" step="0.1" placeholder="0" value="' + val + '"' +
+                    ' data-dept="' + escapeAttr(dept) + '" oninput="updateCimComposedPrice()"></td></tr>';
             });
-            document.getElementById('cimLaborGrid').innerHTML = laborHtml;
+            document.getElementById('cimLaborBody').innerHTML = mHtml;
 
-            // Build materials grid
+            // Build materials table (same as catalogue)
             var materialCosts = cd.material_costs || {};
-            var matHtml = '';
+            var cHtml = '';
             expenseCategories.forEach(function(ec) {
                 var cat = ec.name;
                 var cVal = materialCosts[cat] ? parseFloat(materialCosts[cat]).toFixed(2) : '';
-                matHtml += '<div class="cim-grid-cell cim-gc-label" title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</div>' +
-                    '<div class="cim-grid-cell"><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '" data-cat="' + escapeAttr(cat) + '"></div>';
+                cHtml += '<tr><td title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</td>' +
+                    '<td><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '"' +
+                    ' data-cat="' + escapeAttr(cat) + '" oninput="updateCimComposedPrice()"></td></tr>';
             });
-            document.getElementById('cimMaterialGrid').innerHTML = matHtml;
+            document.getElementById('cimMaterialBody').innerHTML = cHtml;
 
             // Populate attachments
             _cimAttachments = (cData.attachments || []).map(function(a) {
@@ -12830,7 +12856,7 @@
             _cimAttachmentsToDelete = [];
             renderCimFiles();
 
-            updateCimSellPrice();
+            updateCimComposedPrice();
             document.getElementById('customItemModal').classList.add('active');
 
             // Setup drag & drop
@@ -12844,16 +12870,42 @@
             _cimAttachmentsToDelete = [];
         }
 
-        function updateCimSellPrice() {
-            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
-            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
-            var sell = cost * (1 + markup / 100);
-            document.getElementById('cimSellPrice').textContent = formatPrice(sell);
+        function updateCimComposedPrice() {
+            // Labor total
+            var laborTotal = 0;
+            var mInputs = document.querySelectorAll('#cimLaborBody input[type="number"]');
+            for (var i = 0; i < mInputs.length; i++) {
+                var minutes = parseFloat(mInputs[i].value) || 0;
+                var dept = mInputs[i].getAttribute('data-dept');
+                var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+                laborTotal += (minutes / 60) * (taux ? (taux.taux_horaire || 0) : 0);
+            }
+            // Materials total
+            var materialTotal = 0;
+            var cInputs = document.querySelectorAll('#cimMaterialBody input[type="number"]');
+            for (var j = 0; j < cInputs.length; j++) {
+                var cost = parseFloat(cInputs[j].value) || 0;
+                var catName = cInputs[j].getAttribute('data-cat');
+                var expCat = expenseCategories.find(function(c) { return c.name === catName; });
+                var markup = expCat ? (expCat.markup || 0) : 0;
+                var waste = expCat ? (expCat.waste || 0) : 0;
+                materialTotal += cost * (1 + waste / 100) * (1 + markup / 100);
+            }
+            var total = laborTotal + materialTotal;
+            var totalEl = document.getElementById('cimTotalValue');
+            var breakdownEl = document.getElementById('cimBreakdown');
+            if (total > 0) {
+                totalEl.textContent = formatPrice(total);
+                breakdownEl.textContent = '(MO: ' + formatPrice(laborTotal) + ' + Mat: ' + formatPrice(materialTotal) + ')';
+            } else {
+                totalEl.textContent = '\u2014';
+                breakdownEl.textContent = '';
+            }
         }
 
         function _readCimLaborMinutes() {
             var result = {};
-            var inputs = document.querySelectorAll('#cimLaborGrid input[data-dept]');
+            var inputs = document.querySelectorAll('#cimLaborBody input[data-dept]');
             inputs.forEach(function(inp) {
                 var val = parseFloat(inp.value);
                 if (val) result[inp.getAttribute('data-dept')] = val;
@@ -12863,7 +12915,7 @@
 
         function _readCimMaterialCosts() {
             var result = {};
-            var inputs = document.querySelectorAll('#cimMaterialGrid input[data-cat]');
+            var inputs = document.querySelectorAll('#cimMaterialBody input[data-cat]');
             inputs.forEach(function(inp) {
                 var val = parseFloat(inp.value);
                 if (val) result[inp.getAttribute('data-cat')] = val;
@@ -12871,14 +12923,63 @@
             return Object.keys(result).length ? result : null;
         }
 
+        function cimAiPresRule() {
+            // Call translate edge function for presentation rule generation
+            var description = document.getElementById('cimTitle').value.trim();
+            var humanText = document.getElementById('cimPresRuleHuman').value.trim();
+            if (!description && !humanText) {
+                steleAlert('Entrez un titre ou une explication avant de g\u00e9n\u00e9rer.');
+                return;
+            }
+            var btn = document.querySelector('#customItemModal .btn-ai-dot');
+            if (btn) btn.querySelector('.ai-dot').style.animation = 'aiBreatheFast 1.2s ease-in-out infinite';
+            callEdgeFunction('translate', {
+                action: 'catalogue_pres_rule',
+                text: humanText || description,
+                description: description,
+                client_text: document.getElementById('cimClientText').value.trim()
+            }).then(function(result) {
+                if (result && result.text) {
+                    document.getElementById('cimPresRuleHuman').value = result.human || humanText;
+                    document.getElementById('cimPresRule').value = result.text;
+                }
+            }).catch(function(err) {
+                console.error('AI pres rule error:', err);
+            }).finally(function() {
+                if (btn) btn.querySelector('.ai-dot').style.animation = '';
+            });
+        }
+
+        function _computeCimPrice() {
+            // Compute composed price from MO + materials (same formula as catalogue)
+            var laborTotal = 0;
+            var mInputs = document.querySelectorAll('#cimLaborBody input[type="number"]');
+            for (var i = 0; i < mInputs.length; i++) {
+                var minutes = parseFloat(mInputs[i].value) || 0;
+                var dept = mInputs[i].getAttribute('data-dept');
+                var taux = tauxHoraires.find(function(t) { return t.department === dept; });
+                laborTotal += (minutes / 60) * (taux ? (taux.taux_horaire || 0) : 0);
+            }
+            var materialTotal = 0;
+            var cInputs = document.querySelectorAll('#cimMaterialBody input[type="number"]');
+            for (var j = 0; j < cInputs.length; j++) {
+                var cost = parseFloat(cInputs[j].value) || 0;
+                var catName = cInputs[j].getAttribute('data-cat');
+                var expCat = expenseCategories.find(function(c) { return c.name === catName; });
+                var markup = expCat ? (expCat.markup || 0) : 0;
+                var waste = expCat ? (expCat.waste || 0) : 0;
+                materialTotal += cost * (1 + waste / 100) * (1 + markup / 100);
+            }
+            return laborTotal + materialTotal;
+        }
+
         async function saveCustomItemModal() {
             if (!_cimRowId) return;
             var rowId = _cimRowId;
 
             var description = document.getElementById('cimTitle').value.trim();
-            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
-            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
             var clientText = document.getElementById('cimClientText').value.trim();
+            var presRuleHuman = document.getElementById('cimPresRuleHuman').value.trim();
             var presRule = document.getElementById('cimPresRule').value.trim();
             var supplierId = document.getElementById('cimSupplier').value || null;
             var supplierName = '';
@@ -12918,6 +13019,7 @@
 
             var laborMinutes = _readCimLaborMinutes();
             var materialCosts = _readCimMaterialCosts();
+            var composedPrice = _computeCimPrice();
 
             var customData = {
                 supplier_id: supplierId,
@@ -12926,6 +13028,7 @@
                 attachments: uploadedAttachments,
                 client_text: clientText || null,
                 presentation_rule: presRule || null,
+                presentation_rule_human: presRuleHuman || null,
                 labor_minutes: laborMinutes,
                 material_costs: materialCosts
             };
@@ -12933,8 +13036,8 @@
             // Update in-memory map
             _customItemDataMap[rowId] = {
                 description: description,
-                unit_price: cost,
-                markup: markup,
+                unit_price: composedPrice,
+                markup: 0,
                 client_text: clientText,
                 presentation_rule: presRule,
                 labor_minutes: laborMinutes,
@@ -12948,8 +13051,8 @@
                     item_type: 'custom',
                     catalogue_item_id: null,
                     description: description,
-                    unit_price: cost,
-                    markup: markup,
+                    unit_price: composedPrice,
+                    markup: 0,
                     unit_type: '',
                     custom_data: customData
                 });
@@ -12960,7 +13063,7 @@
             var row = document.getElementById(rowId);
             if (row) {
                 transformToAjoutMode(row, rowId);
-                row.classList.toggle('custom-no-price', cost === 0);
+                row.classList.toggle('custom-no-price', composedPrice === 0);
                 updateRow(rowId);
                 var grp = row.closest('.furniture-group');
                 if (grp) updateMissingPriceBadge(grp.id);
@@ -22431,7 +22534,7 @@
             refreshAllSelects, updateRow, saveRowTag, getRowTotal,
             getRoomBaseSubtotal, updateGroupSubtotal,
             // Article personnalisé
-            openCustomItemModal, closeCustomItemModal, updateCimSellPrice, saveCustomItemModal,
+            openCustomItemModal, closeCustomItemModal, updateCimComposedPrice, cimAiPresRule, saveCustomItemModal,
             setupCimDragDrop, addCimFiles, removeCimFile, renderCimFiles,
             // Modificateurs pièce
             getModifierMultiplier, getRoomCalculatedSubtotal, getEffectiveRoomTotal,
@@ -22664,7 +22767,7 @@
         });
     </script>
 
-<!-- Custom item modal -->
+<!-- Custom item modal — mirrors catalogue edit modal -->
 <div id="customItemModal" class="modal-overlay" onclick="if(event.target===this)closeCustomItemModal()">
   <div class="custom-item-modal">
     <div class="cim-header">
@@ -22672,46 +22775,66 @@
       <button class="cim-close" onclick="closeCustomItemModal()">&times;</button>
     </div>
     <div class="cim-body">
+      <!-- Titre -->
       <input type="text" id="cimTitle" class="cim-title-input" placeholder="Titre de l'article (ex: M&eacute;tal pour vanit&eacute;)...">
 
+      <!-- Texte client -->
       <label class="cim-label">Texte client</label>
       <textarea id="cimClientText" rows="2" placeholder="Description pour la pr&eacute;sentation client..."></textarea>
 
-      <label class="cim-label">Fournisseur</label>
-      <select id="cimSupplier"><option value="">— Aucun —</option></select>
-
+      <!-- Fournisseur -->
       <div class="cim-row">
         <div class="cim-field">
-          <label class="cim-label">Co&ucirc;t fournisseur ($)</label>
-          <input id="cimCost" type="number" min="0" step="0.01" value="0" oninput="updateCimSellPrice()">
+          <label class="cim-label">Fournisseur</label>
+          <select id="cimSupplier"><option value="">&mdash; Aucun &mdash;</option></select>
         </div>
         <div class="cim-field">
-          <label class="cim-label">Marge (%)</label>
-          <input id="cimMarkup" type="number" min="0" step="1" value="30" oninput="updateCimSellPrice()">
-        </div>
-        <div class="cim-field">
-          <label class="cim-label">Prix de vente</label>
-          <div id="cimSellPrice" class="cim-computed">0,00 $</div>
+          <label class="cim-label">Notes / Soumission fournisseur</label>
+          <textarea id="cimSupplierNotes" rows="1" placeholder="D&eacute;tails, conditions, d&eacute;lais..."></textarea>
         </div>
       </div>
 
-      <div class="cim-grids">
-        <div class="cim-grid-wrap">
-          <h4>Main-d'&oelig;uvre (minutes)</h4>
-          <div class="cim-grid" id="cimLaborGrid"></div>
+      <!-- Comment décrire au client -->
+      <div>
+        <div class="cp-section-title">Comment d&eacute;crire au client</div>
+        <label class="cim-label" style="margin-top:4px;">Texte humain</label>
+        <div class="ai-field-wrap">
+          <textarea id="cimPresRuleHuman" rows="3" placeholder="Ex: Le mat&eacute;riau appara&icirc;t en premier. Ne pas mentionner les pattes."></textarea>
+          <button class="btn-ai-dot" onclick="cimAiPresRule()" title="Clarifier avec l'AI"><span class="ai-dot"></span></button>
         </div>
-        <div class="cim-grid-wrap">
-          <h4>Mat&eacute;riaux (co&ucirc;t $)</h4>
-          <div class="cim-grid" id="cimMaterialGrid"></div>
+        <label class="cim-label" style="margin-top:8px;">JSON</label>
+        <textarea id="cimPresRule" rows="3" placeholder='{"sections":[...]}' style="font-family:monospace;font-size:11px;"></textarea>
+      </div>
+
+      <!-- Prix composé — MO + Matériaux -->
+      <div>
+        <div class="cp-section-title">Prix compos&eacute;</div>
+        <div class="composed-price-section">
+          <div class="cp-table-wrap">
+            <div class="cp-sub-title">Minutes main-d'&oelig;uvre</div>
+            <table class="cp-table">
+              <thead><tr><th>D&eacute;partement</th><th style="width:70px">Min.</th></tr></thead>
+              <tbody id="cimLaborBody"></tbody>
+            </table>
+          </div>
+          <div class="cp-table-wrap">
+            <div class="cp-sub-title">Mat&eacute;riaux</div>
+            <table class="cp-table">
+              <thead><tr><th>Cat&eacute;gorie</th><th style="width:80px">Co&ucirc;t ($)</th></tr></thead>
+              <tbody id="cimMaterialBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="cp-calculated">
+          <div>
+            <span class="cp-total-label">Prix calcul&eacute;</span>
+            <span class="cp-breakdown" id="cimBreakdown"></span>
+          </div>
+          <span class="cp-total-value" id="cimTotalValue">&mdash;</span>
         </div>
       </div>
 
-      <label class="cim-label">JSON pr&eacute;sentation</label>
-      <textarea id="cimPresRule" rows="2" placeholder='{"sections":[...]}'  style="font-family:monospace;font-size:11px;"></textarea>
-
-      <label class="cim-label">Notes / Soumission fournisseur</label>
-      <textarea id="cimSupplierNotes" rows="2" placeholder="D&eacute;tails de la soumission, conditions, d&eacute;lais..."></textarea>
-
+      <!-- Pièces jointes -->
       <label class="cim-label">Pi&egrave;ces jointes</label>
       <div id="cimDropZone" class="cim-dropzone">
         <input type="file" id="cimFileInput" multiple accept="image/*,.pdf" style="display:none">

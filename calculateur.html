@@ -1169,7 +1169,34 @@
             if (selectedId === '__AJOUT__') {
                 var ajt = getRowTotal(row);
                 totalPrixVente += ajt;
-                totalAjout += ajt;
+                var cd = _customItemDataMap[row.id];
+                if (cd && (cd.labor_minutes || cd.material_costs)) {
+                    // Decompose custom item for rentability
+                    var cLm = cd.labor_minutes || {};
+                    Object.keys(cLm).forEach(function(dept) {
+                        var mins = (cLm[dept] || 0) * qty;
+                        deptMinutes[dept] = (deptMinutes[dept] || 0) + mins;
+                        var th = tauxHoraires.find(function(t) { return t.department === dept; });
+                        if (th) {
+                            totalHeuresCharge += (mins / 60) * (th.taux_horaire || 0);
+                            totalSalaires += (mins / 60) * (th.salaire || 0);
+                            totalFraisFixes += (mins / 60) * (th.frais_fixe || 0);
+                            totalProfitMO += (mins / 60) * ((th.taux_horaire || 0) - (th.salaire || 0) - (th.frais_fixe || 0));
+                        }
+                    });
+                    var cMc = cd.material_costs || {};
+                    Object.keys(cMc).forEach(function(cat) {
+                        var baseCost = (cMc[cat] || 0) * qty;
+                        var expCat = expenseCategories.find(function(ec) { return ec.name === cat; });
+                        var wasteRate = expCat ? (expCat.waste || 0) : 0;
+                        var wastePart = baseCost * (wasteRate / 100);
+                        totalMatCoutant += baseCost;
+                        totalMatWaste += wastePart;
+                        totalMatMarkup += (baseCost + wastePart) * ((expCat ? (expCat.markup || 0) : 0) / 100);
+                    });
+                } else {
+                    totalAjout += ajt;
+                }
                 return;
             }
             var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
@@ -6258,6 +6285,9 @@
         .qty-mult-input:focus { border-color: var(--sw-border); color: var(--sw-navy); }
         .qty-mult-input.qty-mult-active { color: var(--sw-navy); font-weight: 600; }
 
+        .dims-header-labels { display: flex; gap: 2px; width: 100%; }
+        .dims-header-labels > span { flex: 0 0 36px; text-align: center; }
+
         .cell-dims {
             display: flex;
             align-items: center;
@@ -6954,7 +6984,7 @@
 
         /* Custom item modal */
         .custom-item-modal {
-            background: #fff; border-radius: 12px; width: 560px; max-height: 90vh;
+            background: #fff; border-radius: 12px; width: 700px; max-height: 90vh;
             overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         }
         .cim-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; }
@@ -6975,6 +7005,16 @@
         .cim-computed { font-size: 15px; font-weight: 700; padding: 8px 0; color: var(--sw-navy); }
         .cim-row { display: flex; gap: 12px; }
         .cim-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .cim-section-label { font-size: 12px; font-weight: 700; color: var(--sw-navy); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -4px; }
+        .cim-grids { display: flex; gap: 16px; }
+        .cim-grid-wrap { flex: 1; }
+        .cim-grid-wrap h4 { font-size: 11px; font-weight: 600; color: #64748B; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .cim-grid { display: grid; grid-template-columns: 1fr 80px; gap: 1px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+        .cim-grid-cell { background: #fff; padding: 5px 8px; font-size: 12px; display: flex; align-items: center; }
+        .cim-grid-cell.cim-gc-label { color: #374151; }
+        .cim-grid-cell input { border: none; background: transparent; width: 100%; font-size: 12px; text-align: right; padding: 0; font-family: inherit; }
+        .cim-grid-cell input:focus { outline: none; }
+        .cim-grid-cell input::placeholder { color: #d1d5db; }
         .cim-dropzone {
             border: 2px dashed #d1d5db; border-radius: 8px; padding: 16px;
             text-align: center; color: #666; font-size: 13px; cursor: pointer;
@@ -12061,7 +12101,7 @@
                     <span class="col-center">Code</span>
                     <span class="col-center">Type</span>
                     <span class="col-center" title="Multiplicateur quantité">Qté</span>
-                    <span class="col-center">L&times;H&times;P</span>
+                    <span class="col-center dims-header-labels"><span>L</span><span>H</span><span>P</span></span>
                     <span class="col-right sortable" onclick="sortGroupRows('${groupId}','price')">Prix unit.<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center sortable" onclick="sortGroupRows('${groupId}','qty')">Quantit&eacute;<span class="sort-arrow">&#9650;</span></span>
                     <span class="col-center" title="Installation incluse">Inst.</span>
@@ -12761,6 +12801,28 @@
             document.getElementById('cimPresRule').value = cd.presentation_rule || '';
             document.getElementById('cimSupplierNotes').value = cData.supplier_notes || '';
 
+            // Build MO grid
+            var laborMinutes = cd.labor_minutes || {};
+            var laborHtml = '';
+            tauxHoraires.forEach(function(t) {
+                var dept = t.department;
+                var val = laborMinutes[dept] || '';
+                laborHtml += '<div class="cim-grid-cell cim-gc-label">' + escapeHtml(dept) + '</div>' +
+                    '<div class="cim-grid-cell"><input type="number" step="0.1" placeholder="0" value="' + val + '" data-dept="' + escapeAttr(dept) + '"></div>';
+            });
+            document.getElementById('cimLaborGrid').innerHTML = laborHtml;
+
+            // Build materials grid
+            var materialCosts = cd.material_costs || {};
+            var matHtml = '';
+            expenseCategories.forEach(function(ec) {
+                var cat = ec.name;
+                var cVal = materialCosts[cat] ? parseFloat(materialCosts[cat]).toFixed(2) : '';
+                matHtml += '<div class="cim-grid-cell cim-gc-label" title="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</div>' +
+                    '<div class="cim-grid-cell"><input type="number" step="0.01" placeholder="0.00" value="' + cVal + '" data-cat="' + escapeAttr(cat) + '"></div>';
+            });
+            document.getElementById('cimMaterialGrid').innerHTML = matHtml;
+
             // Populate attachments
             _cimAttachments = (cData.attachments || []).map(function(a) {
                 return { path: a.path, name: a.name, type: a.type, size: a.size, isNew: false };
@@ -12787,6 +12849,26 @@
             var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
             var sell = cost * (1 + markup / 100);
             document.getElementById('cimSellPrice').textContent = formatPrice(sell);
+        }
+
+        function _readCimLaborMinutes() {
+            var result = {};
+            var inputs = document.querySelectorAll('#cimLaborGrid input[data-dept]');
+            inputs.forEach(function(inp) {
+                var val = parseFloat(inp.value);
+                if (val) result[inp.getAttribute('data-dept')] = val;
+            });
+            return Object.keys(result).length ? result : null;
+        }
+
+        function _readCimMaterialCosts() {
+            var result = {};
+            var inputs = document.querySelectorAll('#cimMaterialGrid input[data-cat]');
+            inputs.forEach(function(inp) {
+                var val = parseFloat(inp.value);
+                if (val) result[inp.getAttribute('data-cat')] = val;
+            });
+            return Object.keys(result).length ? result : null;
         }
 
         async function saveCustomItemModal() {
@@ -12834,13 +12916,18 @@
                 ).catch(function() {});
             }
 
+            var laborMinutes = _readCimLaborMinutes();
+            var materialCosts = _readCimMaterialCosts();
+
             var customData = {
                 supplier_id: supplierId,
                 supplier_name: supplierName,
                 supplier_notes: supplierNotes || null,
                 attachments: uploadedAttachments,
                 client_text: clientText || null,
-                presentation_rule: presRule || null
+                presentation_rule: presRule || null,
+                labor_minutes: laborMinutes,
+                material_costs: materialCosts
             };
 
             // Update in-memory map
@@ -12850,6 +12937,8 @@
                 markup: markup,
                 client_text: clientText,
                 presentation_rule: presRule,
+                labor_minutes: laborMinutes,
+                material_costs: materialCosts,
                 custom_data: customData
             };
 
@@ -13276,10 +13365,10 @@
                             var curPorte = dimsEl.dataset.porte || '';
                             var curTiroir = dimsEl.dataset.tiroir || '';
                             dimsEl.innerHTML += '<div class="caisson-sep"></div>'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-porte" placeholder="Port." step="1" min="0" value="' + curPorte + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
-                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tiroir" placeholder="Tir." step="1" min="0" value="' + curTiroir + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">';
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tab" placeholder="Tab." title="Tablettes" step="1" min="0" value="' + curTab + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-part" placeholder="Part." title="Partitions" step="1" min="0" value="' + curPart + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-porte" placeholder="Port." title="Portes" step="1" min="0" value="' + curPorte + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">'
+                                + '<input type="number" class="caisson-input" id="' + rowId + '-n-tiroir" placeholder="Tir." title="Tiroirs" step="1" min="0" value="' + curTiroir + '" oninput="updateRow(\'' + rowId + '\')" onchange="updateRow(\'' + rowId + '\'); scheduleCascade(\'' + rowId + '\', true)">';
                         }
 
                         // Disable dims if submission is locked
@@ -19299,6 +19388,8 @@
                                     markup: item.markup || 0,
                                     client_text: _cData.client_text || '',
                                     presentation_rule: _cData.presentation_rule || '',
+                                    labor_minutes: _cData.labor_minutes || null,
+                                    material_costs: _cData.material_costs || null,
                                     custom_data: _cData
                                 };
                                 transformToAjoutMode(row, rowId);
@@ -21630,7 +21721,37 @@
                     if (selectedId === '__AJOUT__') {
                         var ajoutTotal = getRowTotal(row);
                         totalPrixVente += ajoutTotal;
-                        totalAjout += ajoutTotal;
+                        var _ajCd = _customItemDataMap[row.id];
+                        if (_ajCd && (_ajCd.labor_minutes || _ajCd.material_costs)) {
+                            var _ajLm = _ajCd.labor_minutes || {};
+                            Object.keys(_ajLm).forEach(function(dept) {
+                                var mins = (_ajLm[dept] || 0) * qty;
+                                deptMinutes[dept] = (deptMinutes[dept] || 0) + mins;
+                                var th = tauxHoraires.find(function(t) { return t.department === dept; });
+                                if (th) {
+                                    totalHeuresCharge += (mins / 60) * (th.taux_horaire || 0);
+                                    totalSalaires += (mins / 60) * (th.salaire || 0);
+                                    totalFraisFixes += (mins / 60) * (th.frais_fixe || 0);
+                                    totalProfitMO += (mins / 60) * ((th.taux_horaire || 0) - (th.salaire || 0) - (th.frais_fixe || 0));
+                                }
+                            });
+                            var _ajMc = _ajCd.material_costs || {};
+                            Object.keys(_ajMc).forEach(function(cat) {
+                                var baseCost = (_ajMc[cat] || 0) * qty;
+                                var expCat = expenseCategories.find(function(ec) { return ec.name === cat; });
+                                var wasteRate = expCat ? (expCat.waste || 0) : 0;
+                                var markupRate = expCat ? (expCat.markup || 0) : 0;
+                                var wastePart = baseCost * (wasteRate / 100);
+                                matCoutant[cat] = (matCoutant[cat] || 0) + baseCost;
+                                matWaste[cat] = (matWaste[cat] || 0) + wastePart;
+                                matMarkup[cat] = (matMarkup[cat] || 0) + (baseCost + wastePart) * (markupRate / 100);
+                                totalMatCoutant += baseCost;
+                                totalMatWaste += wastePart;
+                                totalMatMarkup += (baseCost + wastePart) * (markupRate / 100);
+                            });
+                        } else {
+                            totalAjout += ajoutTotal;
+                        }
                         if (tagPrefix) {
                             if (!tagData[tagPrefix]) tagData[tagPrefix] = { prixVente: 0, heures: 0, matCout: 0, profit: 0, count: 0 };
                             tagData[tagPrefix].prixVente += ajoutTotal;
@@ -22553,6 +22674,9 @@
     <div class="cim-body">
       <input type="text" id="cimTitle" class="cim-title-input" placeholder="Titre de l'article (ex: M&eacute;tal pour vanit&eacute;)...">
 
+      <label class="cim-label">Texte client</label>
+      <textarea id="cimClientText" rows="2" placeholder="Description pour la pr&eacute;sentation client..."></textarea>
+
       <label class="cim-label">Fournisseur</label>
       <select id="cimSupplier"><option value="">— Aucun —</option></select>
 
@@ -22571,8 +22695,16 @@
         </div>
       </div>
 
-      <label class="cim-label">Texte client</label>
-      <textarea id="cimClientText" rows="2" placeholder="Description pour la pr&eacute;sentation client..."></textarea>
+      <div class="cim-grids">
+        <div class="cim-grid-wrap">
+          <h4>Main-d'&oelig;uvre (minutes)</h4>
+          <div class="cim-grid" id="cimLaborGrid"></div>
+        </div>
+        <div class="cim-grid-wrap">
+          <h4>Mat&eacute;riaux (co&ucirc;t $)</h4>
+          <div class="cim-grid" id="cimMaterialGrid"></div>
+        </div>
+      </div>
 
       <label class="cim-label">JSON pr&eacute;sentation</label>
       <textarea id="cimPresRule" rows="2" placeholder='{"sections":[...]}'  style="font-family:monospace;font-size:11px;"></textarea>

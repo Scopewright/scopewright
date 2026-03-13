@@ -167,7 +167,8 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - **Quantités enfants** : détection automatique constante vs formule. Si `rule.qty` contient des variables dimensionnelles (`L`, `H`, `P`, `QTY`, `n_tablettes`, `n_partitions`, `n_portes`, `n_tiroirs`) → résultat = quantité totale, **pas de multiplication** par `rootQty`. Si constante pure (ex: `"2"`) → quantité par unité FAB, multipliée par `rootQty`. Regex : `/\b(L|H|P|QTY|n_tablettes|n_partitions|n_portes|n_tiroirs)\b/`
 - **`child_dims`** : formules dimensionnelles sur les règles cascade. Quand `rule.child_dims` est présent (ex: `{ L: '(L / n_portes) - 0.125', H: 'H - 0.25' }`), les dimensions L/H/P de l'enfant sont **calculées** à partir des variables du parent via `evalFormula`. `applyChildDims(childRowId, rule, vars)` écrit dans les inputs dim de l'enfant et appelle `updateRow(childRowId, { skipCascade: true })`. Appelé **toujours** quand `rule.child_dims` existe (même si item/qty inchangés) car les dims du parent ont pu changer. Résultat persisté en DB via `updateItem` (`length_in`, `height_in`, `depth_in`)
 - **Multi-instance** : quand `child_dims` est présent ET `qty > 1` (entier), le moteur crée **N lignes distinctes** (qty=1 chacune) au lieu d'1 ligne avec qty=N. Chaque façade/tiroir est une pièce physique avec ses propres dimensions. Matching stable via `dataset.cascadeChildIndex` (0, 1, 2...). Non persisté en DB — reconstruit au `openSubmission` depuis l'ordre `sort_order` des enfants partageant le même `cascadeRuleTarget`. Si qty est fractionnaire ou `child_dims` absent → comportement classique (1 ligne, qty=N)
-- **`n_portes` / `n_tiroirs`** : variables caisson (même pattern que `n_tablettes`/`n_partitions`). UI inputs `Port.`/`Tir.` dans la zone dims caisson. Substitution dans `evalFormula`. Ask completeness : 0 valide, null bloque. Aliases : `PORTES`/`N_PORTES`, `TIROIRS`/`N_TIROIRS`. Migration : `sql/caisson_portes_tiroirs.sql`
+- **`n_portes` / `n_tiroirs`** : variables caisson (même pattern que `n_tablettes`/`n_partitions`). UI inputs `Port.`/`Tir.` dans la zone dims caisson, avec `title` tooltips ("Tablettes", "Partitions", "Portes", "Tiroirs"). Substitution dans `evalFormula`. Ask completeness : 0 valide, null bloque. Aliases : `PORTES`/`N_PORTES`, `TIROIRS`/`N_TIROIRS`. Migration : `sql/caisson_portes_tiroirs.sql`
+- **Header dims (#186)** : le label `L×H×P` est remplacé par trois labels séparés `L`, `H`, `P` (`.dims-header-labels`) alignés sur les inputs. Les abréviations caisson gardent `title` tooltips pour le nom complet
 - Dimensions propagées depuis le FAB racine à toute profondeur
 - Tags : `saveRowTag` propage récursivement le tag à tous les descendants (`propagateTagToDescendants`)
 - Tri : `sortRowsPreservingCascade` trie uniquement les parents, enfants restent groupés sous leur parent. `openSubmission` applique un **tri topologique** défensif (`_addWithChildren`) pour garantir que les parents précèdent toujours leurs enfants, même si `sort_order` en DB est corrompu
@@ -278,22 +279,25 @@ Un seul bouton (+) "Ajouter un article" en bas de chaque pièce (`.add-row-conta
 - `.dm-blocked` si DM requis manquants (bloque l'ajout)
 - AI handler `add_catalogue_item` : valide `catalogue_item_id` dans `CATALOGUE_DATA` **avant** `addRow` — empêche les lignes vides
 
-### Ajout personnalisé (custom items) — Refonte #179c
+### Ajout personnalisé (custom items) — Refonte #179d
 
 Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'custom'`, stockés dans `room_items` avec `custom_data` JSONB.
 
-**Modale** (`.custom-item-modal`, width 560px) :
+**Modale** (`.custom-item-modal`, width 700px) :
 - **Titre** : `#cimTitle` — champ texte libre en haut (ex: "Métal pour vanité")
-- **Fournisseur** : `#cimSupplier` — dropdown contacts type fournisseur
-- **Coût fournisseur** : `#cimCost` — un seul champ coût simple
-- **Marge** : `#cimMarkup` — pourcentage, default 30%. Prix de vente auto = coût × (1 + marge/100) via `updateCimSellPrice()`
 - **Texte client** : `#cimClientText` — textarea description pour la présentation client
+- **Fournisseur** : `#cimSupplier` — dropdown contacts type fournisseur
+- **Coût fournisseur / Marge / Prix de vente** : ligne 3 champs. Prix de vente auto = coût × (1 + marge/100) via `updateCimSellPrice()`
+- **Main-d'œuvre (minutes)** : `#cimLaborGrid` — grille par département (même layout que modal catalogue), construit dynamiquement depuis `tauxHoraires`
+- **Matériaux (coût $)** : `#cimMaterialGrid` — grille par catégorie de dépense, construit dynamiquement depuis `expenseCategories`
 - **JSON présentation** : `#cimPresRule` — textarea règles de présentation (monospace)
 - **Notes** : `#cimSupplierNotes` — textarea soumission fournisseur
 - **Pièces jointes** : drag & drop + parcourir
 - **Footer** : "Sauvegarder au catalogue", "Annuler", "Enregistrer"
-- **`openCustomItemModal(rowId)`** : pré-remplit depuis `_customItemDataMap[rowId]`
-- **`saveCustomItemModal()`** : lit titre + coût + marge + texte client + JSON présentation, stocke dans `_customItemDataMap` et `custom_data` JSONB, sauvegarde `unit_price = coût, markup = marge%`
+- **`openCustomItemModal(rowId)`** : pré-remplit depuis `_customItemDataMap[rowId]`, construit les grilles MO/matériaux
+- **`saveCustomItemModal()`** : lit tous les champs + grilles via `_readCimLaborMinutes()` et `_readCimMaterialCosts()`, stocke dans `_customItemDataMap` et `custom_data` JSONB
+- **`_readCimLaborMinutes()`** : lit les inputs `data-dept` du grid MO, retourne `{dept: minutes}` ou null
+- **`_readCimMaterialCosts()`** : lit les inputs `data-cat` du grid matériaux, retourne `{cat: cost}` ou null
 
 **Ligne calculateur** :
 - **Titre inline** : le combobox est remplacé par un input `.ajout-title-input` (borderless, focus underline navy). Sauvegarde au blur via `_saveAjoutTitle(rowId, title)`
@@ -303,13 +307,13 @@ Articles créés manuellement par l'estimateur (hors catalogue). `item_type = 'c
 - **`transformToAjoutMode(row, rowId)`** : transforme la ligne catalogue en mode ajout
 - **`transformToNormalMode(row, rowId)`** : restaure la ligne en mode catalogue normal (combobox + handlers)
 
-**Calcul de prix** : `coût × (1 + marge/100)` — formule simple, pas de `computeComposedPrice`. Appliqué dans `updateRow`, `getRowTotal`, `debouncedSaveItem`, `transformToAjoutMode`, `collectRoomDetail`
+**Calcul de prix** : `coût × (1 + marge/100)` — formule simple, pas de `computeComposedPrice`. MO/matériaux sont des métadonnées pour la rentabilité, pas pour le prix de vente. Appliqué dans `updateRow`, `getRowTotal`, `debouncedSaveItem`, `transformToAjoutMode`, `collectRoomDetail`
 
-**Mémoire** : `_customItemDataMap[rowId]` — `{ description, unit_price, markup, client_text, presentation_rule, custom_data: { supplier, notes, attachments, client_text, presentation_rule } }`
+**Mémoire** : `_customItemDataMap[rowId]` — `{ description, unit_price, markup, client_text, presentation_rule, labor_minutes, material_costs, custom_data: { supplier, notes, attachments, client_text, presentation_rule, labor_minutes, material_costs } }`
 
-**Persistance DB** : `room_items.custom_data` JSONB contient supplier, notes, attachments, client_text, presentation_rule. `unit_price` = coût fournisseur, `markup` = marge%
+**Persistance DB** : `room_items.custom_data` JSONB contient supplier, notes, attachments, client_text, presentation_rule, labor_minutes, material_costs. `unit_price` = coût fournisseur, `markup` = marge%
 
-**Rentabilité** : `computeRentabilityData` traite les ajouts comme montant flat (`totalAjout`) — pas de décomposition MO/matériaux
+**Rentabilité** : `computeRentabilityData` et `openRentab` décomposent les ajouts avec MO/matériaux (si renseignés) — minutes par département, coûts par catégorie, waste et markup appliqués. Si aucun MO/matériaux → traité comme montant flat (`totalAjout`)
 
 ### Enfants cascade manuels
 
@@ -368,7 +372,7 @@ Modal `#customItemModal` pour articles hors catalogue. Champs : description, fou
 - **Ligne orange** : classe `.custom-no-price` (fond `#FFF7ED`, bordure `#F97316`) tant que le coût fournisseur = 0. Appliqué dans `updateRow` et `saveCustomItemModal`. Disparaît dès qu'un prix est entré
 - **Badge "X prix manquants"** : `updateMissingPriceBadge(groupId)` — badge `.missing-price-badge` (pill orange) inséré dans le header de la pièce. Compte les lignes `__AJOUT__` sans prix dans le groupe. Mis à jour dans `updateRow`, `saveCustomItemModal`, `transformToNormalMode`
 - **Sauvegarder au catalogue** : bouton `⬆ Sauvegarder au catalogue` dans le footer du modal. `saveCustomToCatalogue()` sauvegarde d'abord le modal, puis ouvre la modale catalogue en iframe avec `prefill_desc`, `prefill_price`, `prefill_type` pré-remplis
-- **Stockage** : `_customItemDataMap[rowId]` (mémoire) + `room_items.custom_data` JSONB (DB) — `{ supplier_id, supplier_name, supplier_notes, attachments[] }`
+- **Stockage** : `_customItemDataMap[rowId]` (mémoire) + `room_items.custom_data` JSONB (DB) — `{ supplier_id, supplier_name, supplier_notes, attachments[], labor_minutes, material_costs }`
 - **`transformToAjoutMode(row, rowId)`** : code → nom fournisseur, type → description cliquable, fond gris `#edf0f5`
 - **Pièces jointes** : upload vers Storage `custom-attachments/{itemId}/{timestamp}_{filename}`, drag-drop + bouton parcourir
 

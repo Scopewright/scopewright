@@ -266,7 +266,7 @@ Champ multiplicateur global par ligne article, indépendant du type de calcul (p
 - **Fonction** : `updateQtyMult(rowId)` — met à jour l'affichage + sauvegarde DB + `updateRow({ skipCascade: true })` + `propagateQtyMultToCascadeChildren`
 - **Pas de re-cascade** : `qty_multiplier` ne touche pas les dimensions, pas besoin de recascader
 - **Cascade** : les enfants cascade héritent le `qty_multiplier` du parent lors de `executeCascade` (existants + nouveaux) ET lors du changement par l'utilisateur (`propagateQtyMultToCascadeChildren`). L'estimateur peut modifier manuellement le `qty_multiplier` d'un enfant
-- **Auto-qty readonly** : quand `updateRow` détecte une formule auto-qty, `qtyInput.readOnly = true` + style gris `#94A3B8`
+- **Auto-qty readonly** : quand `updateRow` détecte une formule auto-qty, `qtyInput.readOnly = true` + style gris `#94A3B8`. CSS `.qty-input[readonly]` : `pointer-events: none`, `user-select: none`, `cursor: default` — empêche toute interaction (hover, focus, clic)
 - **Cascade children qty readonly** : les enfants cascade ont `qtyInput.readOnly = true` (appliqué dans `addRow`, `executeCascade`, et `openSubmission`). CSS `.calc-row.cascade-child .qty-input { pointer-events: none }` — double protection visuelle + programmatique
 - **Intégration** : `getRowTotal`, `updateRow` (3 chemins), `computeRentabilityData`, `openRentab`, `collectRoomDetail` (AI context), `debouncedSaveItem`, `openSubmission` (restauration)
 - **DB** : `room_items.qty_multiplier` NUMERIC DEFAULT 1. Migration : `sql/qty_multiplier.sql`

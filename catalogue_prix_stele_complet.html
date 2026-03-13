@@ -8461,6 +8461,22 @@
             if (newParam && (canEditCatalogue || isEmbedded)) {
                 var defaultCat = configCategories.length > 0 ? configCategories[0] : 'Autre';
                 createNewItem(defaultCat);
+                // Pre-fill from custom item promotion (calculateur → catalogue)
+                var prefillDesc = urlParams.get('prefill_desc');
+                var prefillPrice = urlParams.get('prefill_price');
+                var prefillType = urlParams.get('prefill_type');
+                if (prefillDesc) {
+                    var descEl = document.getElementById('editDescription');
+                    if (descEl) descEl.value = prefillDesc;
+                }
+                if (prefillPrice) {
+                    var priceEl = document.getElementById('editPrice');
+                    if (priceEl) priceEl.value = prefillPrice;
+                }
+                if (prefillType) {
+                    var typeEl = document.getElementById('editType');
+                    if (typeEl) typeEl.value = prefillType;
+                }
             }
         });
     </script>

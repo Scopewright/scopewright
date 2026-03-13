@@ -994,7 +994,7 @@
                 roomModifierPct: roomPct,
                 globalModifierPct: globalPct,
                 effectiveTotal: effectiveTotal,
-                hasDescription: !!(descEl && descEl.value.trim()),
+                hasDescription: !!(roomDescHTML[gid]),
                 installationIncluded: installCb ? installCb.checked : true,
                 defaultMaterials: slimDM
             });
@@ -1103,7 +1103,7 @@
             roomId: roomMap[groupId] || null,
             name: name,
             installationIncluded: includeInstall,
-            clientDescription: descEl ? descEl.value.trim() : '',
+            clientDescription: roomDescHTML[groupId] || '',
             defaultMaterials: roomDM[groupId] || [],
             items: items,
             subtotal: Math.round(subtotal * 100) / 100,
@@ -1548,6 +1548,38 @@
         return result;
     }
 
+    // ── Query complexity classification & adaptive max_tokens ──
+    var _SIMPLE_PATTERNS = /^(oui|non|ok|go|confirme|applique|fais[- ]le|envoie|parfait|merci|exact|c'est bon|d'accord|annule|stop|next|suivant|précédent|total|combien|quel prix|quel montant|quel total|montre|affiche|résumé|résume)$/i;
+    var _SIMPLE_PREFIX = /^(oui |non |ok |ajoute |supprime |change |mets |met |retire |enlève |modifie |ajuste |remplace |quel |combien |c'est quoi |qu'est-ce que )/i;
+    var _COMPLEX_KEYWORDS = /rentab|analyse|diagnostic|cascade|optimis|stratégi|complet|détail|expliqu|pourquoi|comment ça march|rédige|description|plan|image|compar|barème|calcul|règle|formule/i;
+
+    function classifyQueryComplexity(userMessage) {
+        if (!userMessage || typeof userMessage !== 'string') return 'complex';
+        var text = userMessage.trim();
+        var tokenEst = Math.ceil(text.length / 3.5);
+        // Short message + simple pattern → simple
+        if (tokenEst < 40) {
+            if (_SIMPLE_PATTERNS.test(text)) return 'simple';
+            if (_SIMPLE_PREFIX.test(text) && !_COMPLEX_KEYWORDS.test(text)) return 'simple';
+        }
+        // Any complex keyword → complex regardless of length
+        if (_COMPLEX_KEYWORDS.test(text)) return 'complex';
+        // Medium-short without complex keywords → simple
+        if (tokenEst < 25 && !_COMPLEX_KEYWORDS.test(text)) return 'simple';
+        return 'complex';
+    }
+
+    function computeMaxTokens(complexity, context) {
+        // Heavy contexts always get full budget
+        if (context && context.cascadeDiagnostic) return 4096;
+        if (context && context.calculationRules && context.calculationRules.length > 0) return 4096;
+        if (context && context.needsDescriptionHelp) return 4096;
+        // Simple queries get minimal budget
+        if (complexity === 'simple') return 512;
+        // Default complex
+        return 1536;
+    }
+
     // ── Call AI Edge Function ──
     var _aiRetried401 = false;
     // Rough token estimate: ~4 chars per token for French text, ~3 for JSON
@@ -1568,6 +1600,17 @@
             if (Array.isArray(m.content)) return m.content.length > 0;
             return true;
         });
+        // Classify query complexity for model routing + adaptive max_tokens
+        var lastUserMsg = '';
+        for (var i = cleanMessages.length - 1; i >= 0; i--) {
+            if (cleanMessages[i].role === 'user') {
+                var c = cleanMessages[i].content;
+                lastUserMsg = typeof c === 'string' ? c : (Array.isArray(c) ? (c.find(function(b) { return b.type === 'text'; }) || {}).text || '' : '');
+                break;
+            }
+        }
+        var complexity = classifyQueryComplexity(lastUserMsg);
+        var adaptiveMaxTokens = computeMaxTokens(complexity, context);
         // Token measurement
         var ctxTokens = estimateTokens(context);
         var msgTokens = estimateTokens(cleanMessages);
@@ -1579,11 +1622,17 @@
             ', total: ~' + (ctxTokens + msgTokens) +
             ' | catalogue: ~' + catTokens + ', roomDetail: ~' + roomDetailTokens +
             ', rules: ~' + rulesTokens + ', diag: ~' + diagTokens +
-            ', msgCount: ' + cleanMessages.length);
+            ', msgCount: ' + cleanMessages.length +
+            ' | complexity: ' + complexity + ', max_tokens: ' + adaptiveMaxTokens);
         var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/ai-assistant', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: cleanMessages, context: context })
+            body: JSON.stringify({
+                messages: cleanMessages,
+                context: context,
+                query_complexity: complexity,
+                max_tokens: adaptiveMaxTokens
+            })
         });
         if (!resp.ok) {
             // Auto-retry on 429 rate limit (wait 15s, one retry)
@@ -1614,6 +1663,9 @@
             } catch(e) { if (e.message) throw e; throw new Error('Erreur ' + resp.status); }
         }
         var data = await resp.json();
+        if (data.model_used) {
+            console.log('[AI] Model used: ' + data.model_used + ' | complexity: ' + complexity);
+        }
         return data;
     }
 
@@ -1965,20 +2017,15 @@
             case 'write_description': {
                 var gid = findGroupIdByName(input.room_name);
                 if (!gid) return { error: 'Pièce introuvable: ' + input.room_name };
-                var textarea = document.getElementById(gid + '-clientDesc');
-                if (textarea) {
-                    // AI sends HTML — store as HTML, show plain text in textarea
-                    var descHtml = input.description_html || '';
-                    roomDescHTML[gid] = descHtml;
-                    textarea.value = htmlToText(descHtml);
-                    roomDescEN[gid] = '';
-                    if (roomMap[gid]) {
-                        updateRoom(roomMap[gid], { client_description: descHtml, client_description_en: '' });
-                    }
-                    showSaveIndicator();
-                    return { success: true, room: input.room_name };
+                var descHtml = input.description_html || '';
+                roomDescHTML[gid] = descHtml;
+                roomDescEN[gid] = '';
+                if (roomMap[gid]) {
+                    updateRoom(roomMap[gid], { client_description: descHtml, client_description_en: '' });
                 }
-                return { error: 'Textarea introuvable' };
+                refreshDescriptionDisplay(gid);
+                showSaveIndicator();
+                return { success: true, room: input.room_name };
             }
             case 'add_catalogue_item': {
                 var gid = findGroupIdByName(input.room_name);
@@ -6084,6 +6131,9 @@
         .cb-item-desc { flex: 1; color: #0f172a; }
         .cb-item-type { color: #94a3b8; font-size: 10px; }
         .cb-item-special { color: var(--sw-navy); font-weight: 500; }
+        .cb-item-action { display: flex; align-items: center; gap: 8px; }
+        .cb-action-icon { width: 15px; height: 15px; color: var(--sw-muted); flex-shrink: 0; }
+        .cb-item-action:hover .cb-action-icon { color: var(--sw-navy); }
         .cb-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
         .cb-pending-toast { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 12px; padding: 6px 14px; border-radius: 6px; white-space: nowrap; z-index: 10; animation: cbToastIn 0.15s ease; }
         @keyframes cbToastIn { from { opacity: 0; transform: translateX(-50%) translateY(4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
@@ -6733,10 +6783,19 @@
         }
         .client-desc-textarea {
             width: 100%; padding: 8px 12px; border: 1px solid #e8e8e8; border-radius: 6px;
-            font-family: inherit; font-size: 13px; resize: vertical; min-height: 40px;
+            font-family: inherit; font-size: 13px; min-height: 40px; max-height: 300px;
             background: #fafafa; color: #333; line-height: 1.5;
+            overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;
         }
         .client-desc-textarea:focus { outline: none; border-color: var(--sw-navy); background: #fff; }
+        .client-desc-textarea:empty::before {
+            content: 'Description visible par le client pour cette pièce...';
+            color: #aaa; font-style: italic; pointer-events: none;
+        }
+        .client-desc-textarea p { margin: 0 0 4px 0; }
+        .client-desc-textarea strong { font-weight: 600; color: #222; }
+        .client-desc-textarea ul { margin: 2px 0 6px 0; padding-left: 18px; }
+        .client-desc-textarea li { margin-bottom: 2px; }
         .client-desc-display {
             width: 100%; padding: 8px 12px; border: 1px solid #e8e8e8; border-radius: 6px;
             font-family: inherit; font-size: 13px; min-height: 40px;
@@ -6881,6 +6940,16 @@
             transition: border-color 0.15s, color 0.15s;
         }
         .ajout-edit-btn:hover { border-color: var(--stele-green); color: var(--stele-green); }
+        /* Orange row: custom item with no price */
+        .calc-row.custom-no-price { background: #FFF7ED !important; border-left: 3px solid #F97316; }
+        .calc-row.custom-no-price .ajout-edit-btn { border-color: #FDBA74; color: #C2410C; }
+        /* Badge missing prices on room header */
+        .missing-price-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #FFF7ED; color: #C2410C; border: 1px solid #FDBA74;
+            font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+            margin-left: 8px; white-space: nowrap;
+        }
 
         /* Custom item modal */
         .custom-item-modal {
@@ -6924,8 +6993,10 @@
         .cim-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #f1f5f9; }
         .cim-btn-cancel { background: #f3f4f6; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; }
         .cim-btn-cancel:hover { background: #e5e7eb; }
-        .cim-btn-save { background: var(--stele-green); color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
-        .cim-btn-save:hover { background: #3a4d3f; }
+        .cim-btn-save { background: var(--sw-navy); color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .cim-btn-save:hover { background: var(--sw-navy-hover); }
+        .cim-btn-catalogue { background: none; border: 1px solid #d1d5db; color: #64748b; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
+        .cim-btn-catalogue:hover { border-color: var(--sw-navy); color: var(--sw-navy); }
 
         /* Modal */
         .modal-overlay {
@@ -11417,8 +11488,12 @@
 
             // Special options
             html += '<div class="cb-group-label">Autre</div>';
-            html += '<div class="cb-item" onclick="selectComboboxItem(\'__PROPOSER__\')"><span class="cb-item-special">\ud83d\udccb Proposer un nouvel article...</span></div>';
-            html += '<div class="cb-item" onclick="selectComboboxItem(\'__AJOUT__\')"><span class="cb-item-special">\u2795 Ajout personnalis\u00e9...</span></div>';
+            html += '<div class="cb-item cb-item-action" onclick="selectComboboxItem(\'__PROPOSER__\')">'
+                + '<svg class="cb-action-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="8.5" x2="9" y2="8.5"/><line x1="5" y1="11" x2="7" y2="11"/></svg>'
+                + '<span class="cb-item-special">Proposer un nouvel article...</span></div>';
+            html += '<div class="cb-item cb-item-action" onclick="selectComboboxItem(\'__AJOUT__\')">'
+                + '<svg class="cb-action-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>'
+                + '<span class="cb-item-special">Ajout personnalis\u00e9...</span></div>';
 
             if (items.length === 0 && q) {
                 html = '<div class="cb-empty">Aucun article trouv\u00e9 pour \u00ab ' + escapeHtml(q) + ' \u00bb</div>' + html;
@@ -11950,10 +12025,9 @@
                     <label class="client-desc-label">Description client</label>
                     <div class="ai-field-wrap">
                         <div class="client-desc-display" id="${groupId}-clientDescDisplay" onclick="editClientDescription('${groupId}')"><span class="desc-placeholder">Description visible par le client...</span></div>
-                        <textarea class="client-desc-textarea" id="${groupId}-clientDesc"
-                                  placeholder="Description visible par le client pour cette pi&egrave;ce..."
-                                  rows="2" style="display:none;"
-                                  onblur="finishEditDescription('${groupId}')"></textarea>
+                        <div class="client-desc-textarea" id="${groupId}-clientDesc"
+                             contenteditable="true" style="display:none;"
+                             onblur="finishEditDescription('${groupId}')"></div>
                         <button class="btn-ai-dot" id="${groupId}-aiDesc" onclick="aiGenerateDescription('${groupId}')" title="G&eacute;n&eacute;rer ou am&eacute;liorer la description avec l'AI">
                             <span class="ai-dot"></span>
                         </button>
@@ -12267,10 +12341,39 @@
             if (upxEl) upxEl.textContent = formatPrice(sellPrice); else unitPriceEl.textContent = formatPrice(sellPrice);
         }
 
+        function updateMissingPriceBadge(groupId) {
+            var rows = document.querySelectorAll('#' + groupId + '-rows .calc-row');
+            var missing = 0;
+            rows.forEach(function(r) {
+                var sel = r.querySelector('.item-select');
+                if (sel && sel.value === '__AJOUT__') {
+                    var cd = _customItemDataMap[r.id] || {};
+                    if (!cd.unit_price || cd.unit_price === 0) missing++;
+                }
+            });
+            var badge = document.getElementById(groupId + '-missingPrice');
+            if (!badge) {
+                // Create badge next to group name input
+                var nameInput = document.getElementById(groupId + '-name');
+                if (!nameInput) return;
+                badge = document.createElement('span');
+                badge.id = groupId + '-missingPrice';
+                badge.className = 'missing-price-badge';
+                nameInput.parentNode.insertBefore(badge, nameInput.nextSibling);
+            }
+            if (missing > 0) {
+                badge.textContent = missing + ' prix manquant' + (missing > 1 ? 's' : '');
+                badge.style.display = '';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
         function transformToNormalMode(row, rowId) {
             row.dataset.mode = 'normal';
             delete row.dataset.ajoutMode;
             row.style.background = '';
+            row.classList.remove('custom-no-price');
             document.getElementById(rowId + '-code').innerHTML = '\u2014';
             document.getElementById(rowId + '-code').style.gridColumn = '';
             document.getElementById(rowId + '-type').innerHTML = '\u2014';
@@ -12279,6 +12382,8 @@
             if (upxN) upxN.textContent = '\u2014'; else if (upEl) upEl.innerHTML = '\u2014';
             document.getElementById(rowId + '-total').textContent = '0,00 $';
             delete _customItemDataMap[rowId];
+            var grp = row.closest('.furniture-group');
+            if (grp) updateMissingPriceBadge(grp.id);
         }
 
         // ── Per-line Override Popover ──
@@ -12714,10 +12819,38 @@
             var row = document.getElementById(rowId);
             if (row) {
                 transformToAjoutMode(row, rowId);
+                row.classList.toggle('custom-no-price', cost === 0);
                 updateRow(rowId);
+                var grp = row.closest('.furniture-group');
+                if (grp) updateMissingPriceBadge(grp.id);
             }
 
             closeCustomItemModal();
+        }
+
+        async function saveCustomToCatalogue() {
+            if (!_cimRowId) return;
+            var desc = document.getElementById('cimDescription').value.trim();
+            var cost = parseFloat(document.getElementById('cimCost').value) || 0;
+            var markup = parseFloat(document.getElementById('cimMarkup').value) || 0;
+            if (!desc) {
+                steleAlert('Entrez une description avant de sauvegarder au catalogue.');
+                return;
+            }
+            // Save current modal state first
+            await saveCustomItemModal();
+            // Open catalogue editor in iframe with pre-filled data
+            var params = new URLSearchParams({
+                new: '1',
+                embedded: '1',
+                prefill_desc: desc,
+                prefill_price: String(Math.round(cost * (1 + markup / 100) * 100) / 100),
+                prefill_type: 'unitaire'
+            });
+            var overlay = document.getElementById('catEditOverlay');
+            var iframe = document.getElementById('catEditIframe');
+            iframe.src = 'catalogue_prix_stele_complet.html?' + params.toString();
+            overlay.classList.add('active');
         }
 
         // ── Drag & drop + file management ──
@@ -12998,6 +13131,9 @@
                 var ajoutGroup = row.closest('.furniture-group');
                 var ajoutMult = ajoutGroup ? getModifierMultiplier(ajoutGroup.id) : 1;
                 totalEl.textContent = formatPrice(cost * (1 + markup / 100) * qty * ajoutMult);
+                // Orange highlight when no price
+                row.classList.toggle('custom-no-price', cost === 0);
+                if (ajoutGroup) updateMissingPriceBadge(ajoutGroup.id);
             } else {
                 if (currentMode === 'ajout') transformToNormalMode(row, rowId);
                 const codeEl = document.getElementById(`${rowId}-code`);
@@ -15083,11 +15219,10 @@
                 });
                 if (!hasItems) return;
                 if (mIdx >= result.meubles.length) return;
-                var textarea = group.querySelector('.client-desc-textarea');
-                if (textarea) result.meubles[mIdx].clientDescription = textarea.value || '';
+                var groupId = group.id;
+                result.meubles[mIdx].clientDescription = roomDescHTML[groupId] || '';
                 var instCheckbox = group.querySelector('.install-toggle');
                 if (instCheckbox) result.meubles[mIdx].installationIncluded = instCheckbox.checked;
-                var groupId = group.id;
                 result.meubles[mIdx].mediaUrls = (groupImages[groupId] || []).map(function(img) {
                     return { url: img.url || null, originalUrl: img.originalUrl || null, mediaId: img.mediaId || null, cropRatio: img.cropRatio || null, name: img.name };
                 });
@@ -16337,12 +16472,7 @@
                 var gid = g.id;
                 if (roomDescEN[gid]) return; // already has EN translation
                 var frText;
-                if (roomDescHTML[gid]) {
-                    frText = roomDescHTML[gid];
-                } else {
-                    var descEl = document.getElementById(gid + '-clientDesc');
-                    frText = descEl ? descEl.value.trim() : '';
-                }
+                frText = roomDescHTML[gid] || '';
                 if (frText) {
                     texts.push({ key: 'room_' + gid, text: frText });
                 }
@@ -16510,12 +16640,8 @@
         async function aiGenerateDescription(groupId) {
             var btn = document.getElementById(groupId + '-aiDesc');
             if (!btn) return;
-            var textarea = document.getElementById(groupId + '-clientDesc');
-            if (!textarea) return;
-
             var existingHTML = roomDescHTML[groupId] || '';
-            var existingText = textarea.value.trim();
-            var hasExisting = !!(existingText || existingHTML);
+            var hasExisting = !!existingHTML;
             var detail = collectRoomDetail(groupId);
             if (!detail) return;
 
@@ -16677,11 +16803,7 @@
             var html = panel.dataset.proposalHtml;
             if (!html) return;
 
-            var textarea = document.getElementById(groupId + '-clientDesc');
-            if (!textarea) return;
-
             roomDescHTML[groupId] = html;
-            textarea.value = htmlToText(html);
             refreshDescriptionDisplay(groupId);
             roomDescEN[groupId] = '';
 
@@ -16701,25 +16823,13 @@
             var selText = sel ? sel.toString().trim() : '';
             if (!selText) return;
 
-            var textarea = document.getElementById(groupId + '-clientDesc');
-            if (!textarea) return;
-
-            // Switch to textarea edit mode to insert
-            var display = document.getElementById(groupId + '-clientDescDisplay');
-            if (display) display.style.display = 'none';
-            textarea.style.display = '';
-
-            var cursorPos = textarea.selectionStart || textarea.value.length;
-            var before = textarea.value.substring(0, cursorPos);
-            var after = textarea.value.substring(cursorPos);
-            // Add newline separator if inserting into non-empty text
-            var sep = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
-            textarea.value = before + sep + selText + after;
-
-            // Update HTML cache and save
-            var html = textToHtml(textarea.value);
+            // Append selected text as HTML to existing description
+            var existing = roomDescHTML[groupId] || '';
+            var insertHtml = '<p>' + escapeHtml(selText).replace(/\n/g, '<br>') + '</p>';
+            var html = existing ? existing + insertHtml : insertHtml;
             roomDescHTML[groupId] = html;
             roomDescEN[groupId] = '';
+            refreshDescriptionDisplay(groupId);
 
             if (roomMap[groupId]) {
                 authenticatedFetch(SUPABASE_URL + '/rest/v1/project_rooms?id=eq.' + roomMap[groupId], {
@@ -16729,9 +16839,6 @@
                 });
             }
             showSaveIndicator();
-
-            // Finish edit mode — show display
-            finishEditDescription(groupId);
 
             // Clear selection and hide insert button
             sel.removeAllRanges();
@@ -16750,13 +16857,7 @@
             var groups = document.querySelectorAll('#calculatorView .furniture-group');
             groups.forEach(function(g) {
                 var gid = g.id;
-                var frText;
-                if (useHtml && roomDescHTML[gid]) {
-                    frText = roomDescHTML[gid]; // HTML for translation
-                } else {
-                    var descEl = document.getElementById(gid + '-clientDesc');
-                    frText = descEl ? descEl.value.trim() : '';
-                }
+                var frText = roomDescHTML[gid] || '';
                 if (frText) {
                     texts.push({ key: 'room_' + gid, text: frText });
                 }
@@ -16795,9 +16896,7 @@
                         if (roomMap[gid]) {
                             updateRoom(roomMap[gid], { client_description: results[key], client_description_en: '' });
                         }
-                        // Sync calc textarea + display with plain text
-                        var calcDesc = document.getElementById(gid + '-clientDesc');
-                        if (calcDesc) { calcDesc.value = htmlToText(results[key]); refreshDescriptionDisplay(gid); }
+                        refreshDescriptionDisplay(gid);
                         // Clear stale EN
                         roomDescEN[gid] = '';
                     }
@@ -16855,9 +16954,7 @@
                     if (roomMap[gid]) {
                         updateRoom(roomMap[gid], { client_description: optimized, client_description_en: '' });
                     }
-                    // Sync calculator textarea + display
-                    var descTA = document.getElementById(gid + '-clientDesc');
-                    if (descTA) { descTA.value = htmlToText(optimized); refreshDescriptionDisplay(gid); }
+                    refreshDescriptionDisplay(gid);
                     // Clear stale EN
                     roomDescEN[gid] = '';
                     showSaveIndicator();
@@ -17351,9 +17448,7 @@
 
                 var allImgs = groupImages[groupId] || [];
                 var imgs = allImgs.filter(function(img) { return img.showInQuote; });
-                var descEl = document.getElementById(groupId + '-clientDesc');
-                var descPlain = descEl ? descEl.value : '';
-                var descFr = roomDescHTML[groupId] || descPlain;
+                var descFr = roomDescHTML[groupId] || '';
                 var descEn = roomDescEN[groupId] || '';
                 var desc = currentLang === 'en' ? (descEn || descFr) : descFr;
                 var hasImages = imgs.length > 0;
@@ -17515,8 +17610,6 @@
                     } else {
                         roomDescHTML[gid] = htmlContent;
                         updateRoom(roomMap[gid], { client_description: htmlContent });
-                        var calcDesc = document.getElementById(gid + '-clientDesc');
-                        if (calcDesc) calcDesc.value = this.textContent; // plain text for calc textarea
                         // Stale detection: FR changed → clear EN
                         if (roomDescEN[gid]) {
                             roomDescEN[gid] = '';
@@ -19008,8 +19101,6 @@
                     }
 
                     if (room.client_description) {
-                        var descEl = document.getElementById(groupId + '-clientDesc');
-                        if (descEl) descEl.value = htmlToText(room.client_description);
                         roomDescHTML[groupId] = room.client_description;
                         refreshDescriptionDisplay(groupId);
                     }
@@ -19509,8 +19600,12 @@
             var container = document.getElementById('calculatorView');
             if (!container) return;
 
-            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-edit-btn, .client-desc-textarea').forEach(function(el) {
+            container.querySelectorAll('.item-select, .qty-input, .markup-input, .ajout-edit-btn').forEach(function(el) {
                 el.disabled = !editable;
+                el.style.opacity = editable ? '' : '0.6';
+            });
+            container.querySelectorAll('.client-desc-textarea').forEach(function(el) {
+                el.contentEditable = editable ? 'true' : 'false';
                 el.style.opacity = editable ? '' : '0.6';
             });
 
@@ -22423,6 +22518,8 @@
       <div id="cimFileList" class="cim-file-list"></div>
     </div>
     <div class="cim-footer">
+      <button class="cim-btn-catalogue" onclick="saveCustomToCatalogue()" title="Promouvoir en article catalogue permanent">&#x2B06; Sauvegarder au catalogue</button>
+      <div style="flex:1"></div>
       <button class="cim-btn-cancel" onclick="closeCustomItemModal()">Annuler</button>
       <button class="cim-btn-save" onclick="saveCustomItemModal()">Enregistrer</button>
     </div>

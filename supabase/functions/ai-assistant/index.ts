@@ -454,6 +454,9 @@ Utilise ces logs pour identifier :
       + learnings.map((r, i) => `${i + 1}. ${r}`).join("\n");
   }
 
+  // Token optimization: concision instruction
+  dynamicParts += "\n\n## Concision\nRéponds en moins de 150 mots sauf si une analyse détaillée est explicitement demandée. Va droit au but. Pour les confirmations ou questions simples, une phrase suffit.";
+
   return staticPrompt + dynamicParts;
 }
 
@@ -793,7 +796,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, context, prompt_key, tools_enabled } = await req.json();
+    const { messages, context, prompt_key, tools_enabled, query_complexity, max_tokens: clientMaxTokens } = await req.json();
 
     if (!messages || messages.length === 0) {
       return new Response(
@@ -845,9 +848,19 @@ serve(async (req) => {
       return true;
     });
 
+    // Model routing: simple queries → Haiku (cheaper), complex → Sonnet
+    const isSimple = query_complexity === "simple";
+    const selectedModel = isSimple
+      ? "claude-haiku-4-5-20251001"
+      : "claude-sonnet-4-5-20250929";
+    // Adaptive max_tokens from client (clamped 512-4096), default 4096
+    const effectiveMaxTokens = clientMaxTokens
+      ? Math.max(512, Math.min(4096, Number(clientMaxTokens)))
+      : 4096;
+
     const body: any = {
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 4096,
+      model: selectedModel,
+      max_tokens: effectiveMaxTokens,
       system: systemPrompt,
       messages: cleanMessages,
       tools: allTools,
@@ -934,6 +947,7 @@ serve(async (req) => {
         content: data.content,
         stop_reason: data.stop_reason,
         usage: data.usage,
+        model_used: selectedModel,
       }),
       {
         headers: { ...cors, "Content-Type": "application/json" },

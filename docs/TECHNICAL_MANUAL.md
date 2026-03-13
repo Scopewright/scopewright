@@ -33,7 +33,7 @@
 |--------|------------|--------|
 | Frontend | HTML/CSS/JS vanilla | Fichiers autonomes, pas de build system, pas de framework |
 | Backend | Supabase | PostgreSQL + Auth + Storage + Edge Functions |
-| AI | Anthropic API | Claude Sonnet 4.5 (assistant), Haiku 4.5 (traduction), Sonnet 4 (JSON) |
+| AI | Anthropic API | Claude Sonnet 4.5 (assistant complexe) / Haiku 4.5 (assistant simple + traduction), Sonnet 4 (JSON). Routing dynamique par complexité |
 | Déploiement | Netlify | Auto-deploy depuis GitHub (branche `main`) |
 | Email | Google Apps Script | Envoi de soumissions par courriel |
 | CDN | Google Fonts, PDF.js | Inter, Cormorant Garamond, PDF.js 3.11.174 |
@@ -783,12 +783,13 @@ calculateur.html                    ai-assistant Edge Function
   ├── collectAiContext() ────────────►     │
   │   (projet, rooms, items,              │
   │    catalogue, taux, DM,               ├── buildSystemPrompt()
-  │    contacts, benchmarks)              │   (contexte dynamique + learnings)
-  │                                       │
+  │    contacts, benchmarks,              │   (contexte dynamique + learnings)
+  │    query_complexity, max_tokens)      │
   ├── messages[] ───────────────────►     ├── Anthropic API
-  │   (historique conversation)           │   claude-sonnet-4-5
-  │                                       │   max_tokens: 4096
-  │◄──────────────────────────────────    │   10 tools
+  │   (historique conversation)           │   simple → claude-haiku-4-5
+  │                                       │   complex → claude-sonnet-4-5
+  │◄──────────────────────────────────    │   max_tokens: 512/1536/4096 adaptatif
+  │   { content, tool_use[], model_used } │   10 tools
   │   { content, tool_use[] }             │
   │                                       │
   ├── formatPendingActions()              │
@@ -806,7 +807,7 @@ calculateur.html                    ai-assistant Edge Function
 
 | Edge Function | Fichiers appelants | Modèle | Streaming | Usage |
 |----|------|-------|-----------|-------|
-| `ai-assistant` | calculateur.html, approbation.html, catalogue.html | Sonnet 4.5 | Non | Chat estimateur, review approbation |
+| `ai-assistant` | calculateur.html, approbation.html, catalogue.html | Sonnet 4.5 / Haiku 4.5 (routing dynamique) | Non | Chat estimateur, review approbation |
 | `translate` | catalogue.html, calculateur.html, approbation.html | Haiku 4.5 / Sonnet 4 | Non | Traduction, optimisation, génération JSON |
 | `catalogue-import` | catalogue.html | Sonnet 4.5 | SSE | Chat import catalogue |
 | `contacts-import` | clients.html | Sonnet 4.5 | SSE | Chat import contacts |

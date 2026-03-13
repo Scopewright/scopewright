@@ -634,3 +634,27 @@
 - L'utilisateur ne peut pas accidentellement modifier une quantité calculée
 - Le pattern `cascade-manual-edit` (bordure indigo) continue de fonctionner pour les prix override
 - Si l'utilisateur veut une quantité différente, il doit modifier les dimensions du parent ou les formules du catalogue
+
+## DEC-034 — Routing dynamique Haiku/Sonnet + max_tokens adaptatif
+
+**Date** : 2026-03-13
+**Contexte** : Coûts API ~86$/mois pour un seul atelier — trop élevé pour un modèle SaaS à 149-249$/siège. Sonnet 4.5 ($3/$15 per M tokens) utilisé pour toutes les requêtes, y compris les confirmations triviales.
+
+**Décision** : Routing dynamique côté client + serveur.
+- `classifyQueryComplexity(msg)` côté client classifie en `simple`/`complex` via patterns regex + estimation tokens
+- `computeMaxTokens(complexity, context)` retourne 512 (simple), 1536 (complex standard), 4096 (descriptions/cascade/rentabilité)
+- Edge function `ai-assistant` route : `simple` → `claude-haiku-4-5-20251001` ($0.80/$4), `complex` → `claude-sonnet-4-5-20250929` ($3/$15)
+- Instruction de concision ajoutée au system prompt : "Réponds en moins de 150 mots sauf analyse détaillée explicitement demandée"
+- `model_used` retourné dans la réponse pour audit
+
+**Alternatives considérées** :
+- **Tout Haiku** : qualité insuffisante pour les analyses de rentabilité et diagnostics cascade
+- **Prompt caching** : non disponible via API standard Anthropic au moment de la décision
+- **Réduction du contexte** : déjà optimisé (catalogue filtré, sections conditionnelles)
+
+**Conséquences** :
+- Réduction estimée ~30-50% des coûts API mensuels
+- Les confirmations/questions simples (60%+ des appels) coûtent 4× moins cher
+- Les analyses complexes gardent la qualité Sonnet 4.5
+- Le `model_used` permet de monitorer la distribution et ajuster les seuils
+- Risque : Haiku peut être moins précis sur les tool calls complexes — mitigé car les requêtes simples n'impliquent généralement pas de tools multi-étapes

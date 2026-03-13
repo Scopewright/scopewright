@@ -800,53 +800,30 @@
                     var currentValue = (data && data[0] && data[0].value) ? data[0].value : '';
                     if (typeof currentValue !== 'string') currentValue = '';
 
-                    // Tolerant matching helper: normalize whitespace for comparison
-                    function _normWs(s) { return (s || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').trim(); }
-                    // Find the original substring in currentValue that matches needle after normalization
-                    function _tolerantFind(haystack, needle) {
-                        var normNeedle = _normWs(needle);
-                        if (!normNeedle) return -1;
+                    // Tolerant matching: convert needle into a regex that tolerates whitespace variations
+                    function _escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+                    function _buildTolerantRegex(needle) {
+                        // Normalize needle: collapse \r\n → \n, collapse whitespace runs
+                        var norm = (needle || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        // Split on whitespace runs, escape each chunk, rejoin with \s+ pattern
+                        var chunks = norm.split(/\s+/).filter(function(c) { return c.length > 0; });
+                        if (chunks.length === 0) return null;
+                        // Each whitespace gap matches any whitespace sequence (spaces, tabs, newlines)
+                        var pattern = chunks.map(_escRegex).join('\\s+');
+                        try { return new RegExp(pattern); } catch(e) { return null; }
+                    }
+                    // Returns { start, end } of the match in haystack, or null
+                    function _tolerantMatch(haystack, needle) {
+                        if (!needle || !haystack) return null;
                         // Try exact first
                         var exact = haystack.indexOf(needle);
-                        if (exact !== -1) return exact;
-                        // Sliding window: find a substring whose normalized form matches
-                        var normHay = _normWs(haystack);
-                        var nIdx = normHay.indexOf(normNeedle);
-                        if (nIdx === -1) return -1;
-                        // Map normalized index back to original — scan original char by char
-                        var oi = 0, ni = 0;
-                        // Skip leading whitespace that was trimmed
-                        while (oi < haystack.length && /\s/.test(haystack[oi])) oi++;
-                        while (ni < nIdx && oi < haystack.length) {
-                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; ni++; }
-                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; ni++; }
-                            else { oi++; ni++; }
-                        }
-                        var startOi = oi;
-                        // Now find the end: consume normNeedle.length normalized chars
-                        var consumed = 0;
-                        while (consumed < normNeedle.length && oi < haystack.length) {
-                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; consumed++; }
-                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; consumed++; }
-                            else { oi++; consumed++; }
-                        }
-                        return startOi;
-                    }
-                    function _tolerantFindEnd(haystack, needle) {
-                        var normNeedle = _normWs(needle);
-                        if (!normNeedle) return -1;
-                        var exact = haystack.indexOf(needle);
-                        if (exact !== -1) return exact + needle.length;
-                        var start = _tolerantFind(haystack, needle);
-                        if (start === -1) return -1;
-                        // Consume the original chars matching the normalized needle
-                        var oi = start, consumed = 0;
-                        while (consumed < normNeedle.length && oi < haystack.length) {
-                            if (/[ \t]/.test(haystack[oi])) { while (oi < haystack.length && /[ \t]/.test(haystack[oi])) oi++; consumed++; }
-                            else if (haystack[oi] === '\r') { oi++; if (haystack[oi] === '\n') oi++; consumed++; }
-                            else { oi++; consumed++; }
-                        }
-                        return oi;
+                        if (exact !== -1) return { start: exact, end: exact + needle.length };
+                        // Try regex-based tolerant match
+                        var re = _buildTolerantRegex(needle);
+                        if (!re) return null;
+                        var m = re.exec(haystack);
+                        if (!m) return null;
+                        return { start: m.index, end: m.index + m[0].length };
                     }
 
                     var newValue = null;
@@ -854,22 +831,21 @@
 
                     if (input.insert_after && input.content) {
                         // Insert mode: find anchor, insert content after it
-                        var anchorEnd = _tolerantFindEnd(currentValue, input.insert_after);
-                        if (anchorEnd === -1) {
+                        var anchorMatch = _tolerantMatch(currentValue, input.insert_after);
+                        if (!anchorMatch) {
                             _messages.push({ role: 'system', content: 'Ancrage introuvable dans le prompt.' });
                         } else {
-                            newValue = currentValue.slice(0, anchorEnd) + input.content + currentValue.slice(anchorEnd);
+                            newValue = currentValue.slice(0, anchorMatch.end) + input.content + currentValue.slice(anchorMatch.end);
                             logOld = '(insertion apr\u00e8s) ' + input.insert_after.substring(0, 80);
                             logNew = input.content;
                         }
                     } else if (input.old_text && input.new_text) {
                         // Replace mode with tolerant matching
-                        var matchStart = _tolerantFind(currentValue, input.old_text);
-                        if (matchStart === -1) {
+                        var replaceMatch = _tolerantMatch(currentValue, input.old_text);
+                        if (!replaceMatch) {
                             _messages.push({ role: 'system', content: 'Texte \u00e0 remplacer introuvable dans le prompt.' });
                         } else {
-                            var matchEnd = _tolerantFindEnd(currentValue, input.old_text);
-                            newValue = currentValue.slice(0, matchStart) + input.new_text + currentValue.slice(matchEnd);
+                            newValue = currentValue.slice(0, replaceMatch.start) + input.new_text + currentValue.slice(replaceMatch.end);
                             logOld = input.old_text;
                             logNew = input.new_text;
                         }

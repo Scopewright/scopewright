@@ -12107,7 +12107,7 @@
                 <div class="cell-remove">
                     <button class="btn-note" onclick="openNotePopover('${rowId}', this)" title="Note interne">&#128172;</button>
                     <button class="btn-revert-manual" onclick="revertCascadeManualEdit('${rowId}')" title="Restaurer la valeur cascade">&#8634;</button>
-                    <button class="btn-remove" onclick="removeRow('${rowId}')" title="Supprimer">×</button>
+                    <button class="btn-remove" onclick="confirmRemoveRow('${rowId}')" title="Supprimer">×</button>
                 </div>
             `;
 
@@ -13449,6 +13449,19 @@
                 }
                 propagateTagToDescendants(c.rowId, tag);
             });
+        }
+
+        function confirmRemoveRow(rowId) {
+            var row = document.getElementById(rowId);
+            if (!row) return;
+            var sel = row.querySelector('.item-select');
+            var desc = '';
+            if (sel && sel.value && sel.value !== '__PROPOSER__' && sel.value !== '__AJOUT__') {
+                var catItem = CATALOGUE_DATA.find(function(i) { return i.id === sel.value; });
+                desc = catItem ? catItem.description : sel.value;
+            }
+            var msg = desc ? 'Supprimer \u00ab\u00a0' + desc.substring(0, 50) + '\u00a0\u00bb ?' : 'Supprimer cette ligne ?';
+            steleConfirm(msg, 'Supprimer', function() { removeRow(rowId); });
         }
 
         function removeRow(rowId, opts) {
@@ -22095,7 +22108,7 @@
             toggleProjectInstallation, toggleInstallation, toggleRowInstallation,
             toggleCascadeChildren, toggleShowAllCascade,
             // Lignes
-            addRow, removeRow, transformToAjoutMode, transformToNormalMode,
+            addRow, removeRow, confirmRemoveRow, transformToAjoutMode, transformToNormalMode,
             refreshAllSelects, updateRow, saveRowTag, getRowTotal,
             getRoomBaseSubtotal, updateGroupSubtotal,
             // Article personnalisé

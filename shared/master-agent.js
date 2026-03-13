@@ -812,18 +812,74 @@
                         var pattern = chunks.map(_escRegex).join('\\s+');
                         try { return new RegExp(pattern); } catch(e) { return null; }
                     }
+                    // Extract significant words from a line (strip bullets, backticks, punctuation, numbers-only tokens)
+                    function _sigWords(line) {
+                        return (line || '').replace(/`/g, '').replace(/^[\s\-\*•>#\d.)\]]+/, '').split(/\s+/).filter(function(w) {
+                            return w.length > 2 && !/^[\d.,:;!?(){}\[\]]+$/.test(w);
+                        }).map(function(w) { return w.toLowerCase(); });
+                    }
+                    // Fuzzy line-by-line matching: find a contiguous block in haystack matching ≥85% of needle lines
+                    function _fuzzyLineMatch(haystack, needle) {
+                        var needleLines = needle.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+                        var needleSig = needleLines.map(_sigWords).filter(function(ws) { return ws.length > 0; });
+                        if (needleSig.length < 2) return null; // too short for fuzzy
+                        var hayLines = haystack.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+                        var haySig = hayLines.map(_sigWords);
+                        var threshold = Math.ceil(needleSig.length * 0.85);
+                        // Check if haystack line contains all significant words of a needle line (in order)
+                        function lineMatches(hWords, nWords) {
+                            if (nWords.length === 0) return true;
+                            var hi = 0;
+                            for (var ni = 0; ni < nWords.length; ni++) {
+                                var found = false;
+                                while (hi < hWords.length) {
+                                    if (hWords[hi] === nWords[ni] || hWords[hi].indexOf(nWords[ni]) !== -1 || nWords[ni].indexOf(hWords[hi]) !== -1) { found = true; hi++; break; }
+                                    hi++;
+                                }
+                                if (!found) return false;
+                            }
+                            return true;
+                        }
+                        // Sliding window over haystack lines
+                        var bestStart = -1, bestEnd = -1, bestScore = 0;
+                        for (var start = 0; start <= hayLines.length - needleSig.length; start++) {
+                            var matched = 0, ni = 0;
+                            var end = start;
+                            while (ni < needleSig.length && end < hayLines.length) {
+                                if (lineMatches(haySig[end], needleSig[ni])) { matched++; ni++; }
+                                end++;
+                                if (end - start > needleSig.length * 2) break; // window too wide
+                            }
+                            if (matched >= threshold && matched > bestScore) {
+                                bestScore = matched;
+                                bestStart = start;
+                                bestEnd = end;
+                            }
+                        }
+                        if (bestStart === -1) return null;
+                        // Convert line indices to char offsets in original haystack
+                        var charStart = 0;
+                        for (var i = 0; i < bestStart; i++) charStart += hayLines[i].length + 1; // +1 for \n
+                        var charEnd = charStart;
+                        for (var j = bestStart; j < bestEnd; j++) charEnd += hayLines[j].length + 1;
+                        // Trim trailing newline
+                        if (charEnd > 0 && charEnd <= haystack.length) charEnd--;
+                        return { start: charStart, end: charEnd };
+                    }
                     // Returns { start, end } of the match in haystack, or null
                     function _tolerantMatch(haystack, needle) {
                         if (!needle || !haystack) return null;
-                        // Try exact first
+                        // 1) Exact match
                         var exact = haystack.indexOf(needle);
                         if (exact !== -1) return { start: exact, end: exact + needle.length };
-                        // Try regex-based tolerant match
+                        // 2) Regex whitespace-tolerant match
                         var re = _buildTolerantRegex(needle);
-                        if (!re) return null;
-                        var m = re.exec(haystack);
-                        if (!m) return null;
-                        return { start: m.index, end: m.index + m[0].length };
+                        if (re) {
+                            var m = re.exec(haystack);
+                            if (m) return { start: m.index, end: m.index + m[0].length };
+                        }
+                        // 3) Fuzzy line-by-line match (for bullets, backticks, mixed formatting)
+                        return _fuzzyLineMatch(haystack, needle);
                     }
 
                     var newValue = null;

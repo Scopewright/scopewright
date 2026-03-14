@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-10
+> **Dernière mise à jour** : 2026-03-14
 
 ---
 
@@ -42,17 +42,19 @@
 
 | Fichier | Rôle | Taille approx. |
 |---------|------|----------------|
-| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~21 700 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 500 lignes |
-| `admin.html` | Administration — 5 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI), 22 sections | ~3 970 lignes |
-| `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 200 lignes |
-| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
-| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
+| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~22 950 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 530 lignes |
+| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections | ~4 044 lignes |
+| `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 233 lignes |
+| `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 106 lignes |
+| `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 324 lignes |
 | `fiche.html` | Fiches de vente produits — présentation client d'un article catalogue | ~1 120 lignes |
 | `app.html` | Tableau de bord — grille 2 colonnes responsive, navigation vers les modules | ~685 lignes |
 | `login.html` | Authentification Supabase — email/password, refresh token | ~247 lignes |
-| `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~728 lignes |
-| `shared/pdf-export.js` | Export PDF server-side via PDFShift — `exportSubmissionPdf()`, `_sanitizePdfFilename()` | ~273 lignes |
+| `shared/presentation-client.js` | Fonctions présentation client — texte, descriptions, clauses, images, snapshot, status UI | ~766 lignes |
+| `shared/master-agent.js` | Agent Maître global drawer — FAB, chat UI, tool approval, doc sync, sanity badge, image paste/drop | ~1 606 lignes |
+| `shared/pdf-export.js` | Export PDF server-side via PDFShift — `exportSubmissionPdf()`, `_sanitizePdfFilename()` | ~249 lignes |
+| `shared/sanity-checks.js` | Sanity checks déterministes — `runSanityChecks(opts)`, 4 checks (presRuleKeys, descriptionsNotEmpty, totalNotZero, cascadeOrphans) | ~164 lignes |
 | `scopewright-tokens.css` | Design tokens — couleurs, rayons, ombres, espacements | Variables CSS |
 | `google_apps_script.gs` | Envoi email estimation (GAS) | ~240 lignes |
 
@@ -1301,17 +1303,18 @@ submission_unlock_logs (immuable)
 
 **Tolérance horloge** : 30 secondes sur l'expiration
 
-### 12.2 ai-assistant/index.ts (~924 lignes)
+### 12.2 ai-assistant/index.ts (~965 lignes)
 
-- **Modèle** : `claude-sonnet-4-5-20250929` (non-streaming)
-- **Max tokens** : 4096
+- **Modèle** : Routing dynamique — `claude-haiku-4-5-20251001` si `query_complexity === "simple"`, sinon `claude-sonnet-4-5-20250929` (non-streaming)
+- **Max tokens** : 512 (simple) / 1536 (complex) / 4096 (diagnostic), clampé 512-4096
 - **Prompt dynamique** : System prompt enrichi avec contexte projet complet (taux, dépenses, DM, rooms, items, catalogue, learnings)
 - **2 modes** : `ai_prompt_estimateur` (calculateur) et `ai_prompt_approval_review` (approbation)
-- **10 tools** définis avec schémas JSON
+- **9 tools** définis avec schémas JSON + `save_learning` server-side
 - **`save_learning`** exécuté côté serveur (INSERT direct dans `ai_learnings`)
 - **Boucle tool** : Si la réponse contient `save_learning`, exécute et relance pour réponse finale
+- **Sanitization** : `sanitizeConversationToolUse()` injecte `tool_result` synthétiques pour `tool_use` orphelins
 
-### 12.3 translate/index.ts (~603 lignes)
+### 12.3 translate/index.ts (~669 lignes)
 
 - **Modèles** : Haiku 4.5 (texte), Sonnet 4 (JSON)
 - **13 actions** couvrant traduction, optimisation, génération JSON, reformulation instruction, barèmes
@@ -1319,6 +1322,7 @@ submission_unlock_logs (immuable)
 - **Multi-texte** : Concaténation avec `===SEPARATOR===`
 - **Multimodal** : Support images base64 pour `import_components`
 - **Retry** : Backoff exponentiel (1s → 8s) sur 429/529, max 3 retries
+- **Learnings** : toujours injectés dans le prompt (contrairement à catalogue-import/contacts-import)
 
 ### 12.4 catalogue-import/index.ts (~581 lignes)
 
@@ -1326,12 +1330,28 @@ submission_unlock_logs (immuable)
 - **8 tools** : CRUD catalogue + analytics + audit + régénération
 - **Contexte dynamique** : Stats catalogue, catégories, codes existants, article ouvert, usage
 - **Streaming** : TransformStream relay des événements SSE Anthropic
+- **Bug connu** : n'injecte pas les learnings (contrairement à ai-assistant et translate)
 
-### 12.5 contacts-import/index.ts (~493 lignes)
+### 12.5 contacts-import/index.ts (~492 lignes)
 
 - **Modèle** : `claude-sonnet-4-5-20250929` (SSE streaming)
 - **10 tools** : CRUD contacts/companies + liaison + filtres + learning
 - **Contexte dynamique** : Counts contacts/companies, types configurés, learnings
+- **Bug connu** : n'injecte pas les learnings
+
+### 12.6 ai-master/index.ts (~688 lignes)
+
+- **Modèle** : `claude-sonnet-4-5-20250929` (non-streaming)
+- **9 tools** : 4 read-only auto-exécutés (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`) + 5 write avec approbation client (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`, `update_catalogue_item`)
+- **Context** : MASTER_CONTEXT.md + CLAUDE.md (section-based, keyword-matched) + données vivantes (`description_format_rules`, `expense_categories`, `taux_horaires`) + fraîcheur contexte
+- **`update_prompt_section`** : 3 niveaux de matching (exact, regex whitespace-tolerant, fuzzy line-by-line ≥85%)
+
+### 12.7 pdf-export/index.ts (~99 lignes)
+
+- **Modèle** : Aucun (pass-through vers PDFShift API)
+- **Input** : `{ html: string }`
+- **Output** : PDF binaire (landscape Letter, marges 0, `use_print: true`, `wait_for: "network"`)
+- **Secret** : `PDFSHIFT_API_KEY`
 
 ---
 
@@ -1385,8 +1405,8 @@ node tests/cascade-engine.test.js
 
 | Fichier | Contenu | Lignes |
 |---------|---------|--------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 282 assertions en 28 groupes | ~2 124 |
-| `tests/cascade-helpers.js` | 19 fonctions pures + constante `MATCH_STOP_WORDS` | ~588 |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 292 assertions en 34 groupes | ~2 302 |
+| `tests/cascade-helpers.js` | 19 fonctions pures + constante `MATCH_STOP_WORDS` | ~618 |
 | `tests/fixtures/catalogue.js` | 21 articles réalistes (8 FAB + 13 MAT) | ~330 |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` | ~49 |
 

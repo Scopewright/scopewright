@@ -796,7 +796,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, context, prompt_key, tools_enabled, query_complexity, max_tokens: clientMaxTokens } = await req.json();
+    const { messages, context, prompt_key, tools_enabled, query_complexity, max_tokens: clientMaxTokens, submission_id, focus_room } = await req.json();
 
     if (!messages || messages.length === 0) {
       return new Response(
@@ -810,6 +810,51 @@ serve(async (req) => {
 
     const effectiveKey = prompt_key || "ai_prompt_estimateur";
     const useTools = tools_enabled !== false; // default true
+
+    // ── Debug AI Images: save base64 images to Storage if flag enabled ──
+    // Fire-and-forget: don't block the main AI response
+    (async () => {
+      try {
+        const { data: debugFlag } = await supabase
+          .from("app_config")
+          .select("value")
+          .eq("key", "debug_ai_images")
+          .maybeSingle();
+        if (!debugFlag?.value || debugFlag.value === false || debugFlag.value === "false") return;
+
+        // Extract base64 images from the last user message
+        const lastUserMsg = [...(messages || [])].reverse().find((m: any) => m.role === "user");
+        if (!lastUserMsg || !Array.isArray(lastUserMsg.content)) return;
+
+        const base64Blocks = lastUserMsg.content.filter(
+          (b: any) => b.type === "image" && b.source?.type === "base64" && b.source?.data
+        );
+        if (base64Blocks.length === 0) return;
+
+        // Use service-role client for Storage writes (user token may lack permissions)
+        const serviceClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+        );
+
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        const userId = authResult.userId || "unknown";
+        const subId = submission_id || "no-sub";
+        const roomId = focus_room || "no-room";
+
+        for (let i = 0; i < base64Blocks.length; i++) {
+          const block = base64Blocks[i];
+          const ext = block.source.media_type === "image/png" ? "png" : "jpg";
+          const path = `${ts}_${subId}_${roomId}_${userId}_${i}.${ext}`;
+          const bytes = Uint8Array.from(atob(block.source.data), (c) => c.charCodeAt(0));
+          await serviceClient.storage
+            .from("debug-ai-images")
+            .upload(path, bytes, { contentType: block.source.media_type, upsert: false });
+        }
+      } catch (e) {
+        console.error("[debug-ai-images] Error saving images:", e);
+      }
+    })();
 
     // Load prompt override + organizational learnings + description format rules in parallel
     const [staticOverride, learnings, descFormatRules] = await Promise.all([

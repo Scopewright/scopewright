@@ -1658,7 +1658,9 @@
                 messages: cleanMessages,
                 context: context,
                 query_complexity: complexity,
-                max_tokens: adaptiveMaxTokens
+                max_tokens: adaptiveMaxTokens,
+                submission_id: currentSubmission ? currentSubmission.id : null,
+                focus_room: aiFocusGroupId || null
             })
         });
         if (!resp.ok) {

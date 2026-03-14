@@ -580,6 +580,13 @@
             padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
             cursor: pointer; border: 1px solid #ccc; transition: background 0.15s;
         }
+        /* Debug AI toggle switch */
+        .toggle-switch input:checked + span { background: var(--sw-navy, #0B1220) !important; }
+        .toggle-switch span::before {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+        }
+        .toggle-switch input:checked + span::before { transform: translateX(18px); }
     </style>
 </head>
 <body>
@@ -1012,6 +1019,31 @@
                         Aucune r&egrave;gle enregistr&eacute;e. Les r&egrave;gles apparaissent ici quand un utilisateur corrige un assistant AI et confirme l&rsquo;enregistrement.
                     </div>
                     <span class="save-feedback" id="aiMemoryFeedback"></span>
+                </div>
+            </div>
+
+            <!-- ═══ Debug AI Images ═══ -->
+            <div class="section collapsed" id="sectionDebugAiImages" data-panel="ai">
+                <div class="section-toggle" onclick="toggleSection('sectionDebugAiImages')">
+                    <div class="section-toggle-left">
+                        <div class="section-title">Debug AI Images</div>
+                        <div class="section-desc">Images envoy&eacute;es aux assistants AI — mode debug (d&eacute;sactiv&eacute; par d&eacute;faut en production).</div>
+                    </div>
+                    <svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="section-content">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                        <label style="font-size:13px; font-weight:600; color:var(--sw-text);">Sauvegarder les images AI</label>
+                        <label class="toggle-switch" style="position:relative;display:inline-block;width:40px;height:22px;">
+                            <input type="checkbox" id="debugAiImagesToggle" onchange="toggleDebugAiImages(this.checked)" style="opacity:0;width:0;height:0;">
+                            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:999px;transition:.2s;"></span>
+                        </label>
+                        <span id="debugAiImagesStatus" style="font-size:12px;color:var(--sw-text-2);">D&eacute;sactiv&eacute;</span>
+                    </div>
+                    <p style="font-size:12px;color:#64748b;margin:0 0 16px;">Quand activ&eacute;, chaque image base64 envoy&eacute;e &agrave; l&rsquo;assistant AI est sauvegard&eacute;e dans Storage (bucket <code>debug-ai-images</code>) avec le timestamp, l&rsquo;ID soumission, la pi&egrave;ce et l&rsquo;utilisateur.</p>
+                    <button class="master-sync-btn" onclick="loadDebugAiImages()" style="margin-bottom:16px; padding:6px 16px; font-size:12px;">&#x21BB; Charger les images</button>
+                    <div id="debugAiImagesGallery" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px;"></div>
+                    <div id="debugAiImagesEmpty" style="display:none; text-align:center; padding:24px; color:#94a3b8; font-size:13px;">Aucune image debug trouv&eacute;e.</div>
                 </div>
             </div>
 
@@ -4029,6 +4061,99 @@
         var mp = document.querySelector('.master-panel');
         if (mp) mp.style.display = panelId === 'master' ? 'flex' : 'none';
     };
+
+    // ═══════════════════════════════════════════════════════════
+    // ██  DEBUG AI IMAGES
+    // ═══════════════════════════════════════════════════════════
+
+    // Load toggle state on page load
+    (function() {
+        authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.debug_ai_images&select=value', { headers: { 'Content-Type': 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(rows) {
+            var on = rows.length > 0 && (rows[0].value === true || rows[0].value === 'true');
+            var toggle = document.getElementById('debugAiImagesToggle');
+            var status = document.getElementById('debugAiImagesStatus');
+            if (toggle) toggle.checked = on;
+            if (status) status.textContent = on ? 'Activé' : 'Désactivé';
+        }).catch(function() {});
+    })();
+
+    function toggleDebugAiImages(enabled) {
+        var status = document.getElementById('debugAiImagesStatus');
+        if (status) status.textContent = enabled ? 'Activé' : 'Désactivé';
+        // Upsert app_config
+        authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.debug_ai_images', {
+            method: 'DELETE'
+        }).then(function() {
+            return authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ key: 'debug_ai_images', value: enabled })
+            });
+        }).catch(function(e) { console.error('toggleDebugAiImages', e); });
+    }
+
+    function loadDebugAiImages() {
+        var gallery = document.getElementById('debugAiImagesGallery');
+        var empty = document.getElementById('debugAiImagesEmpty');
+        gallery.innerHTML = '<p style="color:#94a3b8;font-size:13px;">Chargement...</p>';
+        empty.style.display = 'none';
+        authenticatedFetch(SUPABASE_URL + '/storage/v1/object/list/debug-ai-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefix: '', limit: 100, offset: 0, sortBy: { column: 'created_at', order: 'desc' } })
+        }).then(function(r) { return r.json(); })
+        .then(function(files) {
+            gallery.innerHTML = '';
+            if (!files || files.length === 0 || files.error) {
+                empty.style.display = 'block';
+                return;
+            }
+            // Filter out folders (folders have id=null, files have metadata)
+            var images = files.filter(function(f) { return f.name && f.name.match(/\.(jpg|jpeg|png)$/i); });
+            if (images.length === 0) { empty.style.display = 'block'; return; }
+            images.forEach(function(file) {
+                var meta = parseDebugFilename(file.name);
+                var url = SUPABASE_URL + '/storage/v1/object/public/debug-ai-images/' + encodeURIComponent(file.name);
+                var card = document.createElement('div');
+                card.style.cssText = 'border:1px solid var(--sw-border);border-radius:10px;overflow:hidden;background:#fff;';
+                card.innerHTML =
+                    '<a href="' + escapeAttr(url) + '" target="_blank" style="display:block;aspect-ratio:4/3;overflow:hidden;background:#f1f5f9;">' +
+                        '<img src="' + escapeAttr(url) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">' +
+                    '</a>' +
+                    '<div style="padding:8px 10px;font-size:11px;color:var(--sw-text-2);line-height:1.5;">' +
+                        '<div style="font-weight:600;color:var(--sw-text);margin-bottom:2px;">' + escapeHtml(meta.date) + '</div>' +
+                        '<div>Soumission: <code style="font-size:10px;">' + escapeHtml(meta.subId) + '</code></div>' +
+                        '<div>Pi&egrave;ce: <code style="font-size:10px;">' + escapeHtml(meta.roomId) + '</code></div>' +
+                        '<div>Utilisateur: <code style="font-size:10px;">' + escapeHtml(meta.userId) + '</code></div>' +
+                    '</div>';
+                gallery.appendChild(card);
+            });
+        }).catch(function(e) {
+            console.error('loadDebugAiImages', e);
+            gallery.innerHTML = '<p style="color:#DC2626;font-size:13px;">Erreur de chargement.</p>';
+        });
+    }
+
+    function parseDebugFilename(name) {
+        // Format: 2026-03-14T12-00-00-000Z_subId_roomId_userId_0.jpg
+        var parts = name.replace(/\.\w+$/, '').split('_');
+        var date = (parts[0] || '').replace(/T/, ' ').replace(/-/g, function(m, i) { return i < 10 ? '-' : ':'; });
+        // Re-parse: first part is ISO-ish timestamp
+        var ts = parts[0] || '';
+        try {
+            // Convert back: 2026-03-14T12-00-00-000Z → 2026-03-14 12:00
+            var d = ts.replace(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2}).*/, '$1 $2:$3');
+            date = d;
+        } catch(e) { date = ts; }
+        return {
+            date: date,
+            subId: parts.length > 2 ? parts[1] : '?',
+            roomId: parts.length > 3 ? parts[2] : '?',
+            userId: parts.length > 4 ? parts[3] : '?'
+        };
+    }
 
     </script>
 

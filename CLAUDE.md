@@ -18,9 +18,9 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~21 700 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 500 lignes |
-| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~3 800 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~22 950 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 530 lignes |
+| `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~4 040 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
 | `quote.html` | Vue client publique — soumission multi-page + acceptation + signature | ~2 080 lignes |
@@ -634,6 +634,7 @@ La modale "Modifier l'article" **reste ouverte** après sauvegarde. Un toast nav
 12. **Tool `remove_item`** : supprime un article d'une pièce via `item_id` (UUID Supabase). Reverse lookup `itemMap` → `rowId` DOM → vérifie que l'article est dans la bonne pièce → appelle `removeRow()`. Si l'article est un parent FAB avec des enfants cascade, **tous les enfants sont supprimés aussi** (récursivement via `removeRow`). **Jamais auto-exécuté** — confirmation obligatoire (destructif). Le contexte AI expose `itemId` sur **tous** les articles (pas seulement FAB). Prompt rule : "supprimer avant de remplacer" — pour remplacer un article, l'AI supprime l'ancien d'abord puis ajoute le nouveau
 13. **Sanitisation tool_use/tool_result** : `sanitizeConversationToolUse(messages)` — défense en profondeur avant chaque appel API. Détecte les blocs `tool_use` orphelins (sans `tool_result` correspondant) et injecte des `tool_result` synthétiques `{"skipped":true}`. **Merge-aware** : si un message `user` suit déjà le message assistant orphelin, les `tool_result` synthétiques sont fusionnés dans ce message user existant (array ou string → array) au lieu de créer un nouveau message user — évite la violation d'alternance user/assistant qui cause l'erreur API 400. Trois sources d'orphelins corrigées en amont : (a) `aiDismissPending` injecte `{"dismissed":true}` au clic "Ignorer", (b) `sendAiMessage` neutralise les pending tools si l'utilisateur tape un nouveau message, (c) `autoExecutePendingTools`/`aiApplyPending` gèrent les follow-up `tool_use` dans la réponse post-exécution (affichent des boutons de confirmation au lieu de laisser les blocs orphelins)
 12. **Rate limit auto-retry** : `callAiAssistant` intercepte les réponses 429 (rate limit) et 529 (overloaded). Affiche "Un instant, le serveur est occupé…", attend 15s, retire le message temporaire (`removeLastAiMessage()`), et retry une seule fois. Si le retry échoue aussi, affiche un message d'erreur propre (jamais le texte brut de l'API)
+13. **Debug AI Images (#192)** : quand `app_config.debug_ai_images` est `true`, l'edge function `ai-assistant` sauvegarde chaque image base64 du dernier message utilisateur dans le bucket Storage `debug-ai-images`. Filename : `{ISO_timestamp}_{submissionId}_{roomId}_{userId}_{index}.jpg`. Fire-and-forget (non-bloquant). `callAiAssistant` envoie `submission_id` et `focus_room` dans le body. Admin.html : section "Debug AI Images" sous panel "Prompts AI" — toggle on/off + galerie d'images avec miniatures cliquables et metadata (date, soumission, pièce, utilisateur). Migration : `sql/debug_ai_images_bucket.sql`
 
 ### Architecture des prompts AI
 
@@ -675,6 +676,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `master_claude_md` | TEXT | CLAUDE.md synchronisé | ai-master (system prompt) |
 | `prompt_change_log` | JSONB | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | shared/master-agent.js |
 | `master_context_synced_at` | TEXT (ISO datetime) | Timestamp dernière synchronisation MASTER_CONTEXT.md | ai-master (fraîcheur), shared/master-agent.js (écriture) |
+| `debug_ai_images` | BOOLEAN (JSONB) | Flag debug — sauvegarder les images base64 envoyées à l'AI dans Storage bucket `debug-ai-images` | ai-assistant (edge function), admin.html (toggle + gallery) |
 
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 
@@ -855,7 +857,7 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 282 assertions en 28 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 292 assertions en 34 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 19 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
@@ -892,12 +894,12 @@ Les fonctions dans `cascade-helpers.js` sont des **copies manuelles** des foncti
 - `docs/MASTER_CONTEXT.md` — Synthèse système optimisée AI : architecture, tables, agents, risques, conventions (system prompt de l'Agent Maître)
 - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif : architecture, systèmes (cascade, DM, permissions, workflow), Edge Functions, tables, triggers
 - `docs/AUDIT_REPORT.md` — Rapport d'audit : 15 problèmes de sécurité, 18 bugs, 13 risques architecturaux, 27 recommandations priorisées
-- `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-030) : contexte, alternatives, conséquences
+- `docs/DECISIONS.md` — Journal des décisions architecturales (DEC-001 à DEC-039) : contexte, alternatives, conséquences
+- `docs/CHANGELOG.md` — Historique chronologique des modifications significatives (features, fixes, par date)
 - `docs/USER_GUIDE.md` — Guide utilisateur complet : 9 parties, fonctionnalités, exemples AI, workflow, trucs et astuces
 - `docs/guide-catalogue.md` — Guide complet du catalogue : structure, cascades, DM, audit, variables, bugs connus
 - `docs/STYLE_GUIDE.md` — Guide de style UI : palette, typographie, espacement, composants, pattern AI dot, règle fondamentale de réutilisation
-- `ARCHITECTURE.md` — Vue d'ensemble architecturale (legacy, remplacé par TECHNICAL_MANUAL)
-- `CHANGELOG.md` — Historique des modifications datées
+- `ARCHITECTURE.md` — Vue d'ensemble architecturale (**legacy 2026-02-25**, remplacé par TECHNICAL_MANUAL)
 - `docs/sessions/` — Résumés de session par date (features, bugs, décisions, backlogs)
 - `sql/` — Fichiers de migration SQL à exécuter manuellement dans Supabase SQL Editor
 

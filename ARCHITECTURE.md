@@ -1,6 +1,12 @@
 # ARCHITECTURE -- Scopewright (Stele)
 
-> Documentation technique de reference du projet. Derniere mise a jour : 2026-02-25.
+> **⚠️ LEGACY — Ce fichier n'est plus maintenu depuis 2026-02-25.**
+> Pour la documentation technique à jour, consulter :
+> - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif (architecture, systèmes, Edge Functions, tables)
+> - `docs/MASTER_CONTEXT.md` — Synthèse optimisée AI (contexte système Agent Maître)
+> - `CLAUDE.md` — Instructions Claude Code (conventions, références rapides)
+>
+> Derniere mise a jour : 2026-02-25.
 
 ---
 

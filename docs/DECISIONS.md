@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-10
+> **Dernière mise à jour** : 2026-03-14
 
 ---
 
@@ -680,3 +680,80 @@
 - UX simplifiée : 2 champs numériques au lieu de ~15 (grilles MO + matériaux)
 - Nouveaux champs `client_text` et `presentation_rule` dans `custom_data` JSONB pour la présentation
 - Backward compatible : les anciens ajouts utilisent la même formule `coût × (1 + markup/100)`
+
+---
+
+## DEC-036 — Accordion flash fix : groups créés collapsed + transition désactivée
+
+**Date** : 2026-03-13
+
+**Contexte** : Bug #187 — les pièces apparaissaient brièvement ouvertes puis se fermaient au chargement d'une soumission, causant un flash visuel désagréable. Le premier fix (collapse avant `showCalculator()`) réduisait mais n'éliminait pas le problème car la transition CSS de 200ms sur `.btn-collapse` rendait le collapse visible.
+
+**Décision** : Double fix — (1) `addFurnitureGroup(name, { collapsed: true })` crée les groupes déjà collapsed dans le DOM (jamais ouvert→fermé), (2) la transition CSS sur `.btn-collapse` est désactivée par défaut (`transition: none`) et activée uniquement au premier `toggleGroup()` par l'utilisateur (classe `.animated`).
+
+**Alternatives considérées** :
+- **`display:none` pendant le chargement** : masquerait l'ensemble du calculateur, pire UX
+- **Supprimer la transition** : fonctionnel mais perd le feedback visuel lors de l'interaction utilisateur
+- **`requestAnimationFrame` pour retarder le collapse** : incohérent entre navigateurs
+
+**Conséquences** :
+- Zéro flash au chargement — les groupes naissent collapsed
+- La transition d'animation reste disponible pour les interactions utilisateur
+- `openSubmission()` passe `collapsed: true` dans `addFurnitureGroup()`
+- `addFurnitureGroup(name, { collapsed: false })` (défaut) garde le comportement existant pour les nouvelles pièces
+
+---
+
+## DEC-037 — dmChoiceCache always-cache + client_text fallback
+
+**Date** : 2026-03-13
+
+**Contexte** : Bug #188 — la modale de choix DM réapparaissait à chaque changement de dimension/tablette/partition. Le `dmChoiceCache` ne stockait le choix que si la checkbox "Mémoriser" était cochée. De plus, `deduplicateDmByClientText` changeait le `catalogue_item_id` représentant, invalidant le cache lookup par ID.
+
+**Décision** : Stratégie always-cache + fallback client_text.
+1. Le cache stocke toujours le choix après toute résolution (modale, single-match, cancel), sans condition "Mémoriser"
+2. Quand le lookup par `catalogue_item_id` échoue dans le cache, fallback via `CATALOGUE_DATA[cachedId].client_text` → match par `client_text` dans les entrées DM dédupliquées
+3. Avant d'afficher la modale parent DM, inférer `materialCtx` depuis les enfants cascade existants (si leur `client_text` matche une entrée DM)
+
+**Alternatives considérées** :
+- **Stabiliser `deduplicateDmByClientText` pour garder le même représentant** : fragile car l'ordre peut changer selon le catalogue chargé
+- **Cacher par `client_text` au lieu de `catalogue_item_id`** : risque de collision si deux matériaux différents ont le même `client_text`
+
+**Conséquences** :
+- 6 sites de lookup cache mis à jour avec le pattern `client_text` fallback
+- La modale DM n'apparaît qu'une seule fois par session pour chaque type/pièce
+- L'inférence depuis les enfants existants évite la modale même au premier cascade après reload
+
+---
+
+## DEC-038 — disambiguateMatchByDm pour `$match:` multi-résultats
+
+**Date** : 2026-03-13
+
+**Contexte** : Bug #188c — la modale `$match:PANNEAU BOIS` apparaissait après un changement DM malgré un DM "Panneaux = Mélamine 805" configuré. Deux causes : (1) le lookup DM room dans `resolveMatchTarget` utilisait un match exact sur le type (échouait car `"panneau bois"` ≠ `"Panneaux"`), (2) quand plusieurs candidats étaient scorés, aucune désambiguïsation automatique par le DM.
+
+**Décision** : (1) Word-similarity via `normalizeDmType` pour le lookup DM (strip accents + pluriel trailing s/x, puis substring bidirectionnelle sur chaque mot). (2) Nouvelle fonction `disambiguateMatchByDm(scored, dmCatItem, materialCtx, cacheKey)` qui filtre les candidats multi-match en utilisant les mots du `client_text` du DM comme discriminant — si un seul candidat reste, il est auto-sélectionné sans modale.
+
+**Alternatives considérées** :
+- **Mapper manuellement types DM ↔ catégories dépense** : maintenance manuelle, fragile
+- **Toujours afficher la modale** : UX dégradée, obligerait l'utilisateur à choisir à chaque fois
+
+**Conséquences** :
+- Le DM "Panneaux" matche maintenant les expense categories contenant "PANNEAU" (word-similarity)
+- Les résolutions `$match:` avec DM configuré sont silencieuses (pas de modale)
+- Si la désambiguïsation échoue (0 ou 2+ candidats après filtre), la modale standard s'affiche
+
+---
+
+## DEC-039 — visibility:hidden pour boutons hover (anti-jump)
+
+**Date** : 2026-03-13
+
+**Contexte** : Les boutons `.btn-note` et `.btn-ov` dans les lignes calculateur utilisaient `display:none` → `display:inline-flex` au hover, causant un saut de layout visible (la ligne changeait de hauteur/position).
+
+**Décision** : Remplacer par `visibility:hidden` → `visibility:visible`. L'espace est réservé en permanence dans le layout, éliminant tout saut visuel.
+
+**Conséquences** :
+- Zéro layout shift au hover des lignes
+- Les boutons occupent toujours leur espace même invisibles (20×20px chacun)
+- Pattern applicable à tout bouton hover futur

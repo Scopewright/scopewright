@@ -3,7 +3,7 @@
 > Audit indépendant de sécurité, bugs, risques architecturaux et performance.
 > Analyse en lecture seule de l'ensemble du codebase.
 >
-> **Date** : 2026-03-10 (mis à jour)
+> **Date** : 2026-03-14 (mis à jour)
 > **Périmètre** : Tous les fichiers HTML, Edge Functions, SQL migrations, Google Apps Script
 
 ---
@@ -359,6 +359,36 @@ Les inputs quantité des enfants cascade n'étaient pas protégés — l'utilisa
 
 **Fix** : `readOnly = true` dans 3 points (`addRow`, `executeCascade`, `openSubmission`) + CSS `pointer-events:none`.
 
+**[BUG-32] CORRIGÉ — Hover jump sur les lignes calculateur (#2026-03-13)**
+
+Les boutons `.btn-note` et `.btn-ov` utilisaient `display:none`→`display:inline-flex` au hover, causant un saut de layout visible.
+
+**Fix** : `visibility:hidden`→`visibility:visible` préserve l'espace layout en permanence.
+
+**[BUG-33] CORRIGÉ — Accordion flash au chargement soumission (#187)**
+
+Les pièces s'ouvraient brièvement puis se fermaient au chargement, causant un flash visuel. La transition CSS de 200ms sur `.btn-collapse` rendait le collapse visible.
+
+**Fix** : (1) `addFurnitureGroup(name, { collapsed: true })` crée les groupes déjà collapsed, (2) transition CSS désactivée par défaut, activée uniquement au premier `toggleGroup()` via classe `.animated`.
+
+**[BUG-34] CORRIGÉ — DM modal réapparaît à chaque changement dimension (#188)**
+
+Le `dmChoiceCache` ne stockait le choix que si la checkbox "Mémoriser" était cochée. La modale réapparaissait à chaque changement de dims/tablettes/partitions.
+
+**Fix** : Stratégie always-cache — le cache stocke toujours après toute résolution (modale, single-match, cancel).
+
+**[BUG-35] CORRIGÉ — DM modal réapparaît encore malgré fix #188 (#188b)**
+
+`deduplicateDmByClientText` changeait le `catalogue_item_id` représentant d'un `client_text`, invalidant le cache lookup par ID.
+
+**Fix** : (1) Fallback `client_text` dans les 6 sites de lookup cache, (2) inférence `materialCtx` depuis les enfants cascade existants avant toute modale.
+
+**[BUG-36] CORRIGÉ — $match modal après changement DM malgré DM configuré (#188c)**
+
+Deux causes : (1) lookup DM room dans `resolveMatchTarget` utilisait un match exact sur le type, (2) pas de désambiguïsation automatique quand plusieurs candidats `$match:` scorés.
+
+**Fix** : (1) Word-similarity via `normalizeDmType` pour le lookup DM, (2) nouvelle fonction `disambiguateMatchByDm()` filtre les candidats par `client_text` du DM.
+
 **[FEATURE-01] Override par ligne (prix, MO, matériaux)**
 
 Nouvelles colonnes `room_items` : `labor_override` JSONB, `material_override` JSONB, `price_override` NUMERIC. Override local par soumission, ne modifie pas le catalogue. Popover 3 colonnes (Cat/Auto/Manuel) avec hiérarchie per-département : manual > auto-factored > catalogue. Tool AI `update_submission_line` (jamais auto-exécuté). Migration : `sql/line_overrides.sql`.
@@ -446,6 +476,18 @@ Overlay semi-transparent sur `.calc-rows` pendant `reprocessDefaultCascades`. Ba
 **[FEATURE-22] Indicateur de sauvegarde silencieux (pattern Linear)**
 
 Au repos : invisible. "Sauvegardé ✓" apparaît 2s puis fade-out 300ms. Erreur : reste visible en rouge. Pill catalogue "Données à jour" : transitoire 2s. Offline/erreur : persistant.
+
+**[FEATURE-23] Modal ajout personnalisé — prix composé + prix header (#179)**
+
+Modal ajout personnalisé refait : coût fournisseur + marge% → prix de vente auto-calculé. Texte client + JSON présentation. Prix total affiché en haut à droite du header (#179f), mis à jour en temps réel.
+
+**[FEATURE-24] Routing dynamique AI (coût optimization) (#179)**
+
+`classifyQueryComplexity(msg)` → simple/complex. Simple → Haiku 4.5, Complex → Sonnet 4.5. `computeMaxTokens(complexity, context)` → 512/1536/4096. Réduction estimée ~30-50% coûts API. `model_used` retourné pour audit.
+
+**[FEATURE-25] `disambiguateMatchByDm()` — auto-résolution $match multi-candidats (#188c)**
+
+Nouvelle fonction qui filtre les candidats `$match:` multi-résultats en utilisant les mots du `client_text` DM comme discriminant. Si un seul candidat reste après filtrage → auto-sélection sans modale.
 
 ---
 

@@ -3824,6 +3824,10 @@
                 var cacheKey = groupId + ':' + parentCategory;
                 if (dmChoiceCache[cacheKey]) {
                     var cached = directUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cacheKey]; });
+                    if (!cached) {
+                        var _cItem = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[cacheKey]; });
+                        if (_cItem && _cItem.client_text) cached = directUnique.find(function(m) { return m.client_text === _cItem.client_text; });
+                    }
                     if (cached) { dmEntry = cached; matchMethod = 'direct(cached)'; }
                 }
             }
@@ -3865,6 +3869,10 @@
                     var fCacheKey = groupId + ':' + parentCategory;
                     if (dmChoiceCache[fCacheKey]) {
                         var fCached = fuzzyUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[fCacheKey]; });
+                        if (!fCached) {
+                            var _fItem = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[fCacheKey]; });
+                            if (_fItem && _fItem.client_text) fCached = fuzzyUnique.find(function(m) { return m.client_text === _fItem.client_text; });
+                        }
                         if (fCached) { dmEntry = fCached; matchMethod = 'fuzzy(cached)'; }
                     }
                 }
@@ -3911,6 +3919,10 @@
                     var cCacheKey = groupId + ':' + parentCategory;
                     if (dmChoiceCache[cCacheKey]) {
                         var cCached = catUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[cCacheKey]; });
+                        if (!cCached) {
+                            var _ccItem = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[cCacheKey]; });
+                            if (_ccItem && _ccItem.client_text) cCached = catUnique.find(function(m) { return m.client_text === _ccItem.client_text; });
+                        }
                         if (cCached) { dmEntry = cCached; matchMethod = 'category(cached)'; }
                     }
                 }
@@ -3955,6 +3967,10 @@
                     var xCacheKey = groupId + ':cross:' + parentCategory;
                     if (dmChoiceCache[xCacheKey]) {
                         var xCached = uniqueDm.find(function(m) { return m.catalogue_item_id === dmChoiceCache[xCacheKey]; });
+                        if (!xCached) {
+                            var _xItem = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[xCacheKey]; });
+                            if (_xItem && _xItem.client_text) xCached = uniqueDm.find(function(m) { return m.client_text === _xItem.client_text; });
+                        }
                         if (xCached) { dmEntry = xCached; matchMethod = 'cross-DM(cached)'; }
                     }
                 }
@@ -4550,9 +4566,31 @@
             } else if (parentDmUnique.length > 1) {
                 var parentCacheKey = groupId + ':' + parentDmType;
                 var parentDmChoice = null;
+                // Cache check: match by catalogue_item_id OR client_text (dedup may change representative)
                 if (dmChoiceCache[parentCacheKey]) {
                     var cached = parentDmUnique.find(function(m) { return m.catalogue_item_id === dmChoiceCache[parentCacheKey]; });
+                    if (!cached) {
+                        var _cachedItem = CATALOGUE_DATA.find(function(c) { return c.id === dmChoiceCache[parentCacheKey]; });
+                        if (_cachedItem && _cachedItem.client_text) {
+                            cached = parentDmUnique.find(function(m) { return m.client_text === _cachedItem.client_text; });
+                        }
+                    }
                     if (cached) parentDmChoice = cached;
+                }
+                // Infer from existing cascade children (skip modal on dim/tablette changes)
+                if (!parentDmChoice && activeChildren.length > 0) {
+                    for (var _aci = 0; _aci < activeChildren.length; _aci++) {
+                        var _acItem = CATALOGUE_DATA.find(function(c) { return c.id === activeChildren[_aci].catalogueId; });
+                        if (_acItem && _acItem.client_text) {
+                            var _acMatch = parentDmUnique.find(function(m) { return m.client_text === _acItem.client_text; });
+                            if (_acMatch) {
+                                parentDmChoice = _acMatch;
+                                if (_acMatch.catalogue_item_id) dmChoiceCache[parentCacheKey] = _acMatch.catalogue_item_id;
+                                cascadeLog('info', 'materialCtx: inferred from existing child ' + activeChildren[_aci].catalogueId + ' → "' + _acMatch.client_text + '"');
+                                break;
+                            }
+                        }
+                    }
                 }
                 if (!parentDmChoice) {
                     var pResult = await showDmChoiceModal(parentDmType, parentDmUnique);

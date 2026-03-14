@@ -6994,8 +6994,9 @@
             background: #fff; border-radius: 12px; width: 800px; max-height: 90vh;
             overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         }
-        .cim-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; }
+        .cim-header { display: flex; align-items: center; padding: 20px 24px 0; gap: 12px; }
         .cim-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .cim-header-price { margin-left: auto; font-size: 18px; font-weight: 700; color: var(--sw-navy, #0B1220); font-variant-numeric: tabular-nums; }
         .cim-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; padding: 4px 8px; }
         .cim-close:hover { color: #000; }
         .cim-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 14px; }
@@ -12903,12 +12904,15 @@
             var total = laborTotal + materialTotal;
             var totalEl = document.getElementById('cimTotalValue');
             var breakdownEl = document.getElementById('cimBreakdown');
+            var headerPriceEl = document.getElementById('cimHeaderPrice');
             if (total > 0) {
                 totalEl.textContent = formatPrice(total);
                 breakdownEl.textContent = '(MO: ' + formatPrice(laborTotal) + ' + Mat: ' + formatPrice(materialTotal) + ')';
+                if (headerPriceEl) headerPriceEl.textContent = formatPrice(total);
             } else {
                 totalEl.textContent = '\u2014';
                 breakdownEl.textContent = '';
+                if (headerPriceEl) headerPriceEl.textContent = '\u2014';
             }
         }
 
@@ -22778,6 +22782,7 @@
   <div class="custom-item-modal">
     <div class="cim-header">
       <h3>Ajout personnalis&eacute;</h3>
+      <span class="cim-header-price" id="cimHeaderPrice">&mdash;</span>
       <button class="cim-close" onclick="closeCustomItemModal()">&times;</button>
     </div>
     <div class="cim-body">

@@ -3602,12 +3602,17 @@
         var effectiveExpCats = [expCatUpper];
 
         // Room DM lookup FIRST (specific to the target expense category)
+        // Uses word-similarity matching: DM type "Panneaux" matches expense "PANNEAU BOIS"
+        // via shared word root after normalizeDmType (strip accents + trailing s/x)
         var dmCatItem = null;
         var dm = getDefaultMaterialsForGroup(groupId);
         if (dm && dm.length > 0) {
-            var targetLower = expenseCategory.toLowerCase();
+            var _expWords = expenseCategory.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });
             for (var di = 0; di < dm.length; di++) {
-                if (dm[di].type && dm[di].type.toLowerCase() === targetLower && (dm[di].client_text || dm[di].catalogue_item_id)) {
+                if (!dm[di].type || (!dm[di].client_text && !dm[di].catalogue_item_id)) continue;
+                var _dmTypeNorm = normalizeDmType(dm[di].type);
+                var _dmMatch = _expWords.some(function(ew) { return _dmTypeNorm.indexOf(ew) !== -1 || ew.indexOf(_dmTypeNorm) !== -1; });
+                if (_dmMatch) {
                     dmCatItem = dm[di].client_text
                         ? CATALOGUE_DATA.find(function(c) { return c.client_text === dm[di].client_text; })
                         : CATALOGUE_DATA.find(function(c) { return c.id === dm[di].catalogue_item_id; });
@@ -3701,6 +3706,8 @@
                 return scored[0].item.id;
             }
             if (scored.length > 1) {
+                var dmAuto = disambiguateMatchByDm(scored, dmCatItem, materialCtx, cacheKey);
+                if (dmAuto) return dmAuto;
                 var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
                 if (chosen) saveMatchDefault(cacheKey, chosen);
                 return chosen;
@@ -3738,6 +3745,8 @@
                 return scored[0].item.id;
             }
             if (scored.length > 1) {
+                var dmAuto2 = disambiguateMatchByDm(scored, dmCatItem, materialCtx, cacheKey);
+                if (dmAuto2) return dmAuto2;
                 var chosen = await showMatchChoiceModal(expenseCategory, scored, keywords);
                 if (chosen) saveMatchDefault(cacheKey, chosen);
                 return chosen;
@@ -3760,6 +3769,32 @@
         }).filter(function(s) { return s.score > 0; });
         scored.sort(function(a, b) { return b.score - a.score; });
         return scored;
+    }
+
+    /**
+     * Disambiguate scored $match: candidates using materialCtx or DM item.
+     * When multiple candidates match, filter to those whose client_text shares
+     * keywords with the resolved DM material. Returns the single auto-selected
+     * item ID, or null if disambiguation fails (caller should show modal).
+     */
+    function disambiguateMatchByDm(scored, dmCatItem, materialCtx, cacheKey) {
+        if (scored.length <= 1) return null;
+        var refText = null;
+        if (dmCatItem && dmCatItem.client_text) refText = dmCatItem.client_text;
+        else if (materialCtx && materialCtx.chosenClientText) refText = materialCtx.chosenClientText;
+        if (!refText) return null;
+        var refWords = refText.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 2; });
+        if (refWords.length === 0) return null;
+        var filtered = scored.filter(function(s) {
+            var ct = (s.item.client_text || '').toLowerCase();
+            return refWords.some(function(w) { return ct.indexOf(w) !== -1; });
+        });
+        if (filtered.length === 1) {
+            cascadeLog('info', '$match: disambiguated by DM "' + refText + '" → ' + filtered[0].item.id);
+            if (cacheKey) saveMatchDefault(cacheKey, filtered[0].item.id);
+            return filtered[0].item.id;
+        }
+        return null;
     }
 
     /**
@@ -22527,7 +22562,7 @@
             getRootDimsForCascade, getRootQtyForCascade, itemHasMaterialCost,
             resolveCascadeTarget, resolveMatchTarget, scoreMatchCandidates,
             getDefaultMaterialKeywords, findDmEntryByType,
-            showMatchChoiceModal, showDmChoiceModal, reprocessDefaultCascades,
+            showMatchChoiceModal, showDmChoiceModal, disambiguateMatchByDm, reprocessDefaultCascades,
             executeCascade, revertCascadeLock, runCascadeNow, scheduleCascade,
             // Contraintes
             showConstraintToast, getRoomCatalogueIds,

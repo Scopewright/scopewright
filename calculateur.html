@@ -5932,13 +5932,13 @@
 
         /* ── Internal note button & popover ── */
         .btn-note {
-            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            display: inline-flex; visibility: hidden; width: 20px; height: 20px; border: none; background: transparent;
             color: var(--sw-muted); cursor: pointer; border-radius: 4px;
             font-size: 12px; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .calc-row:hover .btn-note { display: inline-flex; }
+        .calc-row:hover .btn-note { visibility: visible; }
         .btn-note:hover { background: #f1f5f9; color: var(--sw-navy); }
-        .calc-row.has-note .btn-note { display: inline-flex !important; color: #3B82F6; }
+        .calc-row.has-note .btn-note { visibility: visible; color: #3B82F6; }
         .calc-row.cascade-child .btn-note { display: none !important; }
         .note-pop {
             position: fixed; z-index: 10000; background: #fff;
@@ -5958,14 +5958,14 @@
         .cell-unit-price { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; color: var(--sw-text-2, #64748B); font-variant-numeric: tabular-nums; }
         .upx { flex: 1; text-align: right; }
         .btn-ov {
-            display: none; width: 20px; height: 20px; border: none; background: transparent;
+            display: inline-flex; visibility: hidden; width: 20px; height: 20px; border: none; background: transparent;
             color: var(--sw-muted); cursor: pointer; border-radius: 4px;
             font-size: 11px; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .calc-row:hover .btn-ov { display: inline-flex; }
+        .calc-row:hover .btn-ov { visibility: visible; }
         .btn-ov:hover { background: #f1f5f9; color: var(--sw-navy); }
         .calc-row.has-override { border-left: 2px solid #7c3aed; background: rgba(124,58,237,0.02); }
-        .calc-row.has-override .btn-ov { display: inline-flex !important; color: #7c3aed; }
+        .calc-row.has-override .btn-ov { visibility: visible; color: #7c3aed; }
         .calc-row.has-override .upx { color: #7c3aed; font-weight: 600; }
         .ov-pop {
             position: fixed; z-index: 10000; background: #fff;

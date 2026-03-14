@@ -811,7 +811,8 @@ serve(async (req) => {
     const effectiveKey = prompt_key || "ai_prompt_estimateur";
     const useTools = tools_enabled !== false; // default true
 
-    // ── Debug AI Images: save base64 images to Storage if flag enabled ──
+    // ── Debug AI Images: save images to Storage if flag enabled ──
+    // Captures both: base64 (chat paste/drop) and URL (AI reference images with tags)
     // Fire-and-forget: don't block the main AI response
     (async () => {
       try {
@@ -822,14 +823,16 @@ serve(async (req) => {
           .maybeSingle();
         if (!debugFlag?.value || debugFlag.value === false || debugFlag.value === "false") return;
 
-        // Extract base64 images from the last user message
+        // Extract image blocks from the last user message
         const lastUserMsg = [...(messages || [])].reverse().find((m: any) => m.role === "user");
         if (!lastUserMsg || !Array.isArray(lastUserMsg.content)) return;
 
-        const base64Blocks = lastUserMsg.content.filter(
-          (b: any) => b.type === "image" && b.source?.type === "base64" && b.source?.data
+        const imageBlocks = lastUserMsg.content.filter(
+          (b: any) => b.type === "image" && b.source &&
+            ((b.source.type === "base64" && b.source.data) ||
+             (b.source.type === "url" && b.source.url))
         );
-        if (base64Blocks.length === 0) return;
+        if (imageBlocks.length === 0) return;
 
         // Use service-role client for Storage writes (user token may lack permissions)
         const serviceClient = createClient(
@@ -842,14 +845,30 @@ serve(async (req) => {
         const subId = submission_id || "no-sub";
         const roomId = focus_room || "no-room";
 
-        for (let i = 0; i < base64Blocks.length; i++) {
-          const block = base64Blocks[i];
-          const ext = block.source.media_type === "image/png" ? "png" : "jpg";
-          const path = `${ts}_${subId}_${roomId}_${userId}_${i}.${ext}`;
-          const bytes = Uint8Array.from(atob(block.source.data), (c) => c.charCodeAt(0));
+        for (let i = 0; i < imageBlocks.length; i++) {
+          const block = imageBlocks[i];
+          let bytes: Uint8Array;
+          let contentType: string;
+          let ext: string;
+          const srcType = block.source.type === "base64" ? "b64" : "url";
+
+          if (block.source.type === "base64") {
+            contentType = block.source.media_type || "image/jpeg";
+            ext = contentType === "image/png" ? "png" : "jpg";
+            bytes = Uint8Array.from(atob(block.source.data), (c: string) => c.charCodeAt(0));
+          } else {
+            // URL source — fetch the image content
+            const resp = await fetch(block.source.url);
+            if (!resp.ok) { console.warn("[debug-ai-images] Failed to fetch URL:", block.source.url); continue; }
+            contentType = resp.headers.get("content-type") || "image/jpeg";
+            ext = contentType.includes("png") ? "png" : "jpg";
+            bytes = new Uint8Array(await resp.arrayBuffer());
+          }
+
+          const path = `${ts}_${subId}_${roomId}_${userId}_${srcType}_${i}.${ext}`;
           await serviceClient.storage
             .from("debug-ai-images")
-            .upload(path, bytes, { contentType: block.source.media_type, upsert: false });
+            .upload(path, bytes, { contentType, upsert: false });
         }
       } catch (e) {
         console.error("[debug-ai-images] Error saving images:", e);

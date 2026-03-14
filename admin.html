@@ -4127,6 +4127,7 @@
                         '<div>Soumission: <code style="font-size:10px;">' + escapeHtml(meta.subId) + '</code></div>' +
                         '<div>Pi&egrave;ce: <code style="font-size:10px;">' + escapeHtml(meta.roomId) + '</code></div>' +
                         '<div>Utilisateur: <code style="font-size:10px;">' + escapeHtml(meta.userId) + '</code></div>' +
+                        (meta.srcType ? '<div>Source: <strong>' + escapeHtml(meta.srcType) + '</strong></div>' : '') +
                     '</div>';
                 gallery.appendChild(card);
             });
@@ -4137,22 +4138,23 @@
     }
 
     function parseDebugFilename(name) {
-        // Format: 2026-03-14T12-00-00-000Z_subId_roomId_userId_0.jpg
+        // Format: 2026-03-14T12-00-00-000Z_subId_roomId_userId_srcType_0.jpg
+        // Legacy:  2026-03-14T12-00-00-000Z_subId_roomId_userId_0.jpg
         var parts = name.replace(/\.\w+$/, '').split('_');
-        var date = (parts[0] || '').replace(/T/, ' ').replace(/-/g, function(m, i) { return i < 10 ? '-' : ':'; });
-        // Re-parse: first part is ISO-ish timestamp
         var ts = parts[0] || '';
+        var date = ts;
         try {
-            // Convert back: 2026-03-14T12-00-00-000Z → 2026-03-14 12:00
-            var d = ts.replace(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2}).*/, '$1 $2:$3');
-            date = d;
-        } catch(e) { date = ts; }
-        return {
-            date: date,
-            subId: parts.length > 2 ? parts[1] : '?',
-            roomId: parts.length > 3 ? parts[2] : '?',
-            userId: parts.length > 4 ? parts[3] : '?'
-        };
+            date = ts.replace(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2}).*/, '$1 $2:$3');
+        } catch(e) {}
+        var subId = parts.length > 2 ? parts[1] : '?';
+        var roomId = parts.length > 3 ? parts[2] : '?';
+        var userId = parts.length > 4 ? parts[3] : '?';
+        // srcType is 'b64' or 'url' (new format) — detect by checking if 5th part is non-numeric
+        var srcType = '';
+        if (parts.length > 5 && (parts[4] === 'b64' || parts[4] === 'url')) {
+            srcType = parts[4] === 'url' ? 'Réf. AI' : 'Chat';
+        }
+        return { date: date, subId: subId, roomId: roomId, userId: userId, srcType: srcType };
     }
 
     </script>

@@ -10582,6 +10582,13 @@
                 <label class="annotation-arrow-toggle">
                     <input type="checkbox" id="annotArrowMode"> Fl&egrave;che
                 </label>
+                <span style="width:1px;height:20px;background:var(--sw-border);margin:0 6px;"></span>
+                <label class="annotation-arrow-toggle" title="Afficher dans la soumission client">
+                    <input type="checkbox" id="annotShowClient" onchange="annotToggleClient(this.checked)"> Client
+                </label>
+                <label class="annotation-arrow-toggle" title="Envoyer comme r&eacute;f&eacute;rence &agrave; l'AI">
+                    <input type="checkbox" id="annotShowAi" onchange="annotToggleAi(this.checked)"> AI
+                </label>
                 <button class="annotation-close" onclick="closeAnnotationModal()">&times;</button>
             </div>
             <div class="annotation-img-container" id="annotImgContainer">
@@ -10953,6 +10960,10 @@
             document.getElementById('annotArrowMode').checked = false;
             annotState.arrowMode = false;
 
+            // Sync Client/AI checkboxes
+            document.getElementById('annotShowClient').checked = !!img.showInQuote;
+            document.getElementById('annotShowAi').checked = !!img.aiReference;
+
             // Show modal
             document.getElementById('annotationModal').classList.add('active');
 
@@ -10969,6 +10980,18 @@
                     updateAnnotNext();
                 }, 50);
             }
+        }
+
+        function annotToggleClient(checked) {
+            var gid = annotState.groupId;
+            var idx = annotState.imageIndex;
+            if (gid != null && idx != null) toggleImageShowInQuote(gid, idx, checked);
+        }
+
+        function annotToggleAi(checked) {
+            var gid = annotState.groupId;
+            var idx = annotState.imageIndex;
+            if (gid != null && idx != null) toggleImageAiRef(gid, idx, checked);
         }
 
         function closeAnnotationModal() {
@@ -15210,6 +15233,14 @@
 
             renderGroupImagePreviews(groupId);
             showSaveIndicator();
+
+            // Auto-open annotation modal for newly captured images (not recrop)
+            if (!existingMediaId && cropState._autoAnnotate) {
+                var newIndex = (groupImages[groupId] || []).length - 1;
+                if (newIndex >= 0) {
+                    setTimeout(function() { openAnnotationModal(groupId, newIndex); }, 300);
+                }
+            }
         }
 
         // ── Recrop depuis l'original ──
@@ -16754,6 +16785,7 @@
                 // Open the main crop modal — reuses existing crop + upload flow
                 openCropModal(blob, targetGroupId);
                 cropState.sourceMetadata = sourceMetadata;
+                cropState._autoAnnotate = true; // #196: auto-open tagging after crop
 
             } catch (err) {
                 console.error('Capture error:', err);
@@ -22458,6 +22490,10 @@
                 });
                 renderGroupImagePreviews(groupId);
                 showSaveIndicator();
+                // #196: auto-open tagging modal for the new capture
+                var newIdx = groupImages[groupId].length - 1;
+                setTimeout(function() { openAnnotationModal(groupId, newIdx); }, 300);
+                window.focus(); // bring calculator to front
             }
         });
 

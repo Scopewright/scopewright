@@ -3561,13 +3561,14 @@
                 // Modale 2: which technical article?
                 var m2 = await showTechnicalItemModal(groupName, candidates);
                 var finalId = m2 ? m2.itemId : candidates[0].id;
-                if (m2 && m2.remember) dmChoiceCache[cacheKey] = finalId;
+                dmChoiceCache[cacheKey] = finalId;
                 // Propagate resolved client_text so sibling $match: rules score in the right context
                 var finalItem = CATALOGUE_DATA.find(function(c) { return c.id === finalId; });
                 if (materialCtx && finalItem && finalItem.client_text) { materialCtx.chosenClientText = finalItem.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = finalItem.id; }
                 return finalId;
             }
             // Legacy fallback: no client_text → use catalogue_item_id directly
+            if (chosenEntry.catalogue_item_id) dmChoiceCache[cacheKey] = chosenEntry.catalogue_item_id;
             return chosenEntry.catalogue_item_id || null;
         }
         // $match: resolution (case-insensitive)
@@ -3831,10 +3832,11 @@
                 if (result) {
                     dmEntry = directUnique.find(function(m) { return m.catalogue_item_id === result.itemId; });
                     matchMethod = 'direct(chosen)';
-                    if (result.remember) dmChoiceCache[cacheKey] = result.itemId;
+                    dmChoiceCache[cacheKey] = result.itemId;
                 } else {
                     dmEntry = directUnique[0]; // cancelled → fallback to first
                     matchMethod = 'direct(first)';
+                    if (dmEntry.catalogue_item_id) dmChoiceCache[cacheKey] = dmEntry.catalogue_item_id;
                 }
             }
         }
@@ -3871,10 +3873,11 @@
                     if (fResult) {
                         dmEntry = fuzzyUnique.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
                         matchMethod = 'fuzzy(chosen)';
-                        if (fResult.remember) dmChoiceCache[groupId + ':' + parentCategory] = fResult.itemId;
+                        dmChoiceCache[groupId + ':' + parentCategory] = fResult.itemId;
                     } else {
                         dmEntry = fuzzyUnique[0];
                         matchMethod = 'fuzzy(first)';
+                        if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
                     }
                 }
             }
@@ -3916,10 +3919,11 @@
                     if (cResult) {
                         dmEntry = catUnique.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
                         matchMethod = 'category(chosen)';
-                        if (cResult.remember) dmChoiceCache[groupId + ':' + parentCategory] = cResult.itemId;
+                        dmChoiceCache[groupId + ':' + parentCategory] = cResult.itemId;
                     } else {
                         dmEntry = catUnique[0];
                         matchMethod = 'category(first)';
+                        if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
                     }
                 }
             }
@@ -3959,10 +3963,11 @@
                     if (xResult) {
                         dmEntry = uniqueDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
                         matchMethod = 'cross-DM(chosen)';
-                        if (xResult.remember) dmChoiceCache[groupId + ':cross:' + parentCategory] = xResult.itemId;
+                        dmChoiceCache[groupId + ':cross:' + parentCategory] = xResult.itemId;
                     } else {
                         dmEntry = uniqueDm[0];
                         matchMethod = 'cross-DM(first)';
+                        if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':cross:' + parentCategory] = dmEntry.catalogue_item_id;
                     }
                 }
             }
@@ -4553,9 +4558,10 @@
                     var pResult = await showDmChoiceModal(parentDmType, parentDmUnique);
                     if (pResult) {
                         parentDmChoice = parentDmUnique.find(function(m) { return m.catalogue_item_id === pResult.itemId; });
-                        if (pResult.remember) dmChoiceCache[parentCacheKey] = pResult.itemId;
+                        dmChoiceCache[parentCacheKey] = pResult.itemId;
                     } else {
                         parentDmChoice = parentDmUnique[0];
+                        if (parentDmChoice.catalogue_item_id) dmChoiceCache[parentCacheKey] = parentDmChoice.catalogue_item_id;
                     }
                 }
                 if (parentDmChoice && parentDmChoice.client_text) {
@@ -6564,9 +6570,10 @@
             cursor: pointer;
             font-size: 12px;
             padding: 4px;
-            transition: transform 0.2s;
+            transition: none;
             line-height: 1;
         }
+        .btn-collapse.animated { transition: transform 0.2s; }
 
         .btn-collapse:hover { color: #fff; }
 
@@ -11737,6 +11744,8 @@
         function toggleGroup(groupId) {
             var el = document.getElementById(groupId);
             if (!el) return;
+            // Enable transition on first user interaction (disabled at load to prevent flash)
+            document.querySelectorAll('.btn-collapse:not(.animated)').forEach(function(b) { b.classList.add('animated'); });
             var wasCollapsed = el.classList.contains('collapsed');
             // Sync AI focus buttons
             document.querySelectorAll('.btn-ai-focus.active').forEach(function(b) { b.classList.remove('active'); });
@@ -12080,7 +12089,7 @@
             const groupId = `group-${groupCounter}`;
 
             const group = document.createElement('div');
-            group.className = 'furniture-group';
+            group.className = 'furniture-group' + (opts.collapsed ? ' collapsed' : '');
             group.id = groupId;
 
             group.innerHTML = `
@@ -19347,7 +19356,7 @@
                 addFurnitureGroup('');
             } else {
                 for (const room of rooms) {
-                    const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true });
+                    const groupId = addFurnitureGroup(room.name, { existingId: room.id, skipSave: true, collapsed: true });
 
                     if (room.installation_included === false) {
                         var installCb = document.getElementById(groupId + '-install');
@@ -19632,10 +19641,7 @@
             updateGlobalModifierDisplay();
             updateDiscountDisplay();
 
-            // Collapse all rooms before showing (accordion: one at a time, no flash)
-            document.querySelectorAll('.furniture-group').forEach(function(g) {
-                g.classList.add('collapsed');
-            });
+            // Rooms already created with collapsed class (opts.collapsed in addFurnitureGroup)
             aiFocusGroupId = null;
             aiCurrentScope = 'project';
 

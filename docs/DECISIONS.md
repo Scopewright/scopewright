@@ -795,3 +795,28 @@
 - Changer DM Caisson (mélamine blanche → noire) ne déclenche plus de modales pour Panneaux/Façades/Finition
 - Les choix `$match:` des catégories non liées au groupe modifié sont préservés
 - La persistance DB de `matchDefaults` est aussi sélective (PATCH partiel au lieu de reset `{}`)
+
+---
+
+## DEC-042 — Filtrage DM par pertinence expense category avant modale (#206)
+
+**Date** : 2026-03-15
+
+**Contexte** : `getDefaultMaterialKeywords` affichait tous les DM entries d'un type (ex: tous les "Panneaux") dans `showDmChoiceModal`, incluant des matériaux non pertinents (ex: Laque, Legrabox) pour la catégorie de dépense en cours de résolution (ex: `PANNEAU BOIS`).
+
+**Décision** : Nouvelle fonction `filterDmByExpenseRelevance(dmEntries, expenseCategory)` appliquée avant chaque `showDmChoiceModal` dans les 4 tiers. Trois critères d'acceptation :
+1. `material_costs` keys matchent l'expense category (word-similarity sur mots bruts — pas `extractMatchKeywords` qui strip les stop words comme `'panneau'`)
+2. MAT sans `material_costs` → accepté par défaut (pas de données pour filtrer)
+3. FAB avec cascade `$match:` ciblant la catégorie → accepté
+
+Fallback : si le filtre vide la liste → liste originale conservée (sécurité).
+
+**Alternatives rejetées** :
+- Utiliser `extractMatchKeywords` pour le matching → strip `'panneau'` comme stop word, cassant le matching `PANNEAU MÉLAMINE` vs `PANNEAU BOIS`
+- Filtrer dans `showDmChoiceModal` elle-même → la fonction est générique et ne connaît pas l'expense category
+- Table de termes normalisés pour `client_text` → coût de maintenance disproportionné, le matching actuel (word-similarity + dedup) suffit
+
+**Conséquences** :
+- Les modales DM n'affichent que les matériaux pertinents à la catégorie de dépense résolue
+- Auto-select quand le filtre réduit à 1 entry (élimine les modales inutiles)
+- Pas de cassure si le catalogue manque de données `material_costs` (fallback à la liste complète)

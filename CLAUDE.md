@@ -872,14 +872,14 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 292 assertions en 34 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 19 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/cascade-engine.test.js` | 301 assertions en 35 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 20 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `filterDmByExpenseRelevance`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`
 
 ### Synchronisation
 

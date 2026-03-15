@@ -389,6 +389,8 @@ scheduleCascade(rowId)
    - Étape 2 : `description` du parent → `extractMatchKeywords()`
    - Étape 3 : mots-clés DM via `getDefaultMaterialKeywords()`
 
+4b. **Filtre DM par pertinence expense** (fix #206) : avant chaque `showDmChoiceModal` dans les 4 tiers de `getDefaultMaterialKeywords`, `filterDmByExpenseRelevance(dmEntries, expenseCategory)` filtre les DM entries. Trois critères d'acceptation : (1) `material_costs` keys matchent l'expense category par word-similarity sur mots bruts (pas `extractMatchKeywords` — les stop words comme `'panneau'` sont critiques), (2) MAT sans `material_costs` défini → accepté par défaut, (3) FAB avec cascade `$match:` ciblant la catégorie → accepté. Si filtre vide → fallback à la liste complète (sécurité). Si réduit à 1 → auto-select sans modale.
+
 5. **Scoring** : `scoreMatchCandidates(keywords, candidates)` → Levenshtein + substring. **Relaxation** : si > 2 mots-clés donnent 0 résultats, réessaye avec les 2 meilleurs
 
 6. **Résultat** : 1 match → utilise directement. Multiples → `showMatchChoiceModal()`. 0 → toast d'erreur

@@ -238,6 +238,8 @@ Les composantes sont indentées sous l'article parent et leurs quantités sont c
 
 Ce filtrage est entièrement automatique -- aucune action de l'utilisateur n'est requise. Il n'y a pas de toast ni de message quand une composante est exclue par incompatibilité, car c'est le comportement attendu.
 
+**Filtrage des modales par pertinence** : quand le système doit vous demander quel matériau utiliser (parce que plusieurs DM du même type existent), il filtre d'abord les options par pertinence à la catégorie de dépense résolue. Par exemple, si le système résout un `PANNEAU BOIS`, seuls les matériaux dont les coûts incluent un panneau apparaissent dans la modale — pas la laque ni les quincailleries. Si le filtre ne laisse qu'un seul choix, la modale est évitée et le matériau est sélectionné automatiquement.
+
 **Collapse des composantes** : les composantes sont **masquées par défaut** pour garder le calculateur lisible. Chaque parent affiche un triangle ▶ et un badge **(+3)** indiquant le nombre de composantes cachées. Quand les composantes sont masquées, le **total affiché sur le parent inclut la somme de toutes ses composantes** (en gras) — vous voyez le coût réel de l'article complet d'un coup d'œil. Cliquez le triangle pour expand/collapse : à l'expand, le total revient au montant individuel du parent. Une checkbox dans l'en-tête de la pièce permet de **tout montrer** d'un coup.
 
 #### Dimensions

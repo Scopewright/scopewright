@@ -188,7 +188,23 @@ async function loadPromptOverride(supabase: any): Promise<string | null> {
   }
 }
 
-function buildSystemPrompt(context: any, staticOverride: string | null): string {
+// Load organizational learnings from ai_learnings table
+async function loadLearnings(supabase: any): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("ai_learnings")
+      .select("rule")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (!data || data.length === 0) return [];
+    return data.map((d: any) => d.rule).filter((r: any) => typeof r === "string" && r.trim());
+  } catch {
+    return [];
+  }
+}
+
+function buildSystemPrompt(context: any, staticOverride: string | null, learnings: string[] = []): string {
   // Use override or default for the static instructions
   const staticPrompt = staticOverride || DEFAULT_STATIC_PROMPT;
 
@@ -266,7 +282,15 @@ ${expStr || 'Non disponible'}
 ## Taux horaires
 ${tauxStr || 'Non disponible'}${openArticleStr}`;
 
-  return staticPrompt + dynamicContext;
+  let prompt = staticPrompt + dynamicContext;
+
+  // Organizational learnings
+  if (learnings.length > 0) {
+    prompt += "\n\n## Règles apprises de cette organisation\nCes règles ont été établies par des utilisateurs et DOIVENT être respectées :\n"
+      + learnings.map((r, i) => `${i + 1}. ${r}`).join("\n");
+  }
+
+  return prompt;
 }
 
 const TOOLS = [
@@ -497,10 +521,13 @@ serve(async (req) => {
       );
     }
 
-    // Load single prompt override from app_config (fallback to default if missing)
-    const staticOverride = await loadPromptOverride(supabase);
+    // Load prompt override + organizational learnings in parallel
+    const [staticOverride, learnings] = await Promise.all([
+      loadPromptOverride(supabase),
+      loadLearnings(supabase),
+    ]);
 
-    const systemPrompt = buildSystemPrompt(context || {}, staticOverride);
+    const systemPrompt = buildSystemPrompt(context || {}, staticOverride, learnings);
 
     const body: any = {
       model: "claude-sonnet-4-5-20250929",

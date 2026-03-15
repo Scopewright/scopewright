@@ -211,7 +211,12 @@ Pour un article qui n'existe pas dans le catalogue (travail unique, sous-traitan
 
 **Comment décrire au client (texte → JSON)** : le modal contient un champ « Comment décrire au client » avec un bouton AI. Écrivez en langage naturel comment cet article doit apparaître dans la soumission (ex: « Comptoir en quartz blanc 60 po, incluant découpe évier et polissage »). L'AI génère la règle de présentation JSON qui contrôle le formatage dans la soumission — vous ne touchez jamais au JSON.
 
-**Sauvegarder au catalogue** : si l'article est réutilisable, le bouton **⬆ Sauvegarder au catalogue** dans le modal l'ajoute au catalogue permanent.
+**Sauvegarder au catalogue** : si l'article est réutilisable, vous pouvez le promouvoir en article catalogue permanent :
+1. Cliquez le bouton **⬆ Sauvegarder au catalogue** dans le footer du modal
+2. Le système **sauvegarde d'abord** l'article personnalisé (titre, prix, MO, matériaux)
+3. La **modale du catalogue** s'ouvre automatiquement, pré-remplie avec les données de l'article (description, prix composé, type)
+4. Ajustez si nécessaire (catégorie, texte client, règles de calcul...) et sauvegardez
+5. L'article obtient un **code ST-XXXX** et devient disponible pour tous les futurs projets
 
 #### Génération automatique des composantes
 
@@ -225,6 +230,13 @@ Par exemple, ajouter un **Caisson standard** avec L=24", H=36" :
 Les composantes sont indentées sous l'article parent et leurs quantités sont calculées par les formules de l'article. Les quantités distinguent automatiquement les constantes (ex: "4 vis par caisson") des formules dimensionnelles (ex: "surface L×H/144") — pas de risque de doublement quand vous avez plusieurs unités du même article.
 
 **Cohérence matériau** : quand le système résout le panneau vers mélamine, toutes les composantes associées (bande de chant, finition) sont automatiquement résolues dans le même contexte matériau. Pas besoin de vérifier manuellement la cohérence. Par exemple, mélamine ne reçoit pas de finition laque (le système le sait et n'en crée pas).
+
+**Filtre intelligent des cascades** : certaines composantes sont automatiquement exclues quand le matériau résolu est incompatible. Le système vérifie que le matériau par défaut a une relation avec la catégorie de la composante avant de la créer. Exemples concrets :
+- **Mélamine** : pas de `FINITION BOIS` (la mélamine n'a pas de finition bois dans ses coûts ni dans ses cascades) -- la ligne finition n'est tout simplement pas créée. Par contre, la `BANDE DE CHANT` est créée (la mélamine a bien une bande de chant PVC dans ses cascades).
+- **Placage chêne blanc** : la `FINITION BOIS` est créée (le placage a une finition dans ses cascades), et la `BANDE DE CHANT` bois est aussi créée.
+- **Changement de matériau** : si vous passez de mélamine à placage, la finition apparaît automatiquement. Si vous passez de placage à mélamine, la finition disparaît et la bande de chant PVC remplace la bande de chant bois.
+
+Ce filtrage est entièrement automatique -- aucune action de l'utilisateur n'est requise. Il n'y a pas de toast ni de message quand une composante est exclue par incompatibilité, car c'est le comportement attendu.
 
 **Collapse des composantes** : les composantes sont **masquées par défaut** pour garder le calculateur lisible. Chaque parent affiche un triangle ▶ et un badge **(+3)** indiquant le nombre de composantes cachées. Quand les composantes sont masquées, le **total affiché sur le parent inclut la somme de toutes ses composantes** (en gras) — vous voyez le coût réel de l'article complet d'un coup d'œil. Cliquez le triangle pour expand/collapse : à l'expand, le total revient au montant individuel du parent. Une checkbox dans l'en-tête de la pièce permet de **tout montrer** d'un coup.
 
@@ -350,18 +362,24 @@ Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une i
 
 ### Descriptions client
 
-Chaque meuble a un champ **Description client** qui apparaît dans la soumission envoyée au client. Deux façons de le remplir :
+Chaque meuble a un champ **Description client** qui apparaît dans la soumission envoyée au client. Le champ est un éditeur rich text (gras, listes, paragraphes).
 
-1. **AI** — Cliquez le point AI (●) à côté du champ. Un **panneau de proposition** apparaît sous le champ avec la description générée. Vous avez 3 options :
-   - **Remplacer tout** — remplace la description existante par la proposition
-   - **Insérer la sélection** — sélectionnez un passage dans la proposition, ce bouton apparaît automatiquement pour insérer le fragment sélectionné à la position de votre curseur dans le champ principal
-   - **Ignorer** — ferme le panneau sans rien modifier
+#### Génération AI en deux phases
+
+Le bouton AI (●) a un comportement intelligent qui s'adapte selon l'état de la description :
+
+**Première génération** (description vide) : l'AI génère un squelette structuré directement à partir des articles présents et de leurs règles de présentation. Le résultat est écrit **directement** dans le champ description -- pas de panneau de proposition. C'est un point de départ rapide que vous pouvez ensuite affiner manuellement.
+
+**Générations suivantes** (description existante) : l'AI détecte ce qui a changé depuis la dernière génération (articles ajoutés, supprimés, matériaux modifiés, quantités changées). Elle propose une **révision ciblée** dans un panneau de proposition sous le champ, avec 3 boutons :
+   - **Remplacer tout** -- remplace la description existante par la proposition
+   - **Insérer la sélection** -- sélectionnez un passage dans la proposition, ce bouton apparaît automatiquement pour insérer le fragment sélectionné à la position de votre curseur dans le champ principal
+   - **Ignorer** -- ferme le panneau sans rien modifier
 
    La proposition est structurée : caisson (matériau, finition), façades (type, matériau), tiroirs (système, quantité), poignées (modèle), détails, exclusions.
 
-2. **Assemblage** — Cliquez le bouton ⚡ pour assembler automatiquement la description à partir des articles présents.
+**Détection des changements** : le système mémorise le contexte au moment de chaque génération (matériaux par défaut, articles, quantités). Lors de la génération suivante, il calcule un diff et l'inclut dans le prompt pour que l'AI sache exactement quoi mettre à jour. Par exemple : "Article ST-0042 ajouté (Comptoir quartz, qty 1), matériau Façades changé de mélamine à placage chêne blanc".
 
-La description est un champ texte libre — vous pouvez toujours la modifier manuellement.
+La description est un champ texte libre -- vous pouvez toujours la modifier manuellement.
 
 #### Traduction FR/EN
 
@@ -1110,6 +1128,8 @@ L'administration contient un **dropdown de 12+ assistants AI** dont vous pouvez 
 
 Pour chaque assistant, vous pouvez **modifier le prompt** (les instructions). Laissez vide pour utiliser le prompt par défaut. Vos modifications sont sauvegardées et prennent effet immédiatement.
 
+> **Note** : 3 prompts internes ne sont pas visibles dans ce dropdown — `explication_catalogue`, `json_catalogue` et `approval_suggest`. Ce sont des actions utilisées automatiquement par le système et ne nécessitent pas de personnalisation.
+
 ### Présentation — Introduction
 
 Personnalisez la page d'introduction de vos soumissions :
@@ -1140,6 +1160,27 @@ Outil de diagnostic pour vérifier quelles images l'assistant AI reçoit réelle
 - **Soumission et pièce** associées
 
 Utile pour diagnostiquer pourquoi l'AI interprète mal un plan — vous voyez exactement ce qu'elle voit, avec les tags rasterisés.
+
+---
+
+## Vérifications automatiques (sanity checks)
+
+Scopewright exécute des **vérifications déterministes** en arrière-plan (sans AI) pour détecter les problèmes de configuration et les incohérences dans vos soumissions. Ces vérifications sont instantanées et ne consomment aucun crédit AI.
+
+### Vérifications disponibles
+
+| Vérification | Ce qu'elle détecte |
+|---|---|
+| **Clés de règles de présentation** | Articles dont les règles de présentation référencent des clés manquantes ou invalides |
+| **Descriptions vides** | Meubles sans description client -- la soumission envoyée au client aura une section vide |
+| **Total à zéro** | Soumission dont le grand total est 0 $ -- probablement un oubli de configuration |
+| **Orphelins cascade** | Enfants cascade dont le parent n'existe plus -- lignes "fantômes" qui ne devraient pas être là |
+
+### Comment les voir
+
+Les résultats des vérifications apparaissent sous forme de **badge rouge** sur le bouton de l'Agent Maitre (le point flottant en bas à droite). Le nombre sur le badge indique le total de problèmes détectés. Ouvrez l'Agent Maitre pour voir le détail des problèmes par catégorie.
+
+Ces vérifications sont purement informatives -- elles ne bloquent pas le workflow et ne modifient rien. Elles servent d'aide-mémoire pour s'assurer que la soumission est complète avant l'envoi.
 
 ---
 

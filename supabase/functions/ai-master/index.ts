@@ -298,8 +298,8 @@ function buildSystemPrompt(
     const now = new Date();
     const hoursSinceSync = Math.round((now.getTime() - syncDate.getTime()) / (1000 * 60 * 60));
     let freshness = `Dernière synchronisation : ${syncedAt} (il y a ${hoursSinceSync}h)`;
-    if (hoursSinceSync > 24) {
-      freshness += "\n⚠ Les documents de contexte ont plus de 24h — suggère à l'utilisateur de resynchroniser via le bouton ↻.";
+    if (hoursSinceSync > 168) { // 7 days
+      freshness += "\n⚠ Les documents de contexte ont plus de 7 jours — suggère à l'utilisateur de resynchroniser via le bouton ↻.";
     }
     sections.push("\n\n--- FRAÎCHEUR CONTEXTE ---\n" + freshness);
   }

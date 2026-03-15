@@ -838,6 +838,15 @@ Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
 
 **Note** : les composantes sont actuellement gérées dans le catalogue. L'intégration dans le calculateur (sélecteur composante par pièce) sera ajoutée dans une phase ultérieure.
 
+#### Enregistrer une composante depuis le calculateur
+
+Vous pouvez enregistrer vos matériaux par défaut comme composante réutilisable directement depuis le panneau DM d'une pièce :
+
+- **Ligne individuelle** : cliquez l'icône ⛏ à gauche du × sur une ligne DM pour l'enregistrer seule comme composante. Le nom est généré automatiquement depuis le type, le style, le matériau et la coupe.
+- **Toute la pièce** : si la pièce contient au moins 2 matériaux configurés, le bouton "Enregistrer tout" apparaît. Il crée une composante de type "Groupe" combinant tous les DM de la pièce.
+
+Les composantes enregistrées sont visibles dans le catalogue via le bouton "Composantes".
+
 ### Approbation des articles
 
 Les articles créés par des utilisateurs sans permission d'édition du catalogue sont mis **en attente d'approbation**.

@@ -18,7 +18,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~22 950 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~23 050 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 720 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~4 040 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
@@ -293,6 +293,12 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Fonctions** : `loadComposantes`, `openComposantesDrawer`, `closeComposantesDrawer`, `renderComposantesList`, `openComposanteModal`, `closeComposanteModal`, `saveComposante`, `deleteComposante`, `filterComposantesByType`
 - **Lien room_items** : `room_items.composante_id` UUID FK (nullable, ON DELETE SET NULL)
 - **Migration** : `sql/composantes.sql`
+
+**Phase 1B — Enregistrement depuis le panneau DM** :
+- **Bouton par ligne** : icône ⛏ (`.dm-save-composante-btn`) à gauche du × sur chaque ligne DM ayant `client_text`. `saveDmAsComposante(groupId, idx)` → INSERT composante avec champs mappés depuis le DM entry
+- **Bouton global** : "Enregistrer tout" (`.rdm-save-all-btn`) visible quand ≥2 DM configurés. `saveAllDmAsComposante(groupId)` → composante `dm_type: "Groupe"` avec nom concaténé par ` / ` et notes résumé
+- **`buildComposanteName(dmEntry)`** : nom auto = `{type} {style} {client_text} {coupe}`, champs vides omis
+- **`COMPOSANTES_DATA`** : array global dans calculateur.html, mis à jour en mémoire après chaque INSERT
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 

@@ -796,6 +796,32 @@ Tous authentifiés, full CRUD (cohérent avec `catalogue_items`).
 
 `sql/composantes.sql`
 
+#### Phase 1B — Enregistrement depuis le panneau DM (calculateur.html)
+
+Deux points d'entrée pour enregistrer des composantes directement depuis le panneau DM du calculateur :
+
+1. **Bouton par ligne** (`.dm-save-composante-btn`) : visible si `dmEntry.client_text` existe. Appelle `saveDmAsComposante(groupId, idx)` qui mappe les champs DM enrichis vers la structure `composantes` et fait un INSERT.
+
+2. **Bouton "Enregistrer tout"** (`.rdm-save-all-btn`) : visible si ≥2 DM configurés dans la pièce. Appelle `saveAllDmAsComposante(groupId)` qui crée une composante de type `"Groupe"` avec nom concaténé et notes résumé.
+
+**Nommage auto** : `buildComposanteName(dmEntry)` → `{type} {style} {client_text} {coupe}` (champs vides omis). Pour un groupe : noms joints par ` / `.
+
+**Mapping DM → composante** :
+
+| Champ DM | Colonne composante |
+|----------|-------------------|
+| `type` | `dm_type` |
+| `client_text` | `materiau_client_text` |
+| `catalogue_item_id` | `materiau_catalogue_id` |
+| `style` | `style` |
+| `coupe` | `coupe` |
+| `bande_chant.client_text` | `bande_chant_client_text` |
+| `bande_chant.catalogue_item_id` | `bande_chant_catalogue_id` |
+| `finition.client_text` | `finition_client_text` |
+| `finition.catalogue_item_id` | `finition_catalogue_id` |
+| `bois_brut.client_text` | `bois_brut_client_text` |
+| `bois_brut.catalogue_item_id` | `bois_brut_catalogue_id` |
+
 ---
 
 ## 5. Workflow de soumission

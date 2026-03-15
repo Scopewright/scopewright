@@ -189,6 +189,7 @@
     let groupImages = {};        // { groupDomId: [{ name, dataUrl }] }
     let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
     let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
+    var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
 
@@ -2647,6 +2648,10 @@
         html += '<div class="rdm-actions">';
         html += '<button class="dm-add-btn" onclick="addRoomDmEntry(\'' + groupId + '\')">+ Ajouter</button>';
         html += '<button class="rdm-copy-btn" onclick="openRoomDmCopyMenu(\'' + groupId + '\', this)">Copier de\u2026</button>';
+        var configuredCount = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; }).length;
+        if (configuredCount >= 2) {
+            html += '<button class="rdm-save-all-btn" onclick="saveAllDmAsComposante(\'' + groupId + '\')">Enregistrer tout</button>';
+        }
         if (rdm.length > 0) {
             html += '<button class="rdm-clear-btn" onclick="clearRoomDm(\'' + groupId + '\')">Effacer tout</button>';
         }
@@ -2694,6 +2699,7 @@
                     (entry.catalogue_item_id ? 'class="dm-resolved"' : '') + '>' +
                 '<div class="dm-autocomplete" id="' + acId + '"></div>' +
             '</div>' +
+            (entry.client_text ? '<button class="dm-save-composante-btn" onclick="saveDmAsComposante(\'' + groupId + '\',' + idx + ')" title="Enregistrer comme composante">&#9903;</button>' : '') +
             '<button class="dm-remove" onclick="removeRoomDmEntry(\'' + groupId + '\',' + idx + ')" title="Supprimer">&times;</button>' +
             '</div>';
 
@@ -3097,6 +3103,102 @@
             // Reprocess cascades for all previously set types
             oldTypes.forEach(function(t) { reprocessDefaultCascades(t, groupId); });
         });
+    }
+
+    // ── #209 Phase 1B — Save DM as composante ──
+
+    /** Build short composante name from a DM entry */
+    function buildComposanteName(dmEntry) {
+        var parts = [
+            dmEntry.type || null,
+            dmEntry.style || null,
+            dmEntry.client_text || null,
+            dmEntry.coupe || null
+        ].filter(Boolean);
+        return parts.join(' ');
+    }
+
+    /** Save a single DM entry as composante */
+    async function saveDmAsComposante(groupId, idx) {
+        var rdm = roomDM[groupId] || [];
+        var dmEntry = rdm[idx];
+        if (!dmEntry || !dmEntry.client_text) return;
+
+        var nom = buildComposanteName(dmEntry);
+        var body = {
+            nom: nom,
+            dm_type: dmEntry.type || 'Autre',
+            materiau_client_text: dmEntry.client_text || null,
+            materiau_catalogue_id: dmEntry.catalogue_item_id || null,
+            style: dmEntry.style || null,
+            coupe: dmEntry.coupe || null,
+            bande_chant_client_text: (dmEntry.bande_chant && dmEntry.bande_chant.client_text) || null,
+            bande_chant_catalogue_id: (dmEntry.bande_chant && dmEntry.bande_chant.catalogue_item_id) || null,
+            finition_client_text: (dmEntry.finition && dmEntry.finition.client_text) || null,
+            finition_catalogue_id: (dmEntry.finition && dmEntry.finition.catalogue_item_id) || null,
+            bois_brut_client_text: (dmEntry.bois_brut && dmEntry.bois_brut.client_text) || null,
+            bois_brut_catalogue_id: (dmEntry.bois_brut && dmEntry.bois_brut.catalogue_item_id) || null
+        };
+
+        try {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify(body)
+            });
+            if (!resp.ok) { console.warn('[Composantes] Save failed:', resp.status); return; }
+            var result = await resp.json();
+            var saved = Array.isArray(result) ? result[0] : result;
+            COMPOSANTES_DATA.push(saved);
+            showConstraintToast('Composante ' + escapeHtml(saved.nom) + ' enregistr\u00e9e (' + saved.code + ')');
+        } catch(e) { console.warn('[Composantes] Save error:', e); }
+    }
+
+    /** Save all DM entries of a room as a group composante */
+    async function saveAllDmAsComposante(groupId) {
+        var rdm = roomDM[groupId] || [];
+        var configured = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; });
+        if (configured.length < 2) return;
+
+        var shortNames = configured.map(buildComposanteName);
+        var nom = shortNames.join(' / ');
+
+        // Use first Caisson entry or first available for main fields
+        var main = configured.find(function(e) { return e.type === 'Caisson'; }) || configured[0];
+
+        // Build notes summary
+        var notesParts = configured.map(function(e) {
+            return (e.type || '?') + ': ' + (e.client_text || '(vide)');
+        });
+
+        var body = {
+            nom: nom,
+            dm_type: 'Groupe',
+            materiau_client_text: main.client_text || null,
+            materiau_catalogue_id: main.catalogue_item_id || null,
+            style: main.style || null,
+            coupe: main.coupe || null,
+            bande_chant_client_text: (main.bande_chant && main.bande_chant.client_text) || null,
+            bande_chant_catalogue_id: (main.bande_chant && main.bande_chant.catalogue_item_id) || null,
+            finition_client_text: (main.finition && main.finition.client_text) || null,
+            finition_catalogue_id: (main.finition && main.finition.catalogue_item_id) || null,
+            bois_brut_client_text: (main.bois_brut && main.bois_brut.client_text) || null,
+            bois_brut_catalogue_id: (main.bois_brut && main.bois_brut.catalogue_item_id) || null,
+            notes: notesParts.join(', ')
+        };
+
+        try {
+            var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                body: JSON.stringify(body)
+            });
+            if (!resp.ok) { console.warn('[Composantes] Group save failed:', resp.status); return; }
+            var result = await resp.json();
+            var saved = Array.isArray(result) ? result[0] : result;
+            COMPOSANTES_DATA.push(saved);
+            showConstraintToast('Composante groupe enregistr\u00e9e (' + saved.code + ')');
+        } catch(e) { console.warn('[Composantes] Group save error:', e); }
     }
 
     function rdmSearchCatalogue(groupId, idx, input) {
@@ -9663,6 +9765,20 @@
         .rdm-enriched-row.rdm-disabled { opacity: 0.5; }
         .rdm-enriched-row.rdm-disabled input { cursor: not-allowed; }
         .rdm-enriched-warn { color: #D97706; font-size: 13px; flex-shrink: 0; cursor: help; }
+
+        /* ── Save DM as composante (#209 Phase 1B) ── */
+        .dm-save-composante-btn {
+            background: none; border: none; cursor: pointer; font-size: 14px;
+            color: #cbd5e1; padding: 0 3px; flex-shrink: 0; line-height: 1;
+            transition: color 0.15s;
+        }
+        .dm-save-composante-btn:hover { color: var(--sw-navy); }
+        .rdm-save-all-btn {
+            padding: 4px 10px; font-size: 11px; border: 1px solid var(--sw-border);
+            border-radius: 6px; background: #fff; color: var(--sw-text-2);
+            cursor: pointer; font-weight: 500; transition: all 0.15s;
+        }
+        .rdm-save-all-btn:hover { background: #f8fafc; border-color: var(--sw-navy); color: var(--sw-navy); }
 
         /* ── Main action buttons ── */
         .ph-actions { display: none; /* replaced by timeline CTA */ }

@@ -11,6 +11,7 @@
 ### Features
 - **Feature #208 — Enrichissement DM Phase 1A** : champs additionnels par groupe DM (Caisson, Façades, Panneaux). Sous-champs `bande_chant`, `finition`, `bois_brut` (combobox catalogue) + `style`, `coupe` (texte libre). Tier 0 dans `resolveMatchTarget` résout `$match:` depuis les champs enrichis sans modale. UI accordion collapsible dans le panneau DM. Validation cohérence mélamine/placage. 5 nouveaux groupes de tests (31-35), 330 assertions totales. Aucune migration SQL.
 - **#209 Phase 1A — Table Composantes** : nouvelle table `composantes` (COMP-XXX auto-code, dual-storage, soft delete), CRUD drawer dans catalogue, migration `sql/composantes.sql`, FK `room_items.composante_id`
+- **#209 Phase 1B — Enregistrement composantes depuis DM** : bouton par ligne DM + bouton "Enregistrer tout" dans le calculateur, `buildComposanteName` auto-nommage, `COMPOSANTES_DATA` global
 
 ### Corrections
 - **#188e** : `reprocessDefaultCascades` invalide `matchDefaults` sélectivement — seules les entrées liées au groupe DM modifié (via word-similarity sur `categoryGroupMapping`) sont supprimées, les choix `$match:` des catégories non modifiées sont préservés (DEC-041)

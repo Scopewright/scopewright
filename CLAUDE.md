@@ -489,6 +489,17 @@ Export server-side de la soumission en PDF via PDFShift API (rendu Chromium) à 
 - **Edge Function** : `supabase/functions/pdf-export/index.ts` — reçoit `{ html }`, appelle `https://api.pdfshift.io/v3/convert/pdf` avec auth Basic (secret `PDFSHIFT_API_KEY`), options `{ format: "Letter", landscape: true, margin: "0", use_print: true, wait_for: "network" }`, retourne le PDF binaire
 - **Dépendances retirées** : html2pdf.js (CDN), html2canvas, jsPDF — tout remplacé par PDFShift server-side
 
+### Plans architecturaux (`submission_plans` — project-level)
+
+Plans PDF associés au **projet** (pas à une soumission spécifique — migration #197).
+- **Table** : `submission_plans` avec FK `project_id` (anciennement `submission_id`)
+- **Storage** : bucket `submission-plans`, path `{projectId}/v{version}_{filename}.pdf`
+- **Versioning** : RPC `get_next_plan_version(p_project_id)` → `MAX(version_number) + 1`
+- **Modal** : `openPlansModal()` → `loadProjectPlans()` — accessible dès qu'un projet est ouvert (pas besoin de soumission)
+- **Viewer PDF** : popup autonome (`createStandaloneViewer()`) avec PDF.js, navigation, zoom, rotation, capture de page
+- **Capture** : screenshot haute résolution (3x = ~300 DPI) → crop modal → upload original PNG + crop JPEG 0.92 → `room_media` avec `source_metadata` (plan_id, page, version)
+- **Migration** : `sql/migrate_plans_to_project.sql`
+
 ### Pipeline commercial
 
 3 vues : Table, Cartes, Soumissions. `project_code` auto-généré par trigger DB.
@@ -772,6 +783,7 @@ projects
   │     ├── project_versions (snapshots)
   │     ├── submission_reviews (historique approbation)
   │     └── public_quote_tokens
+  ├── submission_plans (plans PDF — project-level depuis #197)
   ├── project_follows (★ par utilisateur)
   └── project_contacts (liaison vers contacts)
 

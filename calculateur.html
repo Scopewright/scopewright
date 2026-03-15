@@ -10623,7 +10623,7 @@
                     <div id="planUploadStatus" style="display:none; margin-top:12px; padding:10px; border-radius:6px; font-size:13px; text-align:center;"></div>
                 </div>
                 <div id="plansListContainer" class="plans-list">
-                    <div class="plans-empty">Aucun plan pour cette soumission</div>
+                    <div class="plans-empty">Aucun plan pour ce projet</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -15792,27 +15792,27 @@
         // Plans architecturaux
         // ═══════════════════════════════════════════════════════════════════════
         async function openPlansModal() {
-            if (!currentSubmission) {
-                alert('Veuillez ouvrir une soumission d\'abord.');
+            if (!currentProject) {
+                alert('Veuillez ouvrir un projet d\'abord.');
                 return;
             }
             document.getElementById('plansModal').classList.add('active');
-            await loadSubmissionPlans();
+            await loadProjectPlans();
         }
 
         function closePlansModal() {
             document.getElementById('plansModal').classList.remove('active');
         }
 
-        async function loadSubmissionPlans() {
-            if (!currentSubmission) return;
+        async function loadProjectPlans() {
+            if (!currentProject) return;
 
             var container = document.getElementById('plansListContainer');
             container.innerHTML = '<div class="plans-empty">Chargement...</div>';
 
             try {
                 var response = await authenticatedFetch(
-                    SUPABASE_URL + '/rest/v1/submission_plans?submission_id=eq.' + currentSubmission.id + '&order=version_number.desc',
+                    SUPABASE_URL + '/rest/v1/submission_plans?project_id=eq.' + currentProject.id + '&order=version_number.desc',
                     { headers: { 'Prefer': 'return=representation' } }
                 );
 
@@ -15821,7 +15821,7 @@
                 var plans = await response.json();
 
                 if (plans.length === 0) {
-                    container.innerHTML = '<div class="plans-empty">Aucun plan pour cette soumission</div>';
+                    container.innerHTML = '<div class="plans-empty">Aucun plan pour ce projet</div>';
                     return;
                 }
 
@@ -15882,7 +15882,7 @@
         }
 
         async function uploadNewPlan(file) {
-            if (!currentSubmission) return;
+            if (!currentProject) return;
 
             var status = document.getElementById('planUploadStatus');
             var btn = document.getElementById('btnUploadPlan');
@@ -15901,7 +15901,7 @@
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ p_submission_id: currentSubmission.id })
+                        body: JSON.stringify({ p_project_id: currentProject.id })
                     }
                 );
 
@@ -15917,7 +15917,7 @@
                     .replace(/[\u2013\u2014]/g, '-')                   // em/en dash → hyphen
                     .replace(/\s+/g, '_')                              // spaces → underscores
                     .replace(/[^a-zA-Z0-9_.\-]/g, '');                 // strip remaining invalid chars
-                var storagePath = currentSubmission.id + '/v' + nextVersion + '_' + safeName;
+                var storagePath = currentProject.id + '/v' + nextVersion + '_' + safeName;
                 var uploadResp = await authenticatedFetch(
                     SUPABASE_URL + '/storage/v1/object/submission-plans/' + storagePath,
                     {
@@ -15944,7 +15944,7 @@
                             'Prefer': 'return=representation'
                         },
                         body: JSON.stringify({
-                            submission_id: currentSubmission.id,
+                            project_id: currentProject.id,
                             version_number: nextVersion,
                             file_path: storagePath,
                             file_name: file.name,
@@ -15962,7 +15962,7 @@
                 status.innerHTML = '✓ Plan téléversé avec succès!';
 
                 // Reload list
-                await loadSubmissionPlans();
+                await loadProjectPlans();
 
                 // Hide status after 3 seconds
                 setTimeout(function() {
@@ -16081,7 +16081,7 @@
                 if (!deleteDbResp.ok) throw new Error('Erreur de suppression');
 
                 // Reload list
-                await loadSubmissionPlans();
+                await loadProjectPlans();
 
             } catch (err) {
                 console.error('Delete error:', err);
@@ -16153,7 +16153,7 @@
                         type: 'INIT_PDF',
                         pdfUrl: currentPdfUrl,
                         planRecord: currentPlanRecord,
-                        submissionId: currentSubmission.id,
+                        submissionId: currentSubmission ? currentSubmission.id : null,
                         supabaseUrl: SUPABASE_URL,
                         accessToken: localStorage.getItem('sb_access_token')
                     }, '*');
@@ -16236,7 +16236,7 @@
                         type: 'INIT_PDF',
                         pdfUrl: currentPdfUrl,
                         planRecord: currentPlanRecord,
-                        submissionId: currentSubmission.id,
+                        submissionId: currentSubmission ? currentSubmission.id : null,
                         supabaseUrl: SUPABASE_URL,
                         accessToken: localStorage.getItem('sb_access_token')
                     }, '*');
@@ -22801,7 +22801,7 @@
             openPreview, closePreview,
             renderPreview, wirePreviewSaveHandlers, removePreviewImage,
             // Plans architecturaux
-            openPlansModal, closePlansModal, loadSubmissionPlans,
+            openPlansModal, closePlansModal, loadProjectPlans,
             handlePlanFileSelect, uploadNewPlan, setPlanButtonLoading,
             downloadPlan, deletePlan,
             // PDF Viewer

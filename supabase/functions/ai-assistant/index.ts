@@ -265,7 +265,9 @@ function buildSystemPrompt(context: any, staticOverride: string | null, learning
     .join(", ");
   // Conditional sections based on context flags
   const effectiveDescRules = descFormatRules || DEFAULT_DESCRIPTION_FORMAT_RULES;
-  const plansContent = context.hasImages ? PLANS_SECTION : '';
+  // Always inject dimensional methodology (plans reading + measurement rigor)
+  // Images-specific note is appended when actual images are present
+  const plansContent = PLANS_SECTION + (context.hasImages ? '\n\nImages de référence disponibles dans cette conversation.' : '');
   const descContent = context.needsDescriptionHelp ? DESCRIPTION_SECTION.replace("{{DESCRIPTION_FORMAT_RULES}}", effectiveDescRules) : '';
 
   staticPrompt = staticPrompt

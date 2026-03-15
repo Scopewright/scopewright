@@ -782,10 +782,7 @@
                         body: JSON.stringify({
                             rule: input.content,
                             source_context: input.source || 'agent-maitre',
-                            is_active: input.active !== false,
-                            shop_id: 1,
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
+                            is_active: input.active !== false
                         })
                     }
                 );

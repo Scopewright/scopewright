@@ -209,6 +209,8 @@ Pour un article qui n'existe pas dans le catalogue (travail unique, sous-traitan
 
 **Indicateur visuel** : la ligne est **orange** tant que le prix fournisseur est à 0 $. Un badge « X prix manquants » apparaît dans l'en-tête de la pièce.
 
+**Comment décrire au client (texte → JSON)** : le modal contient un champ « Comment décrire au client » avec un bouton AI. Écrivez en langage naturel comment cet article doit apparaître dans la soumission (ex: « Comptoir en quartz blanc 60 po, incluant découpe évier et polissage »). L'AI génère la règle de présentation JSON qui contrôle le formatage dans la soumission — vous ne touchez jamais au JSON.
+
 **Sauvegarder au catalogue** : si l'article est réutilisable, le bouton **⬆ Sauvegarder au catalogue** dans le modal l'ajoute au catalogue permanent.
 
 #### Génération automatique des composantes
@@ -395,16 +397,70 @@ Il y a aussi un **toggle global** au niveau du projet qui contrôle l'installati
 
 **Note technique** : le toggle installation ne recalcule pas les composantes — c'est un flag de facturation uniquement. Aucun risque de duplication ou de modification des articles.
 
-### Rentabilité
+### Rentabilité et marges
 
-Le bouton **Rentabilité** dans la barre d'outils ouvre une modale avec 4 sections :
+Le bouton **Rentabilité** dans la barre d'outils ouvre une modale d'analyse financière détaillée. Deux portées sont disponibles :
 
-1. **Cartes KPI** — Vente / Coût direct / Profit. La carte Profit change de couleur selon le profit net : vert (≥15%), orange (8-14.9%), rouge (<8%)
-2. **Barre de répartition** — Segments visuels montrant la proportion matériaux, salaires, frais fixes et profit
-3. **Marges** — Marge brute et profit net avec badges colorés. Ventilation main-d'œuvre par département
-4. **Tableau matériaux** — Base, perte, markup et total par catégorie de dépense
+- **Par meuble** — Analyse d'une seule section (cliquer Rentabilité avec une pièce ouverte)
+- **Globale (projet)** — Vue d'ensemble de toute la soumission (toutes pièces fermées)
 
-Si la marge brute est trop faible (< 35%), un bandeau propose un ajustement automatique. Le bouton **Ajuster le prix** calcule le prix cible pour atteindre la marge visée (38%) et l'applique via le modificateur % de la pièce.
+#### Les 4 sections de la modale
+
+**1. Cartes KPI** — Trois cartes en ligne résumant la santé financière :
+
+| Carte | Contenu | Couleurs |
+|-------|---------|----------|
+| **Vente** | Prix de vente total (avec modificateurs %) | Toujours navy |
+| **Coût direct** | Matériaux + perte + salaires (sans frais fixes) | Toujours navy |
+| **Profit** | Vente − Coût direct − Frais fixes | Vert si ≥15%, orange si 8-14.9%, rouge si <8% |
+
+**2. Barre de répartition** — 4 segments visuels proportionnels :
+- **Matériaux** (navy foncé) — Coût brut des matériaux
+- **Salaires** (gris foncé) — Minutes MO × taux horaire par département
+- **Frais fixes** (gris) — Pourcentage fixe appliqué au coût
+- **Profit** (vert) — Ce qui reste après tous les coûts
+
+Les pourcentages s'affichent directement sur les segments assez larges (≥8%).
+
+**3. Marges et ventilation MO** — Deux colonnes côte à côte :
+
+- **Marge brute** = (Vente − matériaux − perte − salaires) / Vente × 100
+  - Badge vert ≥35%, orange 25-34.9%, rouge <25%
+- **Profit net** = (Vente − matériaux − perte − salaires − frais fixes) / Vente × 100
+  - Badge vert ≥15%, orange 8-14.9%, rouge <8%
+- **Ventilation MO** — Barres horizontales par département (Fabrication, Assemblage, Finition…), triées du plus gros au plus petit. Montre la répartition du temps de travail.
+
+**4. Tableau matériaux** — Détail par catégorie de dépense :
+
+| Colonne | Signification |
+|---------|--------------|
+| **Base** | Coût unitaire brut du matériau |
+| **Perte** | Montant perdu (coût × facteur de perte %) |
+| **Markup** | Marge ajoutée (coût × markup %) |
+| **Total** | Base + Perte + Markup |
+
+#### Bannière AI et ajustement de prix
+
+Quand la marge brute est **inférieure à 35%**, un bandeau orange apparaît en haut de la modale avec un conseil AI.
+
+Le bouton **Ajuster le prix** (disponible en vue par meuble uniquement) :
+1. Calcule le **prix cible** pour atteindre la marge visée de 38%
+2. Affiche les marges projetées (brute et nette) avec le nouveau prix
+3. Deux boutons : **Appliquer** (inscrit le prix via le modificateur % de la pièce) ou **Ignorer**
+
+Le prix cible est calculé par la formule : `Prix = (matériaux + perte + salaires) / (1 − 38/100)`. Le système ajuste le modificateur % du meuble pour atteindre ce prix, sans changer les articles individuels.
+
+#### Interpréter les chiffres
+
+| Situation | Ce que ça signifie | Quoi faire |
+|-----------|--------------------|------------|
+| Profit vert (≥15%) | Soumission saine | Rien — tout va bien |
+| Profit orange (8-14.9%) | Marge serrée mais acceptable | Vérifier les articles les plus coûteux |
+| Profit rouge (<8%) | Risque de perte | Ajuster le prix ou revoir les matériaux |
+| Marge brute <25% | Coûts directs trop élevés | Vérifier les temps MO et les coûts matériaux |
+| Un département MO domine | Goulot d'étranglement potentiel | Vérifier si les temps sont réalistes |
+
+**Note** : les modificateurs % (par meuble et global) sont pris en compte dans le calcul. Le prix de vente affiché est le prix effectif après modificateurs.
 
 ### Ajustements par ligne
 
@@ -577,6 +633,50 @@ Le bouton **Dupliquer** crée une copie de l'article (nouveau code ST-XXXX, stat
 
 C'est ici que la puissance de Scopewright se révèle. Chaque article de fabrication peut avoir des **règles de cascade** qui définissent ses composantes automatiques.
 
+#### Le flux texte humain → JSON
+
+Vous ne manipulez **jamais** le JSON directement. Le flux est toujours le même :
+
+1. **Vous écrivez en français** dans le champ « Explication » — décrivez les composantes comme vous les expliqueriez à un collègue
+2. **L'AI convertit** en JSON structuré quand vous cliquez le bouton AI (⚡)
+3. **Le JSON contrôle** la génération automatique des composantes dans le calculateur
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  VOUS ÉCRIVEZ (texte humain)                            │
+│                                                         │
+│  « Un caisson standard comprend des panneaux de         │
+│  mélamine (surface L×H/144 en pi²), de la bande        │
+│  de chant sur les chants visibles (périmètre            │
+│  2×(L+H)/12 en pi lin), et une finition selon           │
+│  le matériau par défaut (même surface). »               │
+│                                                         │
+│               ↓  Bouton AI (⚡)                         │
+│                                                         │
+│  LE JSON EST GÉNÉRÉ AUTOMATIQUEMENT                     │
+│  (cascade, formules, ask, child_dims…)                  │
+│                                                         │
+│               ↓  Estimateur ajoute l'article            │
+│                                                         │
+│  LES COMPOSANTES SONT CRÉÉES                            │
+│  (panneaux, bande de chant, finition — auto)            │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Où écrire le texte humain :**
+- **Catalogue → Modifier un article → Section « Règle de cascade »** — Le grand textarea « Explication humaine »
+- **Catalogue → Modifier un article → Section « Barèmes et modificateurs »** — Le textarea sous « Explication »
+
+**Ce que le JSON contrôle (vous n'avez pas besoin de le comprendre) :**
+- `cascade` — Quelles composantes créer et avec quelles formules de quantité
+- `ask` — Quelles dimensions demander avant de cascader (L, H, P, n_portes…)
+- `child_dims` — Les formules dimensionnelles des enfants (ex: largeur façade = L ÷ n_portes)
+- `override_children` — Les catégories que cet article gère seul (pas de duplication)
+- `formula` — La formule de calcul de quantité de l'article lui-même
+
+**Pourquoi l'utilisateur n'écrit jamais de JSON :**
+Le JSON est un format technique que l'AI maîtrise parfaitement. Votre texte humain capture l'**intention** et les **règles métier** — l'AI s'occupe de la traduction technique. Si le JSON est incorrect, corrigez votre explication et relancez l'AI plutôt que d'éditer le JSON manuellement.
+
 #### Comment ça fonctionne
 
 1. Vous écrivez une **explication en langage naturel** décrivant les composantes de l'article :
@@ -603,17 +703,24 @@ Les règles cascade peuvent inclure des **formules de dimensions** pour les enfa
 
 Les barèmes ajustent automatiquement les temps de main-d'œuvre et coûts matériaux selon les dimensions de l'article. Cette section est visible uniquement pour les administrateurs dans la modale d'édition du catalogue.
 
-#### Comment ça fonctionne
+#### Comment ça fonctionne (même flux texte → JSON)
 
 1. Écrivez une **explication** des ajustements dimensionnels en langage naturel :
 
-   > « Largeur > 36 po → +25% machinage. Largeur > 48 po → +50% machinage et +20% panneaux. »
+   > « Largeur > 36 po → +25% machinage. Largeur > 48 po → +50% machinage et +20% panneaux. Si profondeur > 24 po, ajouter 15 minutes d'assemblage. »
 
 2. Cliquez le **bouton AI** — le système génère le JSON structuré des barèmes
 
 3. Dans le calculateur, quand l'estimateur entre les dimensions, les ajustements s'appliquent automatiquement
 
-Le premier barème dont la condition est vraie est appliqué (pas de cumul). Les valeurs ajustées apparaissent dans la colonne **Auto** du popover d'override.
+**Ce que le JSON des barèmes contrôle :**
+- `condition` — L'expression logique (ex: `L > 36`)
+- `labor_factor` — Multiplicateur MO par département (1.25 = +25%)
+- `material_factor` — Multiplicateur matériaux par catégorie
+- `labor_minutes` — Minutes absolues ajoutées (nombre ou formule, ex: `"n_partitions * 12"`)
+- `cumulative` — Si `true`, tous les barèmes vrais s'appliquent ensemble (sinon, le premier gagne)
+
+Le premier barème dont la condition est vraie est appliqué (pas de cumul par défaut). Les valeurs ajustées apparaissent dans la colonne **Auto** du popover d'override.
 
 ### Assistant catalogue
 
@@ -653,13 +760,28 @@ L'assistant extrait : description, prix unitaire, unité de mesure, et génère 
 
 #### Génération des règles de calcul par AI
 
-Pour chaque article de fabrication dans le catalogue, deux boutons AI facilitent la configuration :
+Le catalogue offre deux flux texte humain → JSON, chacun avec son propre bouton AI :
 
-1. **Explication → JSON** : écrivez en langage naturel comment l'article fonctionne (ex: « Ce caisson a des panneaux en pi² (L×H/144), de la bande de chant sur le périmètre, et une finition selon le matériau par défaut »). L'AI génère le JSON structuré.
+| Flux | Où écrire | Bouton AI | JSON généré |
+|------|-----------|-----------|-------------|
+| **Règle de cascade** | Textarea « Explication humaine » dans la section Cascade | ⚡ à côté du textarea | `cascade`, `ask`, `child_dims`, `formula` |
+| **Barèmes** | Textarea « Explication » dans la section Barèmes | ⚡ à côté du textarea | `modifiers[]` avec `condition`, `labor_factor`, `material_factor` |
 
-2. **Barèmes → JSON** : décrivez les ajustements dimensionnels (ex: « Si largeur > 36", ajouter 25% de machinage »). L'AI génère les barèmes structurés.
+**Exemple concret — Cascade :**
 
-**Conseil** : écrivez l'explication comme si vous parliez à un collègue. L'AI comprend les termes d'ébénisterie.
+Vous écrivez :
+> « Ce caisson a des panneaux en pi² (L×H/144), de la bande de chant sur le périmètre (2×(L+H)/12 pi lin), et une finition selon le matériau par défaut. Il a besoin des dimensions L, H et du nombre de tablettes. »
+
+L'AI génère le JSON avec les formules de quantité, les cibles `$default:` et `$match:`, et la liste `ask: ["L","H","N_TABLETTES"]`.
+
+**Exemple concret — Barèmes :**
+
+Vous écrivez :
+> « Si largeur > 36 po, ajouter 25% de machinage. Si profondeur > 24 po, ajouter 15 minutes d'assemblage par partition. »
+
+L'AI génère les conditions, facteurs et formules de minutes additives.
+
+**Conseil** : écrivez l'explication comme si vous parliez à un collègue. L'AI comprend les termes d'ébénisterie. Si le résultat n'est pas correct, ajustez votre explication et relancez — ne modifiez pas le JSON directement.
 
 #### Audit automatique
 

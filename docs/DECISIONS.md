@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-14
+> **Dernière mise à jour** : 2026-03-15
 
 ---
 
@@ -757,3 +757,22 @@
 - Zéro layout shift au hover des lignes
 - Les boutons occupent toujours leur espace même invisibles (20×20px chacun)
 - Pattern applicable à tout bouton hover futur
+
+---
+
+## DEC-040 — Méthodologie dimensionnelle toujours injectée (pas conditionnelle sur hasImages)
+
+**Date** : 2026-03-15
+
+**Contexte** : La section PLANS_SECTION (méthodologie de lecture dimensionnelle ~40 lignes) n'était injectée dans le system prompt de l'AI estimateur que quand `hasImages=true` (images paste/drop dans le chatbox). Or les utilisateurs demandent souvent des estimations dimensionnelles en référençant des plans déjà annotés (images AI ref) sans coller de nouvelles images — l'AI n'avait alors pas la méthodologie et devinait les dimensions "à l'œil".
+
+**Décision** : Toujours injecter PLANS_SECTION dans le system prompt. Quand `hasImages=true`, une note additionnelle "Images de référence disponibles" est appendée.
+
+**Alternatives rejetées** :
+- Détecter des mots-clés "plan/dimension" dans le message pour injecter conditionnellement → trop fragile, faux négatifs fréquents
+- Injecter une version allégée sans images → complexité inutile pour ~200 tokens supplémentaires
+
+**Conséquences** :
+- +200 tokens par requête AI (budget normal ~15K, acceptable)
+- L'AI applique toujours la rigueur dimensionnelle (comptage divisions, validation modules standards)
+- Les mots-clés dimensionnels (caisson, dimension, largeur, etc.) sont aussi ajoutés à `_COMPLEX_KEYWORDS` pour forcer le routing Sonnet 4.5

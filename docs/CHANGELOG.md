@@ -2,7 +2,17 @@
 
 > Historique chronologique des modifications significatives.
 >
-> **Dernière mise à jour** : 2026-03-14
+> **Dernière mise à jour** : 2026-03-15
+
+---
+
+## 2026-03-15
+
+### Améliorations
+- **AI lecture plans** : méthodologie dimensionnelle (PLANS_SECTION) toujours injectée dans le system prompt, plus conditionnelle sur `hasImages` — l'AI applique la rigueur de comptage/validation même sans images collées (DEC-040)
+- **Routing AI** : mots-clés dimensionnels (caisson, dimension, largeur, hauteur, profondeur, élévation, estime, mesure, comptage, division, alignement) ajoutés à `_COMPLEX_KEYWORDS` → forçage Sonnet 4.5 + max_tokens ≥ 1536 pour toute requête d'estimation dimensionnelle
+- **USER_GUIDE.md** : section "Rentabilité et marges" détaillée (#200b) — KPI cards, barre répartition, interprétation chiffres, ajustement prix cible
+- **USER_GUIDE.md** : documentation flux texte humain → JSON (#200c) — cascade, barèmes, ajouts personnalisés, diagramme du flux
 
 ---
 

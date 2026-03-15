@@ -1578,7 +1578,7 @@
     // ── Query complexity classification & adaptive max_tokens ──
     var _SIMPLE_PATTERNS = /^(oui|non|ok|go|confirme|applique|fais[- ]le|envoie|parfait|merci|exact|c'est bon|d'accord|annule|stop|next|suivant|précédent|total|combien|quel prix|quel montant|quel total|montre|affiche|résumé|résume)$/i;
     var _SIMPLE_PREFIX = /^(oui |non |ok |ajoute |supprime |change |mets |met |retire |enlève |modifie |ajuste |remplace |quel |combien |c'est quoi |qu'est-ce que )/i;
-    var _COMPLEX_KEYWORDS = /rentab|analyse|diagnostic|cascade|optimis|stratégi|complet|détail|expliqu|pourquoi|comment ça march|rédige|description|plan|image|compar|barème|calcul|règle|formule/i;
+    var _COMPLEX_KEYWORDS = /rentab|analyse|diagnostic|cascade|optimis|stratégi|complet|détail|expliqu|pourquoi|comment ça march|rédige|description|plan|image|compar|barème|calcul|règle|formule|caisson|dimension|largeur|hauteur|profondeur|élévation|estime|mesure|comptage|division|alignement/i;
 
     function classifyQueryComplexity(userMessage) {
         if (!userMessage || typeof userMessage !== 'string') return 'complex';

@@ -828,7 +828,7 @@ calculateur.html                    ai-assistant Edge Function
 | `add_catalogue_item` | Confirmation requise | Ajoute un article catalogue à une pièce avec qty, tag, dimensions (L/H/P) et variables caisson (n_tablettes, n_partitions, n_portes, n_tiroirs) optionnelles |
 | `remove_item` | Confirmation obligatoire | Supprime un article d'une pièce via `item_id` (UUID Supabase). Si parent FAB avec enfants cascade, tous les enfants sont supprimés aussi. **Jamais auto-exécuté** (destructif) |
 | `modify_item` | Confirmation requise | Modifie une ligne existante (qty, unit_price, description, markup, L, H, P, n_tablettes, n_partitions, n_portes, n_tiroirs) |
-| `update_catalogue_item` | Auto après confirmation | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. Auto-exécuté après confirmation conversationnelle |
+| `update_catalogue_item` | Auto après confirmation | Modifie un article catalogue (prix, labor, materials, règles, instruction). Permission `edit_catalogue` requise. Audit trail dans `catalogue_change_log`. Auto-exécuté après confirmation conversationnelle. **Auto-refresh modal (CAT-01)** : après PATCH, `master-agent.js` dispatche `CustomEvent('catalogue-item-updated')` → catalogue modal écoute et auto-refresh si ouverte (dirty check → steleConfirm, fetch DB, update CATALOGUE_DATA, re-populate, toast indigo) |
 | `update_submission_line` | Confirmation obligatoire | Ajuste MO, matériaux ou prix de vente d'une ligne de soumission (override local). Fusionne labor/material avec catalogue. Retourne `catalogue_base` + `effective_overrides` pour vérification. **Jamais auto-exécuté** |
 | `suggest_items` | Auto-exécution | Recherche dans le catalogue. Read-only |
 | `compare_versions` | Auto-exécution | Compare deux versions de soumission. Read-only |
@@ -1347,7 +1347,7 @@ submission_unlock_logs (immuable)
 ### 12.6 ai-master/index.ts (~688 lignes)
 
 - **Modèle** : `claude-sonnet-4-5-20250929` (non-streaming)
-- **9 tools** : 4 read-only auto-exécutés (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`) + 5 write avec approbation client (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`, `update_catalogue_item`)
+- **9 tools** : 4 read-only auto-exécutés (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`) + 5 write avec approbation client (`update_learning`, `delete_learning`, `update_prompt_section`, `log_prompt_change`, `update_catalogue_item`). `update_catalogue_item` dispatche `CustomEvent('catalogue-item-updated')` après PATCH pour auto-refresh de la modale catalogue (CAT-01)
 - **Context** : MASTER_CONTEXT.md + CLAUDE.md (section-based, keyword-matched) + données vivantes (`description_format_rules`, `expense_categories`, `taux_horaires`) + fraîcheur contexte
 - **`update_prompt_section`** : 3 niveaux de matching (exact, regex whitespace-tolerant, fuzzy line-by-line ≥85%)
 

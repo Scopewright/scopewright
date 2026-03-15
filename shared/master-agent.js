@@ -1025,6 +1025,12 @@
                     );
                     if (pr.ok) {
                         _messages.push({ role: 'system', content: 'Article ' + escapeHtml(catId) + ' mis à jour (' + changed.join(', ') + ').' });
+                        // CAT-01: notify catalogue modal to refresh if open
+                        try {
+                            window.dispatchEvent(new CustomEvent('catalogue-item-updated', {
+                                detail: { itemId: catId, fields: changed }
+                            }));
+                        } catch(e) { /* ignore if CustomEvent not supported */ }
                         // Audit log in catalogue_change_log
                         try {
                             await authenticatedFetch(

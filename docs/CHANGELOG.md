@@ -17,6 +17,7 @@
 - **#207** : `filterDmByExpenseRelevance` appliqué à la modale materialCtx pre-population dans `executeCascade`
 - **#207-2** : `aiGenerateDescription` injecte les DM de la pièce (`roomDM[groupId]`) dans le prompt description via `callEdgeFunction` → edge function `translate` ajoute section "MATÉRIAUX PAR DÉFAUT" au system prompt — descriptions cohérentes avec les matériaux effectifs (DEC-044)
 - **#207-3** : nettoyage backticks dans `aiGenerateDescription` — strip ` ```html ` / ` ``` ` / ` '''html ` / ` ''' ` avant écriture dans le DOM
+- **CAT-01** : auto-refresh modal catalogue après modification AI via `update_catalogue_item` — `master-agent.js` dispatche `CustomEvent('catalogue-item-updated')`, catalogue modal écoute et auto-refresh (dirty check, fetch DB, update CATALOGUE_DATA, re-populate, toast indigo) (DEC-045)
 
 ### Améliorations
 - **AI lecture plans** : méthodologie dimensionnelle (PLANS_SECTION) toujours injectée dans le system prompt, plus conditionnelle sur `hasImages` — l'AI applique la rigueur de comptage/validation même sans images collées (DEC-040)

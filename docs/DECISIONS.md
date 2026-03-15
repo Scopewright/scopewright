@@ -858,3 +858,22 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 - Les descriptions générées utilisent les noms de matériaux effectifs (DM) au lieu des textes catalogue
 - Le paramètre `defaultMaterials` est optionnel — pas de breaking change pour les autres actions `translate`
 - `callEdgeFunction` accepte désormais 4 paramètres : `(texts, action, images, defaultMaterials)`
+
+---
+
+## DEC-045 — Auto-refresh modal catalogue après modification AI (CAT-01)
+
+**Date** : 2026-03-15
+
+**Contexte** : Quand l'Agent Maître (ou tout agent AI) modifie un article catalogue via le tool `update_catalogue_item`, la DB est mise à jour mais la modale d'édition affiche encore les valeurs en mémoire. Si l'utilisateur clique "Annuler" ou "Sauvegarder", les modifications AI sont écrasées par les données stale.
+
+**Décision** : `shared/master-agent.js` dispatche un `CustomEvent('catalogue-item-updated', { detail: { itemId, fields } })` sur `window` après chaque PATCH réussi. `catalogue_prix_stele_complet.html` écoute l'événement et auto-refresh la modale si elle est ouverte pour le même article (fetch DB, update `CATALOGUE_DATA`, re-populate via `openEditModal`, toast indigo). Si la modale est dirty (modifications non sauvegardées), un `steleConfirm` demande confirmation avant le reload.
+
+**Alternatives considérées** :
+- **postMessage** : complexité inutile pour une communication same-window — `CustomEvent` est le pattern standard DOM
+- **Polling périodique** : overhead réseau continu, latence de détection, pas de feedback immédiat
+
+**Conséquences** :
+- Feedback visuel immédiat après modification AI (toast "Mis à jour par l'AI ✓")
+- Protection dirty : les modifications utilisateur non sauvegardées ne sont pas perdues silencieusement
+- Pattern extensible : d'autres pages peuvent écouter le même événement pour synchroniser leurs données

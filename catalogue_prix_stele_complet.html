@@ -4138,6 +4138,59 @@
             closeEditModal();
         }
 
+        // ═══ CAT-01: Auto-refresh modal after AI tool update_catalogue_item ═══
+        window.addEventListener('catalogue-item-updated', async function(e) {
+            var detail = e.detail || {};
+            var itemId = detail.itemId;
+            if (!itemId) return;
+            var modal = document.getElementById('editModal');
+            if (!modal || !modal.classList.contains('active')) return;
+            var currentId = document.getElementById('editItemId').value;
+            if (currentId !== itemId) return;
+
+            // If user has manual changes, ask before overwriting
+            if (isModalDirty()) {
+                var ok = await steleConfirm(
+                    'L\'Agent AI a modifié cet article (<strong>' + escapeHtml(itemId) + '</strong>).<br>Recharger le modal ? Vos modifications non sauvegardées seront perdues.',
+                    'Article modifié par l\'AI',
+                    'Recharger'
+                );
+                if (!ok) return;
+            }
+
+            // Fetch fresh data from DB
+            try {
+                var resp = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/catalogue_items?id=eq.' + encodeURIComponent(itemId) + '&select=*',
+                    {}
+                );
+                if (!resp.ok) return;
+                var items = await resp.json();
+                if (!items || !items[0]) return;
+                var freshItem = items[0];
+
+                // Update CATALOGUE_DATA in memory
+                var idx = CATALOGUE_DATA.findIndex(function(c) { return c.id === itemId; });
+                if (idx !== -1) CATALOGUE_DATA[idx] = freshItem;
+
+                // Re-populate modal
+                await openEditModal(itemId);
+
+                // Toast
+                var toast = document.createElement('div');
+                toast.className = 'save-toast';
+                toast.textContent = 'Mis à jour par l\'AI \u2713';
+                toast.style.background = '#EEF2FF';
+                toast.style.color = '#4F46E5';
+                var footer = document.querySelector('.modal-footer');
+                if (footer) footer.appendChild(toast);
+                setTimeout(function() { toast.classList.add('fade-out'); }, 2000);
+                setTimeout(function() { toast.remove(); }, 2500);
+            } catch(err) {
+                console.warn('CAT-01 refresh error:', err);
+            }
+        });
+
         function toggleSalesSheetBtn() {
             const checked = document.getElementById('editHasSalesSheet').checked;
             document.getElementById('btnSalesSheet').style.display = checked ? '' : 'none';

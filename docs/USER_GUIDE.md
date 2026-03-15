@@ -327,7 +327,24 @@ Collez un screenshot directement dans le chat (Ctrl+V) ou glissez-déposez une i
 
 **Modifier le catalogue depuis le calculateur :** Si vous avez la permission d'édition du catalogue, l'assistant peut aussi modifier un article du catalogue directement (prix, formules, matériaux). Ces modifications passent toujours par une confirmation explicite et sont tracées dans un journal d'audit.
 
-**Changement de contexte automatique :** Quand vous scrollez d'un meuble à l'autre dans le calculateur, l'assistant comprend automatiquement le changement et adapte ses réponses au meuble visible.
+**Changement de contexte automatique :** Quand vous ouvrez un meuble (accordion), l'assistant comprend automatiquement le changement de contexte et adapte ses réponses à ce meuble. Le scope est affiché dans le chat (« Pièce : Îlot cuisine » ou « Projet entier »).
+
+#### Aide-mémoire commandes AI estimateur
+
+| Ce que vous voulez | Quoi dire |
+|---|---|
+| Ajouter un article depuis le plan | « Fais-moi le C1 » |
+| Ajouter un article avec dimensions | « Ajoute un caisson 24×36×23 avec 2 tablettes et 2 portes » |
+| Ajouter sous un parent existant | « Ajoute de la quincaillerie sous le caisson C1 » |
+| Supprimer un article | « Supprime le C1 » |
+| Analyser la rentabilité | « Analyse la rentabilité de cette pièce » |
+| Résumer la soumission | « Résume cette soumission » |
+| Simuler un changement | « Combien si on passe en noyer? » |
+| Diagnostiquer un problème | « Pourquoi la bande de chant n'est pas générée? » |
+| Ajuster le prix d'une ligne | « Mets 90 minutes de fabrication sur la ligne 0 » |
+| Modifier un article catalogue | « Change le prix de ST-0042 à 85$ » |
+| Générer les descriptions | « Optimise toutes les descriptions » |
+| Demander conseil | « Quel article utiliser pour un comptoir en quartz? » |
 
 ### Descriptions client
 
@@ -353,6 +370,16 @@ Dans l'aperçu soumission, le bouton **EN** bascule toute la soumission en angla
 - Page d'introduction
 
 Le bouton bascule entre **FR** et **EN**. La langue choisie est sauvegardée et utilisée pour le lien envoyé au client.
+
+### Multiplicateur de quantité (QM)
+
+Chaque ligne a un champ **×** (entre le type et les dimensions) qui multiplie la quantité totale :
+
+- **Formule** : `total = prix unitaire × quantité × QM × modificateur %`
+- **Par défaut** : 1 (grisé). Quand > 1, le champ devient **navy bold**
+- **Usage** : commander 2 exemplaires identiques d'un caisson sans dupliquer la ligne. Entrez QM = 2 au lieu de copier-coller
+
+Le QM est **propagé** aux composantes automatiques : si le parent a QM = 2, ses panneaux et bandes de chant aussi.
 
 ### Installation
 
@@ -428,6 +455,17 @@ Les champs de dimensions (L, H, P) acceptent les fractions en plus des décimaux
 - `1-3/4` → 1.75
 
 La conversion se fait automatiquement quand vous quittez le champ.
+
+### Notes internes par ligne
+
+Chaque article parent a un bouton **note** (icône bulle) dans la colonne de droite. Cliquez pour ajouter une note interne visible uniquement par les estimateurs — jamais affichée au client.
+
+Utile pour :
+- Rappeler une particularité (« Vérifier avec le client si la profondeur est bonne »)
+- Documenter un choix (« Prix ajusté car sous-traitance spéciale »)
+- Laisser une note pour un collègue
+
+L'icône devient **bleue** quand une note est présente. L'assistant AI peut lire ces notes pour mieux comprendre le contexte.
 
 ### Annuler une action
 
@@ -586,6 +624,43 @@ Le catalogue a son propre assistant AI, accessible via le bouton **●** dans l'
 - **Optimiser** — « Améliore les textes clients des articles de cette catégorie »
 - **Rechercher** — « Montre-moi tous les articles de quincaillerie au-dessus de 50$ »
 
+#### Import AI depuis un screenshot fournisseur
+
+C'est la façon la plus rapide de peupler votre catalogue :
+
+1. Prenez un **screenshot** de votre liste de prix (Excel, PDF fournisseur, site web)
+2. Collez-le dans le chat catalogue (Ctrl+V)
+3. Dites : « Importe ces articles comme [catégorie] »
+
+> **Vous :** *(coller screenshot d'une liste de prix de quincaillerie)*
+> « Importe ces charnières comme Quincaillerie »
+>
+> **Assistant :** J'ai détecté 12 articles dans cette capture :
+> - Charnière à fermeture douce 110° — 4.25 $/unité
+> - Charnière plein recouvrement — 3.80 $/unité
+> - *(…10 autres)*
+>
+> Je propose de les créer avec :
+> - Catégorie : Quincaillerie
+> - Type d'unité : unité
+> - Texte client généré automatiquement
+>
+> `[Créer 12 articles]` `[Modifier]` `[Ignorer]`
+
+L'assistant extrait : description, prix unitaire, unité de mesure, et génère automatiquement le texte client. Vous pouvez corriger avant de confirmer.
+
+**Depuis du texte** : vous pouvez aussi simplement coller du texte brut copié depuis un PDF ou un courriel — pas besoin que ce soit un screenshot.
+
+#### Génération des règles de calcul par AI
+
+Pour chaque article de fabrication dans le catalogue, deux boutons AI facilitent la configuration :
+
+1. **Explication → JSON** : écrivez en langage naturel comment l'article fonctionne (ex: « Ce caisson a des panneaux en pi² (L×H/144), de la bande de chant sur le périmètre, et une finition selon le matériau par défaut »). L'AI génère le JSON structuré.
+
+2. **Barèmes → JSON** : décrivez les ajustements dimensionnels (ex: « Si largeur > 36", ajouter 25% de machinage »). L'AI génère les barèmes structurés.
+
+**Conseil** : écrivez l'explication comme si vous parliez à un collègue. L'AI comprend les termes d'ébénisterie.
+
 #### Audit automatique
 
 Le bouton **Auditer** lance 12 vérifications automatiques :
@@ -641,47 +716,6 @@ Exemples de règles utiles :
 - « Les caissons de pharmacie ont une profondeur standard de 5 pouces »
 - « Toujours arrondir les quantités de bande de chant au pied linéaire supérieur »
 - « Les panneaux de côté ne prennent pas de finition si le caisson est encastré »
-
-### Agent Maître
-
-L'**Agent Maître** est un assistant AI avancé accessible depuis le **bouton flottant** en bas à droite de toutes les pages (petit cercle navy). Il est distinct de l'assistant estimateur — son rôle est de conseiller, auditer et améliorer le système Scopewright lui-même.
-
-#### Ce qu'il peut faire
-
-| Capacité | Exemple |
-|----------|---------|
-| **Analyser le système** | « Y a-t-il des incohérences dans mes prompts AI ? » |
-| **Consulter les learnings** | « Liste toutes les règles organisationnelles » |
-| **Créer un learning** | « Ajoute la règle : les comptoirs en quartz n'ont pas de finition » |
-| **Modifier un learning** | « Corrige la règle #5 pour préciser que ça s'applique aussi au granit » |
-| **Supprimer un learning** | « Supprime la règle obsolète sur les caissons thermoformés » |
-| **Lire les prompts AI** | « Montre-moi le prompt de l'assistant estimateur » |
-| **Modifier un prompt** | « Ajoute une instruction sur les caissons de pharmacie dans le prompt estimateur » |
-| **Consulter le catalogue** | « Montre-moi l'article ST-0042 et ses règles de calcul » |
-| **Modifier un article catalogue** | « Change la formule de calcul de ST-0042 pour inclure les portes » |
-
-#### Comment ça marche
-
-1. Cliquez le **bouton flottant** (bas droite) — le drawer s'ouvre
-2. Posez votre question ou décrivez ce que vous voulez modifier
-3. L'agent **propose** d'abord en texte (simulation) — il ne modifie jamais directement
-4. Vous validez avec les boutons **Appliquer** ou **Ignorer**
-5. La modification prend effet immédiatement
-
-**Images** : vous pouvez coller (Ctrl+V) ou glisser-déposer des screenshots dans le drawer. L'agent peut lire et analyser les images.
-
-#### Ce qu'il ne peut PAS faire
-
-- Modifier le code source (HTML, JS, CSS)
-- Exécuter du SQL ou modifier les tables de la base de données
-- Déployer des Edge Functions
-- Modifier `app_config` (sauf les prompts AI)
-
-Pour ces opérations, l'agent **décrit précisément** ce qu'il faudrait faire (fichier, fonction, ligne) pour qu'un développeur l'applique.
-
-#### Synchronisation des documents
-
-L'agent a accès à deux documents de référence : le **contexte système** et le **CLAUDE.md**. Ces documents doivent être synchronisés régulièrement via le bouton **↻** dans le drawer. Si les documents ont plus de 24h, l'agent vous le signale automatiquement.
 
 ---
 

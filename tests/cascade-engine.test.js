@@ -59,6 +59,7 @@ var normalizeDmType = helpers.normalizeDmType;
 var extractMatchKeywords = helpers.extractMatchKeywords;
 var scoreMatchCandidates = helpers.scoreMatchCandidates;
 var deduplicateDmByClientText = helpers.deduplicateDmByClientText;
+var filterDmByExpenseRelevance = helpers.filterDmByExpenseRelevance;
 var itemHasMaterialCost = helpers.itemHasMaterialCost;
 var getAllowedCategoriesForGroup = helpers.getAllowedCategoriesForGroup;
 var isFormulaQty = helpers.isFormulaQty;
@@ -2309,6 +2310,76 @@ describe('29. evaluateLaborModifiers — labor_minutes_add', function() {
         var r = evaluateLaborModifiers(item, { n_partitions: 2 });
         assert(r != null, 'should match condition');
         assertEqual(r.labor_minutes_add, null);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 30 — filterDmByExpenseRelevance (#206)
+// ════════════════════════════════════════════════════════════════
+
+describe('30. filterDmByExpenseRelevance', function() {
+    it('single entry → returns unchanged', function() {
+        var entries = [{ client_text: 'Mélamine blanche', catalogue_item_id: 'ST-0020' }];
+        var result = filterDmByExpenseRelevance(entries, 'PANNEAU BOIS', CATALOGUE_DATA);
+        assertEqual(result.length, 1);
+    });
+
+    it('null expenseCategory → returns all', function() {
+        var entries = [
+            { client_text: 'A', catalogue_item_id: 'ST-0020' },
+            { client_text: 'B', catalogue_item_id: 'ST-0010' }
+        ];
+        assertEqual(filterDmByExpenseRelevance(entries, null, CATALOGUE_DATA).length, 2);
+    });
+
+    it('filters by material_costs keys — PANNEAU matches mélamine, not finition', function() {
+        // ST-0020 has material_costs: {"PANNEAU MÉLAMINE": 5.2} → "PANNEAU" matches "PANNEAU BOIS"
+        // ST-0040 has material_costs: {"FINITION LAQUE": 3.80} → no match for PANNEAU
+        var entries = [
+            { client_text: 'mélamine blanche', catalogue_item_id: 'ST-0020' },
+            { client_text: 'laque au polyuréthane clair', catalogue_item_id: 'ST-0040' }
+        ];
+        var result = filterDmByExpenseRelevance(entries, 'PANNEAU BOIS', CATALOGUE_DATA);
+        assertEqual(result.length, 1, 'should keep only mélamine');
+        assertEqual(result[0].catalogue_item_id, 'ST-0020');
+    });
+
+    it('MAT without material_costs → accepted', function() {
+        // Use a separate catalogue with test item that has no material_costs
+        var testItem = {
+            id: 'ST-TEST-NOMC', item_type: 'material', client_text: 'Test no mc unique',
+            material_costs: null, category: 'Test'
+        };
+        var testData = CATALOGUE_DATA.concat([testItem]);
+        var entries = [
+            { client_text: 'mélamine blanche', catalogue_item_id: 'ST-0020' },
+            { client_text: 'Test no mc unique', catalogue_item_id: 'ST-TEST-NOMC' }
+        ];
+        var result = filterDmByExpenseRelevance(entries, 'PANNEAU BOIS', testData);
+        assertEqual(result.length, 2, 'MAT without material_costs should be accepted');
+    });
+
+    it('FAB with cascade $match: target matching expense → accepted', function() {
+        // ST-0005 is FAB with cascade targets including $match:FINITION BOIS
+        var st0005 = CATALOGUE_DATA.find(function(c) { return c.id === 'ST-0005'; });
+        if (st0005) {
+            var entries = [
+                { client_text: st0005.client_text || 'Placage chêne blanc', catalogue_item_id: 'ST-0005' },
+                { client_text: 'Mélamine blanche', catalogue_item_id: 'ST-0020' }
+            ];
+            var result = filterDmByExpenseRelevance(entries, 'FINITION BOIS', CATALOGUE_DATA);
+            assert(result.some(function(r) { return r.catalogue_item_id === 'ST-0005'; }), 'FAB with matching cascade should be kept');
+        }
+    });
+
+    it('fallback: if filter removes everything → returns original', function() {
+        var entries = [
+            { client_text: 'Laque polyuréthane', catalogue_item_id: 'ST-0030' },
+            { client_text: 'Bande de chant PVC', catalogue_item_id: 'ST-0040' }
+        ];
+        // Neither has QUINCAILLERIE in material_costs
+        var result = filterDmByExpenseRelevance(entries, 'QUINCAILLERIE SPÉCIALE', CATALOGUE_DATA);
+        assertEqual(result.length, 2, 'should fallback to original when filter empties');
     });
 });
 

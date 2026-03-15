@@ -105,6 +105,45 @@ function deduplicateDmByClientText(entries) {
     return result;
 }
 
+// ── filterDmByExpenseRelevance (calculateur.html) ──
+// #206: Filters DM entries by relevance to an expense category.
+// Keeps entries whose catalogue item has matching material_costs keys, or MAT without costs, or FAB with matching cascades.
+
+function filterDmByExpenseRelevance(dmEntries, expenseCategory, catalogueData) {
+    if (!expenseCategory || dmEntries.length <= 1) return dmEntries;
+    // Use raw words (NOT extractMatchKeywords which strips stop words like 'panneau')
+    var expWords = expenseCategory.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿç0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+    if (expWords.length === 0) return dmEntries;
+    var filtered = dmEntries.filter(function(entry) {
+        var catItem = null;
+        if (entry.client_text) catItem = catalogueData.find(function(c) { return c.client_text === entry.client_text; });
+        if (!catItem && entry.catalogue_item_id) catItem = catalogueData.find(function(c) { return c.id === entry.catalogue_item_id; });
+        if (!catItem) return false;
+        if (catItem.item_type === 'material' && (!catItem.material_costs || Object.keys(catItem.material_costs).length === 0)) return true;
+        if (catItem.material_costs) {
+            var mcKeys = Object.keys(catItem.material_costs);
+            var hasMatch = mcKeys.some(function(k) {
+                var kWords = k.toLowerCase().split(/\s+/);
+                return expWords.some(function(ew) {
+                    return kWords.some(function(kw) { return kw.indexOf(ew) !== -1 || ew.indexOf(kw) !== -1; });
+                });
+            });
+            if (hasMatch) return true;
+        }
+        if (catItem.item_type === 'fabrication' && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade) {
+            return catItem.calculation_rule_ai.cascade.some(function(r) {
+                if (typeof r.target !== 'string' || !r.target.startsWith('$match:')) return false;
+                var tgtCat = r.target.substring(7);
+                var tgtWords = tgtCat.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 2; });
+                return tgtWords.some(function(tw) { return expWords.some(function(ew) { return tw.indexOf(ew) !== -1 || ew.indexOf(tw) !== -1; }); });
+            });
+        }
+        return false;
+    });
+    if (filtered.length === 0) return dmEntries;
+    return filtered;
+}
+
 // ── itemHasMaterialCost (calculateur.html lines 2999-3009) ──
 // Checks if a catalogue item has material_costs in a given expense category (case-insensitive).
 
@@ -612,6 +651,7 @@ if (typeof module !== 'undefined' && module.exports) {
         extractMatchKeywords: extractMatchKeywords,
         scoreMatchCandidates: scoreMatchCandidates,
         deduplicateDmByClientText: deduplicateDmByClientText,
+        filterDmByExpenseRelevance: filterDmByExpenseRelevance,
         itemHasMaterialCost: itemHasMaterialCost,
         getAllowedCategoriesForGroup: getAllowedCategoriesForGroup,
         isFormulaQty: isFormulaQty,

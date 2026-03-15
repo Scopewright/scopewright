@@ -210,6 +210,7 @@ Crée automatiquement des lignes enfants basées sur les règles `cascade` d'un 
 - **Toast actionnable** affiché 6s : identifie le parent, la cible échouée, et dit exactement quel DM configurer. **Exception** : si le `$match:` a été rejeté par le filtre catégorie, **pas de toast** — c'est un comportement voulu (ex: mélamine n'a pas besoin de FINITION BOIS)
 - **Console warn** avec détail technique (target, groupId, DM disponibles)
 - `getDefaultMaterialKeywords` n'a **pas de fallback "first-available"** — si aucun DM ne correspond à la catégorie, retourne null (évite de sélectionner un article non pertinent)
+- **Filtre DM par pertinence expense** (fix #206) : `filterDmByExpenseRelevance(dmEntries, expenseCategory)` filtre les DM entries avant `showDmChoiceModal` dans les 4 tiers de `getDefaultMaterialKeywords`. Vérifie que l'article catalogue du DM a un `material_costs` key matchant l'expense category (word-similarity sur mots bruts, pas `extractMatchKeywords` qui strip les stop words), OU est un MAT sans `material_costs` (accepté par défaut), OU est un FAB avec cascade `$match:` ciblant la catégorie. Si le filtre vide tout → fallback à la liste complète. Si réduit à 1 → auto-select sans modale
 
 Détails complets : `docs/TECHNICAL_MANUAL.md` §3
 

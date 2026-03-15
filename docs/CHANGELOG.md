@@ -10,6 +10,9 @@
 
 ### Corrections
 - **#188e** : `reprocessDefaultCascades` invalide `matchDefaults` sélectivement — seules les entrées liées au groupe DM modifié (via word-similarity sur `categoryGroupMapping`) sont supprimées, les choix `$match:` des catégories non modifiées sont préservés (DEC-041)
+- **#205** : `deduplicateDmByClientText` déduplique aussi par `catalogue_item_id` (seconde passe) — empêche les modales quand plusieurs DM pointent vers le même article
+- **#205b** : `resolveCascadeTarget` filtre les DM entries par catégories autorisées (`getAllowedCategoriesForGroup`) avant d'afficher la Modale 1
+- **#206** : `filterDmByExpenseRelevance` filtre les DM entries par pertinence `material_costs` avant `showDmChoiceModal` dans les 4 tiers de `getDefaultMaterialKeywords` — empêche l'affichage de Laque/Legrabox quand seuls les panneaux sont pertinents
 
 ### Améliorations
 - **AI lecture plans** : méthodologie dimensionnelle (PLANS_SECTION) toujours injectée dans le system prompt, plus conditionnelle sur `hasImages` — l'AI applique la rigueur de comptage/validation même sans images collées (DEC-040)

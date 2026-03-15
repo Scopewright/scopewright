@@ -3858,6 +3858,54 @@
         return result;
     }
 
+    /** #206: Filter DM entries by relevance to an expense category.
+     *  Keeps entries whose catalogue item has material_costs keys matching the expense category
+     *  (word-similarity), OR MAT items without material_costs (accept by default),
+     *  OR FAB items with cascade targets matching the expense category.
+     *  Returns filtered array, or original if filter would empty it. */
+    function filterDmByExpenseRelevance(dmEntries, expenseCategory) {
+        if (!expenseCategory || dmEntries.length <= 1) return dmEntries;
+        // Use raw words from expense category (NOT extractMatchKeywords which strips stop words
+        // like 'panneau' that are critical for matching material_costs keys)
+        var expWords = expenseCategory.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüÿç0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+        if (expWords.length === 0) return dmEntries;
+        var filtered = dmEntries.filter(function(entry) {
+            var catItem = null;
+            if (entry.client_text) catItem = CATALOGUE_DATA.find(function(c) { return c.client_text === entry.client_text; });
+            if (!catItem && entry.catalogue_item_id) catItem = CATALOGUE_DATA.find(function(c) { return c.id === entry.catalogue_item_id; });
+            if (!catItem) return false;
+            // MAT without material_costs → accept (no data to filter on)
+            if (catItem.item_type === 'material' && (!catItem.material_costs || Object.keys(catItem.material_costs).length === 0)) return true;
+            // Check material_costs keys for word-similarity with expense category
+            if (catItem.material_costs) {
+                var mcKeys = Object.keys(catItem.material_costs);
+                var hasMatch = mcKeys.some(function(k) {
+                    var kWords = k.toLowerCase().split(/\s+/);
+                    return expWords.some(function(ew) {
+                        return kWords.some(function(kw) { return kw.indexOf(ew) !== -1 || ew.indexOf(kw) !== -1; });
+                    });
+                });
+                if (hasMatch) return true;
+            }
+            // FAB with cascade targets matching the expense category
+            if (catItem.item_type === 'fabrication' && catItem.calculation_rule_ai && catItem.calculation_rule_ai.cascade) {
+                return catItem.calculation_rule_ai.cascade.some(function(r) {
+                    if (typeof r.target !== 'string' || !r.target.startsWith('$match:')) return false;
+                    var tgtCat = r.target.substring(7);
+                    var tgtWords = tgtCat.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 2; });
+                    return tgtWords.some(function(tw) { return expWords.some(function(ew) { return tw.indexOf(ew) !== -1 || ew.indexOf(tw) !== -1; }); });
+                });
+            }
+            return false;
+        });
+        // Fallback: if filter removes everything, keep original (safety)
+        if (filtered.length === 0) return dmEntries;
+        if (filtered.length < dmEntries.length) {
+            cascadeLog('info', '#206: DM filtered by expense relevance (' + expenseCategory + '): ' + dmEntries.length + ' → ' + filtered.length);
+        }
+        return filtered;
+    }
+
     async function getDefaultMaterialKeywords(groupId, parentCategory, materialCtx) {
         // Room-level DM only (submission-level DM removed)
         var dm = getDefaultMaterialsForGroup(groupId);
@@ -3909,15 +3957,23 @@
                 }
             }
             if (!dmEntry) {
-                var result = await showDmChoiceModal(parentCategory, directUnique);
-                if (result) {
-                    dmEntry = directUnique.find(function(m) { return m.catalogue_item_id === result.itemId; });
-                    matchMethod = 'direct(chosen)';
-                    dmChoiceCache[cacheKey] = result.itemId;
-                } else {
-                    dmEntry = directUnique[0]; // cancelled → fallback to first
-                    matchMethod = 'direct(first)';
+                // #206: filter by expense relevance before showing modal
+                var _directFiltered = filterDmByExpenseRelevance(directUnique, parentCategory);
+                if (_directFiltered.length === 1) {
+                    dmEntry = _directFiltered[0];
+                    matchMethod = 'direct(filtered)';
                     if (dmEntry.catalogue_item_id) dmChoiceCache[cacheKey] = dmEntry.catalogue_item_id;
+                } else {
+                    var result = await showDmChoiceModal(parentCategory, _directFiltered);
+                    if (result) {
+                        dmEntry = _directFiltered.find(function(m) { return m.catalogue_item_id === result.itemId; });
+                        matchMethod = 'direct(chosen)';
+                        dmChoiceCache[cacheKey] = result.itemId;
+                    } else {
+                        dmEntry = _directFiltered[0]; // cancelled → fallback to first
+                        matchMethod = 'direct(first)';
+                        if (dmEntry.catalogue_item_id) dmChoiceCache[cacheKey] = dmEntry.catalogue_item_id;
+                    }
                 }
             }
         }
@@ -3954,15 +4010,23 @@
                     }
                 }
                 if (!dmEntry) {
-                    var fResult = await showDmChoiceModal(parentCategory, fuzzyUnique);
+                    // #206: filter by expense relevance before showing modal
+                    var _fuzzyFiltered = filterDmByExpenseRelevance(fuzzyUnique, parentCategory);
+                    if (_fuzzyFiltered.length === 1) {
+                        dmEntry = _fuzzyFiltered[0];
+                        matchMethod = 'fuzzy(filtered)';
+                        if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
+                    } else {
+                    var fResult = await showDmChoiceModal(parentCategory, _fuzzyFiltered);
                     if (fResult) {
-                        dmEntry = fuzzyUnique.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
+                        dmEntry = _fuzzyFiltered.find(function(m) { return m.catalogue_item_id === fResult.itemId; });
                         matchMethod = 'fuzzy(chosen)';
                         dmChoiceCache[groupId + ':' + parentCategory] = fResult.itemId;
                     } else {
-                        dmEntry = fuzzyUnique[0];
+                        dmEntry = _fuzzyFiltered[0];
                         matchMethod = 'fuzzy(first)';
                         if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
+                    }
                     }
                 }
             }
@@ -4004,15 +4068,23 @@
                     }
                 }
                 if (!dmEntry) {
-                    var cResult = await showDmChoiceModal(parentCategory, catUnique);
-                    if (cResult) {
-                        dmEntry = catUnique.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
-                        matchMethod = 'category(chosen)';
-                        dmChoiceCache[groupId + ':' + parentCategory] = cResult.itemId;
-                    } else {
-                        dmEntry = catUnique[0];
-                        matchMethod = 'category(first)';
+                    // #206: filter by expense relevance before showing modal
+                    var _catFiltered = filterDmByExpenseRelevance(catUnique, parentCategory);
+                    if (_catFiltered.length === 1) {
+                        dmEntry = _catFiltered[0];
+                        matchMethod = 'category(filtered)';
                         if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
+                    } else {
+                        var cResult = await showDmChoiceModal(parentCategory, _catFiltered);
+                        if (cResult) {
+                            dmEntry = _catFiltered.find(function(m) { return m.catalogue_item_id === cResult.itemId; });
+                            matchMethod = 'category(chosen)';
+                            dmChoiceCache[groupId + ':' + parentCategory] = cResult.itemId;
+                        } else {
+                            dmEntry = _catFiltered[0];
+                            matchMethod = 'category(first)';
+                            if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':' + parentCategory] = dmEntry.catalogue_item_id;
+                        }
                     }
                 }
             }
@@ -4052,15 +4124,23 @@
                     }
                 }
                 if (!dmEntry) {
-                    var xResult = await showDmChoiceModal('Matériau', uniqueDm);
-                    if (xResult) {
-                        dmEntry = uniqueDm.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
-                        matchMethod = 'cross-DM(chosen)';
-                        dmChoiceCache[groupId + ':cross:' + parentCategory] = xResult.itemId;
-                    } else {
-                        dmEntry = uniqueDm[0];
-                        matchMethod = 'cross-DM(first)';
+                    // #206: filter by expense relevance before showing modal
+                    var _xFiltered = filterDmByExpenseRelevance(uniqueDm, parentCategory);
+                    if (_xFiltered.length === 1) {
+                        dmEntry = _xFiltered[0];
+                        matchMethod = 'cross-DM(filtered)';
                         if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':cross:' + parentCategory] = dmEntry.catalogue_item_id;
+                    } else {
+                        var xResult = await showDmChoiceModal('Matériau', _xFiltered);
+                        if (xResult) {
+                            dmEntry = _xFiltered.find(function(m) { return m.catalogue_item_id === xResult.itemId; });
+                            matchMethod = 'cross-DM(chosen)';
+                            dmChoiceCache[groupId + ':cross:' + parentCategory] = xResult.itemId;
+                        } else {
+                            dmEntry = _xFiltered[0];
+                            matchMethod = 'cross-DM(first)';
+                            if (dmEntry.catalogue_item_id) dmChoiceCache[groupId + ':cross:' + parentCategory] = dmEntry.catalogue_item_id;
+                        }
                     }
                 }
             }

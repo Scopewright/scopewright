@@ -820,3 +820,22 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 - Les modales DM n'affichent que les matériaux pertinents à la catégorie de dépense résolue
 - Auto-select quand le filtre réduit à 1 entry (élimine les modales inutiles)
 - Pas de cassure si le catalogue manque de données `material_costs` (fallback à la liste complète)
+
+---
+
+## DEC-043 — Vérification cohérence materialCtx sur $match: existants (#207)
+
+**Date** : 2026-03-15
+
+**Contexte** : `_defaultResolvedFresh` forçait le skip de `findExistingChildForDynamicRule` pour TOUS les `$match:` dès qu'un seul `$default:` résolvait fraîchement. Causait des modales parasites (ex: changer DM Caisson déclenchait modale Panneaux).
+
+**Décision** : Les `$match:` exécutent toujours `findExistingChild`. Quand `_defaultResolvedFresh`, l'enfant existant est vérifié par word-similarity (`normalizeDmType`) contre `materialCtx.chosenClientText`. Incohérent → fresh resolution. Cohérent → réutilisé sans modale. `filterDmByExpenseRelevance` appliqué à la modale materialCtx pre-population dans `executeCascade`.
+
+**Alternatives rejetées** :
+- **Skip conditionnel par type DM** : tracker quel type DM a changé et ne skipper que les `$match:` liés — complexifie le tracking sans gain, car la vérification de cohérence couvre tous les cas
+- **Invalider `_defaultResolvedFresh` par rule** : flag per-rule au lieu de global — ajoute de la complexité dans la boucle des règles pour un problème résolu plus simplement par la vérification a posteriori
+
+**Conséquences** :
+- Élimine les modales parasites lors des changements DM non reliés
+- Préserve la fresh resolution quand le matériau a effectivement changé (word-similarity échoue → re-resolve)
+- Les enfants `$match:` cohérents avec le materialCtx sont réutilisés sans interaction utilisateur

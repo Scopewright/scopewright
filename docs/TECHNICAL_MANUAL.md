@@ -330,7 +330,8 @@ scheduleCascade(rowId)
                  │       └── n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 est valide)
                  │
                  ├── Pré-peupler materialCtx depuis le DM de la catégorie du parent FAB
-                 │   └── categoryGroupMapping → DM type → unique DM → chosenClientText
+                 │   ├── categoryGroupMapping → DM type → unique DM → chosenClientText
+                 │   └── Si multiple DMs → filterDmByExpenseRelevance avant modale (fix #207), auto-select si réduit à 1
                  │
                  ├── Récupérer dims via getRootDimsForCascade(parentRowId)
                  │   └── Remonte cascadeParentMap → lit dim-l/dim-h/dim-p de la racine
@@ -444,7 +445,7 @@ await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
 
 **Propagation via enfants existants** : quand `findExistingChildForDynamicRule` retrouve un enfant pour une règle `$default:`, l'ID (`_defaultResolvedId`) et le `client_text` de l'article existant sont propagés dans `materialCtx` avec `_updatedBySiblingDefault = true`. Sans cette propagation, les changements de dims ou de DM ne déclencheraient pas le filtre catégorie car le `$default:` résoudrait via enfant existant sans passer par `resolveCascadeTarget`.
 
-**Résolution fraîche `$match:` sur changement DM** : flag `_defaultResolvedFresh` dans la boucle cascade. Si `$default:` résout via `resolveCascadeTarget` (pas via enfant existant — le DM a changé), le flag est activé. Les `$match:` suivants **sautent** `findExistingChildForDynamicRule` et forcent une résolution fraîche via `resolveMatchTarget`. L'ancien enfant est retrouvé par `cascadeRuleTarget` (fallback) et mis à jour (`itemChanged = true`). Ex: DM mélamine → placage : `$default:Caisson` résout ST-0035 (fresh) → `_defaultResolvedFresh = true` → `$match:BANDE DE CHANT` résout ST-0013 (chêne, fresh) au lieu de garder ST-0048 (PVC, stale).
+**Résolution fraîche `$match:` sur changement DM** (fix #207) : flag `_defaultResolvedFresh` dans la boucle cascade. Si `$default:` résout via `resolveCascadeTarget` (pas via enfant existant — le DM a changé), le flag est activé. Les `$match:` suivants exécutent **toujours** `findExistingChildForDynamicRule` d'abord, mais quand `_defaultResolvedFresh` est vrai, l'enfant existant est **vérifié** : son `client_text` est comparé à `materialCtx.chosenClientText` par word-similarity (via `normalizeDmType`). Si aucun mot commun → enfant incohérent, discard et résolution fraîche via `resolveMatchTarget`. Si au moins un mot commun → enfant cohérent, réutilisé sans modale. L'ancien enfant incohérent est retrouvé par `cascadeRuleTarget` (fallback) et mis à jour (`itemChanged = true`). Cela évite les **modales parasites** quand un DM non lié change (ex: changer le DM Caisson ne déclenche plus de modale pour les `$match:` liés aux Panneaux). Ex: DM Caisson mélamine → placage : `$default:Caisson` résout ST-0035 (fresh) → `_defaultResolvedFresh = true` → `$match:BANDE DE CHANT` trouve enfant existant ST-0048 (PVC), compare "PVC" vs "Placage chêne blanc" → 0 mots communs → discard → résolution fraîche ST-0013 (chêne).
 
 ### 3.6 Quantités enfants (constante vs formule)
 

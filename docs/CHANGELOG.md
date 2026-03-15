@@ -13,6 +13,8 @@
 - **#205** : `deduplicateDmByClientText` déduplique aussi par `catalogue_item_id` (seconde passe) — empêche les modales quand plusieurs DM pointent vers le même article
 - **#205b** : `resolveCascadeTarget` filtre les DM entries par catégories autorisées (`getAllowedCategoriesForGroup`) avant d'afficher la Modale 1
 - **#206** : `filterDmByExpenseRelevance` filtre les DM entries par pertinence `material_costs` avant `showDmChoiceModal` dans les 4 tiers de `getDefaultMaterialKeywords` — empêche l'affichage de Laque/Legrabox quand seuls les panneaux sont pertinents
+- **#207** : `_defaultResolvedFresh` — vérification cohérence materialCtx par word-similarity au lieu de skip total `findExistingChild`, élimine modales parasites lors changement DM non relié (DEC-043)
+- **#207** : `filterDmByExpenseRelevance` appliqué à la modale materialCtx pre-population dans `executeCascade`
 
 ### Améliorations
 - **AI lecture plans** : méthodologie dimensionnelle (PLANS_SECTION) toujours injectée dans le system prompt, plus conditionnelle sur `hasImages` — l'AI applique la rigueur de comptage/validation même sans images collées (DEC-040)

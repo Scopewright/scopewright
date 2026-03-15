@@ -4768,13 +4768,21 @@
                     }
                 }
                 if (!parentDmChoice) {
-                    var pResult = await showDmChoiceModal(parentDmType, parentDmUnique);
-                    if (pResult) {
-                        parentDmChoice = parentDmUnique.find(function(m) { return m.catalogue_item_id === pResult.itemId; });
-                        dmChoiceCache[parentCacheKey] = pResult.itemId;
-                    } else {
-                        parentDmChoice = parentDmUnique[0];
+                    // #207: filter by expense relevance + auto-select if reduced to 1
+                    var _parentFiltered = filterDmByExpenseRelevance(parentDmUnique, parentDmType);
+                    if (_parentFiltered.length === 1) {
+                        parentDmChoice = _parentFiltered[0];
                         if (parentDmChoice.catalogue_item_id) dmChoiceCache[parentCacheKey] = parentDmChoice.catalogue_item_id;
+                        cascadeLog('info', 'materialCtx: parent DM filtered to 1 → auto-select');
+                    } else {
+                        var pResult = await showDmChoiceModal(parentDmType, _parentFiltered);
+                        if (pResult) {
+                            parentDmChoice = _parentFiltered.find(function(m) { return m.catalogue_item_id === pResult.itemId; });
+                            dmChoiceCache[parentCacheKey] = pResult.itemId;
+                        } else {
+                            parentDmChoice = _parentFiltered[0];
+                            if (parentDmChoice.catalogue_item_id) dmChoiceCache[parentCacheKey] = parentDmChoice.catalogue_item_id;
+                        }
                     }
                 }
                 if (parentDmChoice && parentDmChoice.client_text) {
@@ -4807,9 +4815,7 @@
 
             // For dynamic targets, reuse existing child if it already satisfies the rule (skip popup)
             var resolvedTarget = null;
-            // Skip existing child reuse for $match: when $default: resolved fresh (DM changed)
-            var _skipExistingForMatch = _defaultResolvedFresh && rule.target.startsWith('$match:');
-            if ((rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) && !_skipExistingForMatch) {
+            if (rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) {
                 resolvedTarget = findExistingChildForDynamicRule(rule.target, groupId, activeChildren, matchedChildRowIds);
                 // When $default: resolves via existing child, propagate materialCtx
                 // AND populate dmChoiceCache so recursive/sibling cascades don't re-open the modal
@@ -4829,8 +4835,26 @@
                         cascadeLog('info', '#188d: cache populated from existing child: ' + _cacheKeyFromExisting + ' → ' + resolvedTarget);
                     }
                 }
-            } else if (_skipExistingForMatch) {
-                cascadeLog('info', '$match: skip findExisting — $default: resolved fresh (DM changed)');
+                // #207: When $default: resolved fresh (DM changed) and $match: found an existing child,
+                // verify the child is still consistent with the current materialCtx.
+                // If the material context changed but the existing child doesn't match, force fresh resolution.
+                // This prevents reusing stale children while avoiding parasitic modals for unrelated DM changes.
+                if (resolvedTarget && _defaultResolvedFresh && rule.target.startsWith('$match:') && materialCtx && materialCtx.chosenClientText) {
+                    var _matchChildItem = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
+                    if (_matchChildItem) {
+                        var _ctxWords = materialCtx.chosenClientText.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });
+                        var _childWords = (_matchChildItem.client_text || '').toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); });
+                        var _isConsistent = _ctxWords.some(function(cw) {
+                            return _childWords.some(function(chw) { return chw.indexOf(cw) !== -1 || cw.indexOf(chw) !== -1; });
+                        });
+                        if (!_isConsistent) {
+                            cascadeLog('info', '$match: existing child ' + resolvedTarget + ' inconsistent with materialCtx "' + materialCtx.chosenClientText + '" — forcing fresh resolution');
+                            resolvedTarget = null;
+                        } else {
+                            cascadeLog('info', '$match: existing child ' + resolvedTarget + ' consistent with materialCtx "' + materialCtx.chosenClientText + '" — reusing');
+                        }
+                    }
+                }
             }
             if (!resolvedTarget) {
                 resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);

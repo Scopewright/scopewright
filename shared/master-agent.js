@@ -248,6 +248,9 @@
     align-self: flex-start; padding: 10px 14px;
     background: #F1F5F9; border-radius: 12px;
     border-bottom-left-radius: 4px;
+    display: flex; gap: 6px; align-items: center;
+}
+.ma-typing-dots {
     display: flex; gap: 4px; align-items: center;
 }
 .ma-typing-dot {
@@ -260,6 +263,13 @@
 @keyframes maTyping {
     0%,60%,100% { opacity: 0.3; transform: scale(0.8); }
     30% { opacity: 1; transform: scale(1); }
+}
+.ma-typing-label {
+    font-size: 11px; color: #64748B; margin-left: 4px;
+    animation: maTypingFade 0.4s ease-in;
+}
+@keyframes maTypingFade {
+    from { opacity: 0; } to { opacity: 1; }
 }
 
 /* Input bar */
@@ -571,18 +581,49 @@
         container.scrollTop = container.scrollHeight;
     }
 
+    var _typingInterval = null;
+    var _typingMsgIndex = 0;
+    var _TYPING_MESSAGES = [
+        'Lecture des documents\u2026',
+        'Analyse en cours\u2026',
+        'Pr\u00e9paration de la r\u00e9ponse\u2026',
+        'R\u00e9flexion approfondie\u2026',
+        'Synth\u00e8se des informations\u2026',
+        'Traitement en cours\u2026'
+    ];
+
     function showTyping() {
+        hideTyping();
         var container = document.getElementById('maMessages');
         if (!container) return;
         var el = document.createElement('div');
         el.className = 'ma-typing';
         el.id = 'maTypingIndicator';
-        el.innerHTML = '<div class="ma-typing-dot"></div><div class="ma-typing-dot"></div><div class="ma-typing-dot"></div>';
+        el.innerHTML =
+            '<div class="ma-typing-dots"><div class="ma-typing-dot"></div><div class="ma-typing-dot"></div><div class="ma-typing-dot"></div></div>' +
+            '<span class="ma-typing-label" id="maTypingLabel"></span>';
         container.appendChild(el);
         container.scrollTop = container.scrollHeight;
+        // Start rotating messages after a short delay
+        _typingMsgIndex = 0;
+        var label = document.getElementById('maTypingLabel');
+        if (label) label.textContent = _TYPING_MESSAGES[0];
+        _typingInterval = setInterval(function() {
+            _typingMsgIndex = (_typingMsgIndex + 1) % _TYPING_MESSAGES.length;
+            var lbl = document.getElementById('maTypingLabel');
+            if (lbl) {
+                lbl.style.animation = 'none';
+                void lbl.offsetWidth; // force reflow
+                lbl.style.animation = 'maTypingFade 0.4s ease-in';
+                lbl.textContent = _TYPING_MESSAGES[_typingMsgIndex];
+            }
+            var c = document.getElementById('maMessages');
+            if (c) c.scrollTop = c.scrollHeight;
+        }, 12000);
     }
 
     function hideTyping() {
+        if (_typingInterval) { clearInterval(_typingInterval); _typingInterval = null; }
         var el = document.getElementById('maTypingIndicator');
         if (el) el.remove();
     }

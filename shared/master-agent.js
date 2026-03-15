@@ -1110,6 +1110,14 @@
                     console.warn('[masterAgentSyncDocs] CLAUDE.md fetch failed:', r2.status);
                 }
             } catch(e) { console.warn('[masterAgentSyncDocs] CLAUDE.md fetch error:', e.message); }
+            try {
+                var r3 = await fetch(baseUrl + 'docs/USER_GUIDE.md');
+                if (r3.ok) {
+                    docs.master_user_guide = await r3.text();
+                } else {
+                    console.warn('[masterAgentSyncDocs] USER_GUIDE.md fetch failed:', r3.status);
+                }
+            } catch(e) { console.warn('[masterAgentSyncDocs] USER_GUIDE.md fetch error:', e.message); }
 
             var saved = 0;
             var keys = Object.keys(docs);

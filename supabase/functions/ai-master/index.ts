@@ -178,6 +178,7 @@ async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
       .in("key", [
         "master_context",
         "master_claude_md",
+        "master_user_guide",
         "ai_prompt_master",
         "description_format_rules",
         "expense_categories",
@@ -202,10 +203,11 @@ async function loadMasterDocs(supabase: any): Promise<Record<string, string>> {
     // #147-fix + #150: Log confirmation of loaded docs
     const masterLen = (docs["master_context"] || "").length;
     const claudeLen = (docs["master_claude_md"] || "").length;
+    const guideLen = (docs["master_user_guide"] || "").length;
     const formatLen = (docs["description_format_rules"] || "").length;
     const expenseLen = (docs["expense_categories"] || "").length;
     const tauxLen = (docs["taux_horaires"] || "").length;
-    console.log(`[ai-master] Docs loaded: master_context=${masterLen} chars, master_claude_md=${claudeLen} chars, ai_prompt_master=${(docs["ai_prompt_master"] || "").length > 0 ? "custom" : "default"}, description_format_rules=${formatLen} chars, expense_categories=${expenseLen} chars, taux_horaires=${tauxLen} chars`);
+    console.log(`[ai-master] Docs loaded: master_context=${masterLen} chars, master_claude_md=${claudeLen} chars, user_guide=${guideLen} chars, ai_prompt_master=${(docs["ai_prompt_master"] || "").length > 0 ? "custom" : "default"}, description_format_rules=${formatLen} chars, expense_categories=${expenseLen} chars, taux_horaires=${tauxLen} chars`);
     if (masterLen === 0) console.warn("[ai-master] WARNING: master_context is empty — click 'Synchroniser les docs' in admin");
     if (claudeLen === 0) console.warn("[ai-master] WARNING: master_claude_md is empty — click 'Synchroniser les docs' in admin");
     return docs;
@@ -315,6 +317,12 @@ function buildSystemPrompt(
     sections.push("\n\n--- CLAUDE.md ---\n" + docs["master_claude_md"]);
   } else {
     sections.push("\n\n⚠ CLAUDE.md non chargé — cliquer 'Synchroniser les docs' dans le drawer.");
+  }
+
+  // Inject USER_GUIDE.md (filtered by relevance — same as MASTER_CONTEXT)
+  if (docs["master_user_guide"]) {
+    const filteredGuide = selectRelevantSections(docs["master_user_guide"], lastUserMessage);
+    sections.push("\n\n--- USER_GUIDE.md (sections pertinentes) ---\n" + filteredGuide);
   }
 
   // Inject live config data (critical for accurate analysis)

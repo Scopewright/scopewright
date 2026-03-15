@@ -7435,7 +7435,7 @@
         .furniture-group {
             margin-bottom: 28px;
             border-radius: 8px;
-            overflow: hidden;
+            overflow: visible;
             border: 1px solid #e0e0e0;
             border-top: none;
             box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -9715,6 +9715,15 @@
         .dm-ac-item:hover, .dm-ac-item.active { background: #edf1f7; }
         .dm-ac-item .dm-ac-cat { font-size: 10px; color: #999; }
         .dm-ac-item .dm-ac-secondary { font-size: 10px; color: #999; margin-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+        /* Navy-themed autocomplete inside DM panel */
+        .room-dm-section .dm-autocomplete {
+            background: #131c2e; border: 0.5px solid rgba(255,255,255,0.15); border-top: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+        .room-dm-section .dm-ac-item { color: rgba(255,255,255,0.7); }
+        .room-dm-section .dm-ac-item:hover, .room-dm-section .dm-ac-item.active { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.95); }
+        .room-dm-section .dm-ac-item .dm-ac-cat,
+        .room-dm-section .dm-ac-item .dm-ac-secondary { color: rgba(255,255,255,0.35); }
         .dm-row .dm-remove {
             background: none; border: none; color: rgba(255,255,255,0.15); cursor: pointer;
             font-size: 13px; padding: 0 4px; flex-shrink: 0; line-height: 1;

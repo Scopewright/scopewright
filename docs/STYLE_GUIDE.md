@@ -267,6 +267,15 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`
 - Options : `background: #0B1220`
 
+**Autocomplete / suggestions (dans le panneau DM)** :
+- Background : `#131c2e` (navy plus clair)
+- Border : `0.5px solid rgba(255,255,255,0.15)`
+- Items : `color: rgba(255,255,255,0.7)`, hover `background: rgba(255,255,255,0.07)` + `color: rgba(255,255,255,0.95)`
+- Catégories / secondaire : `rgba(255,255,255,0.35)`
+- Scoped via `.room-dm-section .dm-autocomplete` — n'affecte pas les autocomplete hors DM
+
+**Overflow** : `.furniture-group` utilise `overflow: visible` (pas `hidden`) pour permettre aux dropdowns et autocomplete du panneau DM de déborder visuellement
+
 **Palette des opacités navy** : 0.07 (séparateurs), 0.1 (badges), 0.12 (underlines), 0.15 (bordures/boutons), 0.2 (icônes repos), 0.25 (labels légers/ajout), 0.3 (boutons secondaires), 0.35 (labels type), 0.4 (focus), 0.5 (labels/valeurs), 0.6 (badges/hover), 0.7 (filled/active), 0.85 (texte principal)
 
 ---

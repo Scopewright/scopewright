@@ -274,7 +274,7 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Catégories / secondaire : `rgba(255,255,255,0.35)`
 - Scoped via `.room-dm-section .dm-autocomplete` — n'affecte pas les autocomplete hors DM
 
-**Overflow** : `.furniture-group` utilise `overflow: visible` (pas `hidden`) pour permettre aux dropdowns et autocomplete du panneau DM de déborder visuellement
+**Overflow** : `.furniture-group` utilise `overflow: visible` (pas `hidden`) pour permettre aux dropdowns et autocomplete du panneau DM de déborder visuellement. `.rdm-enriched` utilise `overflow: visible` quand expanded et `overflow: hidden` quand collapsed — les dropdowns dans les sous-champs enrichis ne sont pas clippés
 
 **Palette des opacités navy** : 0.07 (séparateurs), 0.1 (badges), 0.12 (underlines), 0.15 (bordures/boutons), 0.2 (icônes repos), 0.25 (labels légers/ajout), 0.3 (boutons secondaires), 0.35 (labels type), 0.4 (focus), 0.5 (labels/valeurs), 0.6 (badges/hover), 0.7 (filled/active), 0.85 (texte principal)
 

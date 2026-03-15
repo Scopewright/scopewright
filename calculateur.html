@@ -3145,6 +3145,23 @@
         if (!dmEntry || !dmEntry.client_text) return;
 
         var nom = buildComposanteName(dmEntry);
+        var dmType = dmEntry.type || 'Autre';
+
+        // Dedup: check if composante with same nom + dm_type already exists
+        var existing = COMPOSANTES_DATA.find(function(c) {
+            return c.is_active !== false && c.nom === nom && c.dm_type === dmType;
+        });
+        if (existing) {
+            showConstraintToast('Composante "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
+            // Still animate bookmark to confirm
+            var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+            if (rowWrap) {
+                var bkmBtn = rowWrap.querySelector('.dm-bookmark-btn');
+                if (bkmBtn) { bkmBtn.classList.add('saved'); setTimeout(function() { bkmBtn.classList.remove('saved'); }, 2000); }
+            }
+            return;
+        }
+
         var body = {
             nom: nom,
             dm_type: dmEntry.type || 'Autre',
@@ -3191,6 +3208,15 @@
 
         var shortNames = configured.map(buildComposanteName);
         var nom = shortNames.join(' / ');
+
+        // Dedup: check if group composante with same nom already exists
+        var existing = COMPOSANTES_DATA.find(function(c) {
+            return c.is_active !== false && c.nom === nom && c.dm_type === 'Groupe';
+        });
+        if (existing) {
+            showConstraintToast('Composante groupe "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
+            return;
+        }
 
         // Use first Caisson entry or first available for main fields
         var main = configured.find(function(e) { return e.type === 'Caisson'; }) || configured[0];
@@ -9811,11 +9837,11 @@
         .rdm-enrich-toggle.open { transform: rotate(180deg); }
         .rdm-enrich-toggle.has-data { color: rgba(255,255,255,0.5); }
         .rdm-enriched {
-            overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+            transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
             max-height: 300px; opacity: 1; padding: 4px 16px 10px 100px;
-            display: flex; gap: 16px; flex-wrap: wrap;
+            display: flex; gap: 16px; flex-wrap: wrap; overflow: visible;
         }
-        .rdm-enriched.collapsed { max-height: 0; opacity: 0; padding: 0 16px 0 100px; }
+        .rdm-enriched.collapsed { max-height: 0; opacity: 0; padding: 0 16px 0 100px; overflow: hidden; }
         .rdm-enriched-row {
             display: flex; flex-direction: column; gap: 3px; min-width: 80px;
         }

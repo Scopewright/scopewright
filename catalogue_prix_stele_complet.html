@@ -5632,7 +5632,48 @@
                 document.getElementById('compModalTitle').textContent = 'Modifier ' + comp.code;
             }
 
+            // Populate datalists from distinct COMPOSANTES_DATA values
+            _populateCompDatalist('compDlBandeChant', 'bande_chant_client_text');
+            _populateCompDatalist('compDlFinition', 'finition_client_text');
+            _populateCompDatalist('compDlBoisBrut', 'bois_brut_client_text');
+
+            // Auto-regenerate nom when fields change (only for new composantes)
+            var nomInput = document.getElementById('compModalNom');
+            var autoNomFields = ['compModalDmType', 'compModalMateriau', 'compModalStyle', 'compModalCoupe'];
+            autoNomFields.forEach(function(fid) {
+                var el = document.getElementById(fid);
+                if (!el) return;
+                el._compNomHandler = function() {
+                    if (document.getElementById('compModalId').value) return; // don't auto for edits
+                    var pseudo = {
+                        type: document.getElementById('compModalDmType').value || null,
+                        style: document.getElementById('compModalStyle').value || null,
+                        client_text: document.getElementById('compModalMateriau').value || null,
+                        coupe: document.getElementById('compModalCoupe').value || null
+                    };
+                    var parts = [pseudo.type, pseudo.style, pseudo.client_text, pseudo.coupe].filter(Boolean);
+                    nomInput.value = parts.join(' ');
+                };
+                el.removeEventListener('input', el._compNomHandler);
+                el.addEventListener('input', el._compNomHandler);
+                el.removeEventListener('change', el._compNomHandler);
+                el.addEventListener('change', el._compNomHandler);
+            });
+
             modal.classList.add('active');
+        }
+
+        /** Populate a datalist with distinct values from COMPOSANTES_DATA */
+        function _populateCompDatalist(datalistId, field) {
+            var dl = document.getElementById(datalistId);
+            if (!dl) return;
+            var values = {};
+            COMPOSANTES_DATA.forEach(function(c) {
+                if (c.is_active !== false && c[field]) values[c[field]] = true;
+            });
+            dl.innerHTML = Object.keys(values).sort().map(function(v) {
+                return '<option value="' + escapeAttr(v) + '">';
+            }).join('');
         }
 
         /** Close composante modal */
@@ -9017,15 +9058,18 @@
             </div>
             <div class="comp-field">
                 <label>Bande de chant</label>
-                <input type="text" id="compModalBandeChant" placeholder="Texte client bande de chant">
+                <input type="text" id="compModalBandeChant" placeholder="Texte client bande de chant" list="compDlBandeChant">
+                <datalist id="compDlBandeChant"></datalist>
             </div>
             <div class="comp-field">
                 <label>Finition</label>
-                <input type="text" id="compModalFinition" placeholder="Texte client finition">
+                <input type="text" id="compModalFinition" placeholder="Texte client finition" list="compDlFinition">
+                <datalist id="compDlFinition"></datalist>
             </div>
             <div class="comp-field">
                 <label>Bois brut</label>
-                <input type="text" id="compModalBoisBrut" placeholder="Texte client bois brut">
+                <input type="text" id="compModalBoisBrut" placeholder="Texte client bois brut" list="compDlBoisBrut">
+                <datalist id="compDlBoisBrut"></datalist>
             </div>
             <div class="comp-field">
                 <label>Notes</label>

@@ -306,6 +306,9 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Dropdown composantes** (`.dm-comp-select`) : filtré par `dm_type`, entre le select type et la recherche matériau. `applyComposanteToDm(groupId, dmIndex, composanteId)` applique tous les champs de la composante au DM + `saveRoomDm` + `reprocessDefaultCascades`
 - **Finition retirée de `DM_REQUIRED_GROUPS`** : `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning toast si composante Façades/Caisson sans finition
 - **Transition DM→grille** : `border-radius: 4px 4px 0 0` sur `.room-dm-section`, zéro gap vers `.calc-header`
+- **Déduplication** : `saveDmAsComposante` et `saveAllDmAsComposante` vérifient `nom + dm_type` dans `COMPOSANTES_DATA` avant INSERT — toast si doublon, pas de création
+- **Modale catalogue** : `compModalBandeChant`, `compModalFinition`, `compModalBoisBrut` ont des `<datalist>` peuplés depuis les valeurs distinctes de `COMPOSANTES_DATA` (`_populateCompDatalist`). Auto-régénération du nom (`compModalNom`) quand les champs dm_type/matériau/style/coupe changent (nouvelles composantes seulement)
+- **Overflow fix** : `.rdm-enriched` a `overflow: visible` (expanded) / `overflow: hidden` (collapsed) — empêche le clipping des dropdowns dans les sous-champs enrichis
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 

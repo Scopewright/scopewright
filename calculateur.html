@@ -3804,7 +3804,9 @@
      * Matches parent catalogue category name → DM type name (case-insensitive).
      * Supports multiple DM entries of same type via dmChoiceCache/popup.
      */
-    /** Deduplicate DM entries by client_text — keep one representative per unique material */
+    /** Deduplicate DM entries by client_text AND catalogue_item_id — keep one representative per unique material.
+     *  #205: two-pass dedup — first by client_text, then by catalogue_item_id.
+     *  Prevents modals when multiple DM entries point to the same article. */
     function deduplicateDmByClientText(entries) {
         var seen = {};
         var result = [];
@@ -3814,6 +3816,19 @@
                 seen[key] = true;
                 result.push(entries[i]);
             }
+        }
+        // #205: second pass — deduplicate by catalogue_item_id
+        // If two entries have different client_text but same catalogue_item_id, keep first
+        if (result.length > 1) {
+            var seenId = {};
+            var deduped = [];
+            for (var j = 0; j < result.length; j++) {
+                var catId = result[j].catalogue_item_id;
+                if (catId && seenId[catId]) continue;
+                if (catId) seenId[catId] = true;
+                deduped.push(result[j]);
+            }
+            result = deduped;
         }
         return result;
     }

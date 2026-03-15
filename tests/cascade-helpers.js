@@ -78,7 +78,7 @@ function scoreMatchCandidates(candidates, keywords) {
 }
 
 // ── deduplicateDmByClientText (calculateur.html lines 3289-3300) ──
-// Deduplicates DM entries by client_text, keeping the first representative.
+// Deduplicates DM entries by client_text AND catalogue_item_id (two-pass), keeping the first representative.
 
 function deduplicateDmByClientText(entries) {
     var seen = {};
@@ -89,6 +89,18 @@ function deduplicateDmByClientText(entries) {
             seen[key] = true;
             result.push(entries[i]);
         }
+    }
+    // #205: second pass — deduplicate by catalogue_item_id
+    if (result.length > 1) {
+        var seenId = {};
+        var deduped = [];
+        for (var j = 0; j < result.length; j++) {
+            var catId = result[j].catalogue_item_id;
+            if (catId && seenId[catId]) continue;
+            if (catId) seenId[catId] = true;
+            deduped.push(result[j]);
+        }
+        result = deduped;
     }
     return result;
 }

@@ -509,6 +509,29 @@ describe('deduplicateDmByClientText', function() {
     it('empty array → empty', function() {
         assertEqual(deduplicateDmByClientText([]).length, 0);
     });
+    it('#205: different client_text but same catalogue_item_id → deduplicated', function() {
+        var entries = [
+            { client_text: 'Placage chêne blanc', catalogue_item_id: 'ST-0010' },
+            { client_text: 'Placage de chêne blanc', catalogue_item_id: 'ST-0010' }
+        ];
+        var result = deduplicateDmByClientText(entries);
+        assertEqual(result.length, 1, 'should keep only one entry');
+        assertEqual(result[0].client_text, 'Placage chêne blanc', 'should keep first');
+    });
+    it('#205: different client_text AND different catalogue_item_id → kept separate', function() {
+        var entries = [
+            { client_text: 'Placage chêne blanc', catalogue_item_id: 'ST-0010' },
+            { client_text: 'Mélamine blanche', catalogue_item_id: 'ST-0020' }
+        ];
+        assertEqual(deduplicateDmByClientText(entries).length, 2);
+    });
+    it('#205: null catalogue_item_id entries are not deduplicated by id', function() {
+        var entries = [
+            { client_text: 'A', catalogue_item_id: null },
+            { client_text: 'B', catalogue_item_id: null }
+        ];
+        assertEqual(deduplicateDmByClientText(entries).length, 2, 'null ids kept separate');
+    });
 });
 
 // ════════════════════════════════════════════════════════════════

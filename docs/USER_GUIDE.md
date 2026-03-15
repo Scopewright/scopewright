@@ -106,7 +106,17 @@ Le zoom fonctionne aussi avec **Ctrl + molette** de la souris.
 
 #### Capturer une page
 
-Le bouton **📸 Capturer** vous permet de photographier une page du plan et de l'associer à un meuble spécifique. Vous choisissez le meuble de destination dans un menu déroulant, et l'image apparaît dans la section images de ce meuble.
+Le bouton **📸 Capturer** vous permet de photographier une page du plan et de l'associer à un meuble spécifique :
+
+1. Cliquez **📸 Capturer** — la page courante est capturée
+2. Sélectionnez le **meuble de destination** dans le menu déroulant
+3. Recadrez l'image si nécessaire (crop)
+4. Le **modal d'annotation s'ouvre automatiquement** — vous pouvez immédiatement placer vos tags (C1, F1, P1…) et cocher **Client** (visible dans la soumission) et **AI** (référence pour l'assistant)
+5. L'image annotée apparaît dans la section images du meuble
+
+**Astuce** : si vous utilisez le viewer en **fenêtre séparée** (bouton ↗), la capture ramène automatiquement le focus sur la fenêtre principale pour afficher le modal d'annotation. Vous n'avez pas besoin de basculer manuellement entre les fenêtres.
+
+**Note** : les plans sont liés au **projet** (pas à une soumission spécifique). Toutes les soumissions d'un même projet partagent les mêmes plans.
 
 ### Créer une soumission
 
@@ -183,6 +193,23 @@ Cliquez **+ Ajouter un article** en bas d'un meuble. Un menu de recherche s'ouvr
 1. **FABRICATION** — Articles de fabrication (caissons, comptoirs, panneaux sur mesure). Les articles **★ par défaut** apparaissent en premier.
 2. **MATÉRIAUX** — Matériaux et composantes (quincaillerie, planches, accessoires)
 3. **Autre** — Proposer un nouvel article ou ajout personnalisé
+
+#### Ajout personnalisé (articles hors catalogue)
+
+Pour un article qui n'existe pas dans le catalogue (travail unique, sous-traitance, article spécial) :
+
+1. Cliquez **+ Ajouter un article** → **Ajout personnalisé** (en bas du dropdown)
+2. Le **modal de création** s'ouvre (identique au catalogue, avec quelques différences) :
+   - **Titre libre** — Pas de code ST-XXXX, vous nommez l'article comme vous voulez
+   - **Texte client** — La description qui apparaîtra dans la soumission
+   - **Fournisseur + Notes** — Sélectionnez un fournisseur (contacts) et ajoutez des notes/numéros de soumission
+   - **Prix composé** — Même système que le catalogue : main-d'œuvre par département + matériaux par catégorie. Le prix est calculé automatiquement
+   - **Pièces jointes** — Glissez-déposez des fichiers (PDF fournisseur, soumissions…)
+3. Cliquez **Enregistrer** — l'article apparaît dans le meuble
+
+**Indicateur visuel** : la ligne est **orange** tant que le prix fournisseur est à 0 $. Un badge « X prix manquants » apparaît dans l'en-tête de la pièce.
+
+**Sauvegarder au catalogue** : si l'article est réutilisable, le bouton **⬆ Sauvegarder au catalogue** dans le modal l'ajoute au catalogue permanent.
 
 #### Génération automatique des composantes
 
@@ -615,6 +642,47 @@ Exemples de règles utiles :
 - « Toujours arrondir les quantités de bande de chant au pied linéaire supérieur »
 - « Les panneaux de côté ne prennent pas de finition si le caisson est encastré »
 
+### Agent Maître
+
+L'**Agent Maître** est un assistant AI avancé accessible depuis le **bouton flottant** en bas à droite de toutes les pages (petit cercle navy). Il est distinct de l'assistant estimateur — son rôle est de conseiller, auditer et améliorer le système Scopewright lui-même.
+
+#### Ce qu'il peut faire
+
+| Capacité | Exemple |
+|----------|---------|
+| **Analyser le système** | « Y a-t-il des incohérences dans mes prompts AI ? » |
+| **Consulter les learnings** | « Liste toutes les règles organisationnelles » |
+| **Créer un learning** | « Ajoute la règle : les comptoirs en quartz n'ont pas de finition » |
+| **Modifier un learning** | « Corrige la règle #5 pour préciser que ça s'applique aussi au granit » |
+| **Supprimer un learning** | « Supprime la règle obsolète sur les caissons thermoformés » |
+| **Lire les prompts AI** | « Montre-moi le prompt de l'assistant estimateur » |
+| **Modifier un prompt** | « Ajoute une instruction sur les caissons de pharmacie dans le prompt estimateur » |
+| **Consulter le catalogue** | « Montre-moi l'article ST-0042 et ses règles de calcul » |
+| **Modifier un article catalogue** | « Change la formule de calcul de ST-0042 pour inclure les portes » |
+
+#### Comment ça marche
+
+1. Cliquez le **bouton flottant** (bas droite) — le drawer s'ouvre
+2. Posez votre question ou décrivez ce que vous voulez modifier
+3. L'agent **propose** d'abord en texte (simulation) — il ne modifie jamais directement
+4. Vous validez avec les boutons **Appliquer** ou **Ignorer**
+5. La modification prend effet immédiatement
+
+**Images** : vous pouvez coller (Ctrl+V) ou glisser-déposer des screenshots dans le drawer. L'agent peut lire et analyser les images.
+
+#### Ce qu'il ne peut PAS faire
+
+- Modifier le code source (HTML, JS, CSS)
+- Exécuter du SQL ou modifier les tables de la base de données
+- Déployer des Edge Functions
+- Modifier `app_config` (sauf les prompts AI)
+
+Pour ces opérations, l'agent **décrit précisément** ce qu'il faudrait faire (fichier, fonction, ligne) pour qu'un développeur l'applique.
+
+#### Synchronisation des documents
+
+L'agent a accès à deux documents de référence : le **contexte système** et le **CLAUDE.md**. Ces documents doivent être synchronisés régulièrement via le bouton **↻** dans le drawer. Si les documents ont plus de 24h, l'agent vous le signale automatiquement.
+
 ---
 
 ## PARTIE 5 — CONTACTS ET ENTREPRISES
@@ -892,6 +960,30 @@ Personnalisez la page d'introduction de vos soumissions :
 - **Image de couverture** — L'image de fond de la première page
 - **3 paragraphes d'introduction** — Le texte de présentation de votre entreprise (FR et EN)
 - **Coordonnées** — Adresse atelier, bureau, téléphone, site web
+
+### Présentation — Page « Pourquoi »
+
+Personnalisez la page « Pourquoi choisir [votre atelier] » affichée dans la soumission client :
+- **Titre** — Ex: « Pourquoi Stele »
+- **Texte** — Paragraphe de présentation (le placeholder `{designer}` est remplacé par le nom de l'architecte du projet)
+- **Image** — Photo d'atelier ou de réalisation
+
+### Présentation — Étapes du projet
+
+8 étapes affichées dans la soumission client (ex: « Conception », « Fabrication », « Installation »). Chaque étape a un **titre** et une **description** courte. Modifiables en FR et EN.
+
+### Debug images AI
+
+Outil de diagnostic pour vérifier quelles images l'assistant AI reçoit réellement. Disponible dans l'administration (volet Agent Maître ou section dédiée).
+
+**Activer** : mettez le flag `debug_ai_images` à `true` dans la configuration. Quand activé, chaque conversation AI sauvegarde une copie des images envoyées (chat et références AI avec tags) dans un bucket Storage dédié.
+
+**Galerie** : les images capturées apparaissent dans une grille avec :
+- **Date et heure** de la conversation
+- **Source** : « Chat » (image collée dans le chat) ou « Réf. AI » (image annotée envoyée comme référence)
+- **Soumission et pièce** associées
+
+Utile pour diagnostiquer pourquoi l'AI interprète mal un plan — vous voyez exactement ce qu'elle voit, avec les tags rasterisés.
 
 ---
 

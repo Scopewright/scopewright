@@ -22505,8 +22505,10 @@
                 showSaveIndicator();
                 // #196: auto-open tagging modal for the new capture
                 var newIdx = groupImages[groupId].length - 1;
-                setTimeout(function() { openAnnotationModal(groupId, newIdx); }, 300);
-                window.focus(); // bring calculator to front
+                setTimeout(function() {
+                    window.focus(); // bring calculator to front BEFORE opening modal
+                    openAnnotationModal(groupId, newIdx);
+                }, 300);
             }
         });
 

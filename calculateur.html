@@ -11265,10 +11265,28 @@
             var srcUrl = imgData.url || imgData.dataUrl;
             if (!srcUrl) return;
 
-            var image = new Image();
-            image.crossOrigin = 'anonymous';
-            image.onload = function() {
-                var w = image.naturalWidth;
+            // Fetch image as blob to avoid CORS tainted canvas issues (#192d)
+            (async function() {
+                try {
+                    var resp = await fetch(srcUrl);
+                    if (!resp.ok) { console.warn('[Annot] Failed to fetch source image:', resp.status); return; }
+                    var blob = await resp.blob();
+                    var blobUrl = URL.createObjectURL(blob);
+                    var image = new Image();
+                    image.onerror = function() { console.warn('[Annot] Failed to load image for rasterization'); URL.revokeObjectURL(blobUrl); };
+                    image.onload = function() {
+                        URL.revokeObjectURL(blobUrl);
+                        _drawAnnotatedCanvas(image, groupId, imageIndex, mediaId, imgData, annotations);
+                    };
+                    image.src = blobUrl;
+                } catch (e) {
+                    console.warn('[Annot] Rasterize fetch error:', e);
+                }
+            })();
+        }
+
+        function _drawAnnotatedCanvas(image, groupId, imageIndex, mediaId, imgData, annotations) {
+            var w = image.naturalWidth;
                 var h = image.naturalHeight;
                 var canvas = document.createElement('canvas');
                 canvas.width = w;
@@ -11341,7 +11359,7 @@
                 });
 
                 canvas.toBlob(function(blob) {
-                    if (!blob) return;
+                    if (!blob) { console.warn('[Annot] toBlob returned null — canvas may be tainted'); return; }
                     var path = 'annotated/' + mediaId + '.jpg';
                     authenticatedFetch(SUPABASE_URL + '/storage/v1/object/room-images/' + path, {
                         method: 'POST',
@@ -11363,11 +11381,6 @@
                         console.warn('[Annot] Annotated upload error:', e);
                     });
                 }, 'image/jpeg', 0.92);
-            };
-            image.onerror = function() {
-                console.warn('[Annot] Failed to load image for rasterization:', srcUrl);
-            };
-            image.src = srcUrl;
         }
 
         // Arrow mode toggle

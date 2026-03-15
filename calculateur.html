@@ -19465,6 +19465,10 @@
             // Charger les contacts projet pour les badges header
             loadProjectContacts().then(function() { renderContactBadges(); });
 
+            // #187c: Hide calculator during DOM construction to prevent visual flash
+            var calcView = document.getElementById('calculatorView');
+            calcView.style.opacity = '0';
+
             // Vider le calculateur
             document.getElementById('furnitureGroups').innerHTML = '';
             cascadeParentMap = {};
@@ -19785,6 +19789,11 @@
             } else {
                 renderHeaderSubmissionList();
             }
+
+            // #187c: Reveal calculator after all DOM is built — no transition, instant
+            requestAnimationFrame(function() {
+                calcView.style.opacity = '1';
+            });
         }
 
         // ── Submission assignment ──

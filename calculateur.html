@@ -17089,12 +17089,15 @@
         }
 
         // ── Edge Function helper ──
-        async function callEdgeFunction(texts, action) {
+        async function callEdgeFunction(texts, action, images, defaultMaterials) {
             console.log('[AI] Calling edge function:', action, 'with', texts.length, 'texts');
+            var bodyObj = { texts: texts, action: action };
+            if (images) bodyObj.images = images;
+            if (defaultMaterials) bodyObj.defaultMaterials = defaultMaterials;
             var resp = await authenticatedFetch(SUPABASE_URL + '/functions/v1/translate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ texts: texts, action: action })
+                body: JSON.stringify(bodyObj)
             });
             if (!resp.ok) {
                 var errText = await resp.text().catch(function() { return ''; });
@@ -17267,9 +17270,12 @@
             btn.classList.add('ai-active');
 
             try {
-                var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description');
+                var results = await callEdgeFunction([{ key: 'desc', text: prompt }], 'calculateur_description', null, roomDM[groupId] || []);
                 if (results['desc']) {
-                    var resultHtml = results['desc'];
+                    // #207 fix #3: strip backticks wrapping (```html ... ```, '''html ... ''')
+                    var resultHtml = results['desc']
+                        .replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '')
+                        .replace(/^'''(?:html)?\s*\n?/i, '').replace(/\n?'''\s*$/i, '');
                     if (!hasExisting) {
                         // First generation: write directly (no proposal panel)
                         roomDescHTML[groupId] = resultHtml;

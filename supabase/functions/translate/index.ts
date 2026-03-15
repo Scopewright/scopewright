@@ -474,7 +474,7 @@ serve(async (req) => {
       );
     }
 
-    const { texts, action = "translate", images } = await req.json();
+    const { texts, action = "translate", images, defaultMaterials } = await req.json();
 
     if (!texts || texts.length === 0) {
       return new Response(JSON.stringify({ translations: {} }), {
@@ -503,6 +503,17 @@ serve(async (req) => {
     if (action === "calculateur_description") {
       const descFormatRules = overrides["description_format_rules"] || DEFAULT_DESCRIPTION_FORMAT_RULES;
       systemPrompt = systemPrompt.replace("{{DESCRIPTION_FORMAT_RULES}}", descFormatRules);
+
+      // #207 fix #2: Inject default materials (DM) into system prompt
+      if (defaultMaterials && Array.isArray(defaultMaterials) && defaultMaterials.length > 0) {
+        const dmLines = defaultMaterials
+          .filter((dm: any) => dm.type && (dm.client_text || dm.catalogue_item_id))
+          .map((dm: any) => `- ${dm.type}: ${dm.client_text || dm.catalogue_item_id}`)
+          .join("\n");
+        if (dmLines) {
+          systemPrompt += `\n\nMATÉRIAUX PAR DÉFAUT DE LA PIÈCE :\n${dmLines}\nUtilise ces matériaux effectifs dans la description, pas les textes catalogue legacy.`;
+        }
+      }
     }
 
     // Inject organizational learnings

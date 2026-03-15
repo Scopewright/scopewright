@@ -839,3 +839,22 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 - Élimine les modales parasites lors des changements DM non reliés
 - Préserve la fresh resolution quand le matériau a effectivement changé (word-similarity échoue → re-resolve)
 - Les enfants `$match:` cohérents avec le materialCtx sont réutilisés sans interaction utilisateur
+
+---
+
+## DEC-044 — Injection DM dans le prompt description AI (#207-2)
+
+**Date** : 2026-03-15
+
+**Contexte** : `aiGenerateDescription()` envoyait les textes des articles (presentation_rule, client_text) à l'edge function `translate` pour générer la description client. Problème : l'AI utilisait les textes catalogue legacy (ex: "Mélamine") au lieu des matériaux effectivement configurés dans les DM de la pièce (ex: "Placage chêne blanc"). La description générée était incohérente avec les choix de matériaux de l'estimateur.
+
+**Décision** : Passer `roomDM[groupId]` comme paramètre `defaultMaterials` à `callEdgeFunction`. L'edge function `translate` (action `calculateur_description`) injecte une section "MATÉRIAUX PAR DÉFAUT DE LA PIÈCE" dans le system prompt, listant chaque type DM et son `client_text`.
+
+**Alternatives considérées** :
+- **Inclure les DM dans le texte assemblé côté client** : mélange la donnée structurée avec le texte libre, difficile à distinguer pour l'AI, et complexifie `assembleRoomDescription`
+- **Résoudre les noms matériaux côté client avant l'appel** : nécessite de substituer dans chaque `presentation_rule` template, fragile et couplé au format des templates
+
+**Conséquences** :
+- Les descriptions générées utilisent les noms de matériaux effectifs (DM) au lieu des textes catalogue
+- Le paramètre `defaultMaterials` est optionnel — pas de breaking change pour les autres actions `translate`
+- `callEdgeFunction` accepte désormais 4 paramètres : `(texts, action, images, defaultMaterials)`

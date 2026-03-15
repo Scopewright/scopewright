@@ -221,6 +221,8 @@ L'assemblage de la description client (`sbBuildDescription` dans le sandbox, `as
 
 **Fallback groupe** : `_findGroupPresRule(catItem)` dans `calculateur.html` — quand un article n'a pas de `presentation_rule_human`, cherche une `presentation_rule` au niveau du groupe de dépense (`expenseCategories`). Résolution : 1) clés `material_costs` de l'article matchées contre `expenseCategories[].name`, 2) catégorie catalogue de l'article. La règle article a toujours priorité (pas de merge, pur fallback). Utilisé dans `aiGenerateDescription()` pour enrichir le contexte AI.
 
+**Injection DM dans le prompt description (#207-2)** : `aiGenerateDescription(groupId)` passe `roomDM[groupId] || []` comme 4e paramètre (`defaultMaterials`) à `callEdgeFunction(texts, action, images, defaultMaterials)`. L'edge function `translate` (action `calculateur_description`) extrait `defaultMaterials` du body et injecte une section "MATÉRIAUX PAR DÉFAUT DE LA PIÈCE" dans le system prompt, listant chaque type DM et son `client_text`. L'AI génère ainsi des descriptions cohérentes avec les matériaux effectivement configurés dans la pièce. **Nettoyage backticks (#207-3)** : la réponse AI est nettoyée côté client — regex chain strip les wrappers ` ```html ` / ` ``` ` / ` '''html ` / ` ''' ` avant écriture dans le DOM.
+
 **Contexte AI catalogue** : `aiCatalogueExplication()` dans `catalogue_prix_stele_complet.html` inclut les `presentation_rule` JSON des groupes de dépense via `getPresRuleJsons()` pour que l'AI s'inspire de la structure du groupe lors de la génération des règles de présentation d'un article.
 
 ### 2.7 Prix composé
@@ -871,7 +873,7 @@ calculateur.html                    ai-assistant Edge Function
 | `catalogue_json` | Sonnet 4 | Conversion explication → JSON structuré |
 | `catalogue_pres_rule` | Sonnet 4 | Génération règle de présentation (explication + JSON) |
 | `catalogue_calc_rule` | Sonnet 4 | Génération règle de calcul (explication + JSON) |
-| `calculateur_description` | Haiku | Génération description client de pièce (panneau proposition) |
+| `calculateur_description` | Haiku | Génération description client de pièce (panneau proposition). Accepte `defaultMaterials` optionnel dans le body → injecte section "MATÉRIAUX PAR DÉFAUT DE LA PIÈCE" dans le system prompt (#207-2). Réponse nettoyée côté client (strip backticks ` ```html ` / ` ``` `, #207-3) |
 | `import_components` | Sonnet 4 | Extraction composants fournisseur (multimodal) |
 | `catalogue_labor_modifiers` | Sonnet 4 | Génération barèmes dimensionnels (explication + JSON) |
 | `approval_suggest` | Sonnet 4 | Suggestions pour article proposé |

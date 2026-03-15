@@ -249,7 +249,7 @@ Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cas
 
 Le DM représente un matériau client, pas un article technique. `client_text` est désormais l'identifiant primaire pour la résolution cascade :
 
-1. **`resolveCascadeTarget`** : `$default:` → DM entries par type → choix `client_text` (Modale 1 si multiple) → filtrer `CATALOGUE_DATA` par `client_text` + catégorie (`getAllowedCategoriesForGroup`) → choix article technique (Modale 2 si multiple) → `catalogue_item_id` final
+1. **`resolveCascadeTarget`** : `$default:` → DM entries par type → **filtre par catégories autorisées** (`getAllowedCategoriesForGroup`, fix #205b) → choix `client_text` (Modale 1 si multiple après filtrage) → filtrer `CATALOGUE_DATA` par `client_text` + catégorie → choix article technique (Modale 2 si multiple) → `catalogue_item_id` final
 2. **Trois modales** : `showDmChoiceModal(groupName, dmEntries)` — Modale 1 (choix matériau client, label = `client_text`). `showTechnicalItemModal(groupName, catalogueItems)` — Modale 2 (choix article technique, label = code + `description` + catégorie + prix). `showMatchChoiceModal(expenseCategory, scored, keywords)` — Modale 3 (choix `$match:` multi-résultats, label = code + `description` + catégorie)
 3. **`findExistingChildForDynamicRule`** : `validIds` expandés via `client_text` + filtre catégorie (`getAllowedCategoriesForGroup`)
 4. **`getDefaultMaterialKeywords`** : lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`. `materialCtx` sert uniquement à disambiguïer dans chaque tier (pas de shortcut)

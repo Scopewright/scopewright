@@ -3520,11 +3520,36 @@
             // Step 2b: Choose DM entry
             var chosenEntry;
             var dmUnique = deduplicateDmByClientText(dmMatches);
+
+            // #205b: filter DM entries by allowed categories for this group
+            var _allowedCatsForDm = getAllowedCategoriesForGroup(groupName);
+            if (_allowedCatsForDm && dmUnique.length > 1) {
+                var dmFiltered = dmUnique.filter(function(entry) {
+                    // Check if catalogue_item_id belongs to an allowed category
+                    if (entry.catalogue_item_id) {
+                        var catItem = CATALOGUE_DATA.find(function(c) { return c.id === entry.catalogue_item_id; });
+                        if (catItem && _allowedCatsForDm.indexOf(catItem.category) !== -1) return true;
+                    }
+                    // Check if client_text has at least one article in an allowed category
+                    if (entry.client_text) {
+                        return CATALOGUE_DATA.some(function(c) {
+                            return c.client_text === entry.client_text && _allowedCatsForDm.indexOf(c.category) !== -1;
+                        });
+                    }
+                    return false;
+                });
+                if (dmFiltered.length > 0) {
+                    cascadeLog('info', '#205b: DM filtered by allowed categories: ' + dmUnique.length + ' → ' + dmFiltered.length + ' (group: ' + groupName + ')');
+                    dmUnique = dmFiltered;
+                }
+            }
+
             if (dmUnique.length === 1) {
                 // Single DM for this type → use it directly (ignore cascade context)
                 chosenEntry = dmUnique[0];
             } else if (materialCtx && materialCtx.chosenClientText) {
                 // Multiple DMs: cascade context can disambiguate
+                // #205b: verify ctxMatch is in filtered entries
                 var ctxMatch = dmUnique.find(function(m) { return m.client_text === materialCtx.chosenClientText; });
                 chosenEntry = ctxMatch || dmUnique[0];
             } else {

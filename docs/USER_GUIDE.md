@@ -822,6 +822,22 @@ Le bouton **Auditer** lance 12 vérifications automatiques :
 
 Pour les doublons détectés, un bouton **Uniformiser** permet de corriger en un clic — tous les articles du groupe adoptent le texte le plus fréquent.
 
+### Composantes
+
+Les composantes sont des regroupements nommés de propriétés constructives (matériau, style, coupe, bande de chant, finition, bois brut) par type de matériau par défaut.
+
+**Accès** : Catalogue → bouton "Composantes" dans la barre d'en-tête.
+
+**Fonctionnalités** :
+- **Filtrer** par type DM (Caisson, Façades, Panneaux, etc.) via le dropdown
+- **Créer** une composante avec le bouton "+" — remplir le nom, le type DM, et les champs optionnels
+- **Modifier** une composante en cliquant dessus dans la liste
+- **Supprimer** une composante via le bouton corbeille (suppression douce, récupérable)
+
+Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
+
+**Note** : les composantes sont actuellement gérées dans le catalogue. L'intégration dans le calculateur (sélecteur composante par pièce) sera ajoutée dans une phase ultérieure.
+
 ### Approbation des articles
 
 Les articles créés par des utilisateurs sans permission d'édition du catalogue sont mis **en attente d'approbation**.

@@ -19,7 +19,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | Fichier | Rôle | Taille |
 |---------|------|--------|
 | `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~22 950 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 530 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 720 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~4 040 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
@@ -282,6 +282,17 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 **Moteur cascade — Tier 0** : dans `resolveMatchTarget`, avant `scoreMatchCandidates`, vérifie si le DM entry a un champ enrichi pour la catégorie de dépense via `getEnrichedDmField(dmEntry, expenseCat)`. Si oui et `catalogue_item_id` ou `client_text` trouvé dans `CATALOGUE_DATA` → résolution directe **sans modale**. Sinon → fallback tiers existants inchangés. `ENRICHED_DM_FIELD_MAP` : `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
 
 **Tests** : 5 groupes (31-35) dans `tests/cascade-engine.test.js`, fixture `tests/fixtures/enriched-dm.js`. Fonction `getEnrichedDmField` dans `tests/cascade-helpers.js`
+
+### Composantes (#209)
+
+Regroupements nommés de propriétés constructives (matériau, style, coupe, bande de chant, finition, bois brut) par type DM.
+- **Table** : `composantes` — UUID PK, code `COMP-XXX` auto-généré par trigger (`composante_code_seq` + `generate_composante_code()`), RLS authentifié
+- **Dual storage** : `materiau_client_text` + `materiau_catalogue_id`, même pattern pour bande_chant, finition, bois_brut
+- **CRUD drawer** : `catalogue_prix_stele_complet.html` — bouton "Composantes" dans `.catalogue-header-bar`, drawer 480px avec filtre par type DM, modale création/édition
+- **Soft delete** : `is_active = false` (pas de DELETE)
+- **Fonctions** : `loadComposantes`, `openComposantesDrawer`, `closeComposantesDrawer`, `renderComposantesList`, `openComposanteModal`, `closeComposanteModal`, `saveComposante`, `deleteComposante`, `filterComposantesByType`
+- **Lien room_items** : `room_items.composante_id` UUID FK (nullable, ON DELETE SET NULL)
+- **Migration** : `sql/composantes.sql`
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 
@@ -816,6 +827,9 @@ projects
 catalogue_items
   ├── catalogue_item_components (composants fournisseur)
   └── item_media (images/PDF avec tags)
+
+composantes (regroupements propriétés constructives par type DM)
+  └── referenced by room_items.composante_id
 
 contacts ─── contact_companies ─── companies
   └── communications

@@ -754,6 +754,48 @@ Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. 
 - `saveRoomDm` / `copyDmFrom` : sérialisent l'objet complet (sous-champs inclus)
 - `getMissingRequiredDm` : vérifie uniquement le matériau principal
 
+### 4.7 Composantes (#209)
+
+Regroupements nommés de propriétés constructives par type DM (Caisson, Façades, Panneaux, Tiroirs, Finition, Poignées).
+
+#### Table `composantes`
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | gen_random_uuid() |
+| code | TEXT UNIQUE | Auto COMP-XXX (trigger + séquence) |
+| nom | TEXT NOT NULL | Nom descriptif |
+| dm_type | TEXT NOT NULL | Type DM associé |
+| materiau_client_text | TEXT | Texte client matériau principal |
+| materiau_catalogue_id | TEXT FK | Ref catalogue_items |
+| style | TEXT | Style libre (ex: Shaker) |
+| coupe | TEXT | Coupe libre (ex: Rift cut) |
+| bande_chant_client_text | TEXT | Texte client bande de chant |
+| bande_chant_catalogue_id | TEXT FK | Ref catalogue_items |
+| finition_client_text | TEXT | Texte client finition |
+| finition_catalogue_id | TEXT FK | Ref catalogue_items |
+| bois_brut_client_text | TEXT | Texte client bois brut |
+| bois_brut_catalogue_id | TEXT FK | Ref catalogue_items |
+| notes | TEXT | Notes internes |
+| is_active | BOOLEAN | Soft delete (default true) |
+| usage_count | INTEGER | Compteur utilisation (default 0) |
+
+#### Lien room_items
+
+`room_items.composante_id` UUID FK nullable (ON DELETE SET NULL).
+
+#### CRUD
+
+Drawer dans `catalogue_prix_stele_complet.html`, 480px slide-right, filtre par type DM, modale création/édition avec tous les champs. Soft delete (is_active=false). Code COMP-XXX auto-généré par trigger `trg_composante_auto_code`.
+
+#### RLS
+
+Tous authentifiés, full CRUD (cohérent avec `catalogue_items`).
+
+#### Migration
+
+`sql/composantes.sql`
+
 ---
 
 ## 5. Workflow de soumission
@@ -1293,6 +1335,9 @@ catalogue_items
   ├── catalogue_item_components (composants fournisseur)
   └── item_media (images/PDF avec tags)
 
+composantes (regroupements propriétés constructives par type DM)
+  └── room_items.composante_id FK (nullable, ON DELETE SET NULL)
+
 contacts ─── contact_companies ─── companies
   └── communications
 
@@ -1317,6 +1362,7 @@ submission_unlock_logs (immuable)
 |----------|-------|--------|
 | `project_code_seq` | Codes projet auto | EP001, EP002... |
 | `catalogue_code_seq` | Codes catalogue auto | ST-0001, ST-0002... |
+| `composante_code_seq` | Codes composante auto | COMP-001, COMP-002... |
 | `submission_number_seq` | Numéros soumission auto | 100, 101... |
 
 ### 11.4 Triggers
@@ -1326,6 +1372,7 @@ submission_unlock_logs (immuable)
 | `trg_project_auto_code` | projects (INSERT) | `generate_project_code()` | Auto-génère code + nom |
 | `trg_project_name_on_city` | projects (UPDATE) | `update_project_name_on_city()` | Recalcule nom quand ville change |
 | `trg_catalogue_auto_code` | catalogue_items (INSERT) | `generate_catalogue_code()` | Auto-génère ST-XXXX |
+| `trg_composante_auto_code` | composantes (INSERT) | `generate_composante_code()` | Auto-génère COMP-XXX |
 | `trg_check_submission_status` | submissions (UPDATE) | `check_submission_status_transition()` | Valide les transitions d'état |
 
 ### 11.5 Fonctions RPC

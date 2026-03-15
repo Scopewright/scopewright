@@ -896,3 +896,13 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 - Backward compatible — entrées legacy sans sous-champs fonctionnent identiquement
 - Réduction drastique des modales cascade pour les cas courants
 - Phase 1B (presets) pourra pré-remplir les sous-champs enrichis
+
+---
+
+## DEC-047 — Table Composantes (#209)
+
+**Date** : 2026-03-15
+**Contexte** : Les estimateurs configurent les mêmes combinaisons de matériaux (matériau + bande de chant + finition + bois brut) répétitivement pour chaque pièce. Besoin de regroupements nommés réutilisables.
+**Décision** : Nouvelle table `composantes` avec dual-storage (client_text + catalogue_id) pour chaque sous-champ, codes auto COMP-XXX, CRUD drawer dans le catalogue. Soft delete (is_active). FK nullable sur room_items.composante_id.
+**Alternatives** : (a) Templates DM en JSONB dans app_config — moins structuré, pas de code unique. (b) Cloner les DM entre pièces — ne crée pas de références nommées réutilisables.
+**Conséquences** : Phase 1A = table + CRUD catalogue. Phase 2 = sélecteur composante dans le calculateur (room DM). La FK room_items.composante_id est prête mais pas encore utilisée côté UI.

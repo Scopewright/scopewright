@@ -65,6 +65,9 @@
     // Mode embedded (ouvert dans iframe depuis calculateur)
     var isEmbedded = new URLSearchParams(window.location.search).has('embedded');
 
+    // #209: Composantes data
+    var COMPOSANTES_DATA = [];
+
     // Donnees par defaut (utilisees uniquement si jamais connecte et pas de cache)
     // Les codes ST-XXXX correspondent au mapping post-migration.
     // En production, les donnees viennent de Supabase.
@@ -897,6 +900,133 @@
             font-size:11px; color:#94a3b8; padding:4px 18px 2px; font-style:italic;
         }
         @media (max-width:600px) { .audit-drawer { width:100%; right:-100%; } }
+
+        /* ── Composantes drawer (#209) ── */
+        .comp-drawer-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.18); z-index:900;
+            opacity:0; pointer-events:none; transition:opacity 0.2s;
+        }
+        .comp-drawer-overlay.active { opacity:1; pointer-events:auto; }
+        .comp-drawer {
+            position:fixed; top:0; right:-500px; width:480px; height:100vh;
+            background:#fff; z-index:901; display:flex; flex-direction:column;
+            box-shadow:-4px 0 24px rgba(0,0,0,0.10); transition:right 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .comp-drawer.active { right:0; }
+        .comp-drawer-header {
+            display:flex; align-items:center; gap:8px; padding:16px 20px;
+            border-bottom:1px solid var(--sw-border);
+        }
+        .comp-drawer-header h3 { font-size:14px; font-weight:600; margin:0; color:var(--sw-text); flex:1; }
+        .comp-drawer-close {
+            background:none; border:none; font-size:18px; cursor:pointer;
+            color:var(--sw-muted); padding:2px 4px; border-radius:6px;
+        }
+        .comp-drawer-close:hover { color:var(--sw-text); }
+        .comp-toolbar {
+            display:flex; align-items:center; gap:8px; padding:10px 20px;
+            border-bottom:1px solid var(--sw-border-2);
+        }
+        .comp-filter-select {
+            height:32px; border-radius:8px; border:1px solid var(--sw-border);
+            padding:0 8px; font-size:12px; color:var(--sw-text); background:#fff; flex:1;
+        }
+        .comp-add-btn {
+            width:32px; height:32px; border-radius:8px; border:1px solid var(--sw-border);
+            background:#fff; cursor:pointer; font-size:16px; color:var(--sw-text);
+            display:flex; align-items:center; justify-content:center; transition:all 0.15s;
+        }
+        .comp-add-btn:hover { background:var(--sw-navy); color:#fff; border-color:var(--sw-navy); }
+        .comp-list {
+            flex:1; overflow-y:auto; padding:8px 12px;
+            overscroll-behavior:contain;
+        }
+        .comp-item {
+            display:flex; align-items:center; gap:8px; padding:8px 10px;
+            border-radius:8px; cursor:pointer; transition:background 0.1s;
+        }
+        .comp-item:hover { background:#f8fafc; }
+        .comp-item-main { display:flex; align-items:center; gap:8px; flex:1; min-width:0; cursor:pointer; }
+        .comp-code { font-family:monospace; font-size:11px; color:var(--sw-muted); min-width:64px; }
+        .comp-nom { font-size:13px; color:var(--sw-text); font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .comp-type-badge {
+            font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px;
+            white-space:nowrap; flex-shrink:0;
+        }
+        .comp-item-actions { display:flex; gap:2px; opacity:0; transition:opacity 0.15s; }
+        .comp-item:hover .comp-item-actions { opacity:1; }
+        .comp-action-btn {
+            width:28px; height:28px; border:none; background:none; border-radius:6px;
+            cursor:pointer; font-size:13px; color:var(--sw-muted); display:flex;
+            align-items:center; justify-content:center; transition:all 0.1s;
+        }
+        .comp-action-btn:hover { background:#f1f5f9; color:var(--sw-text); }
+        .comp-action-delete:hover { background:#fef2f2; color:#dc2626; }
+        .comp-empty { padding:32px 16px; text-align:center; color:var(--sw-muted); font-size:13px; }
+        .comp-toast {
+            position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+            background:var(--sw-navy); color:#fff; padding:6px 16px; border-radius:8px;
+            font-size:12px; font-weight:500; z-index:10; opacity:1; transition:opacity 0.3s;
+        }
+        .comp-toast-out { opacity:0; }
+
+        /* ── Composante modal (#209) ── */
+        .comp-modal-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:910;
+            display:flex; align-items:center; justify-content:center;
+            opacity:0; pointer-events:none; transition:opacity 0.2s;
+        }
+        .comp-modal-overlay.active { opacity:1; pointer-events:auto; }
+        .comp-modal {
+            background:#fff; border-radius:14px; width:520px; max-height:85vh;
+            display:flex; flex-direction:column; overflow:hidden;
+            box-shadow:0 20px 60px rgba(15,23,42,0.18);
+            transform:scale(0.95); transition:transform 0.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        .comp-modal-overlay.active .comp-modal { transform:scale(1); }
+        .comp-modal-header {
+            display:flex; align-items:center; gap:8px; padding:16px 24px;
+            border-bottom:1px solid var(--sw-border);
+        }
+        .comp-modal-header h3 { font-size:15px; font-weight:600; margin:0; color:var(--sw-text); flex:1; }
+        .comp-modal-close {
+            background:none; border:none; font-size:18px; cursor:pointer;
+            color:var(--sw-muted); padding:2px 4px; border-radius:6px;
+        }
+        .comp-modal-close:hover { color:var(--sw-text); }
+        .comp-modal-body { flex:1; overflow-y:auto; padding:20px 24px; }
+        .comp-field { margin-bottom:14px; }
+        .comp-field label {
+            display:block; font-size:12px; font-weight:500; color:var(--sw-text-2);
+            margin-bottom:4px;
+        }
+        .comp-field input, .comp-field textarea, .comp-field select {
+            width:100%; height:36px; border:1px solid var(--sw-border); border-radius:8px;
+            padding:0 10px; font-size:13px; color:var(--sw-text); background:#fff;
+            box-sizing:border-box;
+        }
+        .comp-field textarea { height:64px; padding:8px 10px; resize:vertical; }
+        .comp-field input:focus, .comp-field textarea:focus, .comp-field select:focus {
+            outline:none; border-color:var(--sw-navy); box-shadow:0 0 0 2px rgba(11,18,32,0.08);
+        }
+        .comp-field-row { display:flex; gap:12px; }
+        .comp-field-row .comp-field { flex:1; }
+        .comp-modal-footer {
+            display:flex; justify-content:flex-end; gap:8px; padding:12px 24px;
+            border-top:1px solid var(--sw-border);
+        }
+        .comp-modal-footer button {
+            padding:8px 20px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer;
+            transition:all 0.15s;
+        }
+        .comp-btn-cancel { border:1px solid var(--sw-border); background:#fff; color:var(--sw-text); }
+        .comp-btn-cancel:hover { background:#f8fafc; }
+        .comp-btn-save { border:none; background:var(--sw-navy); color:#fff; }
+        .comp-btn-save:hover { background:var(--sw-navy-hover); }
+        @media (max-width:600px) {
+            .comp-drawer { width:100%; right:-100%; }
+            .comp-modal { width:95%; }
+        }
 
         /* ── Approval buttons ── */
         .btn-approve-item {
@@ -2064,6 +2194,7 @@
         <div style="flex:1;"></div>
         <button class="cat-filter-btn" id="batchSelectBtn" onclick="toggleBatchMode()" style="display:none;">S&eacute;lectionner</button>
         <button class="cat-filter-btn" id="auditBtn" onclick="openAuditDrawer()" title="Auditer le catalogue">Auditer</button>
+        <button class="cat-filter-btn" id="composantesBtn" onclick="openComposantesDrawer()" title="G&eacute;rer les composantes">Composantes</button>
     </div>
     <table class="price-table" id="mainCatalogueTable"></table>
 
@@ -5386,6 +5517,247 @@
             document.getElementById('auditDrawer').classList.remove('active');
         }
 
+        // ══════════════════════════════════════════════════════════
+        // #209 — Composantes CRUD
+        // ══════════════════════════════════════════════════════════
+
+        var _compDmTypeFilter = '';
+
+        /** Load composantes from Supabase */
+        async function loadComposantes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
+                if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
+                COMPOSANTES_DATA = await resp.json();
+            } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
+        /** Open composantes drawer */
+        function openComposantesDrawer() {
+            document.getElementById('compOverlay').classList.add('active');
+            document.getElementById('composantesDrawer').classList.add('active');
+            renderComposantesList();
+        }
+
+        /** Close composantes drawer */
+        function closeComposantesDrawer() {
+            document.getElementById('compOverlay').classList.remove('active');
+            document.getElementById('composantesDrawer').classList.remove('active');
+        }
+
+        /** Render composantes list in drawer */
+        function renderComposantesList(dmTypeFilter) {
+            if (dmTypeFilter !== undefined) _compDmTypeFilter = dmTypeFilter;
+            var list = document.getElementById('composantesList');
+            if (!list) return;
+
+            var filtered = COMPOSANTES_DATA.filter(function(c) {
+                if (_compDmTypeFilter && c.dm_type !== _compDmTypeFilter) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="comp-empty">Aucune composante' +
+                    (_compDmTypeFilter ? ' pour « ' + escapeHtml(_compDmTypeFilter) + ' »' : '') +
+                    ' — cliquez + pour en créer une</div>';
+                return;
+            }
+
+            var html = '';
+            filtered.forEach(function(comp) {
+                var typeColor = _compTypeColor(comp.dm_type);
+                html += '<div class="comp-item" data-comp-id="' + comp.id + '">' +
+                    '<div class="comp-item-main" onclick="openComposanteModal(\'' + comp.id + '\')">' +
+                        '<span class="comp-code">' + escapeHtml(comp.code) + '</span>' +
+                        '<span class="comp-nom">' + escapeHtml(comp.nom) + '</span>' +
+                        '<span class="comp-type-badge" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(comp.dm_type) + '</span>' +
+                    '</div>' +
+                    '<div class="comp-item-actions">' +
+                        '<button class="comp-action-btn" onclick="openComposanteModal(\'' + comp.id + '\')" title="Modifier">&#9998;</button>' +
+                        '<button class="comp-action-btn comp-action-delete" onclick="deleteComposante(\'' + comp.id + '\')" title="Supprimer">&#128465;</button>' +
+                    '</div>' +
+                '</div>';
+            });
+            list.innerHTML = html;
+        }
+
+        /** Get badge color for dm_type */
+        function _compTypeColor(dmType) {
+            var colors = {
+                'Caisson': { bg: '#EEF2FF', text: '#4338CA' },
+                'Façades': { bg: '#FEF3C7', text: '#92400E' },
+                'Panneaux': { bg: '#ECFDF5', text: '#065F46' },
+                'Tiroirs': { bg: '#FFF1F2', text: '#9F1239' },
+                'Finition': { bg: '#F5F3FF', text: '#6D28D9' },
+                'Poignées': { bg: '#F0F9FF', text: '#0C4A6E' }
+            };
+            return colors[dmType] || { bg: '#F1F5F9', text: '#475569' };
+        }
+
+        /** Open composante modal for create (no id) or edit (with id) */
+        function openComposanteModal(compId) {
+            var modal = document.getElementById('composanteModal');
+            if (!modal) return;
+
+            // Reset form
+            document.getElementById('compModalId').value = '';
+            document.getElementById('compModalCode').value = '';
+            document.getElementById('compModalCode').parentElement.style.display = 'none';
+            document.getElementById('compModalNom').value = '';
+            document.getElementById('compModalDmType').value = 'Caisson';
+            document.getElementById('compModalMateriau').value = '';
+            document.getElementById('compModalStyle').value = '';
+            document.getElementById('compModalCoupe').value = '';
+            document.getElementById('compModalBandeChant').value = '';
+            document.getElementById('compModalFinition').value = '';
+            document.getElementById('compModalBoisBrut').value = '';
+            document.getElementById('compModalNotes').value = '';
+            document.getElementById('compModalTitle').textContent = 'Nouvelle composante';
+
+            if (compId) {
+                var comp = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
+                if (!comp) return;
+                document.getElementById('compModalId').value = comp.id;
+                document.getElementById('compModalCode').value = comp.code;
+                document.getElementById('compModalCode').parentElement.style.display = '';
+                document.getElementById('compModalNom').value = comp.nom || '';
+                document.getElementById('compModalDmType').value = comp.dm_type || 'Caisson';
+                document.getElementById('compModalMateriau').value = comp.materiau_client_text || '';
+                document.getElementById('compModalStyle').value = comp.style || '';
+                document.getElementById('compModalCoupe').value = comp.coupe || '';
+                document.getElementById('compModalBandeChant').value = comp.bande_chant_client_text || '';
+                document.getElementById('compModalFinition').value = comp.finition_client_text || '';
+                document.getElementById('compModalBoisBrut').value = comp.bois_brut_client_text || '';
+                document.getElementById('compModalNotes').value = comp.notes || '';
+                document.getElementById('compModalTitle').textContent = 'Modifier ' + comp.code;
+            }
+
+            modal.classList.add('active');
+        }
+
+        /** Close composante modal */
+        function closeComposanteModal() {
+            var modal = document.getElementById('composanteModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        /** Save composante (INSERT or UPDATE) */
+        async function saveComposante() {
+            var id = document.getElementById('compModalId').value;
+            var nom = document.getElementById('compModalNom').value.trim();
+            var dmType = document.getElementById('compModalDmType').value;
+
+            if (!nom) {
+                document.getElementById('compModalNom').style.borderColor = '#DC2626';
+                document.getElementById('compModalNom').focus();
+                return;
+            }
+            document.getElementById('compModalNom').style.borderColor = '';
+
+            var body = {
+                nom: nom,
+                dm_type: dmType,
+                materiau_client_text: document.getElementById('compModalMateriau').value.trim() || null,
+                style: document.getElementById('compModalStyle').value.trim() || null,
+                coupe: document.getElementById('compModalCoupe').value.trim() || null,
+                bande_chant_client_text: document.getElementById('compModalBandeChant').value.trim() || null,
+                finition_client_text: document.getElementById('compModalFinition').value.trim() || null,
+                bois_brut_client_text: document.getElementById('compModalBoisBrut').value.trim() || null,
+                notes: document.getElementById('compModalNotes').value.trim() || null,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                var resp;
+                if (id) {
+                    // UPDATE
+                    resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?id=eq.' + id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(body)
+                    });
+                } else {
+                    // INSERT
+                    resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(body)
+                    });
+                }
+
+                if (!resp.ok) {
+                    var errText = await resp.text();
+                    console.warn('[Composantes] Save failed:', resp.status, errText);
+                    return;
+                }
+
+                var result = await resp.json();
+                var saved = Array.isArray(result) ? result[0] : result;
+
+                if (id) {
+                    // Update in memory
+                    var idx = COMPOSANTES_DATA.findIndex(function(c) { return c.id === id; });
+                    if (idx !== -1) COMPOSANTES_DATA[idx] = saved;
+                } else {
+                    COMPOSANTES_DATA.push(saved);
+                }
+
+                closeComposanteModal();
+                renderComposantesList();
+
+                // Success toast
+                _compToast(id ? 'Composante modifiée ✓' : 'Composante créée ✓');
+            } catch(e) {
+                console.warn('[Composantes] Save error:', e);
+            }
+        }
+
+        /** Soft delete composante (is_active = false) */
+        async function deleteComposante(compId) {
+            var comp = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
+            if (!comp) return;
+
+            var ok = await steleConfirm('Supprimer la composante « ' + escapeHtml(comp.nom) + ' » (' + comp.code + ') ?', 'Confirmer la suppression', 'Supprimer');
+            if (!ok) return;
+
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?id=eq.' + compId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() })
+                });
+
+                if (!resp.ok) {
+                    console.warn('[Composantes] Delete failed:', resp.status);
+                    return;
+                }
+
+                // Remove from memory
+                COMPOSANTES_DATA = COMPOSANTES_DATA.filter(function(c) { return c.id !== compId; });
+                renderComposantesList();
+                _compToast('Composante supprimée');
+            } catch(e) {
+                console.warn('[Composantes] Delete error:', e);
+            }
+        }
+
+        /** Filter composantes by dm_type dropdown */
+        function filterComposantesByType(selectEl) {
+            renderComposantesList(selectEl.value);
+        }
+
+        /** Simple toast in composantes drawer */
+        function _compToast(msg) {
+            var list = document.getElementById('composantesList');
+            if (!list) return;
+            var toast = document.createElement('div');
+            toast.className = 'comp-toast';
+            toast.textContent = msg;
+            list.parentElement.appendChild(toast);
+            setTimeout(function() { toast.classList.add('comp-toast-out'); }, 2000);
+            setTimeout(function() { toast.remove(); }, 2500);
+        }
+
         /** Run full catalogue audit and render report in drawer. */
         function runFullAudit() {
             var body = document.getElementById('auditBody');
@@ -8466,6 +8838,9 @@
             // Charger les stats d'utilisation (articles dormants)
             await loadUsageStats();
 
+            // Charger les composantes (#209)
+            await loadComposantes();
+
             // Générer les tableaux avec les données chargées
             generatePriceTables();
 
@@ -8569,6 +8944,98 @@
     </div>
     <div class="audit-body" id="auditBody">
         <div class="audit-empty">Cliquez sur « Auditer » pour lancer l'analyse.</div>
+    </div>
+</div>
+
+<!-- Composantes drawer (#209) -->
+<div class="comp-drawer-overlay" id="compOverlay" onclick="closeComposantesDrawer()"></div>
+<div class="comp-drawer" id="composantesDrawer">
+    <div class="comp-drawer-header">
+        <h3>Composantes</h3>
+        <button class="comp-drawer-close" onclick="closeComposantesDrawer()">&times;</button>
+    </div>
+    <div class="comp-toolbar">
+        <select class="comp-filter-select" onchange="filterComposantesByType(this)">
+            <option value="">Tous les types</option>
+            <option value="Caisson">Caisson</option>
+            <option value="Fa&ccedil;ades">Fa&ccedil;ades</option>
+            <option value="Panneaux">Panneaux</option>
+            <option value="Tiroirs">Tiroirs</option>
+            <option value="Finition">Finition</option>
+            <option value="Poign&eacute;es">Poign&eacute;es</option>
+        </select>
+        <button class="comp-add-btn" onclick="openComposanteModal()" title="Nouvelle composante">+</button>
+    </div>
+    <div class="comp-list" id="composantesList">
+        <div class="comp-empty">Chargement&hellip;</div>
+    </div>
+</div>
+
+<!-- Composante modal (#209) -->
+<div class="comp-modal-overlay" id="composanteModal">
+    <div class="comp-modal">
+        <div class="comp-modal-header">
+            <h3 id="compModalTitle">Nouvelle composante</h3>
+            <button class="comp-modal-close" onclick="closeComposanteModal()">&times;</button>
+        </div>
+        <div class="comp-modal-body">
+            <input type="hidden" id="compModalId">
+            <div class="comp-field" style="display:none;">
+                <label>Code</label>
+                <input type="text" id="compModalCode" readonly style="background:#f8fafc;color:var(--sw-muted);">
+            </div>
+            <div class="comp-field">
+                <label>Nom *</label>
+                <input type="text" id="compModalNom" placeholder="Ex: Caisson m&eacute;lamine blanc standard">
+            </div>
+            <div class="comp-field-row">
+                <div class="comp-field">
+                    <label>Type DM *</label>
+                    <select id="compModalDmType">
+                        <option value="Caisson">Caisson</option>
+                        <option value="Fa&ccedil;ades">Fa&ccedil;ades</option>
+                        <option value="Panneaux">Panneaux</option>
+                        <option value="Tiroirs">Tiroirs</option>
+                        <option value="Finition">Finition</option>
+                        <option value="Poign&eacute;es">Poign&eacute;es</option>
+                    </select>
+                </div>
+                <div class="comp-field">
+                    <label>Mat&eacute;riau principal</label>
+                    <input type="text" id="compModalMateriau" placeholder="Ex: Placage ch&ecirc;ne blanc">
+                </div>
+            </div>
+            <div class="comp-field-row">
+                <div class="comp-field">
+                    <label>Style</label>
+                    <input type="text" id="compModalStyle" placeholder="Ex: Shaker">
+                </div>
+                <div class="comp-field">
+                    <label>Coupe</label>
+                    <input type="text" id="compModalCoupe" placeholder="Ex: Rift cut">
+                </div>
+            </div>
+            <div class="comp-field">
+                <label>Bande de chant</label>
+                <input type="text" id="compModalBandeChant" placeholder="Texte client bande de chant">
+            </div>
+            <div class="comp-field">
+                <label>Finition</label>
+                <input type="text" id="compModalFinition" placeholder="Texte client finition">
+            </div>
+            <div class="comp-field">
+                <label>Bois brut</label>
+                <input type="text" id="compModalBoisBrut" placeholder="Texte client bois brut">
+            </div>
+            <div class="comp-field">
+                <label>Notes</label>
+                <textarea id="compModalNotes" placeholder="Notes internes&hellip;"></textarea>
+            </div>
+        </div>
+        <div class="comp-modal-footer">
+            <button class="comp-btn-cancel" onclick="closeComposanteModal()">Annuler</button>
+            <button class="comp-btn-save" onclick="saveComposante()">Enregistrer</button>
+        </div>
     </div>
 </div>
 

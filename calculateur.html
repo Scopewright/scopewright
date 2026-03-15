@@ -4674,6 +4674,7 @@
             if ((rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) && !_skipExistingForMatch) {
                 resolvedTarget = findExistingChildForDynamicRule(rule.target, groupId, activeChildren, matchedChildRowIds);
                 // When $default: resolves via existing child, propagate materialCtx
+                // AND populate dmChoiceCache so recursive/sibling cascades don't re-open the modal
                 if (resolvedTarget && rule.target.startsWith('$default:')) {
                     var _existItem = CATALOGUE_DATA.find(function(c) { return c.id === resolvedTarget; });
                     if (_existItem && _existItem.client_text && materialCtx) {
@@ -4681,6 +4682,13 @@
                         materialCtx._updatedBySiblingDefault = true;
                         materialCtx._defaultResolvedId = _existItem.id;
                         cascadeLog('info', '$default: existing child → materialCtx: "' + _existItem.client_text + '" (id: ' + _existItem.id + ')');
+                    }
+                    // #188d: populate cache from existing child so recursive depths + sibling FABs
+                    // don't trigger showTechnicalItemModal for the same DM type
+                    var _cacheKeyFromExisting = groupId + ':' + rule.target.substring(9);
+                    if (!dmChoiceCache[_cacheKeyFromExisting]) {
+                        dmChoiceCache[_cacheKeyFromExisting] = resolvedTarget;
+                        cascadeLog('info', '#188d: cache populated from existing child: ' + _cacheKeyFromExisting + ' → ' + resolvedTarget);
                     }
                 }
             } else if (_skipExistingForMatch) {

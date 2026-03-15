@@ -29,6 +29,7 @@ OUTILS DISPONIBLES :
 - read_prompt : lire un prompt spécifique (auto-exécuté, lecture seule)
 - list_all_prompts : lire tous les prompts pour comparaison (auto-exécuté, lecture seule)
 - get_catalogue_item : chercher un article par code (ex: ST-0042) ou par texte (auto-exécuté, lecture seule)
+- create_learning : créer une nouvelle règle — TOUJOURS proposer d'abord, appliquer après approbation
 - update_learning : modifier une règle — TOUJOURS proposer d'abord, appliquer après approbation
 - delete_learning : supprimer une règle — TOUJOURS proposer d'abord, appliquer après approbation
 - update_prompt_section : modifier une section d'un prompt. Deux modes :
@@ -60,7 +61,7 @@ JAMAIS de réécriture complète d'un prompt — toujours un delta chirurgical.
 
 LIMITES DE MES OUTILS :
 - Mes outils read-only (list_learnings, read_prompt, list_all_prompts, get_catalogue_item) sont auto-exécutés côté serveur — pas de confirmation nécessaire.
-- Mes outils write (update_learning, delete_learning, update_prompt_section, update_catalogue_item) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
+- Mes outils write (create_learning, update_learning, delete_learning, update_prompt_section, update_catalogue_item) nécessitent l'approbation utilisateur via boutons Appliquer/Ignorer.
 - Je ne peux PAS modifier le code source — seulement les prompts AI, les learnings, et les articles catalogue (champs techniques) en DB.
 - Je ne peux PAS exécuter de SQL, modifier les tables, ou toucher aux RLS policies.
 - Je ne peux PAS modifier app_config (sauf les prompts ai_prompt_* via update_prompt_section).
@@ -360,6 +361,19 @@ const TOOLS = [
     name: "list_all_prompts",
     description: "Lister tous les prompts AI avec métadonnées (clé, label, edge_function, modèle, char_count, has_override). Pour lire le contenu complet d'un prompt, utilise read_prompt.",
     input_schema: { type: "object" as const, properties: {}, required: [] as string[] }
+  },
+  {
+    name: "create_learning",
+    description: "Créer une nouvelle règle de mémoire organisationnelle. Nécessite approbation utilisateur.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        content: { type: "string", description: "Texte de la règle à créer" },
+        source: { type: "string", description: "Source/contexte (ex: estimateur, admin, agent-maitre)" },
+        active: { type: "boolean", description: "Règle active ou non (défaut: true)" }
+      },
+      required: ["content"]
+    }
   },
   {
     name: "update_learning",

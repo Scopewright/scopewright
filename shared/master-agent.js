@@ -773,7 +773,30 @@
 
     async function executeToolClientSide(toolName, input, toolId) {
         try {
-            if (toolName === 'update_learning') {
+            if (toolName === 'create_learning') {
+                var rc = await authenticatedFetch(
+                    SUPABASE_URL + '/rest/v1/ai_learnings',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify({
+                            rule: input.content,
+                            source_context: input.source || 'agent-maitre',
+                            is_active: input.active !== false,
+                            shop_id: 1,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        })
+                    }
+                );
+                if (rc.ok) {
+                    var created = await rc.json();
+                    var newId = (created && created[0]) ? created[0].id : '?';
+                    _messages.push({ role: 'system', content: 'R\u00e8gle cr\u00e9\u00e9e (id=' + newId + ').' });
+                } else {
+                    _messages.push({ role: 'system', content: 'Erreur cr\u00e9ation r\u00e8gle.' });
+                }
+            } else if (toolName === 'update_learning') {
                 var r = await authenticatedFetch(
                     SUPABASE_URL + '/rest/v1/ai_learnings?id=eq.' + input.id,
                     {

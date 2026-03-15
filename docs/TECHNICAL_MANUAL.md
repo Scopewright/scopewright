@@ -699,6 +699,61 @@ Déclenché quand un DM est modifié :
 - **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Finition','Poignées']`. `addRow()` bloque l'ajout d'articles si des groupes requis manquent (sauf chargement legacy, cascades, bulk load). Le bouton "+" est grisé (`.dm-blocked`)
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent pas dans le dropdown DM
 
+### 4.6 Enrichissement DM — Phase 1A (#208)
+
+Champs additionnels optionnels sur les entrées DM pour 3 groupes (Caisson, Façades, Panneaux). Stockés dans le JSONB existant `project_rooms.default_materials` — aucune migration SQL requise.
+
+#### Structure JSONB enrichie
+
+```json
+{
+  "type": "Façades",
+  "catalogue_item_id": "ST-0042",
+  "client_text": "Placage chêne blanc",
+  "style": "Shaker",
+  "coupe": "Rift cut",
+  "bande_chant": { "catalogue_item_id": "ST-0087", "client_text": "Bande chêne blanc" },
+  "finition": { "catalogue_item_id": "ST-0142", "client_text": "Laque claire mate" },
+  "bois_brut": { "catalogue_item_id": "ST-0210", "client_text": "Chêne massif FAS" }
+}
+```
+
+#### Champs par groupe
+
+| Groupe | style | coupe | bande_chant | finition | bois_brut |
+|--------|-------|-------|-------------|----------|-----------|
+| Caisson | — | ✓ (si placage) | ✓ | ✓ | — |
+| Façades | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
+| Panneaux | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
+
+- `style`, `coupe` : texte libre (string)
+- `bande_chant`, `finition`, `bois_brut` : objet `{ catalogue_item_id, client_text }` (combobox catalogue)
+
+#### Cascade Tier 0
+
+`resolveMatchTarget` vérifie en priorité les champs enrichis du DM avant le scoring classique :
+
+1. **Tier 0 (nouveau)** : `getEnrichedDmField(dmEntry, expenseCat)` → `ENRICHED_DM_FIELD_MAP` lookup → résolution directe par `catalogue_item_id` ou `client_text` → **zéro modale**
+2. **Tiers existants** (inchangés) : `scoreMatchCandidates` → `disambiguateMatchByDm` → `showMatchChoiceModal`
+
+`ENRICHED_DM_FIELD_MAP` : `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT`/`BOIS_BRUT` → `bois_brut`
+
+#### Validation cohérence
+
+- Matériau mélamine → `finition` désactivé + auto-supprimé si présent
+- `coupe` visible seulement si matériau est un placage (`_isDmPlacage`)
+- Warning non-bloquant si bande de chant incompatible avec matériau principal
+
+#### UI
+
+Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. Indicateur `.has-data` (navy) quand sous-champs remplis. Combobox catalogue pour champs objet, texte libre pour champs string.
+
+#### Backward compatibility
+
+- Entrées DM sans champs enrichis : comportement identique (tier 0 retourne `null`, fallback automatique)
+- `saveRoomDm` / `copyDmFrom` : sérialisent l'objet complet (sous-champs inclus)
+- `getMissingRequiredDm` : vérifie uniquement le matériau principal
+
 ---
 
 ## 5. Workflow de soumission

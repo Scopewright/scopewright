@@ -72,10 +72,16 @@ var findExistingChildForDynamicRule = helpers.findExistingChildForDynamicRule;
 var computeChildDims = helpers.computeChildDims;
 var MATCH_STOP_WORDS = helpers.MATCH_STOP_WORDS;
 var checkDefaultItemMatchCategory = helpers.checkDefaultItemMatchCategory;
+var getEnrichedDmField = helpers.getEnrichedDmField;
+var ENRICHED_DM_FIELD_MAP = helpers.ENRICHED_DM_FIELD_MAP;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
 var ROOM_DM = fixturesDm.ROOM_DM;
 var CATEGORY_GROUP_MAPPING = fixturesDm.CATEGORY_GROUP_MAPPING;
+
+var fixturesEnriched = require('./fixtures/enriched-dm');
+var ENRICHED_DM_ENTRIES = fixturesEnriched.ENRICHED_DM_ENTRIES;
+var ENRICHED_CATALOGUE = fixturesEnriched.ENRICHED_CATALOGUE;
 
 // Silent log for tests
 var noop = function() {};
@@ -2380,6 +2386,237 @@ describe('30. filterDmByExpenseRelevance', function() {
         // Neither has QUINCAILLERIE in material_costs
         var result = filterDmByExpenseRelevance(entries, 'QUINCAILLERIE SPÉCIALE', CATALOGUE_DATA);
         assertEqual(result.length, 2, 'should fallback to original when filter empties');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 31: getEnrichedDmField — basic resolution
+// ════════════════════════════════════════════════════════════════
+
+describe('31. getEnrichedDmField — basic resolution', function() {
+    it('returns bande_chant sub-field for BANDE DE CHANT expense', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, 'BANDE DE CHANT');
+        assertEqual(result !== null, true, 'should return sub-field');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-BC1');
+        assertEqual(result.client_text, 'Bande chêne blanc');
+    });
+
+    it('returns finition sub-field for FINITION expense', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, 'FINITION');
+        assertEqual(result !== null, true, 'should return sub-field');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-FIN1');
+    });
+
+    it('returns finition sub-field for FINITION BOIS expense', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, 'FINITION BOIS');
+        assertEqual(result !== null, true, 'should return sub-field');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-FIN1');
+    });
+
+    it('returns bois_brut sub-field for BOIS BRUT expense', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.facade_placage, 'BOIS BRUT');
+        assertEqual(result !== null, true, 'should return sub-field');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-BB1');
+    });
+
+    it('returns null for unmapped expense category', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, 'PANNEAU BOIS');
+        assertEqual(result, null, 'PANNEAU BOIS has no enriched mapping');
+    });
+
+    it('returns null for null/undefined inputs', function() {
+        assertEqual(getEnrichedDmField(null, 'FINITION'), null);
+        assertEqual(getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, null), null);
+        assertEqual(getEnrichedDmField(undefined, undefined), null);
+    });
+
+    it('is case-insensitive on expense category', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, 'bande de chant');
+        assertEqual(result !== null, true, 'should match case-insensitively');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-BC1');
+    });
+
+    it('trims whitespace on expense category', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_placage, '  FINITION  ');
+        assertEqual(result !== null, true, 'should trim');
+        assertEqual(result.catalogue_item_id, 'ST-ENR-FIN1');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 32: getEnrichedDmField — absent/empty sub-fields
+// ════════════════════════════════════════════════════════════════
+
+describe('32. getEnrichedDmField — absent/empty sub-fields', function() {
+    it('returns null when sub-field is absent (mélamine, no finition)', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_melamine, 'FINITION');
+        assertEqual(result, null, 'mélamine has no finition sub-field');
+    });
+
+    it('returns bande_chant even on mélamine (PVC variant)', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_melamine, 'BANDE DE CHANT');
+        assertEqual(result !== null, true);
+        assertEqual(result.catalogue_item_id, 'ST-ENR-BC2');
+        assertEqual(result.client_text, 'Bande PVC blanc');
+    });
+
+    it('returns null for legacy DM without enriched fields', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.panneaux_legacy, 'BANDE DE CHANT');
+        assertEqual(result, null, 'legacy entry has no sub-fields');
+        assertEqual(getEnrichedDmField(ENRICHED_DM_ENTRIES.panneaux_legacy, 'FINITION'), null);
+        assertEqual(getEnrichedDmField(ENRICHED_DM_ENTRIES.panneaux_legacy, 'BOIS BRUT'), null);
+    });
+
+    it('returns null for empty sub-field (no client_text, no catalogue_item_id)', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_empty_sub, 'BANDE DE CHANT');
+        assertEqual(result, null, 'empty sub-field should return null');
+    });
+
+    it('returns sub-field with client_text only (no catalogue_item_id)', function() {
+        var result = getEnrichedDmField(ENRICHED_DM_ENTRIES.caisson_text_only, 'BANDE DE CHANT');
+        assertEqual(result !== null, true, 'client_text-only sub-field is valid');
+        assertEqual(result.client_text, 'Bande érable naturel');
+        assertEqual(result.catalogue_item_id, null);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 33: Enriched DM field map coverage
+// ════════════════════════════════════════════════════════════════
+
+describe('33. ENRICHED_DM_FIELD_MAP — coverage', function() {
+    it('maps BANDE DE CHANT to bande_chant', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['BANDE DE CHANT'], 'bande_chant');
+    });
+
+    it('maps BANDE_DE_CHANT (underscore variant) to bande_chant', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['BANDE_DE_CHANT'], 'bande_chant');
+    });
+
+    it('maps FINITION to finition', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['FINITION'], 'finition');
+    });
+
+    it('maps FINITION BOIS to finition', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['FINITION BOIS'], 'finition');
+    });
+
+    it('maps BOIS BRUT to bois_brut', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['BOIS BRUT'], 'bois_brut');
+    });
+
+    it('maps BOIS_BRUT (underscore variant) to bois_brut', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['BOIS_BRUT'], 'bois_brut');
+    });
+
+    it('does NOT map PANNEAU BOIS', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['PANNEAU BOIS'], undefined);
+    });
+
+    it('does NOT map PLACAGE', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['PLACAGE'], undefined);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 34: Enriched DM tier 0 integration — catalogue lookup
+// ════════════════════════════════════════════════════════════════
+
+describe('34. Enriched DM tier 0 — catalogue lookup simulation', function() {
+    it('resolves catalogue_item_id from enriched field in catalogue', function() {
+        var dm = ENRICHED_DM_ENTRIES.caisson_placage;
+        var enriched = getEnrichedDmField(dm, 'BANDE DE CHANT');
+        assertEqual(enriched !== null, true);
+        // Simulate tier 0: find item in catalogue
+        var found = ENRICHED_CATALOGUE.find(function(c) { return c.id === enriched.catalogue_item_id; });
+        assertEqual(found !== null && found !== undefined, true, 'should find in catalogue');
+        assertEqual(found.id, 'ST-ENR-BC1');
+        assertEqual(found.client_text, 'Bande chêne blanc');
+    });
+
+    it('resolves by client_text when catalogue_item_id is null', function() {
+        var dm = ENRICHED_DM_ENTRIES.caisson_text_only;
+        var enriched = getEnrichedDmField(dm, 'BANDE DE CHANT');
+        assertEqual(enriched !== null, true);
+        assertEqual(enriched.catalogue_item_id, null);
+        // Simulate tier 0 fallback: find by client_text
+        var found = ENRICHED_CATALOGUE.find(function(c) { return c.client_text === enriched.client_text; });
+        assertEqual(found !== null && found !== undefined, true, 'should find by client_text');
+        assertEqual(found.id, 'ST-ENR-BC4');
+    });
+
+    it('falls through when enriched field absent (legacy DM)', function() {
+        var dm = ENRICHED_DM_ENTRIES.panneaux_legacy;
+        var enriched = getEnrichedDmField(dm, 'BANDE DE CHANT');
+        assertEqual(enriched, null, 'legacy DM returns null — tier 0 skipped');
+    });
+
+    it('all 3 enriched catalogue fields resolve correctly', function() {
+        var dm = ENRICHED_DM_ENTRIES.facade_placage;
+        // bande_chant
+        var bc = getEnrichedDmField(dm, 'BANDE DE CHANT');
+        assertEqual(bc.catalogue_item_id, 'ST-ENR-BC3');
+        var bcItem = ENRICHED_CATALOGUE.find(function(c) { return c.id === bc.catalogue_item_id; });
+        assertEqual(bcItem.client_text, 'Bande noyer');
+        // finition
+        var fin = getEnrichedDmField(dm, 'FINITION BOIS');
+        assertEqual(fin.catalogue_item_id, 'ST-ENR-FIN2');
+        var finItem = ENRICHED_CATALOGUE.find(function(c) { return c.id === fin.catalogue_item_id; });
+        assertEqual(finItem.client_text, 'Vernis satiné');
+        // bois_brut
+        var bb = getEnrichedDmField(dm, 'BOIS BRUT');
+        assertEqual(bb.catalogue_item_id, 'ST-ENR-BB1');
+        var bbItem = ENRICHED_CATALOGUE.find(function(c) { return c.id === bb.catalogue_item_id; });
+        assertEqual(bbItem.client_text, 'Noyer massif FAS');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 35: Enriched DM — backward compatibility
+// ════════════════════════════════════════════════════════════════
+
+describe('35. Enriched DM — backward compatibility', function() {
+    it('existing DM functions still work with enriched entries', function() {
+        // deduplicateDmByClientText should work regardless of extra fields
+        var entries = [
+            ENRICHED_DM_ENTRIES.caisson_placage,
+            { type: 'Caisson', catalogue_item_id: 'ST-0013', client_text: 'Placage chêne blanc', description: 'same client_text' }
+        ];
+        var deduped = deduplicateDmByClientText(entries);
+        assertEqual(deduped.length, 1, 'should deduplicate by client_text');
+    });
+
+    it('enriched entry works with normalizeDmType on type field', function() {
+        var entry = ENRICHED_DM_ENTRIES.facade_placage;
+        var norm = normalizeDmType(entry.type);
+        assertEqual(norm, 'facade', 'Façades normalizes to facade');
+    });
+
+    it('enriched fields are transparent to findExistingChildForDynamicRule', function() {
+        // findExistingChildForDynamicRule should NOT be affected by enriched sub-fields
+        // (it reads children array, not DM entries directly)
+        var children = [
+            { catalogueId: 'ST-0040', cascadeRuleTarget: '$match:BANDE DE CHANT' }
+        ];
+        var dm = [ENRICHED_DM_ENTRIES.caisson_placage];
+        // The function signature doesn't read DM sub-fields, so this test just ensures
+        // no crash when DM has extra fields
+        var result = findExistingChildForDynamicRule(
+            '$default:Caisson', children, dm, CATALOGUE_DATA,
+            function(g) { return null; }, noop
+        );
+        // Result is whatever it is — we just verify no crash
+        assertEqual(typeof result !== 'undefined', true, 'should not crash');
+    });
+
+    it('text fields (style, coupe) do not interfere with getEnrichedDmField', function() {
+        // style and coupe are text fields, not in ENRICHED_DM_FIELD_MAP
+        var entry = ENRICHED_DM_ENTRIES.facade_placage;
+        assertEqual(getEnrichedDmField(entry, 'STYLE'), null, 'STYLE not in field map');
+        assertEqual(getEnrichedDmField(entry, 'COUPE'), null, 'COUPE not in field map');
+        // But the text fields exist on the entry
+        assertEqual(entry.style, 'Shaker');
+        assertEqual(entry.coupe, 'Plain sliced');
     });
 });
 

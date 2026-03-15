@@ -8,6 +8,9 @@
 
 ## 2026-03-15
 
+### Features
+- **Feature #208 — Enrichissement DM Phase 1A** : champs additionnels par groupe DM (Caisson, Façades, Panneaux). Sous-champs `bande_chant`, `finition`, `bois_brut` (combobox catalogue) + `style`, `coupe` (texte libre). Tier 0 dans `resolveMatchTarget` résout `$match:` depuis les champs enrichis sans modale. UI accordion collapsible dans le panneau DM. Validation cohérence mélamine/placage. 5 nouveaux groupes de tests (31-35), 330 assertions totales. Aucune migration SQL.
+
 ### Corrections
 - **#188e** : `reprocessDefaultCascades` invalide `matchDefaults` sélectivement — seules les entrées liées au groupe DM modifié (via word-similarity sur `categoryGroupMapping`) sont supprimées, les choix `$match:` des catégories non modifiées sont préservés (DEC-041)
 - **#205** : `deduplicateDmByClientText` déduplique aussi par `catalogue_item_id` (seconde passe) — empêche les modales quand plusieurs DM pointent vers le même article

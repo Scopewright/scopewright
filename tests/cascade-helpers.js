@@ -641,6 +641,31 @@ function computeRentabilityPure(lines, tauxHoraires, expenseCategories) {
     };
 }
 
+// ── Enriched DM field map (#208) — calculateur.html ──
+var ENRICHED_DM_FIELD_MAP = {
+    'BANDE DE CHANT': 'bande_chant',
+    'BANDE_DE_CHANT': 'bande_chant',
+    'FINITION': 'finition',
+    'FINITION BOIS': 'finition',
+    'BOIS BRUT': 'bois_brut',
+    'BOIS_BRUT': 'bois_brut'
+};
+
+/**
+ * getEnrichedDmField(dmEntry, expenseCat)
+ * Returns the enriched sub-field { client_text, catalogue_item_id } from a DM entry
+ * for the given expense category, or null if not found/empty.
+ */
+function getEnrichedDmField(dmEntry, expenseCat) {
+    if (!dmEntry || !expenseCat) return null;
+    var field = ENRICHED_DM_FIELD_MAP[expenseCat.toUpperCase().trim()];
+    if (!field) return null;
+    var sub = dmEntry[field];
+    if (!sub) return null;
+    if (!sub.client_text && !sub.catalogue_item_id) return null;
+    return sub;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -665,6 +690,8 @@ if (typeof module !== 'undefined' && module.exports) {
         evaluateLaborModifiers: evaluateLaborModifiers,
         checkDefaultItemMatchCategory: checkDefaultItemMatchCategory,
         parseFraction: parseFraction,
-        computeRentabilityPure: computeRentabilityPure
+        computeRentabilityPure: computeRentabilityPure,
+        getEnrichedDmField: getEnrichedDmField,
+        ENRICHED_DM_FIELD_MAP: ENRICHED_DM_FIELD_MAP
     };
 }

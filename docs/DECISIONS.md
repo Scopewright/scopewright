@@ -877,3 +877,22 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 - Feedback visuel immédiat après modification AI (toast "Mis à jour par l'AI ✓")
 - Protection dirty : les modifications utilisateur non sauvegardées ne sont pas perdues silencieusement
 - Pattern extensible : d'autres pages peuvent écouter le même événement pour synchroniser leurs données
+
+---
+
+## DEC-046 — Enrichissement DM : champs additionnels par groupe (#208)
+
+**Date** : 2026-03-15
+**Contexte** : Les matériaux par défaut (DM) ne stockent qu'un matériau principal par type. Le moteur cascade doit montrer des modales pour résoudre `$match:BANDE DE CHANT`, `$match:FINITION BOIS`, etc. L'utilisateur choisit toujours les mêmes matériaux accessoires pour un matériau donné.
+
+**Décision** : Enrichir le JSONB `project_rooms.default_materials` avec des sous-champs optionnels par groupe DM (Caisson, Façades, Panneaux). Les sous-champs catalogue (`bande_chant`, `finition`, `bois_brut`) stockent `{ catalogue_item_id, client_text }`. Les sous-champs texte (`style`, `coupe`) stockent une string. Un tier 0 dans `resolveMatchTarget` résout directement depuis les champs enrichis — zéro modale.
+
+**Alternatives considérées** :
+- Table séparée `dm_enriched_fields` : plus rigide, migration SQL nécessaire, queries plus complexes
+- Presets DM (Phase 1B) : complémentaire mais ne résout pas le problème de la granularité par-champ
+
+**Conséquences** :
+- Aucune migration SQL — JSONB schema-less
+- Backward compatible — entrées legacy sans sous-champs fonctionnent identiquement
+- Réduction drastique des modales cascade pour les cas courants
+- Phase 1B (presets) pourra pré-remplir les sous-champs enrichis

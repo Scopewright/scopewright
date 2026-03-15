@@ -2675,8 +2675,17 @@
             if (catItem && catItem.client_text) displayLabel = catItem.client_text;
         }
         var acId = 'rdmAC-' + groupId + '-' + idx;
-        return '<div class="dm-row rdm-row" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +
-            '<select onchange="updateRoomDmType(\'' + groupId + '\',' + idx + ',this.value)">' + typeOptions + '</select>' +
+        var html = '<div class="rdm-row-wrap" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +
+            '<div class="dm-row rdm-row">';
+
+        // Enriched toggle arrow (only for enriched groups)
+        var enrichedConfig = entry.type ? DM_ENRICHED_GROUPS[entry.type] : null;
+        if (enrichedConfig) {
+            var hasEnrichedData = _hasEnrichedData(entry, enrichedConfig);
+            html += '<button class="rdm-enrich-toggle' + (hasEnrichedData ? ' has-data' : '') + '" onclick="toggleEnrichedDm(\'' + groupId + '\',' + idx + ')" title="Détails matériau">&#9662;</button>';
+        }
+
+        html += '<select onchange="updateRoomDmType(\'' + groupId + '\',' + idx + ',this.value)">' + typeOptions + '</select>' +
             '<div class="dm-search-wrap">' +
                 '<input type="text" value="' + escapeAttr(displayLabel) + '" placeholder="Rechercher dans le catalogue..." ' +
                     'oninput="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)" ' +
@@ -2687,6 +2696,353 @@
             '</div>' +
             '<button class="dm-remove" onclick="removeRoomDmEntry(\'' + groupId + '\',' + idx + ')" title="Supprimer">&times;</button>' +
             '</div>';
+
+        // Enriched sub-fields panel (collapsed by default)
+        if (enrichedConfig) {
+            html += renderEnrichedPanel(groupId, idx, entry, enrichedConfig);
+        }
+
+        html += '</div>'; // close rdm-row-wrap
+        return html;
+    }
+
+    /** Check if a DM entry has any enriched sub-field data */
+    function _hasEnrichedData(entry, config) {
+        if (!config || !config.fields) return false;
+        for (var fi = 0; fi < config.fields.length; fi++) {
+            var f = config.fields[fi];
+            if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(f) !== -1) {
+                var sub = entry[f];
+                if (sub && (sub.client_text || sub.catalogue_item_id)) return true;
+            } else {
+                if (entry[f]) return true; // text fields
+            }
+        }
+        return false;
+    }
+
+    /** Render the enriched sub-fields panel for a DM entry */
+    function renderEnrichedPanel(groupId, idx, entry, config) {
+        // Check if matériau principal is a placage (for conditional coupe field)
+        var isPlacage = _isDmPlacage(entry);
+        // Check if matériau is mélamine (finition disabled)
+        var isMelamine = _isDmMelamine(entry);
+
+        var html = '<div class="rdm-enriched collapsed" id="rdmEnriched-' + groupId + '-' + idx + '">';
+        for (var fi = 0; fi < config.fields.length; fi++) {
+            var field = config.fields[fi];
+            var label = DM_ENRICHED_LABELS[field] || field;
+
+            // Coupe only shown for placage
+            if (field === 'coupe' && !isPlacage) continue;
+
+            var isCatField = DM_ENRICHED_CATALOGUE_FIELDS.indexOf(field) !== -1;
+            var isDisabled = (field === 'finition' && isMelamine);
+
+            html += '<div class="rdm-enriched-row' + (isDisabled ? ' rdm-disabled' : '') + '">';
+            html += '<label class="rdm-enriched-label">' + escapeHtml(label) + '</label>';
+
+            if (isCatField) {
+                // Catalogue combobox search
+                var subVal = entry[field];
+                var subDisplay = (subVal && subVal.client_text) ? subVal.client_text : '';
+                if (!subDisplay && subVal && subVal.catalogue_item_id) {
+                    var subItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === subVal.catalogue_item_id; });
+                    if (subItem) subDisplay = subItem.client_text || subItem.description || '';
+                }
+                var subAcId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
+                var resolvedClass = (subVal && (subVal.client_text || subVal.catalogue_item_id)) ? ' dm-resolved' : '';
+                html += '<div class="dm-search-wrap rdm-enriched-input">' +
+                    '<input type="text" value="' + escapeAttr(subDisplay) + '"' +
+                        ' placeholder="' + (isDisabled ? 'Non applicable (mélamine)' : 'Rechercher...') + '"' +
+                        ' oninput="rdmSearchEnriched(\'' + groupId + '\',' + idx + ',\'' + field + '\',this)"' +
+                        ' onfocus="rdmSearchEnriched(\'' + groupId + '\',' + idx + ',\'' + field + '\',this)"' +
+                        ' onkeydown="rdmSearchEnrichedKeydown(event,\'' + groupId + '\',' + idx + ',\'' + field + '\')"' +
+                        ' class="' + resolvedClass.trim() + '"' +
+                        (isDisabled ? ' disabled' : '') + '>' +
+                    '<div class="dm-autocomplete" id="' + subAcId + '"></div>';
+                if (subVal && (subVal.client_text || subVal.catalogue_item_id)) {
+                    html += '<button class="rdm-enriched-clear" onclick="clearEnrichedField(\'' + groupId + '\',' + idx + ',\'' + field + '\')" title="Effacer">&times;</button>';
+                }
+                html += '</div>';
+            } else {
+                // Free text field (style, coupe)
+                var textVal = entry[field] || '';
+                html += '<input type="text" class="rdm-enriched-text" value="' + escapeAttr(textVal) + '"' +
+                    ' placeholder="Non défini"' +
+                    ' onblur="saveEnrichedText(\'' + groupId + '\',' + idx + ',\'' + field + '\',this.value)">';
+            }
+
+            if (isDisabled) {
+                html += '<span class="rdm-enriched-warn" title="Finition non applicable pour mélamine">&#9888;</span>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    /** Toggle enriched sub-fields panel */
+    function toggleEnrichedDm(groupId, idx) {
+        var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+        if (!panel) return;
+        var wasCollapsed = panel.classList.contains('collapsed');
+        panel.classList.toggle('collapsed', !wasCollapsed);
+        // Update toggle button
+        var wrap = panel.closest('.rdm-row-wrap');
+        if (wrap) {
+            var btn = wrap.querySelector('.rdm-enrich-toggle');
+            if (btn) btn.classList.toggle('open', wasCollapsed);
+        }
+    }
+
+    /** Check if DM entry matériau is a placage */
+    function _isDmPlacage(entry) {
+        if (!entry) return false;
+        var ct = (entry.client_text || '').toLowerCase();
+        if (/placage/i.test(ct)) return true;
+        if (entry.catalogue_item_id) {
+            var item = (CATALOGUE_DATA || []).find(function(c) { return c.id === entry.catalogue_item_id; });
+            if (item && item.category && /placage/i.test(item.category)) return true;
+        }
+        return false;
+    }
+
+    /** Check if DM entry matériau is mélamine */
+    function _isDmMelamine(entry) {
+        if (!entry) return false;
+        var ct = (entry.client_text || '').toLowerCase();
+        if (/m[eé]lamine/i.test(ct)) return true;
+        if (entry.catalogue_item_id) {
+            var item = (CATALOGUE_DATA || []).find(function(c) { return c.id === entry.catalogue_item_id; });
+            if (item && item.category && /m[eé]lamine/i.test(item.category)) return true;
+        }
+        return false;
+    }
+
+    /** Save a free-text enriched field (style, coupe) */
+    function saveEnrichedText(groupId, idx, field, value) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        var trimmed = value.trim();
+        if (trimmed) {
+            rdm[idx][field] = trimmed;
+        } else {
+            delete rdm[idx][field];
+        }
+        saveRoomDm(groupId);
+    }
+
+    /** Clear an enriched catalogue field */
+    function clearEnrichedField(groupId, idx, field) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        delete rdm[idx][field];
+        saveRoomDm(groupId);
+        // Re-render just the enriched panel
+        var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+        if (panel) {
+            var config = DM_ENRICHED_GROUPS[rdm[idx].type];
+            if (config) {
+                var wasOpen = !panel.classList.contains('collapsed');
+                var newHtml = renderEnrichedPanel(groupId, idx, rdm[idx], config);
+                panel.outerHTML = newHtml;
+                if (wasOpen) {
+                    var newPanel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+                    if (newPanel) newPanel.classList.remove('collapsed');
+                    var wrap = newPanel ? newPanel.closest('.rdm-row-wrap') : null;
+                    if (wrap) { var btn = wrap.querySelector('.rdm-enrich-toggle'); if (btn) btn.classList.add('open'); }
+                }
+            }
+        }
+        // Re-cascade if the cleared field was cascade-relevant
+        if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(field) !== -1) {
+            reprocessDefaultCascades(rdm[idx].type, groupId);
+        }
+    }
+
+    /** Search catalogue for enriched sub-field (bande_chant, finition, bois_brut) */
+    function rdmSearchEnriched(groupId, idx, field, input) {
+        var query = input.value.trim().toLowerCase();
+        var acId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
+        var acDiv = document.getElementById(acId);
+        if (!acDiv) return;
+        input.classList.remove('dm-resolved');
+
+        // Determine allowed categories based on the field
+        var fieldCatMap = {
+            'bande_chant': ['BANDE DE CHANT', 'BANDES DE CHANT'],
+            'finition': ['FINITION', 'FINITION BOIS', 'FINITIONS'],
+            'bois_brut': ['BOIS BRUT', 'BOIS']
+        };
+        var allowedFieldCats = fieldCatMap[field] || [];
+
+        var items = CATALOGUE_DATA || [];
+        var seen = {};
+        // Filter by expense category: items that have material_costs keys matching the field
+        var filtered = items.filter(function(item) {
+            if (seen[item.id]) return false;
+            seen[item.id] = true;
+            if (item.item_type === 'fabrication') return false;
+            // Check material_costs keys for the field's expense categories
+            if (item.material_costs) {
+                var mcKeys = Object.keys(item.material_costs);
+                for (var ki = 0; ki < mcKeys.length; ki++) {
+                    var ku = mcKeys[ki].toUpperCase();
+                    for (var ai = 0; ai < allowedFieldCats.length; ai++) {
+                        if (ku.indexOf(allowedFieldCats[ai]) !== -1 || allowedFieldCats[ai].indexOf(ku) !== -1) return true;
+                    }
+                }
+            }
+            // Also match by catalogue category name
+            if (item.category) {
+                var catU = item.category.toUpperCase();
+                for (var ci = 0; ci < allowedFieldCats.length; ci++) {
+                    if (catU.indexOf(allowedFieldCats[ci]) !== -1 || allowedFieldCats[ci].indexOf(catU) !== -1) return true;
+                }
+            }
+            return false;
+        });
+
+        var results;
+        if (query.length < 2) {
+            results = filtered.slice(0, 40);
+        } else {
+            results = filtered.filter(function(item) {
+                var desc = (item.description || '').toLowerCase();
+                var ct = (item.client_text || '').toLowerCase();
+                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1;
+            }).slice(0, 25);
+        }
+
+        if (results.length === 0) {
+            acDiv.innerHTML = '<div class="dm-ac-item" style="color:#999;cursor:default;">Aucun résultat</div>';
+            acDiv.classList.add('open');
+            roomDmActiveAC = acId;
+            return;
+        }
+
+        // Deduplicate by client_text
+        var deduped = [];
+        var seenCT = {};
+        results.forEach(function(item) {
+            var ct = (item.client_text || '').trim();
+            if (!ct) {
+                deduped.push({ items: [item], clientText: '', displayName: item.description || item.id });
+            } else if (!seenCT[ct]) {
+                seenCT[ct] = { items: [item], clientText: ct, displayName: ct };
+                deduped.push(seenCT[ct]);
+            } else {
+                seenCT[ct].items.push(item);
+            }
+        });
+
+        var html = '';
+        deduped.forEach(function(entry) {
+            var repId = entry.items[0].id;
+            var secondary = entry.items.length > 1 ? (entry.items.length + ' articles') : (entry.items[0].description !== entry.displayName ? entry.items[0].description : '');
+            html += '<div class="dm-ac-item" ' +
+                'onmousedown="rdmSelectEnrichedItem(\'' + groupId + '\',' + idx + ',\'' + field + '\',\'' + escapeAttr(repId) + '\',\'' + escapeAttr(entry.clientText) + '\')">' +
+                '<span>' + escapeHtml(entry.displayName) + '</span>' +
+                (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
+                '</div>';
+        });
+        acDiv.innerHTML = html;
+        acDiv.classList.add('open');
+        roomDmActiveAC = acId;
+    }
+
+    /** Keyboard navigation for enriched search */
+    function rdmSearchEnrichedKeydown(e, groupId, idx, field) {
+        var acId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
+        var acDiv = document.getElementById(acId);
+        if (!acDiv || !acDiv.classList.contains('open')) return;
+        var items = acDiv.querySelectorAll('.dm-ac-item');
+        var activeIdx = -1;
+        items.forEach(function(el, i) { if (el.classList.contains('active')) activeIdx = i; });
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, items.length - 1);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+            if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].dispatchEvent(new Event('mousedown'));
+        } else if (e.key === 'Escape') {
+            acDiv.classList.remove('open');
+            roomDmActiveAC = null;
+        }
+    }
+
+    /** Select a catalogue item for an enriched sub-field */
+    function rdmSelectEnrichedItem(groupId, idx, field, itemId, clientText) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+
+        // Store sub-field as object { catalogue_item_id, client_text }
+        rdm[idx][field] = {
+            catalogue_item_id: itemId,
+            client_text: clientText || ''
+        };
+
+        // Validation: warn if bande_chant essence incompatible with matériau principal
+        if (field === 'bande_chant' && clientText) {
+            var mainCt = (rdm[idx].client_text || '').toLowerCase();
+            var subCt = clientText.toLowerCase();
+            // Extract key material words from main matériau
+            var mainWords = mainCt.split(/\s+/).filter(function(w) { return w.length > 3; });
+            var hasCommon = mainWords.some(function(w) { return subCt.indexOf(w) !== -1; });
+            if (mainCt && !hasCommon && mainWords.length > 0) {
+                // Non-blocking warning toast
+                showConstraintToast('Attention : « ' + (clientText || '') + ' » pourrait ne pas correspondre au matériau « ' + (rdm[idx].client_text || '') + ' »', 5000);
+            }
+        }
+
+        saveRoomDm(groupId);
+
+        // Update input visually
+        var acId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
+        var acDiv = document.getElementById(acId);
+        if (acDiv) {
+            var input = acDiv.parentElement.querySelector('input');
+            if (input) { input.value = clientText || itemId; input.classList.add('dm-resolved'); }
+            acDiv.classList.remove('open');
+            acDiv.innerHTML = '';
+        }
+        roomDmActiveAC = null;
+
+        // Re-render enriched panel to show clear button
+        var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+        if (panel) {
+            var config = DM_ENRICHED_GROUPS[rdm[idx].type];
+            if (config) {
+                var wasOpen = !panel.classList.contains('collapsed');
+                var newHtml = renderEnrichedPanel(groupId, idx, rdm[idx], config);
+                panel.outerHTML = newHtml;
+                if (wasOpen) {
+                    var newPanel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+                    if (newPanel) newPanel.classList.remove('collapsed');
+                    var wrap = newPanel ? newPanel.closest('.rdm-row-wrap') : null;
+                    if (wrap) { var btn = wrap.querySelector('.rdm-enrich-toggle'); if (btn) btn.classList.add('open'); }
+                }
+            }
+        }
+
+        // Update has-data indicator on toggle button
+        var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+        if (rowWrap) {
+            var toggleBtn = rowWrap.querySelector('.rdm-enrich-toggle');
+            if (toggleBtn) toggleBtn.classList.add('has-data');
+        }
+
+        // Re-trigger cascades for this room
+        reprocessDefaultCascades(rdm[idx].type, groupId);
     }
 
     function addRoomDmEntry(groupId) {
@@ -2873,17 +3229,48 @@
         rdm[idx].catalogue_item_id = itemId;
         rdm[idx].client_text = clientText || '';
         rdm[idx].description = itemDesc;
+
+        // #208: Validation — if matériau changed to mélamine, clear finition sub-field
+        if (rdm[idx].finition && _isDmMelamine(rdm[idx])) {
+            delete rdm[idx].finition;
+            showConstraintToast('Finition retirée automatiquement (mélamine)', 3000);
+        }
+
         saveRoomDm(groupId);
         // Update input visually
-        var row = document.querySelector('.rdm-row[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
-        if (row) {
-            var input = row.querySelector('.dm-search-wrap input');
+        var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+        if (rowWrap) {
+            var input = rowWrap.querySelector('.dm-search-wrap input');
             if (input) { input.value = itemDesc; input.classList.add('dm-resolved'); }
             var acId = 'rdmAC-' + groupId + '-' + idx;
             var ac = document.getElementById(acId);
             if (ac) { ac.classList.remove('open'); ac.innerHTML = ''; }
         }
         roomDmActiveAC = null;
+
+        // #208: Re-render enriched panel (coupe visibility depends on matériau)
+        var enrichedConfig = rdm[idx].type ? DM_ENRICHED_GROUPS[rdm[idx].type] : null;
+        if (enrichedConfig) {
+            var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+            if (panel) {
+                var wasOpen = !panel.classList.contains('collapsed');
+                var newHtml = renderEnrichedPanel(groupId, idx, rdm[idx], enrichedConfig);
+                panel.outerHTML = newHtml;
+                if (wasOpen) {
+                    var newPanel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
+                    if (newPanel) newPanel.classList.remove('collapsed');
+                    var wrap = newPanel ? newPanel.closest('.rdm-row-wrap') : null;
+                    if (wrap) { var btn = wrap.querySelector('.rdm-enrich-toggle'); if (btn) btn.classList.add('open'); }
+                }
+            }
+            // Update has-data indicator
+            var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+            if (rowWrap) {
+                var toggleBtn = rowWrap.querySelector('.rdm-enrich-toggle');
+                if (toggleBtn) toggleBtn.classList.toggle('has-data', _hasEnrichedData(rdm[idx], enrichedConfig));
+            }
+        }
+
         // Re-trigger cascades for this room
         reprocessDefaultCascades(changedGroup, groupId);
     }
@@ -3490,6 +3877,54 @@
         return false;
     }
 
+    // ── Enriched DM field mapping (#208) ──
+    // Maps expense categories to enriched sub-fields on DM entries.
+    // Used by resolveMatchTarget tier 0 to resolve $match: without modals.
+    var ENRICHED_DM_FIELD_MAP = {
+        'BANDE DE CHANT': 'bande_chant',
+        'BANDE_DE_CHANT': 'bande_chant',
+        'FINITION': 'finition',
+        'FINITION BOIS': 'finition',
+        'BOIS BRUT': 'bois_brut',
+        'BOIS_BRUT': 'bois_brut'
+    };
+
+    /**
+     * getEnrichedDmField(dmEntry, expenseCat)
+     * Returns the enriched sub-field object { client_text, catalogue_item_id } from a DM entry
+     * for the given expense category, or null if not found/empty.
+     */
+    function getEnrichedDmField(dmEntry, expenseCat) {
+        if (!dmEntry || !expenseCat) return null;
+        var field = ENRICHED_DM_FIELD_MAP[expenseCat.toUpperCase().trim()];
+        if (!field) return null;
+        var sub = dmEntry[field];
+        if (!sub) return null;
+        // Must have at least client_text or catalogue_item_id
+        if (!sub.client_text && !sub.catalogue_item_id) return null;
+        return sub;
+    }
+
+    // ── Enriched DM groups config (#208) ──
+    // Defines which sub-fields are available per DM group type.
+    var DM_ENRICHED_GROUPS = {
+        'Caisson':  { fields: ['coupe', 'bande_chant', 'finition'] },
+        'Façades':  { fields: ['style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] },
+        'Panneaux': { fields: ['style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
+    };
+
+    // Labels for enriched sub-fields
+    var DM_ENRICHED_LABELS = {
+        'style': 'Style',
+        'coupe': 'Coupe',
+        'bande_chant': 'Bande de chant',
+        'finition': 'Finition',
+        'bois_brut': 'Bois brut'
+    };
+
+    // Sub-fields that use catalogue combobox search (vs free text)
+    var DM_ENRICHED_CATALOGUE_FIELDS = ['bande_chant', 'finition', 'bois_brut'];
+
     async function resolveCascadeTarget(target, groupId, materialCtx) {
         if (!target) return null;
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
@@ -3665,6 +4100,40 @@
                 }
             }
             cascadeLog('info', '$match: DM item ' + dmCatItem.id + ' (' + (dmCatItem.client_text || '') + ') → effectiveExpCats: ' + effectiveExpCats.join(', '));
+        }
+
+        // ── Tier 0: Enriched DM field (#208) ──
+        // If the DM entry that matched this expense category has an enriched sub-field
+        // (e.g., bande_chant, finition, bois_brut), resolve directly without scoring/modals.
+        if (dm && dm.length > 0) {
+            // Find the DM entry that was matched by word-similarity (same logic as dmCatItem lookup above)
+            var _expWordsT0 = expenseCategory.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });
+            for (var _t0i = 0; _t0i < dm.length; _t0i++) {
+                if (!dm[_t0i].type) continue;
+                var _t0Norm = normalizeDmType(dm[_t0i].type);
+                var _t0Match = _expWordsT0.some(function(ew) { return _t0Norm.indexOf(ew) !== -1 || ew.indexOf(_t0Norm) !== -1; });
+                // Also check the enriched field on ALL DM entries (not just type-matched)
+                var enrichedSub = getEnrichedDmField(dm[_t0i], expenseCategory);
+                if (enrichedSub) {
+                    // Resolve catalogue_item_id directly if available
+                    if (enrichedSub.catalogue_item_id) {
+                        var _t0Item = CATALOGUE_DATA.find(function(c) { return c.id === enrichedSub.catalogue_item_id; });
+                        if (_t0Item) {
+                            cascadeLog('info', '$match: tier 0 — resolved from enriched DM field "' + expenseCategory + '" → ' + _t0Item.id + ' (' + (enrichedSub.client_text || '') + ')');
+                            return _t0Item.id;
+                        }
+                    }
+                    // Fallback: resolve by client_text
+                    if (enrichedSub.client_text) {
+                        var _t0ByText = CATALOGUE_DATA.find(function(c) { return c.client_text === enrichedSub.client_text; });
+                        if (_t0ByText) {
+                            cascadeLog('info', '$match: tier 0 — resolved from enriched DM client_text "' + enrichedSub.client_text + '" → ' + _t0ByText.id);
+                            return _t0ByText.id;
+                        }
+                    }
+                    cascadeLog('info', '$match: tier 0 — enriched field found but no catalogue match, falling through');
+                }
+            }
         }
 
         // Filter catalogue: items with material_costs in ANY effective expense category
@@ -9147,6 +9616,53 @@
             padding: 8px 14px; font-size: 13px; cursor: pointer; color: #333;
         }
         .rdm-copy-item:hover { background: #f1f5f9; }
+
+        /* ── Enriched DM sub-fields (#208) ── */
+        .rdm-row-wrap { display: flex; flex-direction: column; }
+        .rdm-row-wrap .rdm-row { position: relative; }
+        .rdm-enrich-toggle {
+            background: none; border: none; cursor: pointer; font-size: 10px; color: #bbb;
+            padding: 2px 4px; flex-shrink: 0; transition: transform 0.2s, color 0.15s;
+            line-height: 1;
+        }
+        .rdm-enrich-toggle:hover { color: var(--sw-navy); }
+        .rdm-enrich-toggle.open { transform: rotate(180deg); }
+        .rdm-enrich-toggle.has-data { color: var(--sw-navy); }
+        .rdm-enriched {
+            overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+            max-height: 300px; opacity: 1; padding: 6px 0 4px 28px;
+            border-left: 2px solid #e2e8f0; margin-left: 10px;
+        }
+        .rdm-enriched.collapsed { max-height: 0; opacity: 0; padding: 0 0 0 28px; }
+        .rdm-enriched-row {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px;
+        }
+        .rdm-enriched-label {
+            width: 100px; flex-shrink: 0; color: #64748B; font-weight: 500;
+            text-align: right; font-size: 11px;
+        }
+        .rdm-enriched-input { flex: 1; position: relative; }
+        .rdm-enriched-input input {
+            width: 100%; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 4px;
+            font-size: 11px; font-family: inherit; box-sizing: border-box;
+        }
+        .rdm-enriched-input input:focus { border-color: var(--sw-navy); outline: none; }
+        .rdm-enriched-input input.dm-resolved { background: #edf1f7; border-color: var(--sw-navy); }
+        .rdm-enriched-text {
+            flex: 1; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 4px;
+            font-size: 11px; font-family: inherit; box-sizing: border-box;
+        }
+        .rdm-enriched-text:focus { border-color: var(--sw-navy); outline: none; }
+        .rdm-enriched-text::placeholder { color: #cbd5e1; font-style: italic; }
+        .rdm-enriched-clear {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: #ccc; font-size: 14px;
+            padding: 0 3px; line-height: 1;
+        }
+        .rdm-enriched-clear:hover { color: #c62828; }
+        .rdm-enriched-row.rdm-disabled { opacity: 0.5; }
+        .rdm-enriched-row.rdm-disabled input { cursor: not-allowed; }
+        .rdm-enriched-warn { color: #D97706; font-size: 13px; flex-shrink: 0; cursor: help; }
 
         /* ── Main action buttons ── */
         .ph-actions { display: none; /* replaced by timeline CTA */ }

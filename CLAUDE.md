@@ -259,6 +259,30 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy
 8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
 
+#### Enrichissement DM — Phase 1A (#208)
+
+Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward compatible — champs ajoutés au JSONB `project_rooms.default_materials` existant, aucune migration SQL.
+
+**Structure enrichie** (champs optionnels) :
+- **Caisson** : matériau (existant) + `coupe` (texte libre, si placage) + `bande_chant` + `finition`
+- **Façades** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
+- **Panneaux** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
+
+**Sous-champs catalogue** (`bande_chant`, `finition`, `bois_brut`) :
+```json
+{ "catalogue_item_id": "ST-0087", "client_text": "Bande chêne blanc" }
+```
+
+**Config** : `DM_ENRICHED_GROUPS` (groupes enrichis + champs), `DM_ENRICHED_LABELS` (labels FR), `DM_ENRICHED_CATALOGUE_FIELDS` (champs combobox vs texte libre)
+
+**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `style`/`coupe`. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
+
+**Validation cohérence** : quand le matériau principal change vers mélamine, `finition` est automatiquement supprimée + toast. `rdmSelectItem` re-rend le panneau enrichi (visibilité `coupe` dépend du matériau)
+
+**Moteur cascade — Tier 0** : dans `resolveMatchTarget`, avant `scoreMatchCandidates`, vérifie si le DM entry a un champ enrichi pour la catégorie de dépense via `getEnrichedDmField(dmEntry, expenseCat)`. Si oui et `catalogue_item_id` ou `client_text` trouvé dans `CATALOGUE_DATA` → résolution directe **sans modale**. Sinon → fallback tiers existants inchangés. `ENRICHED_DM_FIELD_MAP` : `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
+
+**Tests** : 5 groupes (31-35) dans `tests/cascade-engine.test.js`, fixture `tests/fixtures/enriched-dm.js`. Fonction `getEnrichedDmField` dans `tests/cascade-helpers.js`
+
 ### QTY multiplicateur universel (`qty_multiplier`)
 
 Champ multiplicateur global par ligne article, indépendant du type de calcul (pi², pi³, unitaire).
@@ -872,14 +896,15 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 301 assertions en 35 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 20 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/cascade-engine.test.js` | 330 assertions en 35 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 21 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
+| `tests/fixtures/enriched-dm.js` | Fixtures DM enrichis pour tests #208 |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `filterDmByExpenseRelevance`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `filterDmByExpenseRelevance`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`, `getEnrichedDmField`
 
 ### Synchronisation
 

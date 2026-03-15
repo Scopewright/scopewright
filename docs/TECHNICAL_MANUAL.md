@@ -696,7 +696,7 @@ Déclenché quand un DM est modifié :
 - **Panel pièce** : Par pièce, avec option "Copier de..." (depuis une autre pièce uniquement, pas de template soumission)
 - **Autocomplete** : Filtre les articles catalogue des catégories autorisées pour le groupe, déduplique par `client_text` (un seul "Placage chêne blanc" même si 2+ articles techniques existent)
 - **Indicateur DM vide** : Classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer
-- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Finition','Poignées']`. `addRow()` bloque l'ajout d'articles si des groupes requis manquent (sauf chargement legacy, cascades, bulk load). Le bouton "+" est grisé (`.dm-blocked`)
+- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. `addRow()` bloque l'ajout d'articles si des groupes requis manquent (sauf chargement legacy, cascades, bulk load). Le bouton "+" est grisé (`.dm-blocked`)
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent pas dans le dropdown DM
 
 ### 4.6 Enrichissement DM — Phase 1A (#208)
@@ -821,6 +821,17 @@ Deux points d'entrée pour enregistrer des composantes directement depuis le pan
 | `finition.catalogue_item_id` | `finition_catalogue_id` |
 | `bois_brut.client_text` | `bois_brut_client_text` |
 | `bois_brut.catalogue_item_id` | `bois_brut_catalogue_id` |
+
+#### Phase 1C — Dropdown composantes + Redesign panneau DM
+
+**Redesign visuel** : le panneau DM passe d'un fond blanc à un fond navy `#0B1220` avec texte blanc semi-transparent. Inputs sans bordures visibles (underline `border-bottom` only). Sous-champs enrichis en layout horizontal `flex-wrap` au lieu de vertical. Bookmark SVG (stroke → filled 2s après save).
+
+**Dropdown composantes** : `<select class="dm-comp-select">` inséré dans chaque ligne DM, filtré par `dm_type` depuis `COMPOSANTES_DATA`. `applyComposanteToDm(groupId, dmIndex, composanteId)` :
+1. Mappe les champs composante → DM (materiau, style, coupe, bande_chant, finition, bois_brut)
+2. Stocke `dm.composante_id = comp.id`
+3. `saveRoomDm()` + `renderRoomDm()` + `reprocessDefaultCascades()`
+
+**`DM_REQUIRED_GROUPS`** : `'Finition'` retiré — `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning non-bloquant si composante Façades/Caisson configurée sans `finition_client_text`.
 
 ---
 

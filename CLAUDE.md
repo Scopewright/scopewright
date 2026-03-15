@@ -18,7 +18,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~23 050 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~23 150 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 720 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~4 040 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
@@ -242,7 +242,7 @@ Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cas
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`. **Always-cache** (fix #188) : toute résolution DM (modale, single-match, annulation) cache immédiatement le résultat en session — la checkbox "Mémoriser" n'affecte plus le cache session (elle était redondante). **Cache matching robuste** (fix #188b) : le lookup cache utilise `client_text` en fallback quand `catalogue_item_id` ne matche pas (déduplication `deduplicateDmByClientText` peut changer l'entrée représentante). De plus, le contexte parent DM dans `executeCascade` **infère `materialCtx`** depuis les enfants cascade existants au lieu de montrer la modale — élimine les modales parasites lors des changements de dims/tablettes/partitions. **Cache from existing children** (fix #188d) : `findExistingChildForDynamicRule` peuple `dmChoiceCache` quand un enfant existant satisfait `$default:` — garantit que les cascades récursives (depth > 0) et les FAB frères ne ré-ouvrent pas `showTechnicalItemModal` pour le même type DM
 - "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
 - **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.
-- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Finition','Poignées']`. `getMissingRequiredDm(groupId)` retourne les groupes non remplis. `addRow()` bloque l'ajout d'articles (toast + ouvre le panneau DM) si des groupes requis manquent — sauf pour le chargement d'articles existants (legacy), les cascades, et le bulk load. Le bouton "+" est grisé (`.dm-blocked`) pour les nouvelles pièces sans DM complets.
+- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. `getMissingRequiredDm(groupId)` retourne les groupes non remplis. `addRow()` bloque l'ajout d'articles (toast + ouvre le panneau DM) si des groupes requis manquent — sauf pour le chargement d'articles existants (legacy), les cascades, et le bulk load. Le bouton "+" est grisé (`.dm-blocked`) pour les nouvelles pièces sans DM complets.
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent plus dans le dropdown DM.
 - **Regroupement client_text** (Phase 1) : le dropdown DM (`rdmSearchCatalogue`) déduplique les articles par `client_text` — un seul "Placage de chêne blanc" affiché même si 2+ articles techniques existent. `rdmSelectItem` stocke le `client_text` sur l'entrée DM en plus du `catalogue_item_id` représentant. Structure DM : `{ type, catalogue_item_id, client_text, description }`.
 
@@ -299,6 +299,13 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Bouton global** : "Enregistrer tout" (`.rdm-save-all-btn`) visible quand ≥2 DM configurés. `saveAllDmAsComposante(groupId)` → composante `dm_type: "Groupe"` avec nom concaténé par ` / ` et notes résumé
 - **`buildComposanteName(dmEntry)`** : nom auto = `{type} {style} {client_text} {coupe}`, champs vides omis
 - **`COMPOSANTES_DATA`** : array global dans calculateur.html, mis à jour en mémoire après chaque INSERT
+
+**Phase 1C — Dropdown composantes + Redesign panneau DM** :
+- **Redesign visuel** : fond navy `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, sous-champs enrichis en layout horizontal flex-wrap
+- **Bookmark SVG** : remplace l'icône ⛏, SVG stroke au repos → filled 2s après sauvegarde (`.dm-bookmark-btn.saved`)
+- **Dropdown composantes** (`.dm-comp-select`) : filtré par `dm_type`, entre le select type et la recherche matériau. `applyComposanteToDm(groupId, dmIndex, composanteId)` applique tous les champs de la composante au DM + `saveRoomDm` + `reprocessDefaultCascades`
+- **Finition retirée de `DM_REQUIRED_GROUPS`** : `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning toast si composante Façades/Caisson sans finition
+- **Transition DM→grille** : `border-radius: 4px 4px 0 0` sur `.room-dm-section`, zéro gap vers `.calc-header`
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 

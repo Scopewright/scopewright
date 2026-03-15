@@ -847,6 +847,14 @@ Vous pouvez enregistrer vos matériaux par défaut comme composante réutilisabl
 
 Les composantes enregistrées sont visibles dans le catalogue via le bouton "Composantes".
 
+#### Appliquer une composante à une pièce
+
+Dans le panneau Matériaux par défaut d'une pièce, chaque ligne DM dispose d'un dropdown "— Composante —" filtré par type. Sélectionnez une composante pour remplir automatiquement le matériau, le style, la coupe, la bande de chant, la finition et le bois brut.
+
+La cascade est automatiquement relancée après l'application.
+
+**Note** : la finition n'est plus un champ obligatoire dans les matériaux par défaut. Un avertissement jaune s'affiche si une composante Façades ou Caisson est appliquée sans finition configurée.
+
 ### Approbation des articles
 
 Les articles créés par des utilisateurs sans permission d'édition du catalogue sont mis **en attente d'approbation**.

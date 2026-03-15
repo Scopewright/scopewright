@@ -232,7 +232,46 @@ Ce pattern est utilisé dans :
 
 ---
 
-## 14. Animations
+## 14. Panneau Matériaux par Défaut (DM)
+
+Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
+
+**Container** :
+- Fond : `#0B1220` (navy)
+- Border-radius : `4px 4px 0 0` (enchaîné sur la grille)
+- Pas de gap entre le panneau et le `.calc-header` en dessous
+
+**Header** :
+- Label : `rgba(255,255,255,0.5)`, 11px, uppercase, `letter-spacing: 0.08em`
+- Badge compteur : `background: rgba(255,255,255,0.1)`, `color: rgba(255,255,255,0.6)`, pill 10px
+- Boutons (Copier de, Enregistrer tout) : `color: rgba(255,255,255,0.3)`, border `0.5px solid rgba(255,255,255,0.15)`, 3px radius
+
+**Lignes DM** :
+- Séparateur : `border-top: 0.5px solid rgba(255,255,255,0.07)`
+- Label type : `rgba(255,255,255,0.35)`, 12px, min-width 72px
+- Valeur matériau : `rgba(255,255,255,0.85)`, 13px, input underline only
+- Bouton × : `rgba(255,255,255,0.15)` → hover `rgba(255,255,255,0.6)`
+
+**Sous-champs enrichis** :
+- Layout : `flex-wrap`, indent 100px gauche
+- Label : `rgba(255,255,255,0.25)`, 10px, `letter-spacing: 0.06em`
+- Valeur : `rgba(255,255,255,0.5)`, 12px, underline `0.5px solid rgba(255,255,255,0.12)`
+- Focus : `rgba(255,255,255,0.85)`, underline `rgba(255,255,255,0.4)`
+
+**Bookmark SVG** (icône composante) :
+- Repos : stroke `rgba(255,255,255,0.2)`
+- Hover : stroke `rgba(255,255,255,0.6)`
+- Après sauvegarde : filled `rgba(255,255,255,0.7)` pendant 2s (`.dm-bookmark-btn.saved`)
+
+**Dropdown composantes** :
+- Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`
+- Options : `background: #0B1220`
+
+**Palette des opacités navy** : 0.07 (séparateurs), 0.1 (badges), 0.12 (underlines), 0.15 (bordures/boutons), 0.2 (icônes repos), 0.25 (labels légers/ajout), 0.3 (boutons secondaires), 0.35 (labels type), 0.4 (focus), 0.5 (labels/valeurs), 0.6 (badges/hover), 0.7 (filled/active), 0.85 (texte principal)
+
+---
+
+## 15. Animations
 
 - Durée : 150ms à 200ms
 - Easing : ease-out
@@ -241,7 +280,7 @@ Ce pattern est utilisé dans :
 
 ---
 
-## 15. Règle fondamentale
+## 16. Règle fondamentale
 
 Si un pattern UI existe déjà dans l'app, le réutiliser à l'identique.
 Ne jamais réinventer un composant qui existe.
@@ -252,7 +291,7 @@ Scopewright doit rester calme visuellement.
 
 ---
 
-## 16. Inspirations
+## 17. Inspirations
 
 Attio — Référence principale pour l'interface interne : tags compacts, vues multiples, densité d'information sans surcharge, node graph pour visualisation cascades (#124)
 
@@ -262,7 +301,7 @@ Pas : Webflow, Dribbble style, dashboards flashy
 
 ---
 
-## 17. Directive CC obligatoire
+## 18. Directive CC obligatoire
 
 Avant tout travail UI (nouveaux composants, modifications de style, nouveaux écrans) :
 1. Lire ce fichier en entier

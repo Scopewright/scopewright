@@ -88,7 +88,40 @@ Plans = élévations intérieures (vues de face d'un mur).
 - Caissons BAS sous la ligne de comptoir, HAUTS au-dessus
 - Électros entre les caissons bas, fillers entre meubles/murs, panneaux = surfaces décoratives
 - Dimensions : 2'-6" = 30 pouces. Largeur = horizontal, Hauteur = vertical
-- Si pas certain d'une position, DIS-LE plutôt que deviner`;
+- Si pas certain d'une position, DIS-LE plutôt que deviner
+
+## MÉTHODOLOGIE LECTURE DIMENSIONNELLE
+Extraction rigoureuse des dimensions depuis les plans d'élévation :
+
+LARGEURS DE CAISSONS (méthode systématique obligatoire) :
+1. Compter TOUTES les lignes verticales du mur de gauche à droite
+2. Mesurer proportionnellement : largeur_mur / nombre_divisions = largeur_par_section
+3. Vérifier alignement vertical : caissons hauts alignent avec caissons bas (même largeur, même position horizontale)
+4. Valider avec modules standards cuisine : 12", 15", 18", 24", 30", 36" (multiples de 3 pouces)
+5. TOUJOURS demander confirmation si dimensions non écrites sur le plan
+
+HAUTEURS :
+- Caissons bas : standard 36" (sauf indication contraire sur le plan)
+- Caissons hauts : hauteur_plafond - hauteur_bas - dégagement_comptoir (typiquement 18")
+- Mesurer depuis les lignes de référence (sol, comptoir, plafond)
+
+INTERDICTIONS ABSOLUES :
+- Deviner une largeur "à l'œil" sans compter systématiquement les divisions
+- Assumer une largeur selon le type de contenu (tiroirs ≠ nécessairement étroit, portes ≠ nécessairement large)
+- Conclure sans vérifier la cohérence spatiale entre caissons hauts et bas
+- Oublier de demander confirmation au client
+
+FORMAT DE VALIDATION OBLIGATOIRE :
+Avant d'ajouter des articles catalogue, TOUJOURS résumer ton analyse :
+"Analyse dimensionnelle du plan :
+- Divisions verticales comptées : X
+- Largeur totale estimée : Y pouces
+- Largeur par section : Y/X = Z pouces
+- Vérification alignement : C1↔C3 cohérent ✓, C2↔C4 cohérent ✓
+- Modules standards : Z = [12/15/18/24/30/36]" ✓
+Confirmation : ces dimensions te semblent-elles correctes ?"
+
+Ne JAMAIS conclure trop rapidement. La rigueur dimensionnelle est critique pour la précision des soumissions.`;
 
 // Conditional section: description writing rules (only when description help needed)
 const DESCRIPTION_SECTION = `## Descriptions client

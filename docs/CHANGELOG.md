@@ -8,6 +8,9 @@
 
 ## 2026-03-15
 
+### Corrections
+- **#188e** : `reprocessDefaultCascades` invalide `matchDefaults` sélectivement — seules les entrées liées au groupe DM modifié (via word-similarity sur `categoryGroupMapping`) sont supprimées, les choix `$match:` des catégories non modifiées sont préservés (DEC-041)
+
 ### Améliorations
 - **AI lecture plans** : méthodologie dimensionnelle (PLANS_SECTION) toujours injectée dans le system prompt, plus conditionnelle sur `hasImages` — l'AI applique la rigueur de comptage/validation même sans images collées (DEC-040)
 - **Routing AI** : mots-clés dimensionnels (caisson, dimension, largeur, hauteur, profondeur, élévation, estime, mesure, comptage, division, alignement) ajoutés à `_COMPLEX_KEYWORDS` → forçage Sonnet 4.5 + max_tokens ≥ 1536 pour toute requête d'estimation dimensionnelle

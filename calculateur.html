@@ -4389,17 +4389,35 @@
         // Don't reprocess on locked submissions
         if (typeof isSubmissionCurrentlyEditable === 'function' && !isSubmissionCurrentlyEditable()) return;
 
-        // Invalidate stale matchDefaults: DM change may produce different keywords,
-        // making cached $match: resolutions wrong. Clear all and re-derive on next cascade.
+        // Invalidate stale matchDefaults: only entries whose expense category is related
+        // to the changedGroup via categoryGroupMapping. Preserve unrelated choices.
+        // #188e: selective invalidation — same logic as dmChoiceCache below.
         if (Object.keys(matchDefaults).length > 0) {
-            cascadeLog('info', 'reprocessDefaultCascades: clearing ' + Object.keys(matchDefaults).length + ' stale matchDefaults entries');
-            matchDefaults = {};
-            if (currentSubmission && currentSubmission.id) {
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                    body: JSON.stringify({ match_defaults: {} })
+            var _relatedCats = getAllowedCategoriesForGroup(changedGroup) || [];
+            var _relatedWords = _relatedCats.map(function(c) { return c.toUpperCase(); });
+            var _matchKeysToDelete = Object.keys(matchDefaults).filter(function(k) {
+                var expPart = k.split(':')[0]; // e.g. "PANNEAU BOIS"
+                if (!expPart) return false;
+                // Word-similarity: if any word in the expense category matches a word
+                // in any related catalogue category, it's related to changedGroup
+                var expWords = expPart.split(/\s+/);
+                return _relatedWords.some(function(rc) {
+                    var rcWords = rc.split(/\s+/);
+                    return expWords.some(function(ew) {
+                        return rcWords.some(function(rw) { return ew === rw || ew.indexOf(rw) === 0 || rw.indexOf(ew) === 0; });
+                    });
                 });
+            });
+            if (_matchKeysToDelete.length > 0) {
+                cascadeLog('info', 'reprocessDefaultCascades: clearing ' + _matchKeysToDelete.length + '/' + Object.keys(matchDefaults).length + ' stale matchDefaults entries for group ' + changedGroup);
+                _matchKeysToDelete.forEach(function(k) { delete matchDefaults[k]; });
+                if (currentSubmission && currentSubmission.id) {
+                    authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?id=eq.' + currentSubmission.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ match_defaults: matchDefaults })
+                    });
+                }
             }
         }
 

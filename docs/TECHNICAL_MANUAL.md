@@ -607,7 +607,7 @@ Chaque ligne de soumission peut avoir des ajustements locaux sans modifier le ca
 
 ### 3.12 Edge cases et limitations
 
-1. **`$match:` re-cascadé sur changement DM** : `reprocessDefaultCascades()` gère les cibles `$default:` ET `$match:` (line ~4155). Le `matchDefaults` cache et `dmChoiceCache` sont invalidés avant re-cascade.
+1. **`$match:` re-cascadé sur changement DM** : `reprocessDefaultCascades()` gère les cibles `$default:` ET `$match:` (line ~4155). Les caches `matchDefaults` et `dmChoiceCache` sont invalidés **sélectivement** avant re-cascade (fix #188e) — seules les entrées liées au groupe DM modifié sont supprimées.
 2. **Cascade max 3 niveaux** : Suffisant pour la plupart des cas (FAB → matériau → sous-composant), mais des structures plus profondes seraient tronquées.
 3. **Polling wait limité à 4 secondes** : Si la création DB est plus lente (connexion faible), le cascade peut échouer avec "Timeout création ligne".
 4. **Singulier/pluriel dans le fuzzy match** : Normalisé via regex `([a-zàâäéèêëïîôùûüÿç]{3,})[sx](?=\s|$)` qui strip les s/x finaux.
@@ -683,7 +683,7 @@ Pas de hiérarchie multi-niveaux. Chaque pièce gère ses propres DM de façon i
 Déclenché quand un DM est modifié :
 1. Trouve tous les parents (lignes racine) qui ont des règles `$default:` correspondant au groupe modifié
 2. Re-exécute `executeCascade()` séquentiellement sur chacun
-3. Re-trigger les parents avec `$default:` ET `$match:` targets. Invalide `matchDefaults` (cache `$match:` persisté) ET `dmChoiceCache` (**sélectivement** : seul le type modifié `groupId:changedGroup` + entries cross-DM — les choix mémorisés des autres types sont préservés). Exécute sous guard `_cascadeRunning = true`
+3. Re-trigger les parents avec `$default:` ET `$match:` targets. Invalide **sélectivement** `matchDefaults` (fix #188e : seules les entrées dont l'expense category partage un mot avec les catégories catalogue liées au `changedGroup` via `categoryGroupMapping` — word-similarity — sont supprimées, les choix `$match:` des catégories non modifiées sont préservés) ET `dmChoiceCache` (seul le type modifié `groupId:changedGroup` + entries cross-DM — les choix mémorisés des autres types sont préservés). Exécute sous guard `_cascadeRunning = true`
 4. **Barre de progression** (#141) : `showCascadeProgress()` / `hideCascadeProgress()` affichent un overlay semi-transparent `rgba(255,255,255,0.25)` avec barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction utilisateur pendant le recalcul. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess (updateRoomDmType appelle 2× pour old+new type, clearRoomDm appelle N× pour chaque type). Fade-out 150ms ease-out
 
 ### 4.5 UI

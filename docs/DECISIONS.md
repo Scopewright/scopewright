@@ -776,3 +776,22 @@
 - +200 tokens par requête AI (budget normal ~15K, acceptable)
 - L'AI applique toujours la rigueur dimensionnelle (comptage divisions, validation modules standards)
 - Les mots-clés dimensionnels (caisson, dimension, largeur, etc.) sont aussi ajoutés à `_COMPLEX_KEYWORDS` pour forcer le routing Sonnet 4.5
+
+---
+
+## DEC-041 — Invalidation sélective de matchDefaults (alignée sur dmChoiceCache)
+
+**Date** : 2026-03-15
+
+**Contexte** : `reprocessDefaultCascades` invalidait brutalement tout le cache `matchDefaults` (`matchDefaults = {}`) quand un seul DM changeait (ex: Caisson). Cela forçait la ré-résolution de tous les `$match:` de la pièce, causant des modales parasites pour les catégories non modifiées (Panneaux, Façades, etc.).
+
+**Décision** : Invalider `matchDefaults` sélectivement, en ne supprimant que les entrées dont l'expense category (ex: `PANNEAU BOIS`) partage un mot avec les catégories catalogue liées au `changedGroup` via `categoryGroupMapping` (word-similarity). Même logique que l'invalidation de `dmChoiceCache` déjà en place.
+
+**Alternatives rejetées** :
+- Invalider par préfixe exact de catégorie → trop restrictif, ne couvre pas les variantes orthographiques
+- Ne rien invalider → les résolutions obsolètes persisteraient après un changement DM
+
+**Conséquences** :
+- Changer DM Caisson (mélamine blanche → noire) ne déclenche plus de modales pour Panneaux/Façades/Finition
+- Les choix `$match:` des catégories non liées au groupe modifié sont préservés
+- La persistance DB de `matchDefaults` est aussi sélective (PATCH partiel au lieu de reset `{}`)

@@ -720,14 +720,15 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes (Caisson, Faç
 
 #### Champs par groupe
 
-| Groupe | style | coupe | bande_chant | finition | bois_brut |
-|--------|-------|-------|-------------|----------|-----------|
-| Caisson | — | ✓ (si placage) | ✓ | ✓ | — |
-| Façades | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
-| Panneaux | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
+| Groupe | materiau | style | coupe | bande_chant | finition | bois_brut |
+|--------|----------|-------|-------|-------------|----------|-----------|
+| Caisson | — | — | ✓ (si placage) | ✓ | ✓ | — |
+| Façades | ✓ (combobox) | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
+| Panneaux | ✓ (combobox) | ✓ | ✓ (si placage) | ✓ | ✓ | ✓ |
 
 - `style`, `coupe` : texte libre (string)
-- `bande_chant`, `finition`, `bois_brut` : objet `{ catalogue_item_id, client_text }` (combobox catalogue)
+- `materiau`, `bande_chant`, `finition`, `bois_brut` : objet `{ catalogue_item_id, client_text }` (combobox catalogue)
+- `DM_ENRICHED_CATALOGUE_FIELDS` = `['materiau', 'bande_chant', 'finition', 'bois_brut']`
 
 #### Cascade Tier 0
 
@@ -736,7 +737,7 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes (Caisson, Faç
 1. **Tier 0 (nouveau)** : `getEnrichedDmField(dmEntry, expenseCat)` → `ENRICHED_DM_FIELD_MAP` lookup → résolution directe par `catalogue_item_id` ou `client_text` → **zéro modale**
 2. **Tiers existants** (inchangés) : `scoreMatchCandidates` → `disambiguateMatchByDm` → `showMatchChoiceModal`
 
-`ENRICHED_DM_FIELD_MAP` : `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT`/`BOIS_BRUT` → `bois_brut`
+`ENRICHED_DM_FIELD_MAP` : `PLACAGE`/`PANNEAU`/`MATERIAU` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT`/`BOIS_BRUT` → `bois_brut`
 
 #### Validation cohérence
 

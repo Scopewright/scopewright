@@ -648,7 +648,10 @@ var ENRICHED_DM_FIELD_MAP = {
     'FINITION': 'finition',
     'FINITION BOIS': 'finition',
     'BOIS BRUT': 'bois_brut',
-    'BOIS_BRUT': 'bois_brut'
+    'BOIS_BRUT': 'bois_brut',
+    'PLACAGE': 'materiau',
+    'PANNEAU': 'materiau',
+    'MATERIAU': 'materiau'
 };
 
 /**

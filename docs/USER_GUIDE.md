@@ -144,21 +144,22 @@ Cliquez **+ Ajouter un meuble** en bas du calculateur. Un nouveau meuble vide ap
 
 **C'est l'étape la plus importante.** Avant d'ajouter des articles, configurez les matériaux par défaut de chaque meuble. Ces matériaux sont utilisés par le système pour générer automatiquement les bonnes composantes quand vous ajoutez un article de fabrication.
 
-Cliquez sur **Matériaux par défaut** pour ouvrir le panneau. Les groupes obligatoires sont :
+Cliquez sur **Matériaux par défaut** pour ouvrir le panneau. Les trois groupes obligatoires (bloquent l'ajout d'articles si absents) sont :
 
 | Groupe | Ce que ça définit | Exemple |
 |--------|------------------|---------|
 | **Caisson** | Le matériau de base de la structure | Placage de chêne blanc, Mélamine blanche |
 | **Façades** | Portes et faces de tiroirs | Placage de noyer, Laque polyuréthane |
 | **Panneaux** | Panneaux décoratifs et de côté | Placage de chêne blanc |
-| **Tiroirs** | Type de tiroirs et quincaillerie | Tiroir Blum tandembox |
-| **Finition** | Traitement de surface | Laque polyuréthane, Vernis |
-| **Poignées** | Type de poignées | Poignée tubulaire inox |
+
+Les autres groupes (Tiroirs, Poignées, etc.) sont optionnels — ils enrichissent la résolution cascade mais ne bloquent pas l'ajout d'articles.
 
 Pour chaque groupe :
 1. Cliquez **+ Ajouter**
 2. Recherchez le matériau dans le catalogue
 3. Sélectionnez-le — le système retient le choix
+
+**Sous-champs enrichis (Façades et Panneaux)** : après avoir sélectionné le matériau principal, cliquez le bouton ▾ sur la ligne pour déplier les sous-champs optionnels. Le premier champ est **Matériau** — un combobox catalogue qui permet de préciser l'article technique du matériau de façade ou de panneau (ex: placage, panneau mélamine). Les autres sous-champs sont : Style (texte libre), Coupe (texte libre, si placage), Bande de chant (combobox catalogue), Finition (combobox catalogue), et Bois brut (combobox catalogue). Ces sous-champs permettent au moteur de résoudre les composantes associées directement, sans afficher de modales de choix.
 
 **Copier de…** : si plusieurs meubles utilisent les mêmes matériaux, cliquez « Copier de… » pour copier la configuration d'un autre meuble.
 

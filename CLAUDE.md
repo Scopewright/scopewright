@@ -242,7 +242,7 @@ Quand l'utilisateur modifie manuellement la quantité ou le prix d'un enfant cas
 - Cache choix : `dmChoiceCache[groupId + ':' + typeName]`. **Always-cache** (fix #188) : toute résolution DM (modale, single-match, annulation) cache immédiatement le résultat en session — la checkbox "Mémoriser" n'affecte plus le cache session (elle était redondante). **Cache matching robuste** (fix #188b) : le lookup cache utilise `client_text` en fallback quand `catalogue_item_id` ne matche pas (déduplication `deduplicateDmByClientText` peut changer l'entrée représentante). De plus, le contexte parent DM dans `executeCascade` **infère `materialCtx`** depuis les enfants cascade existants au lieu de montrer la modale — élimine les modales parasites lors des changements de dims/tablettes/partitions. **Cache from existing children** (fix #188d) : `findExistingChildForDynamicRule` peuple `dmChoiceCache` quand un enfant existant satisfait `$default:` — garantit que les cascades récursives (depth > 0) et les FAB frères ne ré-ouvrent pas `showTechnicalItemModal` pour le même type DM
 - "Copier de…" : copie depuis une autre pièce uniquement (pas de template soumission)
 - **Indicateur DM vide** : classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer.
-- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. `getMissingRequiredDm(groupId)` retourne les groupes non remplis. `addRow()` bloque l'ajout d'articles (toast + ouvre le panneau DM) si des groupes requis manquent — sauf pour le chargement d'articles existants (legacy), les cascades, et le bulk load. Le bouton "+" est grisé (`.dm-blocked`) pour les nouvelles pièces sans DM complets.
+- **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Façades','Panneaux']`. `getMissingRequiredDm(groupId)` retourne les groupes non remplis. `addRow()` bloque l'ajout d'articles (toast + ouvre le panneau DM) si des groupes requis manquent — sauf pour le chargement d'articles existants (legacy), les cascades, et le bulk load. Le bouton "+" est grisé (`.dm-blocked`) pour les nouvelles pièces sans DM complets.
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent plus dans le dropdown DM.
 - **Regroupement client_text** (Phase 1) : le dropdown DM (`rdmSearchCatalogue`) déduplique les articles par `client_text` — un seul "Placage de chêne blanc" affiché même si 2+ articles techniques existent. `rdmSelectItem` stocke le `client_text` sur l'entrée DM en plus du `catalogue_item_id` représentant. Structure DM : `{ type, catalogue_item_id, client_text, description }`.
 
@@ -268,18 +268,23 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 - **Façades** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
 - **Panneaux** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
 
-**Sous-champs catalogue** (`bande_chant`, `finition`, `bois_brut`) :
+**Sous-champs catalogue** (`materiau`, `bande_chant`, `finition`, `bois_brut`) :
 ```json
 { "catalogue_item_id": "ST-0087", "client_text": "Bande chêne blanc" }
 ```
 
 **Config** : `DM_ENRICHED_GROUPS` (groupes enrichis + champs), `DM_ENRICHED_LABELS` (labels FR), `DM_ENRICHED_CATALOGUE_FIELDS` (champs combobox vs texte libre)
+- `DM_ENRICHED_CATALOGUE_FIELDS` = `['materiau', 'bande_chant', 'finition', 'bois_brut']`
+- `DM_ENRICHED_GROUPS` — Façades et Panneaux : `materiau` en premier champ (avant `style`/`coupe`/`bande_chant`/`finition`/`bois_brut`)
+- `DM_ENRICHED_LABELS` : `'materiau': 'Matériau'`
+- `ENRICHED_DM_FIELD_MAP` : `'PLACAGE'` → `materiau`, `'PANNEAU'` → `materiau`, `'MATERIAU'`/`'MATÉRIAU'` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
+- `rdmSearchEnriched` fieldCatMap `materiau`: `['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU']`
 
-**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `style`/`coupe`. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
+**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `materiau`/`bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `style`/`coupe`. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
 
 **Validation cohérence** : quand le matériau principal change vers mélamine, `finition` est automatiquement supprimée + toast. `rdmSelectItem` re-rend le panneau enrichi (visibilité `coupe` dépend du matériau)
 
-**Moteur cascade — Tier 0** : dans `resolveMatchTarget`, avant `scoreMatchCandidates`, vérifie si le DM entry a un champ enrichi pour la catégorie de dépense via `getEnrichedDmField(dmEntry, expenseCat)`. Si oui et `catalogue_item_id` ou `client_text` trouvé dans `CATALOGUE_DATA` → résolution directe **sans modale**. Sinon → fallback tiers existants inchangés. `ENRICHED_DM_FIELD_MAP` : `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
+**Moteur cascade — Tier 0** : dans `resolveMatchTarget`, avant `scoreMatchCandidates`, vérifie si le DM entry a un champ enrichi pour la catégorie de dépense via `getEnrichedDmField(dmEntry, expenseCat)`. Si oui et `catalogue_item_id` ou `client_text` trouvé dans `CATALOGUE_DATA` → résolution directe **sans modale**. Sinon → fallback tiers existants inchangés. `ENRICHED_DM_FIELD_MAP` : `PLACAGE`/`PANNEAU`/`MATERIAU` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
 
 **Tests** : 5 groupes (31-35) dans `tests/cascade-engine.test.js`, fixture `tests/fixtures/enriched-dm.js`. Fonction `getEnrichedDmField` dans `tests/cascade-helpers.js`
 
@@ -298,13 +303,13 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Bouton par ligne** : icône ⛏ (`.dm-save-composante-btn`) à gauche du × sur chaque ligne DM ayant `client_text`. `saveDmAsComposante(groupId, idx)` → INSERT composante avec champs mappés depuis le DM entry
 - **Bouton global** : "Enregistrer tout" (`.rdm-save-all-btn`) visible quand ≥2 DM configurés. `saveAllDmAsComposante(groupId)` → composante `dm_type: "Groupe"` avec nom concaténé par ` / ` et notes résumé
 - **`buildComposanteName(dmEntry)`** : nom auto = `{type} {style} {client_text} {coupe}`, champs vides omis
-- **`COMPOSANTES_DATA`** : array global dans calculateur.html, mis à jour en mémoire après chaque INSERT
+- **`COMPOSANTES_DATA`** : array global dans calculateur.html, chargé au démarrage via `loadComposantes()` (non-bloquant) + mis à jour en mémoire après chaque INSERT. Tous les filtres `dm_type` utilisent une comparaison case-insensitive (`.toLowerCase()`)
 
 **Phase 1C — Dropdown composantes + Redesign panneau DM** :
 - **Redesign visuel** : fond navy `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, sous-champs enrichis en layout horizontal flex-wrap
 - **Bookmark SVG** : remplace l'icône ⛏, SVG stroke au repos → filled **persistant** quand composante enregistrée (`.dm-bookmark-btn.saved`). Vérifié au rendu via `buildComposanteName(entry)` + `dm_type` match dans `COMPOSANTES_DATA`. Le label principal de la ligne affiche `buildComposanteName` au lieu de `client_text` quand une composante existe
 - **Dropdown composantes** (`.dm-comp-select`) : filtré par `dm_type`, entre le select type et la recherche matériau. `applyComposanteToDm(groupId, dmIndex, composanteId)` applique tous les champs de la composante au DM + `saveRoomDm` + `reprocessDefaultCascades`
-- **Finition retirée de `DM_REQUIRED_GROUPS`** : `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning toast si composante Façades/Caisson sans finition
+- **DM_REQUIRED_GROUPS réduit** : `['Caisson','Façades','Panneaux']` — Tiroirs et Poignées ne bloquent plus l'ajout d'articles. Warning toast si composante Façades/Caisson sans finition
 - **Transition DM→grille** : `border-radius: 4px 4px 0 0` sur `.room-dm-section`, zéro gap vers `.calc-header`
 - **Déduplication** : `saveDmAsComposante` et `saveAllDmAsComposante` vérifient `nom + dm_type` dans `COMPOSANTES_DATA` avant INSERT — toast si doublon, pas de création
 - **Modale catalogue** : `compModalBandeChant`, `compModalFinition`, `compModalBoisBrut` ont des `<datalist>` peuplés depuis les valeurs distinctes de `COMPOSANTES_DATA` (`_populateCompDatalist`). Auto-régénération du nom (`compModalNom`) quand les champs dm_type/matériau/style/coupe changent (nouvelles composantes seulement)

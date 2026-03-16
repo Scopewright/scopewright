@@ -2685,7 +2685,7 @@
         var _compNom = entry.client_text ? buildComposanteName(entry) : '';
         var _compType = entry.type || 'Autre';
         var _dejaEnregistre = _compNom && COMPOSANTES_DATA.some(function(c) {
-            return c.is_active !== false && c.nom === _compNom && c.dm_type === _compType;
+            return c.is_active !== false && c.nom === _compNom && (c.dm_type || '').toLowerCase() === _compType.toLowerCase();
         });
         // Replace display label with composante name if registered
         if (_dejaEnregistre && _compNom) displayLabel = _compNom;
@@ -2714,7 +2714,8 @@
         html += '<select class="dm-type-select" onchange="updateRoomDmType(\'' + groupId + '\',' + idx + ',this.value)">' + typeOptions + '</select>';
 
         // Composante dropdown (filtered by dm_type)
-        var compOptions = (COMPOSANTES_DATA || []).filter(function(c) { return c.dm_type === entry.type && c.is_active !== false; });
+        var _entryType = (entry.type || '').toLowerCase();
+        var compOptions = (COMPOSANTES_DATA || []).filter(function(c) { return (c.dm_type || '').toLowerCase() === _entryType && c.is_active !== false; });
         if (compOptions.length > 0) {
             html += '<select class="dm-comp-select" onchange="applyComposanteToDm(\'' + groupId + '\',' + idx + ',this.value)">' +
                 '<option value="">\u2014 Composante \u2014</option>';
@@ -2910,6 +2911,7 @@
 
         // Determine allowed categories based on the field
         var fieldCatMap = {
+            'materiau': ['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU'],
             'bande_chant': ['BANDE DE CHANT', 'BANDES DE CHANT'],
             'finition': ['FINITION', 'FINITION BOIS', 'FINITIONS'],
             'bois_brut': ['BOIS BRUT', 'BOIS']
@@ -3162,7 +3164,7 @@
 
         // Dedup: check if composante with same nom + dm_type already exists
         var existing = COMPOSANTES_DATA.find(function(c) {
-            return c.is_active !== false && c.nom === nom && c.dm_type === dmType;
+            return c.is_active !== false && c.nom === nom && (c.dm_type || '').toLowerCase() === dmType.toLowerCase();
         });
         if (existing) {
             showConstraintToast('Composante "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
@@ -3219,7 +3221,7 @@
 
         // Dedup: check if group composante with same nom already exists
         var existing = COMPOSANTES_DATA.find(function(c) {
-            return c.is_active !== false && c.nom === nom && c.dm_type === 'Groupe';
+            return c.is_active !== false && c.nom === nom && (c.dm_type || '').toLowerCase() === 'groupe';
         });
         if (existing) {
             showConstraintToast('Composante groupe "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
@@ -4084,7 +4086,10 @@
         'FINITION': 'finition',
         'FINITION BOIS': 'finition',
         'BOIS BRUT': 'bois_brut',
-        'BOIS_BRUT': 'bois_brut'
+        'BOIS_BRUT': 'bois_brut',
+        'PLACAGE': 'materiau',
+        'PANNEAU': 'materiau',
+        'MATERIAU': 'materiau'
     };
 
     /**
@@ -4107,12 +4112,13 @@
     // Defines which sub-fields are available per DM group type.
     var DM_ENRICHED_GROUPS = {
         'Caisson':  { fields: ['coupe', 'bande_chant', 'finition'] },
-        'Façades':  { fields: ['style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] },
-        'Panneaux': { fields: ['style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
+        'Façades':  { fields: ['materiau', 'style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] },
+        'Panneaux': { fields: ['materiau', 'style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
     };
 
     // Labels for enriched sub-fields
     var DM_ENRICHED_LABELS = {
+        'materiau': 'Matériau',
         'style': 'Style',
         'coupe': 'Coupe',
         'bande_chant': 'Bande de chant',
@@ -4121,7 +4127,7 @@
     };
 
     // Sub-fields that use catalogue combobox search (vs free text)
-    var DM_ENRICHED_CATALOGUE_FIELDS = ['bande_chant', 'finition', 'bois_brut'];
+    var DM_ENRICHED_CATALOGUE_FIELDS = ['materiau', 'bande_chant', 'finition', 'bois_brut'];
 
     /** #209 Phase 1D: filter DM entries by composante_id (priority filter with fallback) */
     function filterDmByComposante(dmEntries, composanteId) {
@@ -12433,6 +12439,15 @@
             });
         }
 
+        /** Load composantes from Supabase (#209) */
+        async function loadComposantes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
+                if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
+                COMPOSANTES_DATA = await resp.json();
+            } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
         function loadFallbackData() {
             const cached = loadFromLocalStorage();
             if (cached && cached.data && cached.data.length > 0) {
@@ -14282,7 +14297,7 @@
         ];
 
         var materialGroups = ['Caisson', 'Fa\u00e7ades', 'Panneaux', 'Tiroirs', 'Poign\u00e9es', 'Finition', '\u00c9clairage', 'Autre'];
-        var DM_REQUIRED_GROUPS = ['Caisson', 'Panneaux', 'Tiroirs', 'Fa\u00e7ades', 'Poign\u00e9es'];
+        var DM_REQUIRED_GROUPS = ['Caisson', 'Fa\u00e7ades', 'Panneaux'];
         var DM_HIDDEN_GROUPS = ['Autre', '\u00c9clairage'];
         var categoryGroupMapping = {};
 
@@ -23559,7 +23574,7 @@
             // Versions
             createVersion,
             // Chargement données
-            saveToLocalStorage, loadFromLocalStorage, loadCatalogueData, loadFallbackData,
+            saveToLocalStorage, loadFromLocalStorage, loadCatalogueData, loadComposantes, loadFallbackData,
             loadEmployeesData, loadUserProfilesMap, getCatalogueItems, loadSupplierCompanies,
             // Configuration
             loadConfigCategories, loadTauxAndExpenses, loadPipelineConfig,
@@ -23826,6 +23841,7 @@
 
                 if (!(await checkPageAccess())) return;
                 await loadCatalogueData();
+                loadComposantes(); // non-blocking, populates COMPOSANTES_DATA
                 await loadConfigCategories();
                 await loadTauxAndExpenses();
                 await loadMediaTags();

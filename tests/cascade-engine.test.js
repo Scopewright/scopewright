@@ -2509,12 +2509,20 @@ describe('33. ENRICHED_DM_FIELD_MAP — coverage', function() {
         assertEqual(ENRICHED_DM_FIELD_MAP['BOIS_BRUT'], 'bois_brut');
     });
 
-    it('does NOT map PANNEAU BOIS', function() {
-        assertEqual(ENRICHED_DM_FIELD_MAP['PANNEAU BOIS'], undefined);
+    it('maps PLACAGE to materiau', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['PLACAGE'], 'materiau');
     });
 
-    it('does NOT map PLACAGE', function() {
-        assertEqual(ENRICHED_DM_FIELD_MAP['PLACAGE'], undefined);
+    it('maps PANNEAU to materiau', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['PANNEAU'], 'materiau');
+    });
+
+    it('maps MATERIAU to materiau', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['MATERIAU'], 'materiau');
+    });
+
+    it('does NOT map PANNEAU BOIS (compound category)', function() {
+        assertEqual(ENRICHED_DM_FIELD_MAP['PANNEAU BOIS'], undefined);
     });
 });
 

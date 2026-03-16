@@ -2589,6 +2589,110 @@
         return allowed.length > 0 ? allowed : null; // null = no filter (show all)
     }
 
+    // #215: Map catalogue category → DM type via inverted categoryGroupMapping
+    // e.g. "Caissons mélamine" → "Caisson" (first mapped group)
+    function _getCategoryDmType(category) {
+        if (!category || !categoryGroupMapping || typeof categoryGroupMapping !== 'object') return null;
+        var groups = categoryGroupMapping[category];
+        if (Array.isArray(groups) && groups.length > 0) return groups[0];
+        // Fuzzy: case-insensitive match
+        var catLower = category.toLowerCase();
+        var keys = Object.keys(categoryGroupMapping);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].toLowerCase() === catLower) {
+                var g = categoryGroupMapping[keys[i]];
+                if (Array.isArray(g) && g.length > 0) return g[0];
+            }
+        }
+        return null;
+    }
+
+    // #215: Find the relevant composante_id(s) for a FAB parent from its room DM entries.
+    // Returns { composanteId, candidates[] } — candidates has length > 1 when multiple composantes of same type.
+    function getRelevantComposanteId(catItem, groupId) {
+        if (!catItem || !groupId) return null;
+        var dmType = _getCategoryDmType(catItem.category);
+        if (!dmType) return null;
+        var dm = getDefaultMaterialsForGroup(groupId);
+        var dmTypeNorm = normalizeDmType(dmType);
+        var matching = dm.filter(function(d) {
+            return d.composante_id && normalizeDmType(d.type) === dmTypeNorm;
+        });
+        if (matching.length === 0) return null;
+        // Deduplicate by composante_id (same composante on multiple DM entries)
+        var seen = {};
+        var unique = [];
+        matching.forEach(function(m) {
+            if (!seen[m.composante_id]) { seen[m.composante_id] = true; unique.push(m); }
+        });
+        return { composanteId: unique[0].composante_id, candidates: unique };
+    }
+
+    // #215: Modal for choosing between 2+ composantes of the same type
+    async function showComposanteChoiceModal(dmType, candidates) {
+        var comps = candidates.map(function(dm) {
+            var comp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === dm.composante_id; });
+            return { dm: dm, comp: comp, nom: comp ? comp.nom : dm.client_text || dm.composante_id };
+        });
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'constraint-modal-overlay';
+            var modal = document.createElement('div');
+            modal.className = 'constraint-modal';
+            modal.style.maxWidth = '480px';
+            modal.innerHTML = '<h3 style="margin:0 0 4px;">Composante : ' + escapeHtml(dmType) + '</h3>'
+                + '<p style="font-size:12px;color:#666;margin:0 0 12px;">Plusieurs composantes configur\u00e9es pour ce type. Laquelle utiliser\u00a0?</p>';
+            var selectedId = null;
+            var list = document.createElement('div');
+            list.style.cssText = 'max-height:260px; overflow-y:auto; margin:0 0 12px;';
+            comps.forEach(function(c) {
+                var btn = document.createElement('div');
+                btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
+                var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="comp-radio"></div>';
+                var subLabel = c.comp ? (c.comp.code || '') : '';
+                btn.innerHTML = radio
+                    + '<div style="flex:1;min-width:0;">'
+                    + '<div><strong>' + escapeHtml(c.nom) + '</strong>' + (subLabel ? ' <span style="font-size:11px;color:#94a3b8;">' + escapeHtml(subLabel) + '</span>' : '') + '</div>'
+                    + '</div>';
+                btn.onmouseover = function() { if (selectedId !== c.dm.composante_id) btn.style.background = '#f8fafc'; };
+                btn.onmouseout = function() { if (selectedId !== c.dm.composante_id) btn.style.background = '#fff'; };
+                btn.onclick = function() {
+                    selectedId = c.dm.composante_id;
+                    list.querySelectorAll('.comp-radio').forEach(function(r) {
+                        r.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;';
+                    });
+                    list.querySelectorAll('div[style*="border:"]').forEach(function(r) { r.style.background = '#fff'; r.style.borderColor = '#e0e0e0'; });
+                    btn.querySelector('.comp-radio').style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid var(--sw-navy, #0B1220);background:var(--sw-navy, #0B1220);flex-shrink:0;box-shadow:inset 0 0 0 3px #fff;';
+                    btn.style.background = '#f0f4ff';
+                    btn.style.borderColor = 'var(--sw-navy, #0B1220)';
+                    confirmBtn.disabled = false;
+                    confirmBtn.style.opacity = '1';
+                };
+                list.appendChild(btn);
+            });
+            modal.appendChild(list);
+            var footer = document.createElement('div');
+            footer.style.cssText = 'display:flex; justify-content:flex-end; gap:8px;';
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'sw-btn-secondary';
+            cancelBtn.textContent = 'Annuler';
+            cancelBtn.style.cssText = 'padding:8px 16px; font-size:13px;';
+            cancelBtn.onclick = function() { overlay.remove(); resolve(null); };
+            var confirmBtn = document.createElement('button');
+            confirmBtn.className = 'sw-btn-primary';
+            confirmBtn.textContent = 'Utiliser';
+            confirmBtn.style.cssText = 'padding:8px 16px; font-size:13px;';
+            confirmBtn.disabled = true;
+            confirmBtn.style.opacity = '0.5';
+            confirmBtn.onclick = function() { overlay.remove(); resolve(selectedId); };
+            footer.appendChild(cancelBtn);
+            footer.appendChild(confirmBtn);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        });
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // MATÉRIAUX PAR DÉFAUT — PAR PIÈCE (ROOM-LEVEL DM)
     // ═══════════════════════════════════════════════════════════════════════
@@ -2792,7 +2896,12 @@
                 }
                 var subAcId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
                 var resolvedClass = (subVal && (subVal.client_text || subVal.catalogue_item_id)) ? ' dm-resolved' : '';
-                html += '<div class="dm-search-wrap rdm-enriched-input">' +
+                // #215: warn on empty catalogue sub-fields when composante is linked
+                var emptyWarnClass = '';
+                if (!resolvedClass && entry.composante_id && !isDisabled && field !== 'materiau') {
+                    emptyWarnClass = ' rdm-empty-warn';
+                }
+                html += '<div class="dm-search-wrap rdm-enriched-input' + emptyWarnClass + '">' +
                     '<input type="text" value="' + escapeAttr(subDisplay) + '"' +
                         ' placeholder="' + (isDisabled ? 'Non applicable (mélamine)' : 'Rechercher...') + '"' +
                         ' oninput="rdmSearchEnriched(\'' + groupId + '\',' + idx + ',\'' + field + '\',this)"' +
@@ -4156,11 +4265,130 @@
         return filtered.length > 0 ? filtered : dmEntries;
     }
 
+    // ── #215 — Composante-first resolution ──
+    // Maps rule targets / expense categories to composante DB fields.
+    // Keys are normalized (lowercase, accent-stripped via normalizeDmType for $default:, uppercase for $match:).
+    var COMPOSANTE_FIELD_MAP = {
+        // $default: targets (normalized groupName → materiau)
+        'panneau':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        'facade':     { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        'caisson':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        'tiroir':     { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        'poignee':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        'finition':   { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+        // $match: targets (uppercase expense category)
+        'BANDE DE CHANT':  { id: 'bande_chant_catalogue_id', text: 'bande_chant_client_text' },
+        'BANDES DE CHANT': { id: 'bande_chant_catalogue_id', text: 'bande_chant_client_text' },
+        'FINITION':        { id: 'finition_catalogue_id',     text: 'finition_client_text' },
+        'FINITION BOIS':   { id: 'finition_catalogue_id',     text: 'finition_client_text' },
+        'BOIS BRUT':       { id: 'bois_brut_catalogue_id',    text: 'bois_brut_client_text' },
+        'PLACAGE':         { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+        'PANNEAU':         { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+        'PANNEAU BOIS':    { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+        'PANNEAU MÉLAMINE':{ id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+        'MATÉRIAU':        { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+        'MATERIAU':        { id: 'materiau_catalogue_id',      text: 'materiau_client_text' }
+    };
+
+    /**
+     * #215: Resolve a catalogue item from a composante's fields.
+     * Returns { catalogue_item_id, client_text } or null.
+     * Pure lookup — no side effects.
+     */
+    function _resolveFromComposanteFields(comp, mapKey) {
+        var field = COMPOSANTE_FIELD_MAP[mapKey];
+        if (!field) return null;
+        var catId = comp[field.id];
+        var clientText = comp[field.text];
+        if (!catId && !clientText) return null;
+        if (catId) {
+            var catItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === catId; });
+            if (!catItem) {
+                if (clientText) {
+                    catItem = (CATALOGUE_DATA || []).find(function(c) { return c.client_text === clientText; });
+                    if (catItem) catId = catItem.id; else return null;
+                } else { return null; }
+            }
+        } else if (clientText) {
+            var catItem = (CATALOGUE_DATA || []).find(function(c) { return c.client_text === clientText; });
+            if (catItem) catId = catItem.id; else return null;
+        }
+        return { catalogue_item_id: catId, client_text: clientText };
+    }
+
+    /**
+     * #215: Resolve a cascade target directly from a composante's fields.
+     * Type-aware: when composante dm_type doesn't match the rule target,
+     * searches roomDM[groupId] for a composante of the matching type.
+     * @param {string} composanteId - UUID from materialCtx.composante_id
+     * @param {string} lookupKey - groupName (for $default:) or expense category (for $match:)
+     * @param {boolean} isDefault - true for $default: targets, false for $match:
+     * @param {string} groupId - room group ID (for cross-type DM lookup)
+     * @returns {{ catalogue_item_id, client_text }} or null
+     */
+    function resolveByComposante(composanteId, lookupKey, isDefault, groupId) {
+        if (!composanteId || !lookupKey) return null;
+        var comp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === composanteId; });
+        if (!comp) return null;
+
+        var mapKey = isDefault ? normalizeDmType(lookupKey) : lookupKey.toUpperCase();
+
+        // Type-aware: check if the composante's dm_type matches the rule target
+        // For $default:, the target is a DM type (e.g., "Panneaux"). For $match:, check the
+        // COMPOSANTE_FIELD_MAP directly since expense categories are cross-type.
+        var effectiveComp = comp;
+        if (isDefault && groupId) {
+            var compTypeNorm = normalizeDmType(comp.dm_type || '');
+            var targetTypeNorm = normalizeDmType(lookupKey);
+            if (compTypeNorm !== targetTypeNorm) {
+                // Cross-type: composante is e.g. "Caisson" but rule is "$default:Panneaux"
+                // Find the correct composante from roomDM entries of the target type
+                var dm = getDefaultMaterialsForGroup(groupId);
+                var crossComp = null;
+                for (var i = 0; i < dm.length; i++) {
+                    if (dm[i].composante_id && normalizeDmType(dm[i].type) === targetTypeNorm) {
+                        crossComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === dm[i].composante_id; });
+                        if (crossComp) break;
+                    }
+                }
+                if (crossComp) {
+                    effectiveComp = crossComp;
+                    cascadeLog('info', '#215: cross-type lookup: ' + comp.code + ' (' + comp.dm_type + ') → ' + crossComp.code + ' (' + crossComp.dm_type + ') for ' + lookupKey);
+                } else {
+                    // No composante of the target type in roomDM — fallback to normal resolution
+                    cascadeLog('info', '#215: no ' + lookupKey + ' composante in roomDM, fallback to normal');
+                    return null;
+                }
+            }
+        }
+
+        var result = _resolveFromComposanteFields(effectiveComp, mapKey);
+        if (result) {
+            cascadeLog('info', '#215: resolved ' + mapKey + ' via composante ' + effectiveComp.code + ' → ' + result.catalogue_item_id);
+        }
+        return result;
+    }
+
     async function resolveCascadeTarget(target, groupId, materialCtx) {
         if (!target) return null;
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
         if (target.startsWith('$default:')) {
             var groupName = target.substring(9);
+
+            // #215: composante-first resolution — skip all fuzzy/tiers/modales
+            if (materialCtx && materialCtx.composante_id) {
+                var _compResult = resolveByComposante(materialCtx.composante_id, groupName, true, groupId);
+                if (_compResult) {
+                    var _compCatId = _compResult.catalogue_item_id;
+                    // Propagate materialCtx like normal $default: resolution
+                    if (_compResult.client_text) { materialCtx.chosenClientText = _compResult.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _compCatId; }
+                    // Cache the result
+                    dmChoiceCache[groupId + ':' + groupName] = _compCatId;
+                    return _compCatId;
+                }
+                // fallback: composante doesn't have this field → continue normal flow
+            }
+
             var dm = getDefaultMaterialsForGroup(groupId);
             // Step 1: Collect DM entries for this type (normalized: accent-insensitive, plural-tolerant)
             var groupNameNorm = normalizeDmType(groupName);
@@ -4293,6 +4521,21 @@
         if (!parentRow) { cascadeLog('warn', '$match: no parent fab row in group ' + groupId); return null; }
         var parentItem = CATALOGUE_DATA.find(function(i) { return i.id === parentRow.catalogueId; });
         if (!parentItem) { cascadeLog('warn', '$match: parent item not found ' + parentRow.catalogueId); return null; }
+
+        // #215: composante-first resolution — skip all fuzzy/tiers/modales
+        if (materialCtx && materialCtx.composante_id) {
+            var _compResult = resolveByComposante(materialCtx.composante_id, expenseCategory, false, groupId);
+            if (_compResult) {
+                var _compCatId = _compResult.catalogue_item_id;
+                // Validate in CATALOGUE_DATA
+                var _compCatItem = CATALOGUE_DATA.find(function(c) { return c.id === _compCatId; });
+                if (_compCatItem) {
+                    dmChoiceCache[groupId + ':' + expenseCategory] = _compCatId;
+                    return _compCatId;
+                }
+            }
+            // fallback: composante doesn't have this field → continue normal flow
+        }
 
         var expCatUpper = expenseCategory.toUpperCase();
         var ruleWords = expCatUpper.split(/\s+/);
@@ -5443,11 +5686,40 @@
             delete _pendingMaterialCtx[parentRowId];
             cascadeLog('info', 'materialCtx: manual child override → "' + materialCtx.chosenClientText + '"');
         }
+        // #215: populate composante_id from DM if not inherited from ancestor
+        if (!materialCtx.composante_id && catItem && catItem.category) {
+            var _relevantComp = getRelevantComposanteId(catItem, groupId);
+            if (_relevantComp) {
+                if (_relevantComp.candidates.length === 1) {
+                    materialCtx.composante_id = _relevantComp.composanteId;
+                    cascadeLog('info', 'materialCtx: composante_id from DM → ' + _relevantComp.composanteId);
+                } else {
+                    // 2+ composantes of same type — check cache or show modal
+                    var _compCacheKey = groupId + ':comp:' + (_getCategoryDmType(catItem.category) || '');
+                    if (dmChoiceCache[_compCacheKey]) {
+                        materialCtx.composante_id = dmChoiceCache[_compCacheKey];
+                        cascadeLog('info', 'materialCtx: composante_id from cache → ' + dmChoiceCache[_compCacheKey]);
+                    } else {
+                        var _chosenCompId = await showComposanteChoiceModal(
+                            _getCategoryDmType(catItem.category) || catItem.category,
+                            _relevantComp.candidates
+                        );
+                        if (_chosenCompId) {
+                            materialCtx.composante_id = _chosenCompId;
+                            dmChoiceCache[_compCacheKey] = _chosenCompId;
+                        } else {
+                            materialCtx.composante_id = _relevantComp.composanteId; // fallback to first
+                        }
+                        cascadeLog('info', 'materialCtx: composante_id from modal → ' + materialCtx.composante_id);
+                    }
+                }
+            }
+        }
         if (!materialCtx.chosenClientText && catItem && catItem.category) {
-            var parentDmType = catItem.category;
+            var parentDmType = _getCategoryDmType(catItem.category) || catItem.category;
             var parentDm = getDefaultMaterialsForGroup(groupId);
             var parentDmEntries = parentDm.filter(function(d) {
-                return d.type && d.type.toLowerCase() === parentDmType.toLowerCase() && (d.client_text || d.catalogue_item_id);
+                return d.type && normalizeDmType(d.type) === normalizeDmType(parentDmType) && (d.client_text || d.catalogue_item_id);
             });
             var parentDmUnique = deduplicateDmByClientText(parentDmEntries);
             if (parentDmUnique.length === 1 && parentDmUnique[0].client_text) {
@@ -9936,6 +10208,9 @@
         .rdm-enriched-row.rdm-disabled { opacity: 0.35; }
         .rdm-enriched-row.rdm-disabled input { cursor: not-allowed; }
         .rdm-enriched-warn { color: #F59E0B; font-size: 13px; flex-shrink: 0; cursor: help; }
+        /* #215: subtle warning on empty composante sub-fields */
+        .rdm-empty-warn input { border-bottom-color: rgba(245,158,11,0.3); }
+        .rdm-empty-warn input::placeholder { color: rgba(245,158,11,0.4); }
 
         /* ── Bookmark + composante dropdown (#209 Phase 1C) ── */
         .dm-bookmark-btn {

@@ -74,6 +74,8 @@ var MATCH_STOP_WORDS = helpers.MATCH_STOP_WORDS;
 var checkDefaultItemMatchCategory = helpers.checkDefaultItemMatchCategory;
 var getEnrichedDmField = helpers.getEnrichedDmField;
 var ENRICHED_DM_FIELD_MAP = helpers.ENRICHED_DM_FIELD_MAP;
+var resolveByComposante = helpers.resolveByComposante;
+var COMPOSANTE_FIELD_MAP = helpers.COMPOSANTE_FIELD_MAP;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
 var ROOM_DM = fixturesDm.ROOM_DM;
@@ -2625,6 +2627,147 @@ describe('35. Enriched DM — backward compatibility', function() {
         // But the text fields exist on the entry
         assertEqual(entry.style, 'Shaker');
         assertEqual(entry.coupe, 'Plain sliced');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 36: resolveByComposante (#215)
+// ════════════════════════════════════════════════════════════════
+
+var TEST_COMPOSANTE_CAISSON = {
+    id: 'comp-001',
+    code: 'COMP-001',
+    nom: 'Caisson Placage chêne',
+    dm_type: 'Caisson',
+    is_active: true,
+    materiau_catalogue_id: 'ST-0021',
+    materiau_client_text: 'placage de chêne blanc FC',
+    bande_chant_catalogue_id: 'ST-0031',
+    bande_chant_client_text: 'bandes de chêne blanc FC',
+    finition_catalogue_id: null,
+    finition_client_text: 'Laque polyuréthane',
+    bois_brut_catalogue_id: null,
+    bois_brut_client_text: null
+};
+var TEST_COMPOSANTE_PANNEAUX = {
+    id: 'comp-002',
+    code: 'COMP-002',
+    nom: 'Panneaux Placage chêne',
+    dm_type: 'Panneaux',
+    is_active: true,
+    materiau_catalogue_id: 'ST-0021',
+    materiau_client_text: 'placage de chêne blanc FC',
+    bande_chant_catalogue_id: null,
+    bande_chant_client_text: null,
+    finition_catalogue_id: null,
+    finition_client_text: null,
+    bois_brut_catalogue_id: null,
+    bois_brut_client_text: null
+};
+var TEST_COMPOSANTES_DATA = [TEST_COMPOSANTE_CAISSON, TEST_COMPOSANTE_PANNEAUX];
+
+// roomDM entries with composante_id for cross-type tests
+var TEST_ROOM_DM_WITH_COMPS = [
+    { type: 'Caisson', client_text: 'placage de chêne blanc FC', catalogue_item_id: 'ST-0021', composante_id: 'comp-001' },
+    { type: 'Panneaux', client_text: 'placage de chêne blanc FC', catalogue_item_id: 'ST-0021', composante_id: 'comp-002' }
+];
+
+describe('36. resolveByComposante — composante-first cascade resolution (#215)', function() {
+
+    it('null composanteId → null', function() {
+        assertEqual(resolveByComposante(null, 'Panneaux', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA), null);
+    });
+
+    it('unknown composanteId → null', function() {
+        assertEqual(resolveByComposante('unknown-id', 'Panneaux', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA), null);
+    });
+
+    it('null lookupKey → null', function() {
+        assertEqual(resolveByComposante('comp-001', null, true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA), null);
+    });
+
+    it('$default:Caisson → materiau via normalizeDmType (same type)', function() {
+        var result = resolveByComposante('comp-001', 'Caisson', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assert(result !== null, 'should not be null');
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+        assertEqual(result.client_text, 'placage de chêne blanc FC');
+    });
+
+    it('$default:Caisson without roomDM → resolves from own fields (no cross-type check)', function() {
+        // No roomDmEntries param → type check skipped, resolves from own fields
+        var result = resolveByComposante('comp-001', 'Caisson', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assert(result !== null, 'should not be null');
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+    });
+
+    it('$default:Panneaux with Caisson composante → cross-type lookup finds Panneaux composante', function() {
+        // comp-001 is Caisson, rule is $default:Panneaux → should find comp-002 via roomDM
+        var result = resolveByComposante('comp-001', 'Panneaux', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA, TEST_ROOM_DM_WITH_COMPS);
+        assert(result !== null, 'should not be null');
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+    });
+
+    it('$default:Panneaux with Caisson composante, no Panneaux in roomDM → null', function() {
+        // roomDM has only Caisson, no Panneaux composante available
+        var dmOnlyCaisson = [{ type: 'Caisson', client_text: 'placage', composante_id: 'comp-001' }];
+        var result = resolveByComposante('comp-001', 'Panneaux', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA, dmOnlyCaisson);
+        assertEqual(result, null);
+    });
+
+    it('$default:Façades with Caisson composante, no roomDM → resolves via normalizeDmType (facade = same mapKey)', function() {
+        // Without roomDM, no type check → normalizeDmType(Façades) = "facade" = same as normalizeDmType(Caisson)? No, facade != caisson
+        // Actually facade normalizes to "facade" and caisson to "caisson" — they are different
+        // Without roomDM entries, cross-type check is skipped, so it resolves from comp's own fields via mapKey "facade"
+        var result = resolveByComposante('comp-001', 'Façades', true, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assert(result !== null, 'should not be null — mapKey "facade" resolves to materiau fields');
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+    });
+
+    it('$match:BANDE DE CHANT → bande_chant fields (no type check for $match)', function() {
+        var result = resolveByComposante('comp-001', 'BANDE DE CHANT', false, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assert(result !== null, 'should not be null');
+        assertEqual(result.catalogue_item_id, 'ST-0031');
+        assertEqual(result.client_text, 'bandes de chêne blanc FC');
+    });
+
+    it('$match:FINITION BOIS → null (finition_catalogue_id is null, client_text not in catalogue)', function() {
+        var result = resolveByComposante('comp-001', 'FINITION BOIS', false, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assertEqual(result, null);
+    });
+
+    it('$match:BOIS BRUT → null (both fields null)', function() {
+        var result = resolveByComposante('comp-001', 'BOIS BRUT', false, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assertEqual(result, null);
+    });
+
+    it('unmapped expense category → null (fallback to existing logic)', function() {
+        var result = resolveByComposante('comp-001', 'QUINCAILLERIE', false, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assertEqual(result, null);
+    });
+
+    it('$match:FINITION (without BOIS) → same as FINITION BOIS', function() {
+        var result = resolveByComposante('comp-001', 'FINITION', false, TEST_COMPOSANTES_DATA, CATALOGUE_DATA);
+        assertEqual(result, null);
+    });
+
+    it('client_text fallback when catalogue_item_id invalid', function() {
+        var compWithBadId = Object.assign({}, TEST_COMPOSANTE_CAISSON, { materiau_catalogue_id: 'ST-9999' });
+        var result = resolveByComposante('comp-001', 'Caisson', true, [compWithBadId], CATALOGUE_DATA);
+        assert(result !== null, 'should not be null');
+        assertEqual(result.catalogue_item_id, 'ST-0021', 'should fallback to client_text lookup');
+    });
+
+    it('COMPOSANTE_FIELD_MAP covers all expected keys', function() {
+        assert(COMPOSANTE_FIELD_MAP['panneau']);
+        assert(COMPOSANTE_FIELD_MAP['facade']);
+        assert(COMPOSANTE_FIELD_MAP['caisson']);
+        assert(COMPOSANTE_FIELD_MAP['BANDE DE CHANT']);
+        assert(COMPOSANTE_FIELD_MAP['FINITION']);
+        assert(COMPOSANTE_FIELD_MAP['FINITION BOIS']);
+        assert(COMPOSANTE_FIELD_MAP['BOIS BRUT']);
+        assert(COMPOSANTE_FIELD_MAP['PLACAGE']);
+        assert(COMPOSANTE_FIELD_MAP['PANNEAU BOIS']);
+        assert(COMPOSANTE_FIELD_MAP['PANNEAU MÉLAMINE']);
     });
 });
 

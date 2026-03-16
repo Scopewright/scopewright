@@ -852,7 +852,38 @@ Quand une composante est appliquée à un DM (via `applyComposanteToDm`), le `co
 - Hérité par copie shallow lors de la construction de `materialCtx` au début de `executeCascade` : `{ chosenClientText: parentMaterialCtx.chosenClientText, composante_id: parentMaterialCtx.composante_id }`
 - Se propage automatiquement à toute la chaîne cascade (parent → enfant → petit-enfant, jusqu'à 3 niveaux)
 
-**Rétrocompatibilité** : si `composante_id` est `null` ou absent sur le DM → `filterDmByComposante` retourne la liste complète → le moteur se comporte exactement comme avant. Les 330 tests automatisés passent sans modification.
+**Rétrocompatibilité** : si `composante_id` est `null` ou absent sur le DM → `filterDmByComposante` retourne la liste complète → le moteur se comporte exactement comme avant.
+
+#### #215 — Résolution composante-first (type-aware)
+
+Quand `materialCtx.composante_id` est présent, le moteur tente une résolution **directe** depuis les champs de la composante avant toute logique DM/fuzzy/modale.
+
+**Fonctions utilitaires** :
+- **`_getCategoryDmType(category)`** : mappe une catégorie catalogue → type DM via l'inversé de `categoryGroupMapping`. Ex: `"Caissons mélamine"` → `"Caisson"`. Fallback case-insensitive. Remplace le fragile `parentDmType = catItem.category` dans `executeCascade`
+- **`getRelevantComposanteId(catItem, groupId)`** : trouve le(s) `composante_id` pertinent(s) depuis les entrées DM du room. Retourne `{ composanteId, candidates[] }` — `candidates.length > 1` quand plusieurs composantes du même type coexistent. Déduplique par `composante_id`
+- **`showComposanteChoiceModal(dmType, candidates)`** : modale de choix entre 2+ composantes du même type (radio buttons, Utiliser/Annuler). Cache dans `dmChoiceCache[groupId + ':comp:' + dmType]`
+
+**`COMPOSANTE_FIELD_MAP`** — table statique de mapping :
+- Clés `$default:` : normalisées via `normalizeDmType` (ex: `facade` → `materiau_catalogue_id`/`materiau_client_text`)
+- Clés `$match:` : en uppercase (ex: `BANDE DE CHANT` → `bande_chant_catalogue_id`/`bande_chant_client_text`, `FINITION BOIS` → `finition_catalogue_id`/`finition_client_text`, `BOIS BRUT` → `bois_brut_catalogue_id`/`bois_brut_client_text`)
+
+**`resolveByComposante(composanteId, lookupKey, isDefault, groupId)`** — type-aware :
+1. Lookup composante dans `COMPOSANTES_DATA` par ID
+2. **Type check** (`$default:` only) : si `dm_type` de la composante ≠ target (ex: composante Caisson mais rule `$default:Panneaux`), cherche dans `roomDM[groupId]` une entrée DM du type cible avec `composante_id` (cross-type lookup)
+3. Normalise la clé (`normalizeDmType` pour `$default:`, uppercase pour `$match:`)
+4. `_resolveFromComposanteFields(comp, mapKey)` — lookup pur dans `COMPOSANTE_FIELD_MAP` → champs composante DB
+5. Valide `catalogue_item_id` dans `CATALOGUE_DATA` — fallback `client_text` si ID invalide
+6. Retourne `{ catalogue_item_id, client_text }` ou `null`
+
+**`executeCascade` materialCtx population** :
+- Utilise `_getCategoryDmType` au lieu de `catItem.category` pour le matching DM (corrige le matching fragile catégorie catalogue ≠ type DM)
+- `getRelevantComposanteId` peuple `materialCtx.composante_id` au depth 0
+- Multi-composante → cache `dmChoiceCache` ou modale `showComposanteChoiceModal`
+- Le filtre DM utilise `normalizeDmType` pour la comparaison de type (accent/pluriel tolerant)
+
+**Injection** : en tout premier dans `resolveCascadeTarget` (après extraction du `groupName`) et `resolveMatchTarget` (après null guards). Passe `groupId` pour le cross-type lookup. Si `resolveByComposante` retourne non-null → skip total du flow existant. Si null → fallback transparent.
+
+**Warning UI** : sous-champs enrichis vides liés à une composante → placeholder orange (`.rdm-empty-warn`) — indique visuellement les champs qui pourraient impacter la résolution cascade
 
 ---
 

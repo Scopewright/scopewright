@@ -320,7 +320,21 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **`resolveCascadeTarget`** (`$default:`) : après dédup `deduplicateDmByClientText`, applique `filterDmByComposante` avec `materialCtx.composante_id`. Réduit les candidats DM avant le filtre catégorie et les modales de choix — élimine les modales ambiguës quand une composante est définie
 - **`resolveMatchTarget`** (`$match:`) : filtre les DM par `composante_id` avant le lookup DM par word-similarity et le Tier 0 (enriched fields). Même fallback si aucun match
 - **`materialCtx.composante_id`** : propagé depuis l'entrée DM du parent FAB (single ou multi-DM path). Hérité par copie shallow dans `executeCascade` → se propage à toute la chaîne parent → enfant → petit-enfant
-- **Rétrocompatibilité** : `composante_id = null/undefined` → `filterDmByComposante` retourne la liste non filtrée → comportement identique à avant. 330 tests inchangés
+- **Rétrocompatibilité** : `composante_id = null/undefined` → `filterDmByComposante` retourne la liste non filtrée → comportement identique à avant
+
+**#215 — Résolution composante-first (type-aware)** :
+- **`_getCategoryDmType(category)`** : mappe une catégorie catalogue vers un type DM via l'inversé de `categoryGroupMapping`. Ex: `"Caissons mélamine"` → `"Caisson"`. Fallback case-insensitive. Remplace le fragile `parentDmType = catItem.category` dans `executeCascade`
+- **`getRelevantComposanteId(catItem, groupId)`** : trouve le(s) `composante_id` pertinent(s) pour un parent FAB depuis ses entrées DM. Retourne `{ composanteId, candidates[] }` — `candidates.length > 1` quand plusieurs composantes du même type coexistent
+- **`showComposanteChoiceModal(dmType, candidates)`** : modale de choix entre 2+ composantes du même type (même pattern que `showDmChoiceModal` — radio buttons, Utiliser/Annuler). Cache dans `dmChoiceCache[groupId + ':comp:' + dmType]`
+- **`COMPOSANTE_FIELD_MAP`** : table statique mappant les clés de règles cascade vers les champs composante DB. Clés `$default:` normalisées via `normalizeDmType` (ex: `facade`, `panneau`, `caisson`). Clés `$match:` en uppercase (ex: `BANDE DE CHANT`, `FINITION BOIS`, `BOIS BRUT`, `PLACAGE`, `PANNEAU BOIS`, `PANNEAU MÉLAMINE`)
+- **`resolveByComposante(composanteId, lookupKey, isDefault, groupId)`** : résolution type-aware depuis les champs de la composante. Si le `dm_type` de la composante ne matche pas le target (ex: composante Caisson mais rule `$default:Panneaux`), cherche dans `roomDM[groupId]` une composante du bon type (cross-type lookup). Valide `catalogue_item_id` dans `CATALOGUE_DATA`, fallback `client_text`. Retourne `{ catalogue_item_id, client_text }` ou `null`
+- **`_resolveFromComposanteFields(comp, mapKey)`** : lookup pur depuis les champs d'une composante (pas de side effects)
+- **`resolveCascadeTarget`** : composante-first check injecté **avant** le DM lookup — si `materialCtx.composante_id` présent et `resolveByComposante` retourne non-null, skip toute la logique DM/tiers/modales. Propage `materialCtx` normalement (`chosenClientText`, `_updatedBySiblingDefault`, `_defaultResolvedId`). Cache le résultat dans `dmChoiceCache`
+- **`resolveMatchTarget`** : même pattern — composante-first check avant la logique dynamic expense category. Cache dans `dmChoiceCache`
+- **`executeCascade` materialCtx population** : utilise `_getCategoryDmType` au lieu de `catItem.category` pour le matching DM. `getRelevantComposanteId` peuple `materialCtx.composante_id` au depth 0. Multi-composante → cache ou modale `showComposanteChoiceModal`. Le filtre DM utilise `normalizeDmType` pour comparaison type
+- **Warning UI** : sous-champs enrichis vides liés à une composante → placeholder orange (`.rdm-empty-warn`, underline `rgba(245,158,11,0.3)`) — indique les champs qui pourraient impacter la résolution cascade
+- **Fallback** : si `resolveByComposante` retourne `null` (champ absent, ID invalide, composante inexistante, pas de composante cross-type) → continue le flow existant sans changement
+- **Tests** : GROUP 36 (15 tests) dans `tests/cascade-engine.test.js` — inclut cross-type lookup, no-roomDM fallback. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 

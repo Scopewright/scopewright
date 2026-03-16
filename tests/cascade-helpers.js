@@ -669,6 +669,93 @@ function getEnrichedDmField(dmEntry, expenseCat) {
     return sub;
 }
 
+// ── #215 — Composante-first resolution ──
+
+var COMPOSANTE_FIELD_MAP = {
+    'panneau':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'facade':     { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'caisson':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'tiroir':     { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'poignee':    { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'finition':   { id: 'materiau_catalogue_id', text: 'materiau_client_text' },
+    'BANDE DE CHANT':  { id: 'bande_chant_catalogue_id', text: 'bande_chant_client_text' },
+    'BANDES DE CHANT': { id: 'bande_chant_catalogue_id', text: 'bande_chant_client_text' },
+    'FINITION':        { id: 'finition_catalogue_id',     text: 'finition_client_text' },
+    'FINITION BOIS':   { id: 'finition_catalogue_id',     text: 'finition_client_text' },
+    'BOIS BRUT':       { id: 'bois_brut_catalogue_id',    text: 'bois_brut_client_text' },
+    'PLACAGE':         { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+    'PANNEAU':         { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+    'PANNEAU BOIS':    { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+    'PANNEAU MÉLAMINE':{ id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+    'MATÉRIAU':        { id: 'materiau_catalogue_id',      text: 'materiau_client_text' },
+    'MATERIAU':        { id: 'materiau_catalogue_id',      text: 'materiau_client_text' }
+};
+
+/**
+ * _resolveFromComposanteFields(comp, mapKey, catalogueData) — pure lookup
+ */
+function _resolveFromComposanteFields(comp, mapKey, catalogueData) {
+    var field = COMPOSANTE_FIELD_MAP[mapKey];
+    if (!field) return null;
+    var catId = comp[field.id];
+    var clientText = comp[field.text];
+    if (!catId && !clientText) return null;
+    if (catId) {
+        var catItem = (catalogueData || []).find(function(c) { return c.id === catId; });
+        if (!catItem) {
+            if (clientText) {
+                catItem = (catalogueData || []).find(function(c) { return c.client_text === clientText; });
+                if (catItem) catId = catItem.id; else return null;
+            } else { return null; }
+        }
+    } else if (clientText) {
+        var catItem = (catalogueData || []).find(function(c) { return c.client_text === clientText; });
+        if (catItem) catId = catItem.id; else return null;
+    }
+    return { catalogue_item_id: catId, client_text: clientText };
+}
+
+/**
+ * resolveByComposante — type-aware composante-first resolution.
+ * @param {string} composanteId
+ * @param {string} lookupKey - groupName ($default:) or expense category ($match:)
+ * @param {boolean} isDefault
+ * @param {object[]} composantesData - COMPOSANTES_DATA
+ * @param {object[]} catalogueData - CATALOGUE_DATA
+ * @param {object[]} [roomDmEntries] - optional roomDM[groupId] for cross-type lookup
+ */
+function resolveByComposante(composanteId, lookupKey, isDefault, composantesData, catalogueData, roomDmEntries) {
+    if (!composanteId || !lookupKey) return null;
+    var comp = (composantesData || []).find(function(c) { return c.id === composanteId; });
+    if (!comp) return null;
+
+    var mapKey = isDefault ? normalizeDmType(lookupKey) : lookupKey.toUpperCase();
+
+    // Type-aware: for $default:, check if composante dm_type matches the target
+    var effectiveComp = comp;
+    if (isDefault && roomDmEntries) {
+        var compTypeNorm = normalizeDmType(comp.dm_type || '');
+        var targetTypeNorm = normalizeDmType(lookupKey);
+        if (compTypeNorm !== targetTypeNorm) {
+            // Cross-type: find composante of the target type from roomDM
+            var crossComp = null;
+            for (var i = 0; i < roomDmEntries.length; i++) {
+                if (roomDmEntries[i].composante_id && normalizeDmType(roomDmEntries[i].type) === targetTypeNorm) {
+                    crossComp = (composantesData || []).find(function(c) { return c.id === roomDmEntries[i].composante_id; });
+                    if (crossComp) break;
+                }
+            }
+            if (crossComp) {
+                effectiveComp = crossComp;
+            } else {
+                return null; // No composante of target type in roomDM
+            }
+        }
+    }
+
+    return _resolveFromComposanteFields(effectiveComp, mapKey, catalogueData);
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -695,6 +782,9 @@ if (typeof module !== 'undefined' && module.exports) {
         parseFraction: parseFraction,
         computeRentabilityPure: computeRentabilityPure,
         getEnrichedDmField: getEnrichedDmField,
-        ENRICHED_DM_FIELD_MAP: ENRICHED_DM_FIELD_MAP
+        ENRICHED_DM_FIELD_MAP: ENRICHED_DM_FIELD_MAP,
+        resolveByComposante: resolveByComposante,
+        _resolveFromComposanteFields: _resolveFromComposanteFields,
+        COMPOSANTE_FIELD_MAP: COMPOSANTE_FIELD_MAP
     };
 }

@@ -854,7 +854,9 @@ Dans le panneau Matériaux par défaut d'une pièce, chaque ligne DM dispose d'u
 
 La cascade est automatiquement relancée après l'application.
 
-**Résolution intelligente par composante** : quand une composante est appliquée à un matériau par défaut, le moteur de cascade filtre automatiquement les DM candidats par la même composante. Ceci élimine les modales de choix ambiguës quand plusieurs matériaux du même type sont configurés dans la pièce. Par exemple, si vous avez 2 types de panneaux mais que le caisson utilise la composante "Caisson mélamine blanc standard", le système résout directement vers le bon panneau sans vous demander de choisir. Si aucun DM ne correspond à la composante, le système se rabat sur le comportement normal (tous les DM candidats).
+**Résolution intelligente par composante (#215)** : quand une composante est appliquée à un matériau par défaut, le moteur de cascade résout directement les articles depuis les champs de la composante — zéro modale, zéro hésitation. Le système est **type-aware** : si la composante est de type "Caisson" mais que le moteur a besoin de résoudre un panneau (`$default:Panneaux`), il cherche automatiquement la composante Panneaux dans les autres matériaux par défaut de la pièce. Quand plusieurs composantes du même type coexistent, une modale de choix apparaît pour la première résolution (le choix est mémorisé pour la suite).
+
+Les sous-champs enrichis (bande de chant, finition, bois brut) vides sont signalés par un soulignement orange subtil quand une composante est liée — ceci indique que la cascade pourrait ne pas résoudre certains articles dérivés.
 
 **Note** : la finition n'est plus un champ obligatoire dans les matériaux par défaut. Un avertissement jaune s'affiche si une composante Façades ou Caisson est appliquée sans finition configurée.
 

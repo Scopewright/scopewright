@@ -303,7 +303,7 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Bouton par ligne** : icône ⛏ (`.dm-save-composante-btn`) à gauche du × sur chaque ligne DM ayant `client_text`. `saveDmAsComposante(groupId, idx)` → INSERT composante avec champs mappés depuis le DM entry
 - **Bouton global** : "Enregistrer tout" (`.rdm-save-all-btn`) visible quand ≥2 DM configurés. `saveAllDmAsComposante(groupId)` → composante `dm_type: "Groupe"` avec nom concaténé par ` / ` et notes résumé
 - **`buildComposanteName(dmEntry)`** : nom auto = `{type} {style} {client_text} {coupe}`, champs vides omis
-- **`COMPOSANTES_DATA`** : array global dans calculateur.html, chargé au démarrage via `loadComposantes()` (non-bloquant) + mis à jour en mémoire après chaque INSERT. Tous les filtres `dm_type` utilisent une comparaison case-insensitive (`.toLowerCase()`)
+- **`COMPOSANTES_DATA`** : array global dans calculateur.html, chargé au démarrage via `loadComposantes()` (non-bloquant) + mis à jour en mémoire après chaque INSERT. Filtres : `c.is_active === true` (strict, pas `!== false`) + `dm_type` case-insensitive (`.toLowerCase()`) + guard `_entryType !== ''` (empêche les matchs sur type vide)
 
 **Phase 1C — Dropdown composantes + Redesign panneau DM** :
 - **Redesign visuel** : fond navy `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, sous-champs enrichis en layout horizontal flex-wrap

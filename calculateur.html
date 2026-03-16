@@ -2685,7 +2685,7 @@
         var _compNom = entry.client_text ? buildComposanteName(entry) : '';
         var _compType = entry.type || 'Autre';
         var _dejaEnregistre = _compNom && COMPOSANTES_DATA.some(function(c) {
-            return c.is_active !== false && c.nom === _compNom && (c.dm_type || '').toLowerCase() === _compType.toLowerCase();
+            return c.is_active === true && c.nom === _compNom && (c.dm_type || '').toLowerCase() === _compType.toLowerCase();
         });
         // Replace display label with composante name if registered
         if (_dejaEnregistre && _compNom) displayLabel = _compNom;
@@ -2715,7 +2715,7 @@
 
         // Composante dropdown (filtered by dm_type)
         var _entryType = (entry.type || '').toLowerCase();
-        var compOptions = (COMPOSANTES_DATA || []).filter(function(c) { return (c.dm_type || '').toLowerCase() === _entryType && c.is_active !== false; });
+        var compOptions = (COMPOSANTES_DATA || []).filter(function(c) { return c.is_active === true && (c.dm_type || '').toLowerCase() === _entryType && _entryType !== ''; });
         if (compOptions.length > 0) {
             html += '<select class="dm-comp-select" onchange="applyComposanteToDm(\'' + groupId + '\',' + idx + ',this.value)">' +
                 '<option value="">\u2014 Composante \u2014</option>';
@@ -3184,7 +3184,7 @@
 
         // Dedup: check if composante with same nom + dm_type already exists
         var existing = COMPOSANTES_DATA.find(function(c) {
-            return c.is_active !== false && c.nom === nom && (c.dm_type || '').toLowerCase() === dmType.toLowerCase();
+            return c.is_active === true && c.nom === nom && (c.dm_type || '').toLowerCase() === dmType.toLowerCase();
         });
         if (existing) {
             showConstraintToast('Composante "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
@@ -3241,7 +3241,7 @@
 
         // Dedup: check if group composante with same nom already exists
         var existing = COMPOSANTES_DATA.find(function(c) {
-            return c.is_active !== false && c.nom === nom && (c.dm_type || '').toLowerCase() === 'groupe';
+            return c.is_active === true && c.nom === nom && (c.dm_type || '').toLowerCase() === 'groupe';
         });
         if (existing) {
             showConstraintToast('Composante groupe "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');

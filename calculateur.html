@@ -2680,14 +2680,27 @@
             var catItem = (CATALOGUE_DATA || []).find(function(i) { return i.id === entry.catalogue_item_id; });
             if (catItem && catItem.client_text) displayLabel = catItem.client_text;
         }
+
+        // #209: check if composante already registered for this DM entry
+        var _compNom = entry.client_text ? buildComposanteName(entry) : '';
+        var _compType = entry.type || 'Autre';
+        var _dejaEnregistre = _compNom && COMPOSANTES_DATA.some(function(c) {
+            return c.is_active !== false && c.nom === _compNom && c.dm_type === _compType;
+        });
+        // Replace display label with composante name if registered
+        if (_dejaEnregistre && _compNom) displayLabel = _compNom;
+
         var acId = 'rdmAC-' + groupId + '-' + idx;
         var html = '<div class="rdm-row-wrap" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +
             '<div class="dm-row rdm-row">';
 
-        // Bookmark button (save as composante)
+        // Bookmark button (save as composante) — filled if already registered
         if (entry.client_text) {
-            html += '<button class="dm-bookmark-btn" onclick="saveDmAsComposante(\'' + groupId + '\',' + idx + ')" title="Enregistrer comme composante">' +
-                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>';
+            var _bkmFill = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'none';
+            var _bkmStroke = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)';
+            var _bkmClass = 'dm-bookmark-btn' + (_dejaEnregistre ? ' saved' : '');
+            html += '<button class="' + _bkmClass + '" onclick="saveDmAsComposante(\'' + groupId + '\',' + idx + ')" title="Enregistrer comme composante">' +
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="' + _bkmFill + '" stroke="' + _bkmStroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>';
         }
 
         // Enriched toggle arrow (only for enriched groups)
@@ -3153,12 +3166,6 @@
         });
         if (existing) {
             showConstraintToast('Composante "' + escapeHtml(nom) + '" existe déjà (' + existing.code + ')');
-            // Still animate bookmark to confirm
-            var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
-            if (rowWrap) {
-                var bkmBtn = rowWrap.querySelector('.dm-bookmark-btn');
-                if (bkmBtn) { bkmBtn.classList.add('saved'); setTimeout(function() { bkmBtn.classList.remove('saved'); }, 2000); }
-            }
             return;
         }
 
@@ -3187,14 +3194,15 @@
             var result = await resp.json();
             var saved = Array.isArray(result) ? result[0] : result;
             COMPOSANTES_DATA.push(saved);
-            showConstraintToast('Composante ' + escapeHtml(saved.nom) + ' enregistr\u00e9e (' + saved.code + ')');
-            // Animate bookmark filled for 2s
+            showConstraintToast('Composante ' + escapeHtml(saved.nom) + ' enregistrée (' + saved.code + ')');
+            // Bookmark stays filled permanently
             var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
             if (rowWrap) {
                 var bkmBtn = rowWrap.querySelector('.dm-bookmark-btn');
                 if (bkmBtn) {
                     bkmBtn.classList.add('saved');
-                    setTimeout(function() { bkmBtn.classList.remove('saved'); }, 2000);
+                    bkmBtn.querySelector('svg').setAttribute('fill', 'rgba(255,255,255,0.7)');
+                    bkmBtn.querySelector('svg').setAttribute('stroke', 'rgba(255,255,255,0.7)');
                 }
             }
         } catch(e) { console.warn('[Composantes] Save error:', e); }
@@ -9770,6 +9778,7 @@
         .room-dm-section .dm-autocomplete {
             background: #131c2e; border: 0.5px solid rgba(255,255,255,0.15); border-top: none;
             box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            min-width: max-content; white-space: nowrap;
         }
         .room-dm-section .dm-ac-item { color: rgba(255,255,255,0.7); }
         .room-dm-section .dm-ac-item:hover, .room-dm-section .dm-ac-item.active { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.95); }

@@ -261,7 +261,7 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 **Bookmark SVG** (icône composante) :
 - Repos : stroke `rgba(255,255,255,0.2)`
 - Hover : stroke `rgba(255,255,255,0.6)`
-- Après sauvegarde : filled `rgba(255,255,255,0.7)` pendant 2s (`.dm-bookmark-btn.saved`)
+- Composante enregistrée : filled `rgba(255,255,255,0.7)` **persistant** (`.dm-bookmark-btn.saved`) — vérifié au rendu, pas d'animation temporaire. Le label principal de la ligne affiche le nom composante (`buildComposanteName`) au lieu du `client_text`
 
 **Dropdown composantes** :
 - Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`
@@ -273,6 +273,7 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Items : `color: rgba(255,255,255,0.7)`, hover `background: rgba(255,255,255,0.07)` + `color: rgba(255,255,255,0.95)`
 - Catégories / secondaire : `rgba(255,255,255,0.35)`
 - Scoped via `.room-dm-section .dm-autocomplete` — n'affecte pas les autocomplete hors DM
+- `min-width: max-content; white-space: nowrap` — empêche le wrap du texte dans les suggestions
 
 **Overflow** : `.furniture-group` utilise `overflow: visible` (pas `hidden`) pour permettre aux dropdowns et autocomplete du panneau DM de déborder visuellement. `.rdm-enriched` utilise `overflow: visible` quand expanded et `overflow: hidden` quand collapsed — les dropdowns dans les sous-champs enrichis ne sont pas clippés
 

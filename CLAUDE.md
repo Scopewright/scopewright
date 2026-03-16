@@ -302,7 +302,7 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 
 **Phase 1C — Dropdown composantes + Redesign panneau DM** :
 - **Redesign visuel** : fond navy `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, sous-champs enrichis en layout horizontal flex-wrap
-- **Bookmark SVG** : remplace l'icône ⛏, SVG stroke au repos → filled 2s après sauvegarde (`.dm-bookmark-btn.saved`)
+- **Bookmark SVG** : remplace l'icône ⛏, SVG stroke au repos → filled **persistant** quand composante enregistrée (`.dm-bookmark-btn.saved`). Vérifié au rendu via `buildComposanteName(entry)` + `dm_type` match dans `COMPOSANTES_DATA`. Le label principal de la ligne affiche `buildComposanteName` au lieu de `client_text` quand une composante existe
 - **Dropdown composantes** (`.dm-comp-select`) : filtré par `dm_type`, entre le select type et la recherche matériau. `applyComposanteToDm(groupId, dmIndex, composanteId)` applique tous les champs de la composante au DM + `saveRoomDm` + `reprocessDefaultCascades`
 - **Finition retirée de `DM_REQUIRED_GROUPS`** : `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning toast si composante Façades/Caisson sans finition
 - **Transition DM→grille** : `border-radius: 4px 4px 0 0` sur `.room-dm-section`, zéro gap vers `.calc-header`

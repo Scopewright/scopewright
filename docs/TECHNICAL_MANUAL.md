@@ -833,6 +833,26 @@ Deux points d'entrée pour enregistrer des composantes directement depuis le pan
 
 **`DM_REQUIRED_GROUPS`** : `'Finition'` retiré — `['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. Warning non-bloquant si composante Façades/Caisson configurée sans `finition_client_text`.
 
+#### Phase 1D — Résolution cascade par composante_id
+
+Quand une composante est appliquée à un DM (via `applyComposanteToDm`), le `composante_id` est stocké sur l'entrée DM (`dm.composante_id = comp.id`). Le moteur de cascade utilise ce champ pour filtrer les DM candidats en priorité, éliminant les modales de choix ambiguës.
+
+**Helper** : `filterDmByComposante(dmEntries, composanteId)` — filtre les DM par `composante_id`. Si `composanteId` est null/undefined → retourne la liste non filtrée. Si le filtre ne retourne aucun résultat → fallback à la liste complète.
+
+**Points d'injection dans le moteur** :
+
+1. **`resolveCascadeTarget`** (`$default:`) : après `deduplicateDmByClientText()`, le filtre `filterDmByComposante` est appliqué avec `materialCtx.composante_id` sur `dmUnique`. Ceci réduit les candidats DM **avant** le filtre catégorie `getAllowedCategoriesForGroup` et les modales de choix. Si un seul candidat reste après filtre → résolution directe sans modale.
+
+2. **`resolveMatchTarget`** (`$match:`) : les DM récupérés par `getDefaultMaterialsForGroup(groupId)` sont filtrés par `filterDmByComposante` **avant** le lookup DM par word-similarity et le Tier 0 (enriched fields).
+
+**Propagation via `materialCtx`** :
+
+- `materialCtx.composante_id` est peuplé depuis l'entrée DM du parent FAB dans `executeCascade` (deux chemins : single DM entry et multi-DM choice)
+- Hérité par copie shallow lors de la construction de `materialCtx` au début de `executeCascade` : `{ chosenClientText: parentMaterialCtx.chosenClientText, composante_id: parentMaterialCtx.composante_id }`
+- Se propage automatiquement à toute la chaîne cascade (parent → enfant → petit-enfant, jusqu'à 3 niveaux)
+
+**Rétrocompatibilité** : si `composante_id` est `null` ou absent sur le DM → `filterDmByComposante` retourne la liste complète → le moteur se comporte exactement comme avant. Les 330 tests automatisés passent sans modification.
+
 ---
 
 ## 5. Workflow de soumission

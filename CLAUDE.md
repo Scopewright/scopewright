@@ -310,6 +310,13 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Modale catalogue** : `compModalBandeChant`, `compModalFinition`, `compModalBoisBrut` ont des `<datalist>` peuplés depuis les valeurs distinctes de `COMPOSANTES_DATA` (`_populateCompDatalist`). Auto-régénération du nom (`compModalNom`) quand les champs dm_type/matériau/style/coupe changent (nouvelles composantes seulement)
 - **Overflow fix** : `.rdm-enriched` a `overflow: visible` (expanded) / `overflow: hidden` (collapsed) — empêche le clipping des dropdowns dans les sous-champs enrichis
 
+**Phase 1D — Résolution cascade par composante_id** :
+- **`filterDmByComposante(dmEntries, composanteId)`** : filtre les entrées DM par `composante_id`. Si aucun match → fallback liste complète (rétrocompatibilité)
+- **`resolveCascadeTarget`** (`$default:`) : après dédup `deduplicateDmByClientText`, applique `filterDmByComposante` avec `materialCtx.composante_id`. Réduit les candidats DM avant le filtre catégorie et les modales de choix — élimine les modales ambiguës quand une composante est définie
+- **`resolveMatchTarget`** (`$match:`) : filtre les DM par `composante_id` avant le lookup DM par word-similarity et le Tier 0 (enriched fields). Même fallback si aucun match
+- **`materialCtx.composante_id`** : propagé depuis l'entrée DM du parent FAB (single ou multi-DM path). Hérité par copie shallow dans `executeCascade` → se propage à toute la chaîne parent → enfant → petit-enfant
+- **Rétrocompatibilité** : `composante_id = null/undefined` → `filterDmByComposante` retourne la liste non filtrée → comportement identique à avant. 330 tests inchangés
+
 ### QTY multiplicateur universel (`qty_multiplier`)
 
 Champ multiplicateur global par ligne article, indépendant du type de calcul (pi², pi³, unitaire).

@@ -4115,6 +4115,13 @@
     // Sub-fields that use catalogue combobox search (vs free text)
     var DM_ENRICHED_CATALOGUE_FIELDS = ['bande_chant', 'finition', 'bois_brut'];
 
+    /** #209 Phase 1D: filter DM entries by composante_id (priority filter with fallback) */
+    function filterDmByComposante(dmEntries, composanteId) {
+        if (!composanteId) return dmEntries;
+        var filtered = dmEntries.filter(function(e) { return e.composante_id === composanteId; });
+        return filtered.length > 0 ? filtered : dmEntries;
+    }
+
     async function resolveCascadeTarget(target, groupId, materialCtx) {
         if (!target) return null;
         if (!target.startsWith('$default:') && !target.startsWith('$match:')) return target;
@@ -4145,6 +4152,16 @@
             // Step 2b: Choose DM entry
             var chosenEntry;
             var dmUnique = deduplicateDmByClientText(dmMatches);
+
+            // #209 Phase 1D: filter by composante_id from materialCtx (priority, fallback to all)
+            var _compId = materialCtx && materialCtx.composante_id;
+            if (_compId) {
+                var _beforeComp = dmUnique.length;
+                dmUnique = filterDmByComposante(dmUnique, _compId);
+                if (dmUnique.length < _beforeComp) {
+                    cascadeLog('info', '#209: $default: DM filtered by composante_id ' + _compId + ': ' + _beforeComp + ' → ' + dmUnique.length);
+                }
+            }
 
             // #205b: filter DM entries by allowed categories for this group
             var _allowedCatsForDm = getAllowedCategoriesForGroup(groupName);
@@ -4258,6 +4275,10 @@
         // via shared word root after normalizeDmType (strip accents + trailing s/x)
         var dmCatItem = null;
         var dm = getDefaultMaterialsForGroup(groupId);
+        // #209 Phase 1D: filter DM by composante_id from materialCtx
+        if (materialCtx && materialCtx.composante_id && dm && dm.length > 0) {
+            dm = filterDmByComposante(dm, materialCtx.composante_id);
+        }
         if (dm && dm.length > 0) {
             var _expWords = expenseCategory.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });
             for (var di = 0; di < dm.length; di++) {
@@ -5380,7 +5401,7 @@
 
         // Cascade material context: inherited from ancestor cascade, or pre-populated from
         // the parent FAB's DM. Overridden by _pendingMaterialCtx (manual child change).
-        var materialCtx = parentMaterialCtx ? { chosenClientText: parentMaterialCtx.chosenClientText } : {};
+        var materialCtx = parentMaterialCtx ? { chosenClientText: parentMaterialCtx.chosenClientText, composante_id: parentMaterialCtx.composante_id || null } : {};
         // Manual child change: consume pending materialCtx (overrides DM-based ctx)
         if (_pendingMaterialCtx[parentRowId]) {
             materialCtx.chosenClientText = _pendingMaterialCtx[parentRowId].chosenClientText;
@@ -5396,7 +5417,9 @@
             var parentDmUnique = deduplicateDmByClientText(parentDmEntries);
             if (parentDmUnique.length === 1 && parentDmUnique[0].client_text) {
                 materialCtx.chosenClientText = parentDmUnique[0].client_text;
-                cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '"');
+                // #209 Phase 1D: propagate composante_id from parent DM entry
+                if (parentDmUnique[0].composante_id) materialCtx.composante_id = parentDmUnique[0].composante_id;
+                cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '"' + (materialCtx.composante_id ? ' (comp: ' + materialCtx.composante_id + ')' : ''));
             } else if (parentDmUnique.length > 1) {
                 var parentCacheKey = groupId + ':' + parentDmType;
                 var parentDmChoice = null;
@@ -5446,7 +5469,9 @@
                 }
                 if (parentDmChoice && parentDmChoice.client_text) {
                     materialCtx.chosenClientText = parentDmChoice.client_text;
-                    cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '" (chosen)');
+                    // #209 Phase 1D: propagate composante_id from chosen DM entry
+                    if (parentDmChoice.composante_id) materialCtx.composante_id = parentDmChoice.composante_id;
+                    cascadeLog('info', 'materialCtx: parent DM "' + parentDmType + '" → "' + materialCtx.chosenClientText + '" (chosen)' + (materialCtx.composante_id ? ' (comp: ' + materialCtx.composante_id + ')' : ''));
                 }
             }
         }

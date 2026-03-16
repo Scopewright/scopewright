@@ -863,9 +863,31 @@ Quand `materialCtx.composante_id` est présent, le moteur tente une résolution 
 - **`getRelevantComposanteId(catItem, groupId)`** : trouve le(s) `composante_id` pertinent(s) depuis les entrées DM du room. Retourne `{ composanteId, candidates[] }` — `candidates.length > 1` quand plusieurs composantes du même type coexistent. Déduplique par `composante_id`
 - **`showComposanteChoiceModal(dmType, candidates)`** : modale de choix entre 2+ composantes du même type (radio buttons, Utiliser/Annuler). Cache dans `dmChoiceCache[groupId + ':comp:' + dmType]`
 
-**`COMPOSANTE_FIELD_MAP`** — table statique de mapping :
-- Clés `$default:` : normalisées via `normalizeDmType` (ex: `facade` → `materiau_catalogue_id`/`materiau_client_text`)
-- Clés `$match:` : en uppercase (ex: `BANDE DE CHANT` → `bande_chant_catalogue_id`/`bande_chant_client_text`, `FINITION BOIS` → `finition_catalogue_id`/`finition_client_text`, `BOIS BRUT` → `bois_brut_catalogue_id`/`bois_brut_client_text`)
+**`COMPOSANTE_FIELD_MAP`** — table statique complète (20 entrées) :
+
+| Clé (lookup) | Type | `id` field | `text` field |
+|---|---|---|---|
+| `panneau` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `facade` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `caisson` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `tiroir` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `poignee` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `finition` | $default: | `materiau_catalogue_id` | `materiau_client_text` |
+| `BANDE DE CHANT` | $match: | `bande_chant_catalogue_id` | `bande_chant_client_text` |
+| `BANDES DE CHANT` | $match: | `bande_chant_catalogue_id` | `bande_chant_client_text` |
+| `FINITION` | $match: | `finition_catalogue_id` | `finition_client_text` |
+| `FINITION BOIS` | $match: | `finition_catalogue_id` | `finition_client_text` |
+| `BOIS BRUT` | $match: | `bois_brut_catalogue_id` | `bois_brut_client_text` |
+| `PLACAGE` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+| `PANNEAU` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+| `PANNEAU BOIS` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+| `PANNEAU MÉLAMINE` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+| `MATÉRIAU` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+| `MATERIAU` | $match: | `materiau_catalogue_id` | `materiau_client_text` |
+
+Les clés `$default:` sont normalisées via `normalizeDmType` (lowercase, strip accents, strip trailing s/x). Les clés `$match:` sont en uppercase brut.
+
+**Extension future — `composante_lookup`** : champ optionnel dans `calculation_rule_ai` pour les FAB qui doivent chercher un type DM différent du leur (ex: article "Filler" dans catégorie "Accessoires" → lookup composante "Panneaux"). Non implémenté — le cross-type lookup dans `resolveByComposante` couvre le cas courant via `roomDM`
 
 **`resolveByComposante(composanteId, lookupKey, isDefault, groupId)`** — type-aware :
 1. Lookup composante dans `COMPOSANTES_DATA` par ID
@@ -884,6 +906,42 @@ Quand `materialCtx.composante_id` est présent, le moteur tente une résolution 
 **Injection** : en tout premier dans `resolveCascadeTarget` (après extraction du `groupName`) et `resolveMatchTarget` (après null guards). Passe `groupId` pour le cross-type lookup. Si `resolveByComposante` retourne non-null → skip total du flow existant. Si null → fallback transparent.
 
 **Warning UI** : sous-champs enrichis vides liés à une composante → placeholder orange (`.rdm-empty-warn`) — indique visuellement les champs qui pourraient impacter la résolution cascade
+
+**Flow complet de résolution cascade avec composantes** :
+
+```
+executeCascade(parentRowId)
+ │
+ ├─ 1. materialCtx hérité du parent? → copie shallow
+ ├─ 2. _pendingMaterialCtx? → override (changement manuel enfant)
+ ├─ 3. materialCtx.composante_id absent?
+ │    ├─ _getCategoryDmType(catItem.category) → dmType
+ │    ├─ getRelevantComposanteId(catItem, groupId)
+ │    │    ├─ 1 composante → materialCtx.composante_id = compId
+ │    │    └─ 2+ composantes → cache ou showComposanteChoiceModal
+ │    └─ null → pas de composante, pipeline fuzzy classique
+ ├─ 4. materialCtx.chosenClientText absent?
+ │    ├─ parentDmType = _getCategoryDmType() || catItem.category
+ │    ├─ filtre DM par normalizeDmType(type)
+ │    └─ 1 DM → auto, 2+ DM → cache/infer/filter/modale
+ │
+ └─ Pour chaque rule:
+      │
+      ├─ $default:GroupName
+      │    ├─ resolveByComposante(compId, GroupName, true, groupId)
+      │    │    ├─ compType == targetType → _resolveFromComposanteFields
+      │    │    └─ compType ≠ targetType → cross-type: cherche dans roomDM
+      │    ├─ si résultat → skip DM/fuzzy, cache, retourne catId
+      │    └─ si null → pipeline DM existant (filterDmByComposante → tiers → modales)
+      │
+      └─ $match:EXPENSE_CAT
+           ├─ resolveByComposante(compId, EXPENSE_CAT, false, groupId)
+           │    └─ lookup dans COMPOSANTE_FIELD_MAP[uppercase] → champs composante
+           ├─ si résultat → skip fuzzy, cache, retourne catId
+           └─ si null → Tier 0 enriched → scoreMatchCandidates → modales
+```
+
+**Tests** : GROUP 36 (15 assertions) dans `tests/cascade-engine.test.js`. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`.
 
 ---
 

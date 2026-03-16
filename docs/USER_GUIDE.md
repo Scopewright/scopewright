@@ -825,38 +825,68 @@ Pour les doublons détectés, un bouton **Uniformiser** permet de corriger en un
 
 ### Composantes
 
-Les composantes sont des regroupements nommés de propriétés constructives (matériau, style, coupe, bande de chant, finition, bois brut) par type de matériau par défaut.
-
-**Accès** : Catalogue → bouton "Composantes" dans la barre d'en-tête.
-
-**Fonctionnalités** :
-- **Filtrer** par type DM (Caisson, Façades, Panneaux, etc.) via le dropdown
-- **Créer** une composante avec le bouton "+" — remplir le nom, le type DM, et les champs optionnels
-- **Modifier** une composante en cliquant dessus dans la liste
-- **Supprimer** une composante via le bouton corbeille (suppression douce, récupérable)
+Une composante, c'est une « recette matériau » réutilisable. Au lieu de reconfigurer les mêmes matériaux à chaque pièce (matériau, bande de chant, finition, bois brut, style, coupe), vous enregistrez la combinaison une fois sous un nom parlant (ex: « Caisson Placage chêne blanc rift cut ») et vous la réappliquez en un clic.
 
 Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
 
-**Note** : les composantes sont actuellement gérées dans le catalogue. L'intégration dans le calculateur (sélecteur composante par pièce) sera ajoutée dans une phase ultérieure.
+#### Gérer les composantes dans le catalogue
+
+**Accès** : Catalogue → bouton **Composantes** dans la barre d'en-tête. Un panneau latéral s'ouvre avec la liste de toutes vos composantes.
+
+**Ce que vous pouvez faire** :
+- **Filtrer** par type (Caisson, Façades, Panneaux…) via le dropdown en haut
+- **Créer** une composante avec le bouton **+** — choisir le type, nommer la composante, remplir les champs matériau/bande de chant/finition/bois brut/style/coupe
+- **Modifier** une composante existante en cliquant dessus
+- **Supprimer** une composante (suppression douce — elle peut être récupérée)
+
+Les champs bande de chant, finition et bois brut proposent des suggestions basées sur vos composantes existantes (datalist auto-rempli).
 
 #### Enregistrer une composante depuis le calculateur
 
-Vous pouvez enregistrer vos matériaux par défaut comme composante réutilisable directement depuis le panneau DM d'une pièce :
+Quand vous configurez les matériaux par défaut d'une pièce et que la combinaison vous plaît, vous pouvez la sauvegarder en composante directement :
 
-- **Ligne individuelle** : cliquez l'icône ⛏ à gauche du × sur une ligne DM pour l'enregistrer seule comme composante. Le nom est généré automatiquement depuis le type, le style, le matériau et la coupe.
-- **Toute la pièce** : si la pièce contient au moins 2 matériaux configurés, le bouton "Enregistrer tout" apparaît. Il crée une composante de type "Groupe" combinant tous les DM de la pièce.
+1. **Ligne individuelle** — cliquez l'icône signet (bookmark) à gauche du × sur la ligne DM. Le nom est généré automatiquement : « {Type} {Style} {Matériau} {Coupe} ». Si la composante existe déjà (même nom + même type), un toast vous le signale — pas de doublon créé.
 
-Les composantes enregistrées sont visibles dans le catalogue via le bouton "Composantes".
+2. **Toute la pièce** — si la pièce contient au moins 2 matériaux configurés, le bouton « Enregistrer tout » apparaît en haut du panneau DM. Il crée une composante de type « Groupe » qui combine tous les DM de la pièce avec un nom résumé.
+
+Le bookmark passe en **rempli** (au lieu de vide) quand la composante est enregistrée. Cet état est vérifié à chaque affichage — pas d'animation temporaire, le bookmark reste rempli tant qu'une composante correspondante existe.
 
 #### Appliquer une composante à une pièce
 
-Dans le panneau Matériaux par défaut d'une pièce, chaque ligne DM dispose d'un dropdown "— Composante —" filtré par type. Sélectionnez une composante pour remplir automatiquement le matériau, le style, la coupe, la bande de chant, la finition et le bois brut.
+Dans le panneau Matériaux par défaut, chaque ligne DM dispose d'un dropdown **« — Composante — »** filtré par type. Sélectionnez une composante pour remplir automatiquement tous les champs (matériau, style, coupe, bande de chant, finition, bois brut).
 
-La cascade est automatiquement relancée après l'application.
+La cascade est automatiquement relancée : les articles générés (panneaux, bandes de chant, finitions…) reflètent immédiatement les matériaux de la composante choisie.
 
-**Résolution intelligente par composante (#215)** : quand une composante est appliquée à un matériau par défaut, le moteur de cascade résout directement les articles depuis les champs de la composante — zéro modale, zéro hésitation. Le système est **type-aware** : si la composante est de type "Caisson" mais que le moteur a besoin de résoudre un panneau (`$default:Panneaux`), il cherche automatiquement la composante Panneaux dans les autres matériaux par défaut de la pièce. Quand plusieurs composantes du même type coexistent, une modale de choix apparaît pour la première résolution (le choix est mémorisé pour la suite).
+#### Comment le système utilise les composantes dans la cascade
 
-Les sous-champs enrichis (bande de chant, finition, bois brut) vides sont signalés par un soulignement orange subtil quand une composante est liée — ceci indique que la cascade pourrait ne pas résoudre certains articles dérivés.
+Quand vous avez appliqué des composantes à vos matériaux par défaut, le système les utilise pour résoudre les articles **directement depuis les champs de la composante** — sans vous poser de question et sans afficher de modale de choix. C'est la grande différence avec la résolution classique qui passe par le catalogue et peut nécessiter des choix manuels.
+
+**Résolution croisée entre types** : si la composante est de type « Caisson » mais que le moteur a besoin de résoudre un panneau ou une façade, il cherche automatiquement la composante du bon type dans les autres matériaux par défaut de la pièce. Vous n'avez rien à faire — le système sait que chaque type a sa propre composante.
+
+**Exemple concret** : vous avez configuré une pièce avec :
+- Caisson → composante « Caisson Placage chêne blanc »
+- Panneaux → composante « Panneaux Placage chêne blanc »
+- Façades → composante « Façades Laque polyuréthane »
+
+Quand vous ajoutez un caisson, le système :
+1. Résout le panneau via la composante **Caisson** (même type → direct)
+2. Résout la bande de chant via la composante **Caisson** (sous-champ enrichi)
+3. Résout le panneau décoratif via la composante **Panneaux** (type différent → cross-type)
+4. Résout la finition via la composante **Façades** (sous-champ finition)
+
+Tout ça sans aucune modale — résolution instantanée.
+
+**Plusieurs composantes du même type** : si vous avez 2+ composantes « Façades » dans la même pièce (cas rare mais possible), le système vous demande laquelle utiliser la première fois. Le choix est mémorisé pour la suite de la cascade.
+
+#### Détachement et modifications manuelles
+
+Si vous modifiez manuellement un sous-champ enrichi (bande de chant, finition…) après avoir appliqué une composante, le bookmark repasse en **vide** (non rempli) et le lien avec la composante est rompu. Le label de la ligne revient au texte matériau au lieu du nom de composante. C'est normal : votre configuration manuelle prend le dessus.
+
+#### Warning sur les champs vides
+
+Quand une composante est liée à un matériau par défaut, les sous-champs catalogue vides (bande de chant, finition, bois brut) apparaissent avec un **soulignement orange subtil**. C'est un indicateur visuel qui signifie : « ce champ pourrait être utile pour la résolution cascade, mais il n'est pas rempli ».
+
+Ce n'est pas une erreur — certains matériaux n'ont tout simplement pas besoin de ces champs (ex: la mélamine n'a pas de finition bois). Mais si des articles attendus ne sont pas générés automatiquement, vérifiez si les champs signalés en orange ne sont pas la cause.
 
 **Note** : la finition n'est plus un champ obligatoire dans les matériaux par défaut. Un avertissement jaune s'affiche si une composante Façades ou Caisson est appliquée sans finition configurée.
 

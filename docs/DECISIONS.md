@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-15
+> **Dernière mise à jour** : 2026-03-16
 
 ---
 
@@ -905,4 +905,32 @@ Fallback : si le filtre vide la liste → liste originale conservée (sécurité
 **Contexte** : Les estimateurs configurent les mêmes combinaisons de matériaux (matériau + bande de chant + finition + bois brut) répétitivement pour chaque pièce. Besoin de regroupements nommés réutilisables.
 **Décision** : Nouvelle table `composantes` avec dual-storage (client_text + catalogue_id) pour chaque sous-champ, codes auto COMP-XXX, CRUD drawer dans le catalogue. Soft delete (is_active). FK nullable sur room_items.composante_id.
 **Alternatives** : (a) Templates DM en JSONB dans app_config — moins structuré, pas de code unique. (b) Cloner les DM entre pièces — ne crée pas de références nommées réutilisables.
-**Conséquences** : Phase 1A = table + CRUD catalogue. Phase 2 = sélecteur composante dans le calculateur (room DM). La FK room_items.composante_id est prête mais pas encore utilisée côté UI. Phase 1B = enregistrement depuis le panneau DM du calculateur (bouton par ligne + bouton global).
+**Conséquences** : Phase 1A = table + CRUD catalogue. Phase 1B = enregistrement depuis DM. Phase 1C = dropdown composantes + redesign panneau DM navy. Phase 1D = résolution cascade filtrée par composante_id. #215 = résolution composante-first type-aware (voir DEC-048).
+
+---
+
+## DEC-048 — Résolution cascade composante-first vs fuzzy (#215)
+
+**Date** : 2026-03-16
+
+**Contexte** : Avec le système de composantes (#209), les combinaisons matériau/bande de chant/finition/bois brut sont pré-définies. Le moteur de cascade continuait pourtant à résoudre via le pipeline fuzzy multi-tiers (DM → catalogue → modales), même quand une composante complète existait. Résultat : modales inutiles, résolutions lentes, risque d'incohérence entre ce que la composante définit et ce que le fuzzy résout.
+
+De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catégorie catalogue, ex: "Caissons mélamine") pour filtrer les DM entries par type. Or les DM entries ont un type comme "Caisson" — le matching `"caissons mélamine" === "caisson"` échouait systématiquement, forçant un fallback fragile.
+
+**Décision** : Résolution composante-first type-aware. Si `materialCtx.composante_id` est présent, `resolveByComposante` tente une résolution directe depuis les champs de la composante (zéro fuzzy, zéro modale). Cross-type lookup : si la composante est d'un type différent du target (ex: composante Caisson mais rule `$default:Panneaux`), le système cherche dans les DM de la pièce une composante du bon type. Fallback transparent au pipeline fuzzy si la composante ne couvre pas le champ demandé.
+
+`_getCategoryDmType(category)` remplace `catItem.category` en mappant via l'inversé de `categoryGroupMapping`. Le filtre DM utilise `normalizeDmType` pour la comparaison (accent/pluriel tolerant).
+
+**Alternatives considérées** :
+- **Garder le pipeline fuzzy avec composante comme hint** : le composante_id sert uniquement à filtrer les candidats DM (`filterDmByComposante`), le fuzzy continue à tourner. Plus conservateur, mais conserve les modales et la latence. Déjà implémenté en Phase 1D — insuffisant car ne résout pas le problème cross-type.
+- **`composante_lookup` dans `calculation_rule_ai`** : un champ optionnel sur les articles FAB pour spécifier un type DM alternatif (ex: article "Filler" → lookup "Panneaux"). Plus explicite mais nécessite de modifier chaque article. Approche complémentaire possible dans le futur.
+- **Réécrire complètement `executeCascade`** : refactoring majeur du pipeline de résolution. Trop risqué à ce stade — 347 tests à maintenir, pas de régression.
+
+**Conséquences** :
+- `COMPOSANTE_FIELD_MAP` : table statique de 20 entrées mappant targets cascade → champs composante DB
+- `resolveByComposante` est le premier check dans `resolveCascadeTarget` et `resolveMatchTarget` — skip complet du pipeline fuzzy quand une composante couvre le champ
+- `getRelevantComposanteId` peuple `materialCtx.composante_id` au depth 0 via `_getCategoryDmType`
+- `showComposanteChoiceModal` : modale pour 2+ composantes du même type (cas rare, choix mémorisé)
+- Warning UI orange sur sous-champs enrichis vides liés à une composante
+- 347 tests passent (15 dans GROUP 36), dont cross-type lookup et no-roomDM fallback
+- Rétrocompatibilité totale : `composante_id = null` → pipeline fuzzy inchangé

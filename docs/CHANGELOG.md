@@ -2,7 +2,27 @@
 
 > Historique chronologique des modifications significatives.
 >
-> **Dernière mise à jour** : 2026-03-15
+> **Dernière mise à jour** : 2026-03-16
+
+---
+
+## 2026-03-16
+
+### Features
+- **#209 Phase 1D — Résolution cascade par composante_id** : `filterDmByComposante` filtre les DM candidats par `composante_id` dans `resolveCascadeTarget` et `resolveMatchTarget`. `materialCtx.composante_id` propagé à toute la chaîne cascade. Élimine les modales ambiguës quand une composante est définie
+- **#209 — Enrichissement DM : champ Matériau** : ajout de `materiau` comme premier sous-champ combobox catalogue pour Façades et Panneaux (`DM_ENRICHED_GROUPS`, `DM_ENRICHED_CATALOGUE_FIELDS`, `DM_ENRICHED_LABELS`, `ENRICHED_DM_FIELD_MAP`). `rdmSearchEnriched` fieldCatMap couvre PLACAGE, PANNEAU, PANNEAU MÉLAMINE, PANNEAU BOIS, PANNEAUX, MATÉRIAU, MATERIAU
+- **#209 — `loadComposantes()` au démarrage** : `COMPOSANTES_DATA` chargé depuis Supabase au lancement de calculateur.html (non-bloquant). Corrige le dropdown composantes vide
+- **#209 — DM_REQUIRED_GROUPS réduit** : de `['Caisson','Panneaux','Tiroirs','Façades','Poignées']` à `['Caisson','Façades','Panneaux']`
+- **#214 — Nom composante dans modale DM** : `showDmChoiceModal` affiche `composante.nom` au lieu de `client_text` quand une composante est liée
+- **#215 — Résolution composante-first type-aware** (DEC-048) : `resolveByComposante` résout directement depuis les champs composante avant toute logique fuzzy/DM. Cross-type lookup : composante Caisson mais rule `$default:Panneaux` → trouve la composante Panneaux dans les DM de la pièce. `_getCategoryDmType` remplace `catItem.category` par mapping via `categoryGroupMapping`. `getRelevantComposanteId` peuple `materialCtx.composante_id` au depth 0. `showComposanteChoiceModal` pour 2+ composantes du même type. 347 tests (15 dans GROUP 36)
+
+### Corrections
+- **#209 — Dropdown composantes strict filter** : `is_active === true` (au lieu de `!== false` qui acceptait null/undefined). Guard `_entryType !== ''` empêche les matchs sur type vide. Comparaison `dm_type` case-insensitive
+- **#209 — Bookmark détachement** : `_detachComposanteOnEdit` — modification manuelle d'un sous-champ enrichi repasse le bookmark en stroke, supprime `composante_id`, restaure le label `client_text`
+- **#215 — parentDmType fragile** : `executeCascade` utilisait `catItem.category` (catégorie catalogue, ex: "Caissons mélamine") pour filtrer les DM entries par type "Caisson". Remplacé par `_getCategoryDmType()` + `normalizeDmType()` pour matching robuste
+
+### Améliorations
+- **Warning UI champs vides** : sous-champs enrichis vides liés à une composante → placeholder orange (`.rdm-empty-warn`) — indicateur visuel que la cascade pourrait ne pas résoudre certains articles
 
 ---
 

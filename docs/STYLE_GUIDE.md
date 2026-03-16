@@ -262,6 +262,7 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Repos : stroke `rgba(255,255,255,0.2)`
 - Hover : stroke `rgba(255,255,255,0.6)`
 - Composante enregistrée : filled `rgba(255,255,255,0.7)` **persistant** (`.dm-bookmark-btn.saved`) — vérifié au rendu, pas d'animation temporaire. Le label principal de la ligne affiche le nom composante (`buildComposanteName`) au lieu du `client_text`
+- **Détachement** : modification manuelle d'un sous-champ enrichi → bookmark repasse en stroke, `composante_id` supprimé, label revient au `client_text`
 
 **Dropdown composantes** :
 - Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`

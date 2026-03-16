@@ -2870,6 +2870,7 @@
         } else {
             delete rdm[idx][field];
         }
+        _detachComposanteOnEdit(groupId, idx);
         saveRoomDm(groupId);
     }
 
@@ -2878,6 +2879,7 @@
         var rdm = roomDM[groupId];
         if (!rdm || !rdm[idx]) return;
         delete rdm[idx][field];
+        _detachComposanteOnEdit(groupId, idx);
         saveRoomDm(groupId);
         // Re-render just the enriched panel
         var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
@@ -3021,6 +3023,22 @@
         }
     }
 
+    /** Detach composante from DM entry when enriched fields are manually modified (#214) */
+    function _detachComposanteOnEdit(groupId, idx) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx] || !rdm[idx].composante_id) return;
+        delete rdm[idx].composante_id;
+        // Reset bookmark to stroke
+        var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+        if (rowWrap) {
+            var bkmBtn = rowWrap.querySelector('.dm-bookmark-btn');
+            if (bkmBtn) bkmBtn.classList.remove('saved');
+            // Restore label to client_text
+            var labelEl = rowWrap.querySelector('.rdm-main-label');
+            if (labelEl && rdm[idx].client_text) labelEl.textContent = rdm[idx].client_text;
+        }
+    }
+
     /** Select a catalogue item for an enriched sub-field */
     function rdmSelectEnrichedItem(groupId, idx, field, itemId, clientText) {
         var rdm = roomDM[groupId];
@@ -3031,6 +3049,8 @@
             catalogue_item_id: itemId,
             client_text: clientText || ''
         };
+
+        _detachComposanteOnEdit(groupId, idx);
 
         // Validation: warn if bande_chant essence incompatible with matériau principal
         if (field === 'bande_chant' && clientText) {
@@ -5006,7 +5026,8 @@
                 var btn = document.createElement('div');
                 btn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; border:1px solid #e0e0e0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; transition:all 0.15s;';
                 var radio = '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;" class="dm-radio"></div>';
-                var mainLabel = e.entry.client_text || e.label;
+                var _comp214 = e.entry.composante_id ? (COMPOSANTES_DATA || []).find(function(c) { return c.id === e.entry.composante_id; }) : null;
+                var mainLabel = (_comp214 ? _comp214.nom : null) || e.entry.client_text || e.label;
                 var subLabel = e.entry.client_text ? (e.entry.catalogue_item_id || '') : '';
                 btn.innerHTML = radio
                     + '<div style="flex:1;min-width:0;">'

@@ -1061,6 +1061,8 @@
         .comp-field input:focus, .comp-field textarea:focus, .comp-field select:focus {
             outline:none; border-color:var(--sw-navy); box-shadow:0 0 0 2px rgba(11,18,32,0.08);
         }
+        .comp-field input[readonly]::placeholder { color: #9CA3AF; }
+        .comp-field input[readonly] { border-color: transparent; }
         .comp-field-row { display:flex; gap:12px; }
         .comp-field-row .comp-field { flex:1; }
         .comp-modal-footer {
@@ -6050,14 +6052,14 @@
                 _compLoadUsage(comp.id);
             }
 
-            // Auto-regenerate nom when fields change (only for new composantes)
+            // Auto-regenerate nom from fields (always — readonly field)
             var nomInput = document.getElementById('compModalNom');
+            nomInput.readOnly = true;
             var autoNomFields = ['compModalDmType', 'compModalMateriau', 'compModalStyle', 'compModalCoupe'];
             autoNomFields.forEach(function(fid) {
                 var el = document.getElementById(fid);
                 if (!el) return;
                 el._compNomHandler = function() {
-                    if (document.getElementById('compModalId').value) return; // don't auto for edits
                     var pseudo = {
                         type: document.getElementById('compModalDmType').value || null,
                         style: document.getElementById('compModalStyle').value || null,
@@ -6188,12 +6190,24 @@
         }
 
         /** Catalogue category filters for combobox fields */
-        var _COMP_CB_CAT_FILTER = {
-            'materiau':    null, // all categories
+        var _COMP_CB_CAT_FILTER_BASE = {
             'bande_chant': 'bande de chant',
             'finition':    'finition',
             'bois_brut':   'bois brut'
         };
+        // Type-aware materiau filter based on current DM type selection
+        var _COMP_MATERIAU_TYPE_FILTER = {
+            'Caisson':  ['panneau'],
+            'Façades':  ['facade', 'panneau'],
+            'Panneaux': ['panneau'],
+            'Tiroirs':  null,
+            'Poignées': ['poignee']
+        };
+        function _getCompCbCatFilter(fieldKey) {
+            if (fieldKey !== 'materiau') return _COMP_CB_CAT_FILTER_BASE[fieldKey] || null;
+            var dmType = (document.getElementById('compModalDmType') || {}).value || '';
+            return _COMP_MATERIAU_TYPE_FILTER[dmType] || null;
+        }
 
         /** Combobox field → input/hidden/drop IDs */
         var _COMP_CB_IDS = {
@@ -6210,13 +6224,17 @@
             var drop = document.getElementById(ids.drop);
             var clearBtn = inputEl.parentElement.querySelector('.comp-combobox-clear');
             var query = inputEl.value.trim().toLowerCase();
-            var catFilter = _COMP_CB_CAT_FILTER[fieldKey];
+            var catFilter = _getCompCbCatFilter(fieldKey);
 
             var items = (typeof CATALOGUE_DATA !== 'undefined' ? CATALOGUE_DATA : []).filter(function(item) {
                 if (!item.client_text) return false;
                 if (catFilter) {
-                    var cat = (item.category || '').toLowerCase();
-                    if (cat.indexOf(catFilter) === -1) return false;
+                    var cat = (item.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    if (Array.isArray(catFilter)) {
+                        // Type-aware: at least one keyword must match
+                        var matched = catFilter.some(function(kw) { return cat.indexOf(kw) !== -1; });
+                        if (!matched) return false;
+                    } else if (cat.indexOf(catFilter) === -1) return false;
                 }
                 if (query.length < 1) return true;
                 var haystack = ((item.client_text || '') + ' ' + (item.description || '') + ' ' + (item.id || '')).toLowerCase();
@@ -10004,7 +10022,7 @@
             </div>
             <div class="comp-field">
                 <label>Nom *</label>
-                <input type="text" id="compModalNom" placeholder="Ex: Caisson m&eacute;lamine blanc standard">
+                <input type="text" id="compModalNom" readonly placeholder="G&eacute;n&eacute;r&eacute; automatiquement depuis les champs ci-dessous" style="color:var(--sw-text);background:#f9fafb;cursor:default;">
             </div>
             <div class="comp-field-row">
                 <div class="comp-field">

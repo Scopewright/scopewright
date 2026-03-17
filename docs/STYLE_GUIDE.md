@@ -163,7 +163,7 @@ Principe : Code et Type sont compacts (monospace 10px) — ne jamais les élargi
 
 ## 9. Layout global
 
-- max-width: 1200px
+- max-width: 1600px (calculateur), 1200px (autres pages)
 - margin: auto
 - padding: 32px
 

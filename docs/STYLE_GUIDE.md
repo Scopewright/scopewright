@@ -269,6 +269,15 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`
 - Options : `background: #0B1220`
 
+**Selects natifs (dans le panneau DM)** :
+- Background : `#0B1220` (identique au fond panneau)
+- Text : `rgba(255,255,255,0.7)`
+- Border : aucune sauf `border-bottom: 0.5px solid rgba(255,255,255,0.12)`
+- `border-radius: 0` (flat, pas de pill)
+- Options : `background: #131c2e`, `color: rgba(255,255,255,0.7)`
+- Focus : `border-bottom-color: rgba(255,255,255,0.4)`, pas d'outline
+- Sélecteur : `.room-dm-section select` — s'applique au select Coupe et tout futur `<select>` dans le panneau
+
 **Autocomplete / suggestions (dans le panneau DM)** :
 - Background : `#131c2e` (navy plus clair)
 - Border : `0.5px solid rgba(255,255,255,0.15)`

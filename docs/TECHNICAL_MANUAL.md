@@ -1003,6 +1003,45 @@ executeCascade(parentRowId)
 
 **Tests** : GROUP 36 (15 assertions) dans `tests/cascade-engine.test.js`. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`.
 
+### 4.9 Groupes de composantes (#217)
+
+Un groupe = ensemble nommé de composantes individuelles applicable d'un coup à une pièce. N'ajoute aucune ligne dans le calculateur — application des DM uniquement.
+
+#### Table `composante_groupe_items`
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | gen_random_uuid() |
+| groupe_id | UUID FK | Ref composantes (ON DELETE CASCADE) |
+| composante_id | UUID FK | Ref composantes (ON DELETE CASCADE) |
+| ordre | INTEGER | Ordre d'affichage (default 0) |
+| | | UNIQUE(groupe_id, composante_id) |
+
+RLS : tous authentifiés. Index sur `groupe_id`.
+
+#### Trigger modifié
+
+`generate_composante_code()` génère `GRP-XXX` quand `dm_type = 'Groupe'`, sinon `COMP-XXX` (même séquence `composante_code_seq`).
+
+#### CRUD Catalogue
+
+- Le dropdown Type DM dans la modale composante ne contient **pas** "Groupe" — on crée un groupe via le bouton "Nouveau groupe" dans le drawer
+- Quand `dm_type === 'Groupe'` : champs matériaux masqués (`_COMP_FIELDS_BY_TYPE['Groupe'] = []`), section "Composantes du groupe" affichée à la place
+- Liste des membres : badge type coloré + nom + code + bouton × retirer
+- Bouton "+ Ajouter" → dropdown searchable (filtre `dm_type !== 'Groupe'`)
+- Fonctions : `_groupeLoadItems`, `_groupeRenderItems`, `_groupeAddOpen`, `_groupeSearchFilter`, `_groupeAddItem`, `_groupeRemoveItem`, `_loadAllGroupeItems`
+
+#### Application dans le calculateur
+
+- `COMPOSANTES_GROUPE_ITEMS` : objet global `{ groupe_id: [...] }` chargé via `loadComposanteGroupeItems()` au démarrage
+- Bouton "Groupe" dans le footer du panneau DM (à côté de "Copier de…"), visible si des groupes existent
+- `openGroupeChoiceModal(roomGroupId)` : modale listant les groupes avec leurs membres
+- `applyGroupeToDm(roomGroupId, groupeComposanteId)` : itère les membres → cherche ou crée le DM par type → applique les champs → `saveRoomDm` + `renderRoomDm` une seule fois → `reprocessDefaultCascades` par type modifié → toast résumé
+
+#### Migration
+
+`sql/composante_groupes.sql`
+
 ---
 
 ## 5. Workflow de soumission

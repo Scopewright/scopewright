@@ -67,6 +67,8 @@
 
     // #209: Composantes data
     var COMPOSANTES_DATA = [];
+    // #217: Groupe items — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
+    var COMPOSANTES_GROUPE_ITEMS = {};
 
     // Coupes de placage — loaded from app_config.coupe_types
     var COUPE_TYPES_DEFAULT = [
@@ -1002,6 +1004,7 @@
             font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px;
             white-space:nowrap; flex-shrink:0;
         }
+        .comp-membre-count { font-size:10px; color:var(--sw-muted); white-space:nowrap; }
         .comp-item-actions { display:flex; gap:2px; opacity:0; transition:opacity 0.15s; }
         .comp-item:hover .comp-item-actions { opacity:1; }
         .comp-action-btn {
@@ -1115,6 +1118,60 @@
         .comp-usage-empty { color:var(--sw-muted); font-size:12px; font-style:italic; }
         .comp-btn-save { border:none; background:var(--sw-navy); color:#fff; }
         .comp-btn-save:hover { background:var(--sw-navy-hover); }
+        /* Nouveau groupe button in toolbar */
+        .comp-add-groupe-btn {
+            width:auto; padding:0 10px; font-size:11px; font-weight:500;
+            white-space:nowrap; gap:4px;
+        }
+        /* Groupe members section in modal */
+        .comp-groupe-header {
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:8px;
+        }
+        .comp-groupe-header label {
+            font-size:12px; font-weight:600; color:var(--sw-text-2);
+        }
+        .comp-groupe-add-btn {
+            padding:4px 10px; border-radius:6px; border:1px solid var(--sw-border);
+            background:#fff; font-size:11px; font-weight:500; cursor:pointer;
+            color:var(--sw-text); transition:all 0.15s;
+        }
+        .comp-groupe-add-btn:hover { background:var(--sw-navy); color:#fff; border-color:var(--sw-navy); }
+        .comp-groupe-list { margin-bottom:8px; }
+        .comp-groupe-member {
+            display:flex; align-items:center; gap:8px; padding:6px 10px;
+            border-radius:8px; background:#f8fafc; margin-bottom:4px;
+        }
+        .comp-groupe-member:hover { background:#f1f5f9; }
+        .comp-groupe-member-code { font-family:monospace; font-size:10px; color:var(--sw-muted); }
+        .comp-groupe-member-nom { font-size:12px; color:var(--sw-text); font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .comp-groupe-member-type {
+            font-size:9px; font-weight:600; padding:2px 6px; border-radius:999px;
+            white-space:nowrap;
+        }
+        .comp-groupe-member-remove {
+            width:22px; height:22px; border:none; background:none; border-radius:4px;
+            cursor:pointer; font-size:12px; color:var(--sw-muted); display:flex;
+            align-items:center; justify-content:center; transition:all 0.1s;
+        }
+        .comp-groupe-member-remove:hover { background:#fef2f2; color:#dc2626; }
+        .comp-groupe-empty { padding:12px; text-align:center; color:var(--sw-muted); font-size:12px; font-style:italic; }
+        .comp-groupe-search-drop {
+            border:1px solid var(--sw-border); border-radius:10px; margin-top:4px;
+            background:#fff; box-shadow:0 4px 16px rgba(15,23,42,0.08);
+            max-height:260px; overflow:hidden; display:flex; flex-direction:column;
+        }
+        .comp-groupe-search-input {
+            width:100%; height:34px; border:none; border-bottom:1px solid var(--sw-border-2);
+            padding:0 12px; font-size:12px; color:var(--sw-text); box-sizing:border-box;
+            outline:none; border-radius:10px 10px 0 0;
+        }
+        .comp-groupe-search-results { flex:1; overflow-y:auto; max-height:220px; }
+        .comp-groupe-search-item {
+            padding:6px 12px; font-size:12px; color:var(--sw-text); cursor:pointer;
+            display:flex; align-items:center; gap:6px;
+        }
+        .comp-groupe-search-item:hover { background:#f1f5f9; }
         @media (max-width:600px) {
             .comp-drawer { width:100%; right:-100%; }
             .comp-modal { width:95%; }
@@ -5786,7 +5843,23 @@
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
                 if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
                 COMPOSANTES_DATA = await resp.json();
+                // #217: Load all groupe items
+                await _loadAllGroupeItems();
             } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
+        /** #217: Load all composante_groupe_items, indexed by groupe_id */
+        async function _loadAllGroupeItems() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_groupe_items?order=ordre.asc&select=*', {});
+                if (!resp.ok) { console.warn('[Groupes] Load items failed:', resp.status); return; }
+                var data = await resp.json();
+                COMPOSANTES_GROUPE_ITEMS = {};
+                data.forEach(function(gi) {
+                    if (!COMPOSANTES_GROUPE_ITEMS[gi.groupe_id]) COMPOSANTES_GROUPE_ITEMS[gi.groupe_id] = [];
+                    COMPOSANTES_GROUPE_ITEMS[gi.groupe_id].push(gi);
+                });
+            } catch(e) { console.warn('[Groupes] Load items error:', e); }
         }
 
         /** Open composantes drawer */
@@ -5823,10 +5896,20 @@
             var html = '';
             filtered.forEach(function(comp) {
                 var typeColor = _compTypeColor(comp.dm_type);
+                var memberInfo = '';
+                if (comp.dm_type === 'Groupe' && COMPOSANTES_GROUPE_ITEMS && COMPOSANTES_GROUPE_ITEMS[comp.id]) {
+                    var members = COMPOSANTES_GROUPE_ITEMS[comp.id];
+                    var memberNames = members.map(function(gi) {
+                        var mc = COMPOSANTES_DATA.find(function(c) { return c.id === gi.composante_id; });
+                        return mc ? mc.nom : '';
+                    }).filter(Boolean);
+                    memberInfo = '<span class="comp-membre-count" title="' + escapeAttr(memberNames.join(', ')) + '">' + members.length + ' comp.</span>';
+                }
                 html += '<div class="comp-item" data-comp-id="' + comp.id + '">' +
                     '<div class="comp-item-main" onclick="openComposanteModal(\'' + comp.id + '\')">' +
                         '<span class="comp-code">' + escapeHtml(comp.code) + '</span>' +
                         '<span class="comp-nom">' + escapeHtml(comp.nom) + '</span>' +
+                        memberInfo +
                         '<span class="comp-type-badge" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(comp.dm_type) + '</span>' +
                     '</div>' +
                     '<div class="comp-item-actions">' +
@@ -5853,7 +5936,7 @@
         }
 
         /** Open composante modal for create (no id) or edit (with id) */
-        function openComposanteModal(compId) {
+        function openComposanteModal(compId, isGroupe) {
             var modal = document.getElementById('composanteModal');
             if (!modal) return;
 
@@ -5884,6 +5967,13 @@
             // Clear usage section
             var usageSec = document.getElementById('compUsageSection');
             if (usageSec) usageSec.innerHTML = '';
+            // Reset groupe section
+            var groupeSec = document.getElementById('compGroupeSection');
+            if (groupeSec) groupeSec.style.display = 'none';
+            var groupeSearchDrop = document.getElementById('compGroupeSearchDrop');
+            if (groupeSearchDrop) groupeSearchDrop.style.display = 'none';
+            var groupeList = document.getElementById('compGroupeList');
+            if (groupeList) groupeList.innerHTML = '';
 
             if (compId) {
                 var comp = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
@@ -5949,6 +6039,57 @@
             }
             _populateCoupeSelect('compModalCoupe', _coupeVal);
 
+            // Handle Groupe: set dm_type for new groups, show/hide section
+            var dmTypeSelect = document.getElementById('compModalDmType');
+            if (isGroupe && !compId) {
+                // New groupe — force dm_type and update title
+                dmTypeSelect.value = 'Groupe';
+                // Add Groupe option temporarily if not present
+                if (!dmTypeSelect.querySelector('option[value="Groupe"]')) {
+                    var opt = document.createElement('option');
+                    opt.value = 'Groupe';
+                    opt.textContent = 'Groupe';
+                    dmTypeSelect.appendChild(opt);
+                    dmTypeSelect.value = 'Groupe';
+                }
+                dmTypeSelect.disabled = true;
+                document.getElementById('compModalTitle').textContent = 'Nouveau groupe';
+            } else if (compId) {
+                var editComp = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
+                if (editComp && editComp.dm_type === 'Groupe') {
+                    // Editing a groupe — add option and lock
+                    if (!dmTypeSelect.querySelector('option[value="Groupe"]')) {
+                        var opt2 = document.createElement('option');
+                        opt2.value = 'Groupe';
+                        opt2.textContent = 'Groupe';
+                        dmTypeSelect.appendChild(opt2);
+                    }
+                    dmTypeSelect.value = 'Groupe';
+                    dmTypeSelect.disabled = true;
+                    document.getElementById('compModalTitle').textContent = 'Modifier ' + editComp.code;
+                } else {
+                    dmTypeSelect.disabled = false;
+                    // Remove Groupe option if present
+                    var grpOpt = dmTypeSelect.querySelector('option[value="Groupe"]');
+                    if (grpOpt) grpOpt.remove();
+                }
+            } else {
+                dmTypeSelect.disabled = false;
+                var grpOpt2 = dmTypeSelect.querySelector('option[value="Groupe"]');
+                if (grpOpt2) grpOpt2.remove();
+            }
+
+            // Show groupe members section if dm_type === 'Groupe'
+            var isGroupeType = (dmTypeSelect.value === 'Groupe');
+            var groupeSec2 = document.getElementById('compGroupeSection');
+            if (groupeSec2) groupeSec2.style.display = isGroupeType ? '' : 'none';
+            if (isGroupeType && compId) {
+                _groupeLoadItems(compId);
+            } else if (isGroupeType) {
+                // New groupe — show empty list
+                _groupeRenderItems([]);
+            }
+
             _compUpdateFieldVisibility();
             modal.classList.add('active');
         }
@@ -5973,7 +6114,7 @@
             'Panneaux': ['materiau','coupe','bande_chant','finition','bois_brut'],
             'Tiroirs':  ['materiau'],
             'Poignées': ['materiau'],
-            'Groupe':   ['materiau','style','coupe','bande_chant','finition','bois_brut']
+            'Groupe':   []
         };
 
         /** Update field visibility based on selected DM type */
@@ -6171,10 +6312,177 @@
             }
         }
 
+        // ── Groupe items management (#217) ──
+
+        /** Temporary in-memory list of current groupe items (for modal session) */
+        var _currentGroupeItems = [];
+
+        /** Load groupe items from DB */
+        async function _groupeLoadItems(groupeId) {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_groupe_items?groupe_id=eq.' + groupeId + '&order=ordre.asc');
+                if (!resp.ok) { _groupeRenderItems([]); return; }
+                var data = await resp.json();
+                _currentGroupeItems = data;
+                _groupeRenderItems(data);
+            } catch(e) {
+                console.warn('[Groupes] Load items error:', e);
+                _groupeRenderItems([]);
+            }
+        }
+
+        /** Render groupe items in the modal list */
+        function _groupeRenderItems(items) {
+            var list = document.getElementById('compGroupeList');
+            if (!list) return;
+
+            if (items.length === 0) {
+                list.innerHTML = '<div class="comp-groupe-empty">Aucune composante dans ce groupe</div>';
+                return;
+            }
+
+            var html = '';
+            items.forEach(function(gi) {
+                var comp = COMPOSANTES_DATA.find(function(c) { return c.id === gi.composante_id; });
+                var nom = comp ? comp.nom : '(composante inconnue)';
+                var code = comp ? comp.code : '?';
+                var dmType = comp ? comp.dm_type : '';
+                var typeColor = _compTypeColor(dmType);
+                html += '<div class="comp-groupe-member" data-gi-id="' + gi.id + '">' +
+                    '<span class="comp-groupe-member-code">' + escapeHtml(code) + '</span>' +
+                    '<span class="comp-groupe-member-nom">' + escapeHtml(nom) + '</span>' +
+                    '<span class="comp-groupe-member-type" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(dmType) + '</span>' +
+                    '<button class="comp-groupe-member-remove" onclick="_groupeRemoveItem(\'' + gi.id + '\')" title="Retirer">&times;</button>' +
+                '</div>';
+            });
+            list.innerHTML = html;
+        }
+
+        /** Open search dropdown to add a composante to the groupe */
+        function _groupeAddOpen() {
+            var drop = document.getElementById('compGroupeSearchDrop');
+            if (!drop) return;
+            drop.style.display = '';
+            var input = document.getElementById('compGroupeSearchInput');
+            if (input) { input.value = ''; input.focus(); }
+            _groupeSearchFilter('');
+        }
+
+        /** Filter composantes for adding to groupe */
+        function _groupeSearchFilter(query) {
+            var results = document.getElementById('compGroupeSearchResults');
+            if (!results) return;
+            var q = (query || '').toLowerCase();
+            var existingIds = _currentGroupeItems.map(function(gi) { return gi.composante_id; });
+
+            var filtered = COMPOSANTES_DATA.filter(function(c) {
+                if (c.dm_type === 'Groupe') return false; // no groups in groups
+                if (existingIds.indexOf(c.id) !== -1) return false; // already in group
+                if (q && (c.nom || '').toLowerCase().indexOf(q) === -1 && (c.code || '').toLowerCase().indexOf(q) === -1) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                results.innerHTML = '<div class="comp-groupe-search-item" style="color:var(--sw-muted);cursor:default;">Aucun résultat</div>';
+                return;
+            }
+
+            results.innerHTML = filtered.slice(0, 20).map(function(c) {
+                var typeColor = _compTypeColor(c.dm_type);
+                return '<div class="comp-groupe-search-item" onclick="_groupeAddItem(\'' + c.id + '\')">' +
+                    '<span class="comp-groupe-member-code">' + escapeHtml(c.code) + '</span>' +
+                    '<span class="comp-groupe-member-nom">' + escapeHtml(c.nom) + '</span>' +
+                    '<span class="comp-groupe-member-type" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(c.dm_type) + '</span>' +
+                '</div>';
+            }).join('');
+        }
+
+        /** Add a composante to the current groupe */
+        async function _groupeAddItem(composanteId) {
+            var groupeId = document.getElementById('compModalId').value;
+
+            if (!groupeId) {
+                // Groupe not saved yet — save first
+                await saveComposante();
+                groupeId = document.getElementById('compModalId').value;
+                if (!groupeId) return;
+            }
+
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_groupe_items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({
+                        groupe_id: groupeId,
+                        composante_id: composanteId,
+                        ordre: _currentGroupeItems.length
+                    })
+                });
+
+                if (!resp.ok) {
+                    var errText = await resp.text();
+                    console.warn('[Groupes] Add item failed:', resp.status, errText);
+                    return;
+                }
+
+                var result = await resp.json();
+                var saved = Array.isArray(result) ? result[0] : result;
+                _currentGroupeItems.push(saved);
+                _groupeRenderItems(_currentGroupeItems);
+
+                // Update global index
+                if (!COMPOSANTES_GROUPE_ITEMS[groupeId]) COMPOSANTES_GROUPE_ITEMS[groupeId] = [];
+                COMPOSANTES_GROUPE_ITEMS[groupeId].push(saved);
+
+                // Close search dropdown
+                var drop = document.getElementById('compGroupeSearchDrop');
+                if (drop) drop.style.display = 'none';
+
+                _compToast('Composante ajoutée au groupe');
+            } catch(e) {
+                console.warn('[Groupes] Add item error:', e);
+            }
+        }
+
+        /** Remove a composante from the current groupe */
+        async function _groupeRemoveItem(giId) {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_groupe_items?id=eq.' + giId, {
+                    method: 'DELETE'
+                });
+
+                if (!resp.ok) {
+                    console.warn('[Groupes] Remove item failed:', resp.status);
+                    return;
+                }
+
+                // Find groupe_id before removing
+                var removedItem = _currentGroupeItems.find(function(gi) { return gi.id === giId; });
+                _currentGroupeItems = _currentGroupeItems.filter(function(gi) { return gi.id !== giId; });
+                _groupeRenderItems(_currentGroupeItems);
+
+                // Update global index
+                if (removedItem && COMPOSANTES_GROUPE_ITEMS[removedItem.groupe_id]) {
+                    COMPOSANTES_GROUPE_ITEMS[removedItem.groupe_id] = COMPOSANTES_GROUPE_ITEMS[removedItem.groupe_id].filter(function(gi) { return gi.id !== giId; });
+                }
+
+                _compToast('Composante retirée du groupe');
+            } catch(e) {
+                console.warn('[Groupes] Remove item error:', e);
+            }
+        }
+
         /** Close composante modal */
         function closeComposanteModal() {
             var modal = document.getElementById('composanteModal');
             if (modal) modal.classList.remove('active');
+            // Reset dm_type select disabled state
+            var dmTypeSelect = document.getElementById('compModalDmType');
+            if (dmTypeSelect) {
+                dmTypeSelect.disabled = false;
+                var grpOpt = dmTypeSelect.querySelector('option[value="Groupe"]');
+                if (grpOpt) grpOpt.remove();
+            }
         }
 
         /** Save composante (INSERT or UPDATE) */
@@ -9597,6 +9905,7 @@
             <option value="Groupe">Groupe</option>
         </select>
         <button class="comp-add-btn" onclick="openComposanteModal()" title="Nouvelle composante">+</button>
+        <button class="comp-add-btn comp-add-groupe-btn" onclick="openComposanteModal(null, true)" title="Nouveau groupe">+ Groupe</button>
     </div>
     <div class="comp-list" id="composantesList">
         <div class="comp-empty">Chargement&hellip;</div>
@@ -9629,7 +9938,6 @@
                         <option value="Panneaux">Panneaux</option>
                         <option value="Tiroirs">Tiroirs</option>
                         <option value="Poign&eacute;es">Poign&eacute;es</option>
-                        <option value="Groupe">Groupe</option>
                     </select>
                 </div>
                 <div class="comp-field" data-comp-field="materiau">
@@ -9684,6 +9992,19 @@
             <div class="comp-field">
                 <label>Notes</label>
                 <textarea id="compModalNotes" placeholder="Notes internes&hellip;"></textarea>
+            </div>
+            <!-- Groupe members section (visible only when dm_type === 'Groupe') -->
+            <div id="compGroupeSection" style="display:none;">
+                <div class="comp-groupe-header">
+                    <label>Composantes du groupe</label>
+                    <button class="comp-groupe-add-btn" onclick="_groupeAddOpen()" title="Ajouter une composante">+ Ajouter</button>
+                </div>
+                <div id="compGroupeList" class="comp-groupe-list"></div>
+                <!-- Search dropdown for adding members -->
+                <div id="compGroupeSearchDrop" class="comp-groupe-search-drop" style="display:none;">
+                    <input type="text" id="compGroupeSearchInput" class="comp-groupe-search-input" placeholder="Rechercher une composante&hellip;" autocomplete="off" oninput="_groupeSearchFilter(this.value)">
+                    <div id="compGroupeSearchResults" class="comp-groupe-search-results"></div>
+                </div>
             </div>
             <div id="compUsageSection"></div>
         </div>

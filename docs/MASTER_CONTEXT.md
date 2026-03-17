@@ -1,7 +1,7 @@
 # MASTER_CONTEXT.md — Scopewright System Knowledge (AI-optimized)
 
 > Ce document est optimisé pour être lu par une AI. Pas de prose — sections courtes, labels clairs, règles explicites.
-> Dernière mise à jour : 2026-03-12
+> Dernière mise à jour : 2026-03-16
 
 ---
 
@@ -23,9 +23,9 @@
 
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
-| `calculateur.html` | ~21 700 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
-| `catalogue_prix_stele_complet.html` | ~8 500 | Catalogue prix — CRUD articles, images, AI import |
-| `admin.html` | ~4 200 | Administration — 6 volets sidebar, prompts AI, Agent Maître |
+| `calculateur.html` | ~23 150 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
+| `catalogue_prix_stele_complet.html` | ~8 720 | Catalogue prix — CRUD articles, images, AI import, composantes, coupes |
+| `admin.html` | ~4 040 | Administration — 6 volets sidebar, prompts AI, Agent Maître |
 | `approbation.html` | ~2 200 | Approbation soumissions, AI review |
 | `clients.html` | ~2 280 | CRM — contacts, entreprises, AI import |
 | `quote.html` | ~2 080 | Vue client publique — soumission + acceptation + signature |
@@ -42,6 +42,8 @@
 | `shared/pricing.js` | `computeComposedPrice()`, `computeCatItemPrice()` |
 | `shared/presentation-client.js` | Texte, descriptions, clauses, images, snapshot, status UI (~730 lignes) |
 | `shared/pdf-export.js` | `exportSubmissionPdf()` via PDFShift API |
+| `shared/master-agent.js` | Agent Maître drawer global — FAB, chat UI, tool approval, doc sync |
+| `shared/sanity-checks.js` | `runSanityChecks()` — checks déterministes (no AI) |
 
 ---
 
@@ -59,9 +61,15 @@ projects (user_id → RLS)
   ├── project_follows (★ par utilisateur)
   └── project_contacts (liaison contacts)
 
+submission_plans (plans PDF — project-level)
+
 catalogue_items (id TEXT PK auto ST-XXXX, RLS trop permissif — SEC-01)
   ├── catalogue_item_components
   └── item_media
+
+composantes (regroupements propriétés constructives par type DM)
+  ├── composante_groupe_items (liaison groupe → composantes membres)
+  └── referenced by room_items.composante_id
 
 contacts ─── contact_companies ─── companies
   └── communications
@@ -81,6 +89,7 @@ catalogue_change_log (audit AI)
 - `catalogue_items.id` = TEXT PK auto-généré par trigger `trg_catalogue_auto_code`
 - `room_items.cascade_suppressed` = JSONB array d'IDs supprimés manuellement
 - `room_items.labor_override/material_override/price_override` = overrides par ligne
+- `room_items.composante_id` = UUID FK vers `composantes` (nullable, ON DELETE SET NULL)
 
 ---
 
@@ -102,7 +111,7 @@ catalogue_change_log (audit AI)
 | Fonction | Modèle AI | Streaming | Tools | Rôle |
 |----------|-----------|-----------|-------|------|
 | `ai-assistant` | Sonnet 4.5 | Non | 9 | Assistant estimateur + approbation + catalogue |
-| `ai-master` | Sonnet 4.5 | Non | 8 | Agent Maître global (4 read-only + 4 write, section-based context, images multimodal) |
+| `ai-master` | Sonnet 4.5 | Non | 10 | Agent Maître global (4 read-only + 6 write, section-based context, images multimodal) |
 | `translate` | Haiku 4.5 / Sonnet 4 | Non | 0 (13 actions) | Traductions, génération règles, descriptions |
 | `catalogue-import` | Sonnet 4.5 | SSE | 8 | Import articles catalogue |
 | `contacts-import` | Sonnet 4.5 | SSE | 10 | Import contacts CRM |
@@ -147,7 +156,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 
 ### Agent Maître (`ai-master`, prompt_key: `ai_prompt_master`)
 - **Rôle** : Conseil architecture, gestion prompts/learnings, audit système, recommandations
-- **Modèle** : Sonnet 4.5. **Tools** : 8 — 4 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`), 4 write tools with client-side approval (`update_learning`, `delete_learning`, `update_prompt_section` — matching tolérant whitespace + mode `insert_after`, `log_prompt_change`)
+- **Modèle** : Sonnet 4.5. **Tools** : 10 — 4 read-only auto-executed server-side (`list_learnings`, `read_prompt`, `list_all_prompts`, `get_catalogue_item`), 6 write tools with client-side approval (`create_learning`, `update_learning`, `delete_learning`, `update_prompt_section` — 3 niveaux de matching (exact, regex, fuzzy) + mode `insert_after`, `log_prompt_change`, `update_catalogue_item` — modifie `calculation_rule_ai`, `instruction`, `loss_override_pct`, `labor_modifiers` avec audit trail)
 - **`list_all_prompts`** : retourne métadonnées uniquement (clé, label, edge_function, modèle, char_count, has_override) — pas le contenu. Utiliser `read_prompt` pour le contenu complet
 - **`get_catalogue_item`** : recherche par code exact (`code: "ST-0042"`) ou texte (`search: "placage"`) sur description/client_text. Max 5 résultats. Retourne id, description, client_text, item_type, category, labor_modifiers, calculation_rule_ai, instruction, labor_minutes, material_costs, is_default, dims_config, loss_override_pct
 - **Contexte** : Section-based — MASTER_CONTEXT.md découpé par `## N.` headers, keyword matching sélectionne les sections pertinentes. `master_claude_md` + learnings toujours inclus. Fraîcheur vérifiée via `master_context_synced_at` (alerte si >24h)
@@ -196,6 +205,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 | `why_title/why_text/why_image_url` | TEXT | Page "Pourquoi" (quote.html) |
 | `project_steps` | JSONB array | 8 étapes projet (quote.html) |
 | `category_group_mapping` | JSONB object | Mapping catégories catalogue → groupes DM |
+| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur}]` |
 | `permissions` | JSONB | Matrice rôle × permission (13 permissions, 6 rôles) |
 | `user_roles` | JSONB | email → rôle |
 | `taux_horaires` | JSONB array | Départements MO + taux + salaire + frais fixes |
@@ -217,19 +227,52 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - `materialCtx` propagé parent→enfant→petit-enfant, mis à jour par `$default:` après résolution
 - `child_dims` : formules dimensionnelles. Multi-instance quand `child_dims` + qty > 1
 - Persistance immédiate (pas de debounce). Enfants locked protégés. `cascade_suppressed` pour suppressions manuelles
-- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (292 assertions, 28 groupes)
+- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (347 assertions, 35 groupes)
 
 ### 8.2 Matériaux par défaut (DM)
 - Room-level uniquement (`roomDM[groupId]`). `client_text` = identifiant primaire
-- 6 groupes requis : Caisson, Panneaux, Tiroirs, Façades, Finition, Poignées
+- 5 groupes requis : Caisson, Panneaux, Tiroirs, Façades, Poignées (Finition retiré)
 - 2 groupes cachés : Autre, Éclairage
 - `reprocessDefaultCascades` re-cascade sur changement DM (avec guard + barre progression)
+- **Panneau DM navy** : fond `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, `border-radius: 4px 4px 0 0`, zéro gap vers `.calc-header`
+
+#### Enrichissement DM (#208)
+- 3 groupes enrichis : **Caisson** (matériau + coupe + bande_chant + finition), **Façades** (matériau + style + coupe + bande_chant + finition + bois_brut), **Panneaux** (idem Façades)
+- Sous-champs catalogue (`materiau`, `bande_chant`, `finition`, `bois_brut`) : `{ catalogue_item_id, client_text }`. Texte libre : `style`, `coupe` (dropdown `COUPE_TYPES`)
+- Types enrichis : champ principal **readonly**, construit automatiquement depuis sous-champs via `_rebuildDmClientText` (format `"{panneau} {coupe}"`)
+- Moteur cascade Tier 0 : `getEnrichedDmField(dmEntry, expenseCat)` → résolution directe depuis sous-champs enrichis, sans modale
+
+#### Composantes (#209)
+- Table `composantes` : UUID PK, code `COMP-XXX` auto-généré, `dm_type`, `nom`, `materiau_*`, `bande_chant_*`, `finition_*`, `bois_brut_*`, `style`, `coupe`, `is_active`, soft delete
+- **Drawer CRUD** : `catalogue_prix_stele_complet.html` — bouton "Composantes", filtre par type DM, modale création/édition
+- **Phase 1B** : bookmark SVG par ligne DM (stroke → filled persistant quand composante enregistrée). `buildComposanteName(dmEntry)` = nom auto. "Enregistrer tout" pour composante groupe
+- **Phase 1C** : dropdown composantes dans le panneau DM (`.dm-comp-select`), filtré par `dm_type`. `applyComposanteToDm` applique tous les champs
+- **Phase 1D** : `filterDmByComposante(dmEntries, composanteId)` — résolution cascade filtrée par `materialCtx.composante_id`. Propagé dans toute la chaîne parent→enfant→petit-enfant
+- `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
+- `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante
+
+#### Groupes de composantes (#217)
+- **Concept** : ensemble nommé de composantes (Caisson + Façades + Panneaux…) applicable d'un coup à une pièce. Code `GRP-XXX`
+- **Table** : `composante_groupe_items` — liaison groupe→composantes (groupe_id, composante_id, ordre). RLS authentifié
+- **Trigger** : `generate_composante_code()` génère `GRP-XXX` quand `dm_type = 'Groupe'`
+- **`COMPOSANTES_GROUPE_ITEMS`** : objet global `{ groupe_id: [...] }` chargé au démarrage
+- **Catalogue** : modale groupe sans champs matériaux, section membres (ajouter/retirer). Bouton "Nouveau groupe" séparé dans le drawer
+- **Calculateur** : bouton "Groupe" dans le footer DM → modale choix → `applyGroupeToDm` (applique chaque composante membre au DM correspondant, reprocess cascade une seule fois)
+- **Migration** : `sql/composante_groupes.sql`
+
+#### Coupes de placage
+- `app_config.coupe_types` : JSONB array `[{code, label, facteur}]`. Fallback `COUPE_TYPES_DEFAULT` (6 entrées)
+- `COUPE_TYPES` : global chargé au démarrage (`loadCoupeTypes`)
+- **Drawer CRUD** dans le catalogue : bouton "Coupes", liste + modale création/édition
+- **Dropdown** dans panneau DM enrichi (champ `coupe`) et modale composante
+- **Facteur prix** : `material_costs[cat] × facteur_coupe × (1 + waste%) × (1 + markup%)` — appliqué uniquement aux catégories placage (`_isPlacageCategory`). Intégré dans `getRowTotal`, `updateRow`, `computeRentabilityData`
 
 ### 8.3 Prix composé
 ```
 Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
-     + Σ(material_costs[cat] × (1 + waste%/100) × (1 + markup%/100))
+     + Σ(material_costs[cat] × coupe_factor × (1 + waste%/100) × (1 + markup%/100))
 ```
+- `coupe_factor` appliqué uniquement aux catégories placage (`_isPlacageCategory` : contient "placage" ou = "panneau bois")
 - `loss_override_pct` sur article remplace `waste` par catégorie
 - Overrides par ligne : `price_override` > `labor_override`/`material_override` > catalogue
 
@@ -302,7 +345,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | SEC-05 | Tokens publics sans expiration | Lien compromis reste valide indéfiniment |
 | SEC-08 | Pas de validation schéma Edge Functions | Payload arbitraire possible |
 | RC-02 | Permissions client-side uniquement | Bypass via DevTools |
-| ARCH-01 | `calculateur.html` ~21 700 lignes | Maintenabilité critique |
+| ARCH-01 | `calculateur.html` ~23 150 lignes | Maintenabilité critique |
 | ARCH-10 | Supabase single backend | Pas d'abstraction, vendor lock-in |
 | BUG-04 | Prix composé vs manuel ambigu | Confusion source de vérité |
 
@@ -358,10 +401,10 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 
 ## 15. TESTS AUTOMATISÉS
 
-- **Fichier** : `tests/cascade-engine.test.js` — 292 assertions, 28 groupes
+- **Fichier** : `tests/cascade-engine.test.js` — 347 assertions, 35 groupes
 - **Runner** : Inline, 0 dépendances (`node tests/cascade-engine.test.js`)
-- **Helpers** : `tests/cascade-helpers.js` — 19 fonctions pures copiées de calculateur.html
-- **Fixtures** : `tests/fixtures/catalogue.js` (21 articles), `tests/fixtures/room-dm.js` (5 configs DM)
+- **Helpers** : `tests/cascade-helpers.js` — 21 fonctions pures copiées de calculateur.html
+- **Fixtures** : `tests/fixtures/catalogue.js` (21 articles), `tests/fixtures/room-dm.js` (5 configs DM), `tests/fixtures/enriched-dm.js` (DM enrichis)
 - **Synchronisation** : copies manuelles — mettre à jour si logique source change
 - **RÈGLE** : Rouler AVANT tout push touchant le moteur cascade
 
@@ -373,8 +416,9 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 |----------------|--------|------|
 | `master_context` | `docs/MASTER_CONTEXT.md` | Ce document — connaissance système |
 | `master_claude_md` | `CLAUDE.md` | Instructions projet + conventions |
+| `master_user_guide` | `docs/USER_GUIDE.md` | Guide utilisateur (section-based, keyword-matched) |
 
-Synchronisation déclenchée depuis admin.html volet "Agent Maître" ou le drawer global (fetch fichiers statiques → PATCH app_config).
+Synchronisation déclenchée depuis admin.html volet "Agent Maître" ou le drawer global (fetch fichiers statiques → PATCH app_config). 3 documents synchronisés.
 
 ---
 
@@ -454,6 +498,7 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 | `tag_nomenclature` | JSONB array | Préfixes tags plans (C, P, E, PI, F, A, PO, EC, RM) | Annotations + cascade matching |
 | `catalogue_categories` | JSONB array | Catégories catalogue (auto-sync) | Filtrage et classification articles |
 | `category_group_mapping` | JSONB object | Mapping catégories → groupes DM | `getAllowedCategoriesForGroup()` |
+| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur}]` | Facteur prix matériaux placage + dropdown DM/composante |
 | `pipeline_statuses` | JSONB array | Statuts visuels pipeline `[{value, label, color}]` | Vue pipeline commercial |
 | `permissions` | JSONB | Matrice 13 permissions × 6 rôles | Vérification côté client uniquement |
 | `prompt_change_log` | JSONB array | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | Traçabilité Agent Maître |
@@ -584,7 +629,7 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 ### Calculateur (`calculateur.html` — Vue 2)
 
 Flux par pièce (room group) :
-1. **Pièce** : nom éditable, DM (7 matériaux par défaut), modificateur % sous-total
+1. **Pièce** : nom éditable, DM (5 requis + optionnels, panneau navy enrichi), modificateur % sous-total
 2. **Lignes** : TAG, article (combobox), QM, L×H×P, n_tab/n_part/n_portes/n_tiroirs, prix unit., quantité, installation ☑, total
 3. **Cascade** : FAB parent → enfants automatiques (collapsibles, badge +N)
 4. **Sous-total** pièce + modificateur % = total pièce
@@ -623,13 +668,14 @@ Pages séquentielles :
 
 Room-level uniquement (`roomDM[groupId]`). Chaque pièce a ses propres DM.
 
-**7 types visibles** (groupes requis par `DM_REQUIRED_GROUPS`) :
+**5 types requis** (`DM_REQUIRED_GROUPS`) :
 1. **Caisson** — matériau principal du caisson (mélamine, placage, etc.)
 2. **Façades** — matériau des portes/façades
 3. **Tiroirs** — matériau des tiroirs
 4. **Panneaux** — panneaux apparents (peut avoir 2 entrées)
-5. **Finition** — finition de surface (laque, vernis, etc.)
-6. **Poignées** — type de poignées
+5. **Poignées** — type de poignées
+
+**Types non requis** : Finition (retiré des requis, reste disponible)
 
 **2 types cachés** (`DM_HIDDEN_GROUPS`) : Autre, Éclairage — filtrés du dropdown.
 
@@ -640,13 +686,22 @@ Room-level uniquement (`roomDM[groupId]`). Chaque pièce a ses propres DM.
   "type": "Caisson",
   "client_text": "Placage de chêne blanc",
   "catalogue_item_id": "ST-0015",
-  "description": "Placage chêne blanc 1/4 feuille"
+  "description": "Placage chêne blanc 1/4 feuille",
+  "composante_id": "uuid-composante",
+  "materiau": { "catalogue_item_id": "ST-0015", "client_text": "Placage chêne blanc" },
+  "coupe": "Livre ouvert",
+  "bande_chant": { "catalogue_item_id": "ST-0087", "client_text": "Bande chêne blanc" },
+  "finition": { "catalogue_item_id": "ST-0090", "client_text": "Laque polyuréthane" },
+  "bois_brut": null,
+  "style": "Shaker"
 }
 ```
 
 - **`client_text`** = identifiant primaire pour la résolution cascade (pas `catalogue_item_id`)
 - **`catalogue_item_id`** = optionnel — référence article technique
 - Un DM avec `client_text` sans `catalogue_item_id` est valide
+- **Champs enrichis** (optionnels) : `materiau`, `coupe`, `bande_chant`, `finition`, `bois_brut`, `style` — présents sur Caisson, Façades, Panneaux
+- **`composante_id`** : référence vers la composante utilisée (propagé dans `materialCtx` pour filtrer la résolution cascade)
 
 ### Actions UI
 
@@ -659,8 +714,19 @@ Room-level uniquement (`roomDM[groupId]`). Chaque pièce a ses propres DM.
 ### Résolution cascade depuis DM
 
 1. `$default:Façades` → cherche DM de type "Façades" dans la pièce
-2. Si 1 seul DM → utilise son `client_text` pour trouver l'article catalogue
-3. Si multiple → modale choix matériau (`showDmChoiceModal`)
-4. Filtre `CATALOGUE_DATA` par `client_text` + catégories autorisées (`getAllowedCategoriesForGroup`)
-5. Si multiple articles techniques → modale choix technique (`showTechnicalItemModal`)
-6. Résultat = `catalogue_item_id` final pour la ligne enfant
+2. **Filtre par composante** : si `materialCtx.composante_id` défini, `filterDmByComposante` réduit les candidats DM (fallback liste complète si aucun match)
+3. **Tier 0 enrichi** : `getEnrichedDmField(dmEntry, expenseCat)` — si le DM a un sous-champ enrichi pour la catégorie → résolution directe sans modale
+4. Si 1 seul DM → utilise son `client_text` pour trouver l'article catalogue
+5. Si multiple → modale choix matériau (`showDmChoiceModal`)
+6. Filtre `CATALOGUE_DATA` par `client_text` + catégories autorisées (`getAllowedCategoriesForGroup`)
+7. Si multiple articles techniques → modale choix technique (`showTechnicalItemModal`)
+8. Résultat = `catalogue_item_id` final pour la ligne enfant
+
+### Panneau DM — Design navy
+
+- Fond `#0B1220`, texte `rgba(255,255,255,*)`, palette opacités (0.07→0.85)
+- Sous-champs enrichis : layout `flex-wrap`, indent 100px, labels 10px
+- Bookmark SVG : stroke au repos → filled persistant quand composante enregistrée
+- Dropdown composantes : filtré par `dm_type`, transparent sur navy
+- Autocomplete navy : fond `#131c2e`, items `rgba(255,255,255,0.7)`, `min-width: max-content`
+- Overflow : `.furniture-group` et `.rdm-enriched` en `overflow: visible` pour dropdowns

@@ -190,6 +190,7 @@
     let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
     let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
     var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
+    var COMPOSANTES_GROUPE_ITEMS = {}; // #217 — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
     var COUPE_TYPES = [];            // coupes de placage from app_config
     var COUPE_TYPES_DEFAULT = [
         { code: 'FC', label: 'Fil courant', facteur: 1.00, notes: '' },
@@ -2778,6 +2779,11 @@
         html += '<div class="rdm-actions">';
         html += '<button class="dm-add-btn" onclick="addRoomDmEntry(\'' + groupId + '\')">+ Ajouter</button>';
         html += '<button class="rdm-copy-btn" onclick="openRoomDmCopyMenu(\'' + groupId + '\', this)">Copier de\u2026</button>';
+        // #217: Groupe button — visible only if groupes exist
+        var _hasGroupes = (COMPOSANTES_DATA || []).some(function(c) { return c.dm_type === 'Groupe' && c.is_active !== false; });
+        if (_hasGroupes) {
+            html += '<button class="rdm-copy-btn" onclick="openGroupeChoiceModal(\'' + groupId + '\')">Groupe</button>';
+        }
         var configuredCount = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; }).length;
         if (configuredCount >= 2) {
             html += '<button class="rdm-save-all-btn" onclick="saveAllDmAsComposante(\'' + groupId + '\')">Enregistrer tout</button>';
@@ -3504,6 +3510,132 @@
         if ((dm.type === 'Fa\u00e7ades' || dm.type === 'Caisson') && !comp.finition_client_text) {
             setTimeout(function() { showConstraintToast('\u26a0 Aucune finition d\u00e9finie sur cette composante', 4000); }, 1500);
         }
+    }
+
+    // ── #217 Groupes de composantes ──
+
+    /** Open modal to choose a composante groupe to apply to this room */
+    function openGroupeChoiceModal(roomGroupId) {
+        var groupes = (COMPOSANTES_DATA || []).filter(function(c) {
+            return c.dm_type === 'Groupe' && c.is_active !== false;
+        });
+        if (groupes.length === 0) {
+            showConstraintToast('Aucun groupe de composantes disponible');
+            return;
+        }
+
+        // Build modal content
+        var html = '<div style="padding:24px;max-height:70vh;overflow-y:auto;">';
+        html += '<div style="font-size:15px;font-weight:600;color:var(--sw-text);margin-bottom:16px;">Appliquer un groupe de composantes</div>';
+
+        groupes.forEach(function(grp) {
+            var members = COMPOSANTES_GROUPE_ITEMS[grp.id] || [];
+            var memberNames = members.map(function(gi) {
+                var mc = COMPOSANTES_DATA.find(function(c) { return c.id === gi.composante_id; });
+                return mc ? '<span style="font-size:11px;color:var(--sw-text-2);">' + escapeHtml(mc.dm_type) + ':</span> ' + escapeHtml(mc.nom) : '';
+            }).filter(Boolean);
+
+            html += '<div style="border:1px solid var(--sw-border);border-radius:10px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;" ' +
+                'onmouseenter="this.style.borderColor=\'var(--sw-navy)\';this.style.boxShadow=\'0 2px 8px rgba(11,18,32,0.08)\'" ' +
+                'onmouseleave="this.style.borderColor=\'var(--sw-border)\';this.style.boxShadow=\'none\'">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+            html += '<span style="font-family:monospace;font-size:10px;color:var(--sw-muted);">' + escapeHtml(grp.code) + '</span>';
+            html += '<span style="font-size:13px;font-weight:600;color:var(--sw-text);flex:1;">' + escapeHtml(grp.nom) + '</span>';
+            html += '<button class="sw-btn-primary" style="padding:5px 14px;font-size:12px;height:auto;border-radius:6px;" ' +
+                'onclick="applyGroupeToDm(\'' + roomGroupId + '\',\'' + grp.id + '\');this.closest(\'.sd-modal-overlay\').remove();">Appliquer</button>';
+            html += '</div>';
+            if (memberNames.length > 0) {
+                html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+                memberNames.forEach(function(mn) {
+                    html += '<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:var(--sw-text);">' + mn + '</span>';
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="font-size:11px;color:var(--sw-muted);font-style:italic;">Aucune composante dans ce groupe</div>';
+            }
+            html += '</div>';
+        });
+
+        html += '</div>';
+
+        // Create overlay
+        var overlay = document.createElement('div');
+        overlay.className = 'sd-modal-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:900;display:flex;align-items:center;justify-content:center;';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:#fff;border-radius:14px;width:520px;max-width:90vw;box-shadow:0 20px 60px rgba(15,23,42,0.18);animation:sdFadeIn 0.15s;';
+        modal.innerHTML = html;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
+    /** Apply all composantes from a groupe to the room's DM */
+    async function applyGroupeToDm(roomGroupId, groupeComposanteId) {
+        var members = COMPOSANTES_GROUPE_ITEMS[groupeComposanteId] || [];
+        if (members.length === 0) {
+            showConstraintToast('Ce groupe ne contient aucune composante');
+            return;
+        }
+
+        var rdm = roomDM[roomGroupId] || [];
+        var applied = 0;
+        var changedTypes = [];
+
+        for (var i = 0; i < members.length; i++) {
+            var gi = members[i];
+            var comp = COMPOSANTES_DATA.find(function(c) { return c.id === gi.composante_id; });
+            if (!comp) continue;
+
+            var dmType = comp.dm_type;
+            // Find existing DM entry of same type
+            var dmIdx = rdm.findIndex(function(e) { return e.type === dmType; });
+
+            if (dmIdx === -1) {
+                // Create new DM entry for this type
+                rdm.push({ type: dmType, catalogue_item_id: null, client_text: '', description: '' });
+                dmIdx = rdm.length - 1;
+                roomDM[roomGroupId] = rdm;
+            }
+
+            // Apply composante to the DM entry (inline — avoid triggering reprocess per entry)
+            var dm = rdm[dmIdx];
+            dm.catalogue_item_id = comp.materiau_catalogue_id || dm.catalogue_item_id;
+            dm.materiau = comp.materiau_client_text
+                ? { client_text: comp.materiau_client_text, catalogue_item_id: comp.materiau_catalogue_id }
+                : null;
+            dm.style = comp.style || null;
+            dm.coupe = comp.coupe || null;
+            var _matTxt = comp.materiau_client_text || '';
+            var _coupeTxt = comp.coupe || '';
+            dm.client_text = [_matTxt, _coupeTxt].filter(Boolean).join(' ').trim() || dm.client_text;
+            dm.bande_chant = comp.bande_chant_client_text
+                ? { client_text: comp.bande_chant_client_text, catalogue_item_id: comp.bande_chant_catalogue_id }
+                : null;
+            dm.finition = comp.finition_client_text
+                ? { client_text: comp.finition_client_text, catalogue_item_id: comp.finition_catalogue_id }
+                : null;
+            dm.bois_brut = comp.bois_brut_client_text
+                ? { client_text: comp.bois_brut_client_text, catalogue_item_id: comp.bois_brut_catalogue_id }
+                : null;
+            dm.composante_id = comp.id;
+
+            applied++;
+            if (changedTypes.indexOf(dmType) === -1) changedTypes.push(dmType);
+        }
+
+        // Save once, render once
+        saveRoomDm(roomGroupId);
+        renderRoomDm(roomGroupId);
+
+        // Reprocess cascades once for all changed types
+        for (var t = 0; t < changedTypes.length; t++) {
+            await reprocessDefaultCascades(changedTypes[t], roomGroupId);
+        }
+
+        showConstraintToast('Groupe appliqu\u00e9 \u2014 ' + applied + ' composante' + (applied > 1 ? 's' : '') + ' configur\u00e9e' + (applied > 1 ? 's' : ''));
     }
 
     function rdmSearchCatalogue(groupId, idx, input) {
@@ -10304,6 +10436,28 @@
         }
         .dm-comp-select option { background: #0B1220; color: rgba(255,255,255,0.85); }
         .dm-comp-select:focus { border-color: rgba(255,255,255,0.4); outline: none; }
+
+        /* ── Selects génériques dans le panneau DM navy ── */
+        .room-dm-section select,
+        .room-dm-section .dm-composante-select,
+        .room-dm-section .rdm-enriched select {
+            background: #0B1220;
+            color: rgba(255,255,255,0.7);
+            border: none;
+            border-bottom: 0.5px solid rgba(255,255,255,0.12);
+            border-radius: 0;
+            font-size: 12px;
+            padding: 2px 4px;
+        }
+        .room-dm-section select option {
+            background: #131c2e;
+            color: rgba(255,255,255,0.7);
+        }
+        .room-dm-section select:focus {
+            outline: none;
+            border-bottom-color: rgba(255,255,255,0.4);
+        }
+
         .dm-type-label {
             color: rgba(255,255,255,0.35); font-size: 12px; min-width: 72px; flex-shrink: 0;
         }
@@ -12819,7 +12973,23 @@
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
                 if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
                 COMPOSANTES_DATA = await resp.json();
+                // #217: Load all groupe items
+                await loadComposanteGroupeItems();
             } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
+        /** #217: Load all composante_groupe_items, indexed by groupe_id */
+        async function loadComposanteGroupeItems() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_groupe_items?order=ordre.asc&select=*', {});
+                if (!resp.ok) { console.warn('[Groupes] Load items failed:', resp.status); return; }
+                var data = await resp.json();
+                COMPOSANTES_GROUPE_ITEMS = {};
+                data.forEach(function(gi) {
+                    if (!COMPOSANTES_GROUPE_ITEMS[gi.groupe_id]) COMPOSANTES_GROUPE_ITEMS[gi.groupe_id] = [];
+                    COMPOSANTES_GROUPE_ITEMS[gi.groupe_id].push(gi);
+                });
+            } catch(e) { console.warn('[Groupes] Load items error:', e); }
         }
 
         /** Load coupe types from app_config */

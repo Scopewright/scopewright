@@ -340,6 +340,18 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Fallback** : si `resolveByComposante` retourne `null` (champ absent, ID invalide, composante inexistante, pas de composante cross-type) → continue le flow existant sans changement
 - **Tests** : GROUP 36 (15 tests) dans `tests/cascade-engine.test.js` — inclut cross-type lookup, no-roomDM fallback. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`
 
+**#217 — Groupes de composantes** :
+- **Concept** : un groupe = ensemble nommé de composantes individuelles (Caisson + Façades + Panneaux + Tiroirs) applicable d'un coup à une pièce. Code `GRP-XXX` distinct de `COMP-XXX`
+- **Table** : `composante_groupe_items` — UUID PK, `groupe_id` FK → `composantes`, `composante_id` FK → `composantes`, `ordre` INTEGER, UNIQUE(groupe_id, composante_id). RLS authentifié. Migration : `sql/composante_groupes.sql`
+- **Trigger modifié** : `generate_composante_code()` génère `GRP-XXX` quand `dm_type = 'Groupe'`, sinon `COMP-XXX`
+- **`COMPOSANTES_GROUPE_ITEMS`** : objet global `{ groupe_id: [{ id, groupe_id, composante_id, ordre }] }` — chargé au démarrage via `loadComposanteGroupeItems()` (appelé depuis `loadComposantes`)
+- **Modale catalogue** : quand `dm_type === 'Groupe'`, les champs matériaux sont masqués (`_COMP_FIELDS_BY_TYPE['Groupe'] = []`), section "Composantes du groupe" affichée à la place (liste membres + bouton "+ Ajouter"). Dropdown searchable pour ajouter des composantes (filtre `dm_type !== 'Groupe'`). Le dropdown Type DM ne contient pas "Groupe" — créer un groupe se fait via bouton séparé "Nouveau groupe" dans le drawer
+- **Fonctions catalogue** : `_groupeLoadItems(groupeId)`, `_groupeRenderItems(items)`, `_groupeAddOpen()`, `_groupeSearchFilter(query)`, `_groupeAddItem(composanteId)`, `_groupeRemoveItem(giId)`, `_loadAllGroupeItems()`
+- **Calculateur — Bouton "Groupe"** : dans le footer du panneau DM (à côté de "Copier de…"), visible uniquement si des groupes existent dans `COMPOSANTES_DATA`
+- **`openGroupeChoiceModal(roomGroupId)`** : modale simple listant les groupes disponibles avec leurs composantes membres (badges type + nom). Bouton "Appliquer" par groupe
+- **`applyGroupeToDm(roomGroupId, groupeComposanteId)`** : pour chaque composante membre → trouve ou crée le DM de même type → applique les champs inline (même logique que `applyComposanteToDm` sans reprocess individuel) → `saveRoomDm` + `renderRoomDm` une fois → `reprocessDefaultCascades` une fois par type modifié → toast résumé
+- **Pas de ligne ajoutée** dans le calculateur — application des DM uniquement
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.

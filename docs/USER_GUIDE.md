@@ -912,6 +912,38 @@ Ce n'est pas une erreur — certains matériaux n'ont tout simplement pas besoin
 
 **Note** : la finition n'est plus un champ obligatoire dans les matériaux par défaut. Un avertissement jaune s'affiche si une composante Façades ou Caisson est appliquée sans finition configurée.
 
+### Groupes de composantes
+
+Un groupe de composantes rassemble plusieurs composantes individuelles (Caisson + Façades + Panneaux + Tiroirs…) sous un seul nom. Il permet de configurer tous les matériaux par défaut d'une pièce en un seul clic, au lieu de les appliquer un par un.
+
+Chaque groupe reçoit un code unique GRP-XXX (distinct des COMP-XXX des composantes individuelles).
+
+#### Créer un groupe dans le catalogue
+
+**Accès** : Catalogue → bouton **Composantes** → bouton **+ Groupe** dans la barre d'outils du drawer.
+
+La modale s'ouvre en mode « Groupe » : pas de champs matériaux, mais une section **« Composantes du groupe »** où vous ajoutez les composantes membres :
+
+1. Cliquez **+ Ajouter une composante**
+2. Recherchez par nom ou code dans le dropdown (seules les composantes individuelles apparaissent, pas les autres groupes)
+3. La composante s'ajoute à la liste avec son badge type coloré
+4. Cliquez **×** pour retirer une composante du groupe
+5. Donnez un nom au groupe et cliquez **Enregistrer**
+
+**Note** : le groupe est sauvegardé automatiquement lors de l'ajout de la première composante membre si vous ne l'avez pas encore enregistré.
+
+#### Appliquer un groupe à une pièce
+
+Dans le panneau Matériaux par défaut d'une pièce, un bouton **Groupe** apparaît à côté de « Copier de… » (visible uniquement si des groupes existent).
+
+1. Cliquez **Groupe** — une modale affiche tous les groupes disponibles avec la liste de leurs composantes membres
+2. Cliquez **Appliquer** sur le groupe souhaité
+3. Chaque composante du groupe est appliquée au DM correspondant (Caisson → DM Caisson, Façades → DM Façades, etc.)
+4. Si un type DM n'existe pas encore dans la pièce, il est créé automatiquement
+5. La cascade est relancée une seule fois à la fin — résolution efficace
+
+**Résultat** : tous les matériaux par défaut de la pièce sont configurés d'un coup, avec les mêmes propriétés que les composantes individuelles du groupe.
+
 ### Approbation des articles
 
 Les articles créés par des utilisateurs sans permission d'édition du catalogue sont mis **en attente d'approbation**.

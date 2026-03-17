@@ -3048,7 +3048,7 @@
         saveRoomDm(groupId);
     }
 
-    /** Rebuild DM client_text from enriched sub-fields (materiau + coupe) */
+    /** Rebuild DM client_text from enriched sub-fields */
     function _rebuildDmClientText(groupId, idx) {
         var rdm = roomDM[groupId];
         if (!rdm || !rdm[idx]) return;
@@ -3062,8 +3062,15 @@
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;
         }
+        var coupeText = entry.coupe || '';
         var finitionText = (entry.finition && entry.finition.client_text) || '';
-        var built = [matText, finitionText].filter(Boolean).join(' ').trim();
+        var built;
+        if (entry.type === 'Façades') {
+            var styleText = _dmFieldText(entry.style) || '';
+            built = [styleText, matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
+        } else {
+            built = [matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
+        }
         entry.client_text = built || '';
         // Update the main label in the DOM
         var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');

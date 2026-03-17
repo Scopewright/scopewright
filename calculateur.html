@@ -1099,13 +1099,26 @@
             }
         });
 
+        // Enrich DM entries with composante coupe for AI context
+        var enrichedDM = (roomDM[groupId] || []).map(function(d) {
+            if (d.composante_id) {
+                var comp = COMPOSANTES_DATA.find(function(c) { return c.id === d.composante_id; });
+                if (comp && comp.coupe) {
+                    var copy = Object.assign({}, d);
+                    copy.coupe = comp.coupe;
+                    return copy;
+                }
+            }
+            return d;
+        });
+
         var result = {
             groupId: groupId,
             roomId: roomMap[groupId] || null,
             name: name,
             installationIncluded: includeInstall,
             clientDescription: roomDescHTML[groupId] || '',
-            defaultMaterials: roomDM[groupId] || [],
+            defaultMaterials: enrichedDM,
             items: items,
             subtotal: Math.round(subtotal * 100) / 100,
             rentability: rentab

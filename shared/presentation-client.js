@@ -234,7 +234,15 @@ function assembleRoomDescription(groupId) {
         if (d.catalogue_item_id && d.description) {
             var sectionKey = (d.type || '').toUpperCase();
             if (!articlesBySection[sectionKey]) {
-                lines.push(toSentenceCase(d.type || '') + ' : ' + d.description);
+                var descText = d.description;
+                // Inject coupe from composante if available
+                if (d.composante_id && typeof COMPOSANTES_DATA !== 'undefined') {
+                    var comp = COMPOSANTES_DATA.find(function(c) { return c.id === d.composante_id; });
+                    if (comp && comp.coupe) {
+                        descText += ' coupe ' + comp.coupe;
+                    }
+                }
+                lines.push(toSentenceCase(d.type || '') + ' : ' + descText);
             }
         }
     });

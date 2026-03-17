@@ -2787,14 +2787,11 @@
         html += '<div class="rdm-actions">';
         html += '<button class="dm-add-btn" onclick="addRoomDmEntry(\'' + groupId + '\')">+ Ajouter</button>';
         html += '<button class="rdm-copy-btn" onclick="openRoomDmCopyMenu(\'' + groupId + '\', this)">Copier de\u2026</button>';
-        // #217: Groupe button — visible only if groupes exist, badge synced state
-        var _hasGroupes = (COMPOSANTES_DATA || []).some(function(c) { return c.dm_type === 'Groupe' && c.is_active !== false; });
-        if (_hasGroupes) {
-            var _grpSynced = _dmMatchesGroupe(groupId);
-            html += '<button class="rdm-copy-btn rdm-groupe-btn' + (_grpSynced ? ' rdm-groupe-synced' : '') + '" id="' + groupId + '-grpBadge" onclick="openGroupeChoiceModal(\'' + groupId + '\')">' +
-                '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (_grpSynced ? 'rgba(255,255,255,0.7)' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>' +
-                ' Groupe</button>';
-        }
+        // #217: Groupe button — always rendered, shows empty-state modal if no groupes
+        var _grpSynced = _dmMatchesGroupe(groupId);
+        html += '<button class="rdm-copy-btn rdm-groupe-btn' + (_grpSynced ? ' rdm-groupe-synced' : '') + '" id="' + groupId + '-grpBadge" onclick="openGroupeChoiceModal(\'' + groupId + '\')">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (_grpSynced ? 'rgba(255,255,255,0.7)' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>' +
+            ' Groupe</button>';
         var configuredCount = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; }).length;
         if (configuredCount >= 2) {
             html += '<button class="rdm-save-all-btn" onclick="saveAllDmAsComposante(\'' + groupId + '\')">Enregistrer tout</button>';
@@ -2840,14 +2837,12 @@
         var html = '<div class="rdm-row-wrap" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +
             '<div class="dm-row rdm-row">';
 
-        // Bookmark button (save as composante) — filled if already registered
-        if (entry.client_text) {
-            var _bkmFill = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'none';
-            var _bkmStroke = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)';
-            var _bkmClass = 'dm-bookmark-btn' + (_dejaEnregistre ? ' saved' : '');
-            html += '<button class="' + _bkmClass + '" onclick="saveDmAsComposante(\'' + groupId + '\',' + idx + ')" title="Enregistrer comme composante">' +
-                '<svg width="13" height="13" viewBox="0 0 24 24" fill="' + _bkmFill + '" stroke="' + _bkmStroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>';
-        }
+        // Bookmark button (save as composante) — always visible, filled if already registered
+        var _bkmFill = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'none';
+        var _bkmStroke = _dejaEnregistre ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)';
+        var _bkmClass = 'dm-bookmark-btn' + (_dejaEnregistre ? ' saved' : '');
+        html += '<button class="' + _bkmClass + '" onclick="saveDmAsComposante(\'' + groupId + '\',' + idx + ')" title="Enregistrer comme composante">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="' + _bkmFill + '" stroke="' + _bkmStroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>';
 
         // Enriched toggle arrow (only for enriched groups)
         var enrichedConfig = entry.type ? DM_ENRICHED_GROUPS[entry.type] : null;
@@ -3063,9 +3058,8 @@
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;
         }
-        var coupeText = entry.coupe || '';
         var finitionText = (entry.finition && entry.finition.client_text) || '';
-        var built = [matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
+        var built = [matText, finitionText].filter(Boolean).join(' ').trim();
         entry.client_text = built || '';
         // Update the main label in the DOM
         var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');

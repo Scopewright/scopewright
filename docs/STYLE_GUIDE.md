@@ -142,11 +142,11 @@ Jamais de shadow lourde. Jamais de gradient.
 12 colonnes CSS Grid. ARTICLE est `1fr` — reçoit tout l'espace restant.
 
 **Desktop** (> 900px) :
-`30px 55px 1fr 70px 60px 44px 260px 110px 100px 30px 120px 30px`
+`30px 55px 1fr 70px 60px 44px 290px 100px 100px 30px 120px 30px`
 CB | Tag | Article | Code | Type | QM | Dims | Prix | Qty | Inst | Total | ×
 
 **Tablet** (≤ 900px) :
-`24px 45px 1fr 56px 48px 36px 200px 90px 80px 24px 100px 24px`
+`24px 45px 1fr 56px 48px 36px 220px 80px 80px 24px 100px 24px`
 
 Principe : Code et Type sont compacts (monospace 10px) — ne jamais les élargir au détriment d'Article.
 

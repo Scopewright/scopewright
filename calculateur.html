@@ -3062,14 +3062,14 @@
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;
         }
-        var coupeText = entry.coupe || '';
         var finitionText = (entry.finition && entry.finition.client_text) || '';
+        // Coupe NOT included — buildComposanteName adds it for display to avoid duplication
         var built;
         if (entry.type === 'Façades') {
             var styleText = _dmFieldText(entry.style) || '';
-            built = [styleText, matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
+            built = [styleText, matText, finitionText].filter(Boolean).join(' ').trim();
         } else {
-            built = [matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
+            built = [matText, finitionText].filter(Boolean).join(' ').trim();
         }
         entry.client_text = built || '';
         // Update the main label in the DOM
@@ -4774,9 +4774,11 @@
             var groupNameNorm = normalizeDmType(groupName);
             var dmMatches = [];
             for (var i = 0; i < dm.length; i++) {
-                if (normalizeDmType(dm[i].type) === groupNameNorm && (dm[i].client_text || dm[i].catalogue_item_id)) {
-                    dmMatches.push(dm[i]);
-                }
+                if (normalizeDmType(dm[i].type) !== groupNameNorm) continue;
+                // Include if has client_text, catalogue_item_id, or enriched sub-field data
+                if (dm[i].client_text || dm[i].catalogue_item_id) { dmMatches.push(dm[i]); continue; }
+                if (dm[i].materiau && (dm[i].materiau.client_text || dm[i].materiau.catalogue_item_id)) { dmMatches.push(dm[i]); continue; }
+                if (_dmFieldText(dm[i].style)) { dmMatches.push(dm[i]); continue; }
             }
             if (dmMatches.length === 0) return null;
 

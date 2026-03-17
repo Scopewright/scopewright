@@ -823,6 +823,23 @@ Le bouton **Auditer** lance 12 vérifications automatiques :
 
 Pour les doublons détectés, un bouton **Uniformiser** permet de corriger en un clic — tous les articles du groupe adoptent le texte le plus fréquent.
 
+### Coupes de placage
+
+Les coupes de placage définissent comment le bois est débité (fil courant, rift cut, quarter cut, etc.). Chaque type de coupe a un **facteur multiplicateur** qui ajuste automatiquement le coût matériau du placage.
+
+**Accès** : Catalogue → bouton **Coupes** dans la barre d'en-tête. Un panneau latéral s'ouvre avec la liste des coupes disponibles.
+
+**Ce que vous pouvez faire** :
+- **Créer** un type de coupe avec le bouton **+** : texte client (ce que le client voit, ex: "Faux quartier / Rift cut"), facteur multiplicateur (ex: ×1.40), notes internes
+- **Modifier** un type existant en cliquant dessus
+- **Supprimer** un type (avec confirmation)
+
+**Facteur prix** : le facteur de coupe s'applique automatiquement au coût des matériaux placage (catégories contenant "placage" ou "panneau bois"). Par exemple, un placage à 10$ avec un facteur ×1.40 coûtera 14$ avant les ajustements de perte et markup. Un facteur de 1.00 (fil courant) n'a aucun impact sur le prix.
+
+**Utilisation** : quand vous configurez les matériaux par défaut d'une pièce (panneau DM enrichi), le champ Coupe est un dropdown peuplé depuis ce référentiel. Le même dropdown apparaît dans la modale composante. Le facteur est appliqué automatiquement dans tous les calculs (prix ligne, rentabilité, modale rentabilité).
+
+**Types par défaut** : Fil courant (×1.00), Faux quartier / Rift cut (×1.40), Sur quartier / Quarter cut (×1.25), Déroulé / Rotary cut (×0.85), Loupe / Burl (×2.00), Demi-rond / Half round (×1.15).
+
 ### Composantes
 
 Une composante, c'est une « recette matériau » réutilisable. Au lieu de reconfigurer les mêmes matériaux à chaque pièce (matériau, bande de chant, finition, bois brut, style, coupe), vous enregistrez la combinaison une fois sous un nom parlant (ex: « Caisson Placage chêne blanc rift cut ») et vous la réappliquez en un clic.
@@ -842,7 +859,7 @@ Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
 
 **Champs intelligents selon le type** : la modale adapte les champs affichés selon le type DM choisi. Les Tiroirs et Poignées n'affichent que le matériau. Les Façades et Panneaux affichent tous les champs (matériau, style, coupe, bande de chant, finition, bois brut). Les Caissons n'affichent pas le style ni le bois brut. Cela vous évite de remplir des champs inutiles.
 
-**Recherche dans le catalogue** : les champs Matériau, Bande de chant, Finition et Bois brut proposent une recherche en temps réel dans votre catalogue de prix. Tapez quelques lettres pour voir les articles correspondants avec leur code et catégorie. Style et Coupe restent en texte libre.
+**Recherche dans le catalogue** : les champs Matériau, Bande de chant, Finition et Bois brut proposent une recherche en temps réel dans votre catalogue de prix. Tapez quelques lettres pour voir les articles correspondants avec leur code et catégorie. Style reste en texte libre. Coupe est un dropdown peuplé depuis le référentiel centralisé des coupes de placage (voir section Coupes ci-dessous).
 
 **Voir où une composante est utilisée** : en bas de la modale d'édition, une section « Utilisée dans » liste toutes les soumissions qui utilisent cette composante. Chaque ligne est cliquable et ouvre directement la soumission dans le calculateur.
 

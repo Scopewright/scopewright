@@ -749,7 +749,7 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes (Caisson, Faç
 
 #### UI
 
-Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. Indicateur `.has-data` (navy) quand sous-champs remplis. Combobox catalogue pour champs objet, texte libre pour champs string.
+Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. Indicateur `.has-data` (navy) quand sous-champs remplis. Combobox catalogue pour champs objet (`materiau`, `bande_chant`, `finition`, `bois_brut`). Dropdown `COUPE_TYPES` pour `coupe` (peuplé depuis `app_config.coupe_types`). Texte libre pour `style`.
 
 #### Backward compatibility
 
@@ -757,7 +757,49 @@ Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. 
 - `saveRoomDm` / `copyDmFrom` : sérialisent l'objet complet (sous-champs inclus)
 - `getMissingRequiredDm` : vérifie uniquement le matériau principal
 
-### 4.7 Composantes (#209)
+### 4.7 Coupes de placage (`coupe_types`)
+
+Référentiel centralisé des types de coupe de placage (fil courant, rift cut, quarter cut, etc.) avec facteur multiplicateur sur le coût matériau.
+
+#### Stockage
+
+`app_config.coupe_types` — JSONB array :
+```json
+[
+  { "code": "FC", "label": "Fil courant", "facteur": 1.00, "notes": "" },
+  { "code": "EP", "label": "Faux quartier / Rift cut", "facteur": 1.40, "notes": "Seulement chêne et noyer" }
+]
+```
+
+Variable globale `COUPE_TYPES` chargée au démarrage. Fallback `COUPE_TYPES_DEFAULT` si la clé n'existe pas en DB.
+
+#### Drawer catalogue
+
+Bouton "Coupes" dans `.catalogue-header-bar`. Drawer 480px `#coupesDrawer` avec liste des coupes (label + badge facteur + notes). Modale CRUD : texte client, facteur (number step 0.01), notes. Code auto-généré depuis initiales du label.
+
+#### Intégration composantes
+
+Le champ `coupe` dans la modale composante (`#composanteModal`) est un `<select>` peuplé depuis `COUPE_TYPES` via `_populateCoupeSelect`. Valeur stockée = `label` (texte client visible dans les descriptions).
+
+#### Intégration DM enrichi
+
+Le champ `coupe` dans `renderEnrichedPanel` (calculateur) est un `<select>` peuplé depuis `COUPE_TYPES` au lieu d'un input texte libre.
+
+#### Facteur prix
+
+Le facteur coupe s'applique sur les `material_costs` des catégories placage avant waste et markup :
+
+```
+prix_matériau = material_costs[cat] × facteur_coupe × (1 + waste%/100) × (1 + markup%/100)
+```
+
+- `_isPlacageCategory(catName)` : vérifie si la catégorie contient "placage" ou === "panneau bois"
+- `_getCoupeFacteurForRow(row)` : cherche la première entrée DM avec `coupe` dans la pièce de la ligne
+- `_applyCoupeFactor(materialCosts, factor)` : multiplie les coûts placage-related in-place
+- Appliqué dans : `getRowTotal`, `updateRow` (affichage), `computeRentabilityData`
+- Si coupe absente ou facteur = 1.0 → aucun impact sur le calcul existant
+
+### 4.8 Composantes (#209)
 
 Regroupements nommés de propriétés constructives par type DM (Caisson, Façades, Panneaux, Tiroirs, Finition, Poignées).
 

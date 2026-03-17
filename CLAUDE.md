@@ -264,9 +264,9 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward compatible — champs ajoutés au JSONB `project_rooms.default_materials` existant, aucune migration SQL.
 
 **Structure enrichie** (champs optionnels) :
-- **Caisson** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition`
-- **Façades** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition` + `bois_brut`
-- **Panneaux** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition` + `bois_brut`
+- **Caisson** : panneau (combobox catalogue) + `coupe` (dropdown `COUPE_TYPES`) + `bande_chant` + `finition`
+- **Façades** : panneau (combobox catalogue) + `coupe` (dropdown `COUPE_TYPES`) + `bande_chant` + `finition` + `bois_brut`
+- **Panneaux** : panneau (combobox catalogue) + `coupe` (dropdown `COUPE_TYPES`) + `bande_chant` + `finition` + `bois_brut`
 
 **Sous-champs catalogue** (`materiau`, `bande_chant`, `finition`, `bois_brut`) :
 ```json
@@ -280,7 +280,7 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 - `ENRICHED_DM_FIELD_MAP` : `'PLACAGE'` → `materiau`, `'PANNEAU'` → `materiau`, `'MATERIAU'`/`'MATÉRIAU'` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
 - `rdmSearchEnriched` fieldCatMap `materiau`: `['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU']`
 
-**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `materiau`/`bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `coupe`. **Champ principal readonly** : pour les types enrichis (Caisson/Façades/Panneaux), le champ texte principal est en lecture seule — son contenu est construit automatiquement depuis les sous-champs via `_rebuildDmClientText(groupId, idx)` : `"{panneau} {coupe}"`. Si composante appliquée → affiche le nom composante. Chaque `rdmSelectEnrichedItem`, `saveEnrichedText` et `clearEnrichedField` déclenche la reconstruction. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
+**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `materiau`/`bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Dropdown `COUPE_TYPES` pour `coupe` (select peuplé depuis `app_config.coupe_types`). **Champ principal readonly** : pour les types enrichis (Caisson/Façades/Panneaux), le champ texte principal est en lecture seule — son contenu est construit automatiquement depuis les sous-champs via `_rebuildDmClientText(groupId, idx)` : `"{panneau} {coupe}"`. Si composante appliquée → affiche le nom composante. Chaque `rdmSelectEnrichedItem`, `saveEnrichedText` et `clearEnrichedField` déclenche la reconstruction. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
 
 **Validation cohérence** : quand le matériau principal change vers mélamine, `finition` est automatiquement supprimée + toast. `rdmSelectItem` re-rend le panneau enrichi (visibilité `coupe` dépend du matériau)
 
@@ -339,6 +339,19 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Warning UI** : sous-champs enrichis vides liés à une composante → placeholder orange (`.rdm-empty-warn`, underline `rgba(245,158,11,0.3)`) — indique les champs qui pourraient impacter la résolution cascade
 - **Fallback** : si `resolveByComposante` retourne `null` (champ absent, ID invalide, composante inexistante, pas de composante cross-type) → continue le flow existant sans changement
 - **Tests** : GROUP 36 (15 tests) dans `tests/cascade-engine.test.js` — inclut cross-type lookup, no-roomDM fallback. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`
+
+### Coupes de placage (`coupe_types`)
+
+Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.
+- **Stockage** : `app_config.coupe_types` JSONB array `[{ code, label, facteur, notes }]`
+- **Variable globale** : `COUPE_TYPES` — chargé au démarrage dans `calculateur.html` et `catalogue_prix_stele_complet.html`. Fallback `COUPE_TYPES_DEFAULT` si absent en DB
+- **Drawer catalogue** : bouton "Coupes" dans `.catalogue-header-bar`, drawer 480px `#coupesDrawer` avec liste, modale création/édition/suppression. Code auto-généré depuis initiales du label (`_coupeGenCode`)
+- **Dropdown composante** : le champ `coupe` dans `#composanteModal` est un `<select>` peuplé depuis `COUPE_TYPES` (`_populateCoupeSelect`). Valeur stockée = `label` (texte client)
+- **Dropdown DM enrichi** : le champ `coupe` dans `renderEnrichedPanel` est un `<select>` peuplé depuis `COUPE_TYPES` (au lieu d'un input texte libre). `onchange` → `saveEnrichedText` → `_rebuildDmClientText`
+- **Facteur prix** : `getCoupeFacteur(coupeLabel)` retourne le multiplicateur. `_isPlacageCategory(catName)` vérifie si une catégorie est placage-related (contient "placage" ou === "panneau bois"). `_getCoupeFacteurForRow(row)` cherche la coupe dans le DM de la pièce. `_applyCoupeFactor(materialCosts, factor)` multiplie les coûts placage-related
+- **Formule** : `prix_matériau = material_costs[cat] × facteur_coupe × (1 + waste%/100) × (1 + markup%/100)` — le facteur s'applique avant waste et markup
+- **Intégration calcul** : appliqué dans `getRowTotal`, `updateRow` (display), et `computeRentabilityData`. Si coupe absente ou facteur = 1.0 → aucun impact
+- **Fonctions** : `loadCoupeTypes`, `_saveCoupeTypes`, `openCoupesDrawer`, `closeCoupesDrawer`, `renderCoupesList`, `openCoupeModal`, `closeCoupeModal`, `saveCoupeModal`, `deleteCoupeFromModal`, `deleteCoupeConfirm`, `getCoupeFacteur`, `_isPlacageCategory`, `_getCoupeFacteurForRow`, `_applyCoupeFactor`
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 
@@ -772,6 +785,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `prompt_change_log` | JSONB | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | shared/master-agent.js |
 | `master_context_synced_at` | TEXT (ISO datetime) | Timestamp dernière synchronisation MASTER_CONTEXT.md | ai-master (fraîcheur), shared/master-agent.js (écriture) |
 | `debug_ai_images` | BOOLEAN (JSONB) | Flag debug — sauvegarder les images base64 envoyées à l'AI dans Storage bucket `debug-ai-images` | ai-assistant (edge function), admin.html (toggle + gallery) |
+| `coupe_types` | JSONB array | Types de coupe de placage `[{code, label, facteur, notes}]`. Facteur multiplicateur sur `material_costs` placage | calculateur.html, catalogue_prix_stele_complet.html |
 
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 

@@ -68,6 +68,17 @@
     // #209: Composantes data
     var COMPOSANTES_DATA = [];
 
+    // Coupes de placage — loaded from app_config.coupe_types
+    var COUPE_TYPES_DEFAULT = [
+        { code: 'FC', label: 'Fil courant', facteur: 1.00, notes: '' },
+        { code: 'EP', label: 'Faux quartier / Rift cut', facteur: 1.40, notes: 'Seulement chêne et noyer' },
+        { code: 'QC', label: 'Sur quartier / Quarter cut', facteur: 1.25, notes: '' },
+        { code: 'DR', label: 'Déroulé / Rotary cut', facteur: 0.85, notes: '' },
+        { code: 'LO', label: 'Loupe / Burl', facteur: 2.00, notes: 'Prix sur demande' },
+        { code: 'HR', label: 'Demi-rond / Half round', facteur: 1.15, notes: '' }
+    ];
+    var COUPE_TYPES = [];
+
     // Donnees par defaut (utilisees uniquement si jamais connecte et pas de cache)
     // Les codes ST-XXXX correspondent au mapping post-migration.
     // En production, les donnees viennent de Supabase.
@@ -900,6 +911,44 @@
             font-size:11px; color:#94a3b8; padding:4px 18px 2px; font-style:italic;
         }
         @media (max-width:600px) { .audit-drawer { width:100%; right:-100%; } }
+
+        /* ── Coupes drawer ── */
+        .coupe-drawer-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.18); z-index:900;
+            opacity:0; pointer-events:none; transition:opacity 0.2s;
+        }
+        .coupe-drawer-overlay.active { opacity:1; pointer-events:auto; }
+        .coupe-drawer {
+            position:fixed; top:0; right:-500px; width:480px; height:100vh;
+            background:#fff; z-index:901; display:flex; flex-direction:column;
+            box-shadow:-4px 0 24px rgba(0,0,0,0.10); transition:right 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .coupe-drawer.active { right:0; }
+        .coupe-drawer-header {
+            display:flex; align-items:center; gap:8px; padding:16px 20px;
+            border-bottom:1px solid var(--sw-border);
+        }
+        .coupe-drawer-header h3 { font-size:14px; font-weight:600; margin:0; color:var(--sw-text); flex:1; }
+        .coupe-drawer-close {
+            background:none; border:none; font-size:18px; cursor:pointer;
+            color:var(--sw-muted); padding:2px 4px; border-radius:6px;
+        }
+        .coupe-drawer-close:hover { color:var(--sw-text); }
+        .coupe-list { flex:1; overflow-y:auto; padding:8px 12px; }
+        .coupe-item {
+            display:flex; align-items:center; gap:10px; padding:10px 12px;
+            border-radius:8px; transition:background 0.1s;
+        }
+        .coupe-item:hover { background:#f8fafc; }
+        .coupe-item-main { flex:1; min-width:0; cursor:pointer; }
+        .coupe-item-label { font-size:13px; color:var(--sw-text); font-weight:500; }
+        .coupe-item-notes { font-size:11px; color:var(--sw-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .coupe-facteur-badge {
+            font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
+            background:#f0f9ff; color:#1d4ed8; white-space:nowrap; flex-shrink:0;
+        }
+        .coupe-item-actions { display:flex; gap:2px; opacity:0; transition:opacity 0.15s; }
+        .coupe-item:hover .coupe-item-actions { opacity:1; }
 
         /* ── Composantes drawer (#209) ── */
         .comp-drawer-overlay {
@@ -2237,6 +2286,7 @@
         <div style="flex:1;"></div>
         <button class="cat-filter-btn" id="batchSelectBtn" onclick="toggleBatchMode()" style="display:none;">S&eacute;lectionner</button>
         <button class="cat-filter-btn" id="auditBtn" onclick="openAuditDrawer()" title="Auditer le catalogue">Auditer</button>
+        <button class="cat-filter-btn" id="coupesBtn" onclick="openCoupesDrawer()" title="Types de coupe de placage">Coupes</button>
         <button class="cat-filter-btn" id="composantesBtn" onclick="openComposantesDrawer()" title="G&eacute;rer les composantes">Composantes</button>
     </div>
     <table class="price-table" id="mainCatalogueTable"></table>
@@ -5561,6 +5611,170 @@
         }
 
         // ══════════════════════════════════════════════════════════
+        // Coupes de placage
+        // ══════════════════════════════════════════════════════════
+
+        /** Load coupe types from app_config */
+        async function loadCoupeTypes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.coupe_types&select=value', {});
+                if (resp.ok) {
+                    var rows = await resp.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value) && rows[0].value.length > 0) {
+                        COUPE_TYPES = rows[0].value;
+                        return;
+                    }
+                }
+            } catch(e) { console.warn('[CoupeTypes] Load error:', e); }
+            COUPE_TYPES = JSON.parse(JSON.stringify(COUPE_TYPES_DEFAULT));
+        }
+
+        /** Save COUPE_TYPES to app_config */
+        async function _saveCoupeTypes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.coupe_types', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ value: COUPE_TYPES })
+                });
+                if (resp.ok) {
+                    var result = await resp.json();
+                    if (Array.isArray(result) && result.length === 0) {
+                        await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: 'coupe_types', value: COUPE_TYPES })
+                        });
+                    }
+                }
+            } catch(e) { console.warn('[CoupeTypes] Save error:', e); }
+        }
+
+        /** Generate code from label initials */
+        function _coupeGenCode(label) {
+            if (!label) return 'XX';
+            var words = label.trim().split(/\s+/);
+            var code = '';
+            for (var i = 0; i < words.length && code.length < 3; i++) {
+                var w = words[i].replace(/[^a-zA-Z\u00C0-\u017F]/g, '');
+                if (w.length > 0) code += w[0].toUpperCase();
+            }
+            return code || 'XX';
+        }
+
+        function openCoupesDrawer() {
+            document.getElementById('coupeOverlay').classList.add('active');
+            document.getElementById('coupesDrawer').classList.add('active');
+            renderCoupesList();
+        }
+
+        function closeCoupesDrawer() {
+            document.getElementById('coupeOverlay').classList.remove('active');
+            document.getElementById('coupesDrawer').classList.remove('active');
+        }
+
+        function renderCoupesList() {
+            var list = document.getElementById('coupesList');
+            if (!list) return;
+            if (!COUPE_TYPES.length) {
+                list.innerHTML = '<div class="comp-empty">Aucune coupe d\u00e9finie.</div>';
+                return;
+            }
+            var html = '';
+            COUPE_TYPES.forEach(function(c, idx) {
+                html += '<div class="coupe-item">';
+                html += '<div class="coupe-item-main" onclick="openCoupeModal(' + idx + ')">';
+                html += '<div class="coupe-item-label">' + escapeHtml(c.label) + '</div>';
+                if (c.notes) html += '<div class="coupe-item-notes">' + escapeHtml(c.notes) + '</div>';
+                html += '</div>';
+                html += '<span class="coupe-facteur-badge">\u00d7' + (c.facteur != null ? c.facteur.toFixed(2) : '1.00') + '</span>';
+                html += '<div class="coupe-item-actions">';
+                html += '<button class="comp-action-btn" onclick="openCoupeModal(' + idx + ')" title="Modifier">&#9998;</button>';
+                html += '<button class="comp-action-btn comp-action-delete" onclick="deleteCoupeConfirm(' + idx + ')" title="Supprimer">&#128465;</button>';
+                html += '</div>';
+                html += '</div>';
+            });
+            list.innerHTML = html;
+        }
+
+        function openCoupeModal(idx) {
+            var modal = document.getElementById('coupeModal');
+            if (!modal) return;
+            document.getElementById('coupeModalIdx').value = idx != null ? idx : -1;
+            document.getElementById('coupeModalLabel').value = '';
+            document.getElementById('coupeModalFacteur').value = '1.00';
+            document.getElementById('coupeModalNotes').value = '';
+            document.getElementById('coupeModalTitle').textContent = 'Nouvelle coupe';
+            document.getElementById('coupeBtnDelete').style.display = 'none';
+
+            if (idx != null && idx >= 0 && COUPE_TYPES[idx]) {
+                var c = COUPE_TYPES[idx];
+                document.getElementById('coupeModalLabel').value = c.label || '';
+                document.getElementById('coupeModalFacteur').value = c.facteur != null ? c.facteur : 1.00;
+                document.getElementById('coupeModalNotes').value = c.notes || '';
+                document.getElementById('coupeModalTitle').textContent = 'Modifier la coupe';
+                document.getElementById('coupeBtnDelete').style.display = '';
+            }
+            document.getElementById('coupeModalLabel').style.borderColor = '';
+            modal.classList.add('active');
+        }
+
+        function closeCoupeModal() {
+            document.getElementById('coupeModal').classList.remove('active');
+        }
+
+        async function saveCoupeModal() {
+            var label = document.getElementById('coupeModalLabel').value.trim();
+            if (!label) {
+                document.getElementById('coupeModalLabel').style.borderColor = '#DC2626';
+                document.getElementById('coupeModalLabel').focus();
+                return;
+            }
+            var facteur = parseFloat(document.getElementById('coupeModalFacteur').value) || 1.00;
+            var notes = document.getElementById('coupeModalNotes').value.trim();
+            var idx = parseInt(document.getElementById('coupeModalIdx').value, 10);
+            var code = _coupeGenCode(label);
+            var entry = { code: code, label: label, facteur: facteur, notes: notes };
+
+            if (idx >= 0 && COUPE_TYPES[idx]) {
+                COUPE_TYPES[idx] = entry;
+            } else {
+                COUPE_TYPES.push(entry);
+            }
+            await _saveCoupeTypes();
+            closeCoupeModal();
+            renderCoupesList();
+            _compToast(idx >= 0 ? 'Coupe modifi\u00e9e \u2713' : 'Coupe cr\u00e9\u00e9e \u2713');
+        }
+
+        async function deleteCoupeFromModal() {
+            var idx = parseInt(document.getElementById('coupeModalIdx').value, 10);
+            if (idx < 0 || !COUPE_TYPES[idx]) return;
+            if (!confirm('Supprimer la coupe \u00ab ' + COUPE_TYPES[idx].label + ' \u00bb ?')) return;
+            COUPE_TYPES.splice(idx, 1);
+            await _saveCoupeTypes();
+            closeCoupeModal();
+            renderCoupesList();
+            _compToast('Coupe supprim\u00e9e');
+        }
+
+        async function deleteCoupeConfirm(idx) {
+            if (idx < 0 || !COUPE_TYPES[idx]) return;
+            if (!confirm('Supprimer la coupe \u00ab ' + COUPE_TYPES[idx].label + ' \u00bb ?')) return;
+            COUPE_TYPES.splice(idx, 1);
+            await _saveCoupeTypes();
+            renderCoupesList();
+            _compToast('Coupe supprim\u00e9e');
+        }
+
+        /** Get coupe factor by label */
+        function getCoupeFacteur(coupeLabel) {
+            if (!coupeLabel || !COUPE_TYPES || !COUPE_TYPES.length) return 1.0;
+            var found = COUPE_TYPES.find(function(c) { return c.label === coupeLabel; });
+            return found ? (found.facteur || 1.0) : 1.0;
+        }
+
+        // ══════════════════════════════════════════════════════════
         // #209 — Composantes CRUD
         // ══════════════════════════════════════════════════════════
 
@@ -5727,6 +5941,14 @@
                 el.addEventListener('change', el._compNomHandler);
             });
 
+            // Populate coupe dropdown from COUPE_TYPES
+            var _coupeVal = '';
+            if (compId) {
+                var _compForCoupe = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
+                if (_compForCoupe) _coupeVal = _compForCoupe.coupe || '';
+            }
+            _populateCoupeSelect('compModalCoupe', _coupeVal);
+
             _compUpdateFieldVisibility();
             modal.classList.add('active');
         }
@@ -5768,6 +5990,18 @@
                     el.style.display = allowed.indexOf(field) !== -1 ? '' : 'none';
                 }
             });
+        }
+
+        /** Populate the coupe select in composante modal */
+        function _populateCoupeSelect(selectId, selectedValue) {
+            var sel = document.getElementById(selectId);
+            if (!sel) return;
+            var html = '<option value="">\u2014 Non d\u00e9fini \u2014</option>';
+            (COUPE_TYPES || []).forEach(function(c) {
+                var selected = (c.label === selectedValue) ? ' selected' : '';
+                html += '<option value="' + escapeAttr(c.label) + '"' + selected + '>' + escapeHtml(c.label) + '</option>';
+            });
+            sel.innerHTML = html;
         }
 
         /** Catalogue category filters for combobox fields */
@@ -9192,8 +9426,9 @@
             // Charger les stats d'utilisation (articles dormants)
             await loadUsageStats();
 
-            // Charger les composantes (#209)
+            // Charger les composantes (#209) et coupes de placage
             await loadComposantes();
+            await loadCoupeTypes();
 
             // Générer les tableaux avec les données chargées
             generatePriceTables();
@@ -9301,6 +9536,49 @@
     </div>
 </div>
 
+<!-- Coupes drawer -->
+<div class="coupe-drawer-overlay" id="coupeOverlay" onclick="closeCoupesDrawer()"></div>
+<div class="coupe-drawer" id="coupesDrawer">
+    <div class="coupe-drawer-header">
+        <h3>Coupes de placage</h3>
+        <button class="comp-add-btn" onclick="openCoupeModal()" title="Nouvelle coupe" style="margin-right:8px;">+</button>
+        <button class="coupe-drawer-close" onclick="closeCoupesDrawer()">&times;</button>
+    </div>
+    <div class="coupe-list" id="coupesList">
+        <div class="comp-empty">Chargement&hellip;</div>
+    </div>
+</div>
+
+<!-- Coupe modal -->
+<div class="comp-modal-overlay" id="coupeModal">
+    <div class="comp-modal" style="width:420px;">
+        <div class="comp-modal-header">
+            <h3 id="coupeModalTitle">Nouvelle coupe</h3>
+            <button class="comp-modal-close" onclick="closeCoupeModal()">&times;</button>
+        </div>
+        <div class="comp-modal-body">
+            <input type="hidden" id="coupeModalIdx" value="-1">
+            <div class="comp-field">
+                <label>Texte client *</label>
+                <input type="text" id="coupeModalLabel" placeholder="Ex: Faux quartier / Rift cut">
+            </div>
+            <div class="comp-field">
+                <label>Facteur multiplicateur</label>
+                <input type="number" id="coupeModalFacteur" step="0.01" min="0" value="1.00" style="width:120px;">
+            </div>
+            <div class="comp-field">
+                <label>Notes</label>
+                <textarea id="coupeModalNotes" placeholder="Notes internes (optionnel)&hellip;"></textarea>
+            </div>
+        </div>
+        <div class="comp-modal-footer">
+            <button class="comp-btn-cancel" onclick="closeCoupeModal()">Annuler</button>
+            <button class="comp-btn-cancel comp-action-delete" id="coupeBtnDelete" onclick="deleteCoupeFromModal()" style="display:none;color:#dc2626;">Supprimer</button>
+            <button class="comp-btn-save" onclick="saveCoupeModal()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Composantes drawer (#209) -->
 <div class="comp-drawer-overlay" id="compOverlay" onclick="closeComposantesDrawer()"></div>
 <div class="comp-drawer" id="composantesDrawer">
@@ -9371,7 +9649,9 @@
                 </div>
                 <div class="comp-field" data-comp-field="coupe">
                     <label>Coupe</label>
-                    <input type="text" id="compModalCoupe" placeholder="Ex: Rift cut">
+                    <select id="compModalCoupe">
+                        <option value="">&mdash; Non d&eacute;fini &mdash;</option>
+                    </select>
                 </div>
             </div>
             <div class="comp-field" data-comp-field="bande_chant">

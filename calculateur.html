@@ -190,6 +190,15 @@
     let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
     let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
     var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
+    var COUPE_TYPES = [];            // coupes de placage from app_config
+    var COUPE_TYPES_DEFAULT = [
+        { code: 'FC', label: 'Fil courant', facteur: 1.00, notes: '' },
+        { code: 'EP', label: 'Faux quartier / Rift cut', facteur: 1.40, notes: 'Seulement ch\u00eane et noyer' },
+        { code: 'QC', label: 'Sur quartier / Quarter cut', facteur: 1.25, notes: '' },
+        { code: 'DR', label: 'D\u00e9roul\u00e9 / Rotary cut', facteur: 0.85, notes: '' },
+        { code: 'LO', label: 'Loupe / Burl', facteur: 2.00, notes: 'Prix sur demande' },
+        { code: 'HR', label: 'Demi-rond / Half round', facteur: 1.15, notes: '' }
+    ];
     let saveTimeout = null;      // pour le debounce
     const MAX_GROUP_IMAGES = 8;
 
@@ -1240,6 +1249,9 @@
             }
             if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);
             var materialCosts = Object.assign({}, item.material_costs || {});
+            // Apply coupe factor to placage-related material costs
+            var _cfRentab = _getCoupeFacteurForRow(row);
+            _applyCoupeFactor(materialCosts, _cfRentab);
             if (ov && ov.materialAuto) {
                 Object.keys(ov.materialAuto).forEach(function(cat) {
                     var v = materialCosts[cat];
@@ -2931,11 +2943,21 @@
                     html += '<button class="rdm-enriched-clear" onclick="clearEnrichedField(\'' + groupId + '\',' + idx + ',\'' + field + '\')" title="Effacer">&times;</button>';
                 }
                 html += '</div>';
+            } else if (field === 'coupe') {
+                // Coupe dropdown from COUPE_TYPES
+                var coupeVal = entry[field] || '';
+                html += '<select class="rdm-enriched-text" onchange="saveEnrichedText(\'' + groupId + '\',' + idx + ',\'' + field + '\',this.value)">';
+                html += '<option value="">\u2014</option>';
+                (COUPE_TYPES || []).forEach(function(ct) {
+                    var sel = (ct.label === coupeVal) ? ' selected' : '';
+                    html += '<option value="' + escapeAttr(ct.label) + '"' + sel + '>' + escapeHtml(ct.label) + '</option>';
+                });
+                html += '</select>';
             } else {
-                // Free text field (style, coupe)
+                // Free text field (style)
                 var textVal = entry[field] || '';
                 html += '<input type="text" class="rdm-enriched-text" value="' + escapeAttr(textVal) + '"' +
-                    ' placeholder="Non défini"' +
+                    ' placeholder="Non d\u00e9fini"' +
                     ' onblur="saveEnrichedText(\'' + groupId + '\',' + idx + ',\'' + field + '\',this.value)">';
             }
 
@@ -12800,6 +12822,64 @@
             } catch(e) { console.warn('[Composantes] Load error:', e); }
         }
 
+        /** Load coupe types from app_config */
+        async function loadCoupeTypes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/app_config?key=eq.coupe_types&select=value', {});
+                if (resp.ok) {
+                    var rows = await resp.json();
+                    if (rows.length > 0 && Array.isArray(rows[0].value) && rows[0].value.length > 0) {
+                        COUPE_TYPES = rows[0].value;
+                        return;
+                    }
+                }
+            } catch(e) { console.warn('[CoupeTypes] Load error:', e); }
+            COUPE_TYPES = JSON.parse(JSON.stringify(COUPE_TYPES_DEFAULT));
+        }
+
+        /** Get coupe factor by label */
+        function getCoupeFacteur(coupeLabel) {
+            if (!coupeLabel || !COUPE_TYPES || !COUPE_TYPES.length) return 1.0;
+            var found = COUPE_TYPES.find(function(c) { return c.label === coupeLabel; });
+            return found ? (found.facteur || 1.0) : 1.0;
+        }
+
+        /** Check if a material cost category is placage-related */
+        function _isPlacageCategory(catName) {
+            if (!catName) return false;
+            var lower = catName.toLowerCase();
+            return lower.indexOf('placage') !== -1 || lower === 'panneau bois';
+        }
+
+        /** Get the coupe factor for a row from its room's DM entries */
+        function _getCoupeFacteurForRow(row) {
+            var group = row ? row.closest('.furniture-group') : null;
+            if (!group) return 1.0;
+            var dm = roomDM[group.id];
+            if (!dm || !dm.length) return 1.0;
+            // Find the first DM entry with a coupe value
+            for (var i = 0; i < dm.length; i++) {
+                if (dm[i].coupe) return getCoupeFacteur(dm[i].coupe);
+            }
+            return 1.0;
+        }
+
+        /** Apply coupe factor to a material_costs object (modifies in place) */
+        function _applyCoupeFactor(materialCosts, coupeFactor) {
+            if (!materialCosts || coupeFactor === 1.0) return materialCosts;
+            Object.keys(materialCosts).forEach(function(cat) {
+                if (_isPlacageCategory(cat)) {
+                    var v = materialCosts[cat];
+                    if (typeof v === 'number') {
+                        materialCosts[cat] = Math.round(v * coupeFactor * 100) / 100;
+                    } else if (v && v.cost != null) {
+                        materialCosts[cat] = Object.assign({}, v, { cost: Math.round(v.cost * coupeFactor * 100) / 100 });
+                    }
+                }
+            });
+            return materialCosts;
+        }
+
         function loadFallbackData() {
             const cached = loadFromLocalStorage();
             if (cached && cached.data && cached.data.length > 0) {
@@ -14845,7 +14925,15 @@
                         // Prix composé si disponible, sinon prix catalogue
                         var installCb = document.getElementById(rowId + '-install');
                         var includeInstall = installCb ? installCb.checked : true;
-                        var composedPrice = computeComposedPrice(item, includeInstall);
+                        // Apply coupe factor for display
+                        var _cfDisplay = _getCoupeFacteurForRow(row);
+                        var _itemDisplay = item;
+                        if (_cfDisplay !== 1.0 && item.material_costs) {
+                            var _cmDisplay = Object.assign({}, item.material_costs);
+                            _applyCoupeFactor(_cmDisplay, _cfDisplay);
+                            _itemDisplay = Object.assign({}, item, { material_costs: _cmDisplay });
+                        }
+                        var composedPrice = computeComposedPrice(_itemDisplay, includeInstall);
                         var effectivePrice = composedPrice !== null ? composedPrice : (item.price || 0);
 
                         // Unit price display (base — may be overridden by barèmes below)
@@ -15609,7 +15697,15 @@
                 if (item) {
                     var installCb = document.getElementById(row.id + '-install');
                     var includeInstall = installCb ? installCb.checked : true;
-                    var composed = computeComposedPrice(item, includeInstall);
+                    // Apply coupe factor to material costs
+                    var _coupeFactor = _getCoupeFacteurForRow(row);
+                    var _itemForPrice = item;
+                    if (_coupeFactor !== 1.0 && item.material_costs) {
+                        var _cMat = Object.assign({}, item.material_costs);
+                        _applyCoupeFactor(_cMat, _coupeFactor);
+                        _itemForPrice = Object.assign({}, item, { material_costs: _cMat });
+                    }
+                    var composed = computeComposedPrice(_itemForPrice, includeInstall);
                     var eff = composed !== null ? composed : (item.price || 0);
                     // Per-line override (hierarchy per dept: manual > auto-factored > catalogue)
                     var ov = _rowOverrides[row.id];
@@ -15629,6 +15725,7 @@
                         }
                         if (ov.labor) Object.assign(_gLabor, ov.labor);
                         var _gMat = Object.assign({}, item.material_costs || {});
+                        _applyCoupeFactor(_gMat, _coupeFactor);
                         if (ov.materialAuto) {
                             Object.keys(ov.materialAuto).forEach(function(cat) {
                                 var v = _gMat[cat];
@@ -23926,7 +24023,7 @@
             // Versions
             createVersion,
             // Chargement données
-            saveToLocalStorage, loadFromLocalStorage, loadCatalogueData, loadComposantes, loadFallbackData,
+            saveToLocalStorage, loadFromLocalStorage, loadCatalogueData, loadComposantes, loadCoupeTypes, loadFallbackData,
             loadEmployeesData, loadUserProfilesMap, getCatalogueItems, loadSupplierCompanies,
             // Configuration
             loadConfigCategories, loadTauxAndExpenses, loadPipelineConfig,
@@ -24194,6 +24291,7 @@
                 if (!(await checkPageAccess())) return;
                 await loadCatalogueData();
                 loadComposantes(); // non-blocking, populates COMPOSANTES_DATA
+                loadCoupeTypes(); // non-blocking, populates COUPE_TYPES
                 await loadConfigCategories();
                 await loadTauxAndExpenses();
                 await loadMediaTags();

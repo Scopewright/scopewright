@@ -130,7 +130,7 @@
     var cachedProjects = [];
     var pipelineSortColumn = 'updated_at';
     var pipelineSortDir = 'desc';
-    var pipelineFilters = { search: '', status: '', assigned: '', type: '', followsOnly: false, showArchived: false };
+    var pipelineFilters = { search: '', status: '', assigned: '', type: '', followsOnly: false, showArchived: false, showArchivedProjects: false };
     var userFollows = {};
 
     // Configure PDF.js worker (wait for script to load)
@@ -10765,6 +10765,14 @@
             border-radius: 4px; transition: all 0.15s; line-height: 1;
         }
         .project-card-delete:hover { color: #c62828; background: #ffebee; }
+        .project-card-archive {
+            position: absolute; top: 8px; right: 8px; background: none; border: none;
+            color: #ccc; cursor: pointer; font-size: 14px; padding: 4px 8px;
+            border-radius: 4px; transition: all 0.15s; line-height: 1;
+        }
+        .project-card-archive:hover { color: var(--sw-navy); background: #f1f5f9; }
+        .project-card-archived { opacity: 0.55; }
+        .project-card-archived:hover { opacity: 0.85; }
         .card-follow { font-size: 18px; flex-shrink: 0; }
 
         .project-empty {
@@ -10927,6 +10935,7 @@
             background: #ffebee; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
         .sub-line.archived { opacity: 0.5; }
+        .project-row-archived td { opacity: 0.5; }
 
         /* Timeline step clickable (pour copier lien client) */
         .timeline-step.clickable {
@@ -11805,6 +11814,7 @@
             <div class="pipeline-filters" id="pipelineFilters">
                 <button class="pipeline-filter-btn" id="filterFollowsBtn" onclick="toggleFollowsFilter()" title="Afficher seulement les projets suivis">&starf; Suivis</button>
                 <button class="pipeline-filter-btn" id="filterArchiveBtn" onclick="toggleArchiveFilter()" title="Afficher les soumissions archiv&eacute;es">Archiv&eacute;es</button>
+                <button class="pipeline-filter-btn" id="filterArchiveProjBtn" onclick="toggleArchiveProjectFilter()" title="Afficher les projets archiv&eacute;s">Projets archiv&eacute;s</button>
                 <input type="text" id="pipelineSearch" placeholder="Rechercher (nom, client, code, ville...)" oninput="applyPipelineFilters()">
                 <select id="pipelineStatusFilter" onchange="applyPipelineFilters()">
                     <option value="">Tous les statuts</option>
@@ -20639,6 +20649,8 @@
 
         function filterProjects(projects) {
             return projects.filter(function(p) {
+                // #221: hide archived projects unless filter active
+                if (p.is_archived && !pipelineFilters.showArchivedProjects) return false;
                 if (pipelineFilters.search) {
                     var s = pipelineFilters.search;
                     var haystack = [p.name, p.client_name, p.project_code, p.project_city, p.assigned_to].filter(Boolean).join(' ').toLowerCase();
@@ -20660,6 +20672,14 @@
                 return;
             }
             empty.style.display = 'none';
+
+            // #221: update archived projects counter on filter button
+            var archivedProjCount = cachedProjects.filter(function(p) { return p.is_archived; }).length;
+            var archProjBtn = document.getElementById('filterArchiveProjBtn');
+            if (archProjBtn) {
+                archProjBtn.textContent = 'Projets archiv\u00e9s' + (archivedProjCount > 0 ? ' (' + archivedProjCount + ')' : '');
+                archProjBtn.style.display = archivedProjCount > 0 || pipelineFilters.showArchivedProjects ? '' : 'none';
+            }
 
             if (currentPipelineView === 'table') renderTableView(filtered);
             else if (currentPipelineView === 'cards') renderCardView(filtered);
@@ -20734,7 +20754,7 @@
                 var prioTitle = p.priority === 'urgente' ? 'Urgente' : (p.priority === 'haute' ? 'Haute' : '');
 
                 var tblAlert = getProjectAlerts(p, (localStorage.getItem('sb_user_email') || '').toLowerCase());
-                bHtml += '<tr onclick="pipelineRowClick(\'' + pid + '\')">';
+                bHtml += '<tr onclick="pipelineRowClick(\'' + pid + '\')"' + (p.is_archived ? ' class="project-row-archived"' : '') + '>';
                 // ★ Follow
                 bHtml += '<td><span class="follow-star' + isFollowed + '" onclick="toggleFollow(\'' + pid + '\',event)">\u2605</span></td>';
                 // Nom with priority indicator + alert dot
@@ -21023,7 +21043,7 @@
 
             projects.forEach(function(proj) {
                 var card = document.createElement('div');
-                card.className = 'project-card' + (proj.priority === 'urgente' ? ' project-card-urgent' : '');
+                card.className = 'project-card' + (proj.priority === 'urgente' ? ' project-card-urgent' : '') + (proj.is_archived ? ' project-card-archived' : '');
 
                 var subs = proj.submissions || [];
                 var ps = getPipelineStatus(proj.pipeline_status);
@@ -21071,8 +21091,12 @@
                 var projAlert = getProjectAlerts(proj, (localStorage.getItem('sb_user_email') || '').toLowerCase());
                 var alertBadgeHtml = buildAlertBadgeHtml(projAlert);
 
+                var archiveBtnHtml = proj.is_archived
+                    ? '<button class="project-card-archive" onclick="toggleArchiveProject(\'' + escapeAttr(proj.id) + '\', event)" title="D\u00e9sarchiver" style="right:28px;">&#128451;</button>' +
+                      '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer d\u00e9finitivement">&times;</button>'
+                    : '<button class="project-card-archive" onclick="toggleArchiveProject(\'' + escapeAttr(proj.id) + '\', event)" title="Archiver">&#128451;</button>';
                 card.innerHTML =
-                    '<button class="project-card-delete" onclick="handleDeleteProject(\'' + escapeAttr(proj.id) + '\', event)" title="Supprimer">&times;</button>' +
+                    archiveBtnHtml +
                     alertBadgeHtml +
                     pipelineWithStar +
                     '<div class="project-card-name">' + escapeHtml(proj.name || 'Sans nom') + '</div>' +
@@ -21082,7 +21106,7 @@
                     '<button class="btn-add-sub" onclick="handleAddSubmission(\'' + escapeAttr(proj.id) + '\', event)">+ Nouvelle soumission</button>';
 
                 card.addEventListener('click', function(e) {
-                    if (e.target.closest('.project-card-delete') || e.target.closest('.btn-add-sub') || e.target.closest('.follow-star') || e.target.closest('.project-alert-badge')) return;
+                    if (e.target.closest('.project-card-delete') || e.target.closest('.project-card-archive') || e.target.closest('.btn-add-sub') || e.target.closest('.follow-star') || e.target.closest('.project-alert-badge')) return;
                     var subLine = e.target.closest('.sub-line');
                     if (subLine) {
                         openSubmission(subLine.getAttribute('data-subid'));
@@ -23713,11 +23737,51 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // ARCHIVAGE DE PROJETS (#221)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function toggleArchiveProjectFilter() {
+            pipelineFilters.showArchivedProjects = !pipelineFilters.showArchivedProjects;
+            var btn = document.getElementById('filterArchiveProjBtn');
+            if (btn) btn.classList.toggle('active', pipelineFilters.showArchivedProjects);
+            renderCurrentView();
+        }
+
+        async function toggleArchiveProject(projectId, event) {
+            if (event) event.stopPropagation();
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (!proj) return;
+            var newVal = !proj.is_archived;
+            var msg = newVal ? 'Archiver ce projet ?' : 'D\u00e9sarchiver ce projet ?';
+            if (!(await steleConfirm(msg, newVal ? 'Archiver' : 'D\u00e9sarchiver', newVal ? 'Archiver' : 'D\u00e9sarchiver'))) return;
+            try {
+                await authenticatedFetch(SUPABASE_URL + '/rest/v1/projects?id=eq.' + projectId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ is_archived: newVal })
+                });
+                proj.is_archived = newVal;
+                renderCurrentView();
+                showSaveIndicator();
+                showConstraintToast(newVal ? 'Projet archiv\u00e9' : 'Projet d\u00e9sarchiv\u00e9');
+            } catch (e) {
+                console.error('Erreur archivage projet:', e);
+                steleAlert('Erreur: ' + e.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // SUPPRIMER UN PROJET
         // ═══════════════════════════════════════════════════════════════════════
 
         async function handleDeleteProject(projectId, event) {
             event.stopPropagation();
+            // #221: deletion only from archived view
+            var proj = cachedProjects.find(function(p) { return p.id === projectId; });
+            if (proj && !proj.is_archived) {
+                steleAlert('Archivez ce projet avant de le supprimer.');
+                return;
+            }
             // Block deletion for projects with sold/invoiced submissions
             var PROTECTED_STATUSES = ['accepted', 'invoiced'];
             try {
@@ -23733,10 +23797,11 @@
                     }
                 }
             } catch (e) { /* continue to normal flow */ }
-            if (!(await steleConfirm('Supprimer ce projet et toutes ses donn\u00e9es ?', 'Supprimer le projet', 'Supprimer', true))) return;
+            if (!(await steleConfirm('Supprimer d\u00e9finitivement ce projet et toutes ses donn\u00e9es\u00a0? Cette action est irr\u00e9versible.', 'Supprimer le projet', 'Supprimer d\u00e9finitivement', true))) return;
+            if (!(await steleConfirm('\u00cates-vous certain\u00a0? Cette action est irr\u00e9versible.', 'Confirmation', 'Oui, supprimer', true))) return;
             var ok = await deleteProject(projectId);
             if (!ok) {
-                steleAlert('Impossible de supprimer ce projet. Il contient peut-\u00eatre des donn\u00e9es li\u00e9es.');
+                steleAlert('Ce projet contient des donn\u00e9es. Supprimez d\u2019abord les soumissions.');
                 return;
             }
             showConstraintToast('Projet supprim\u00e9');

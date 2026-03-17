@@ -616,6 +616,17 @@ Plans PDF associés au **projet** (pas à une soumission spécifique — migrati
 3 vues : Table, Cartes, Soumissions. `project_code` auto-généré par trigger DB.
 `amount_override` NUMERIC : priorité d'affichage sur le montant calculé (affiché en rouge).
 
+### Archivage de projets (#221)
+
+- **`projects.is_archived`** BOOLEAN DEFAULT false. Migration : `sql/project_archive.sql`
+- **Filtre** : bouton "Projets archivés" (`#filterArchiveProjBtn`) dans la barre pipeline, masqué si aucun projet archivé. Compteur `(N)` quand > 0. `pipelineFilters.showArchivedProjects`
+- **`toggleArchiveProject(projectId, event)`** : PATCH `is_archived` avec confirmation simple, rafraîchit la vue
+- **`toggleArchiveProjectFilter()`** : toggle `showArchivedProjects`, même pattern que `toggleArchiveFilter` (soumissions)
+- **Visuel** : `.project-card-archived` (opacity 0.55), `.project-row-archived td` (opacity 0.5)
+- **Carte projet** : bouton archive 🗃 (`project-card-archive`) remplace le × quand non archivé. Projet archivé → bouton 🗃 (désarchiver) + × (supprimer)
+- **Suppression** : uniquement depuis la vue archivés (`handleDeleteProject` bloque si `!is_archived`). Double confirmation ("Cette action est irréversible"). Message FK clair : "Ce projet contient des données. Supprimez d'abord les soumissions."
+- **`filterProjects`** : masque `is_archived` par défaut, affiche quand `showArchivedProjects` actif
+
 ### Prix composé
 
 ```

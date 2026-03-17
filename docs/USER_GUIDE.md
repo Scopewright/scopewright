@@ -77,9 +77,11 @@ La liste des projets offre 3 vues :
 - **Table** — Vue tableur avec colonnes triables (★ Suivi, Priorité, Nom, Architecte, Montant, Prob%, Statut, Rabais, Responsable, Type)
 - **Soumissions** — Vue centrée sur les soumissions de tous les projets
 
-**Filtres disponibles** : recherche texte, ★ Suivis uniquement, statut, responsable, type de projet, soumissions archivées.
+**Filtres disponibles** : recherche texte, ★ Suivis uniquement, statut, responsable, type de projet, soumissions archivées, projets archivés.
 
 **★ Suivis** : cliquez l'étoile à gauche d'un projet pour le marquer comme suivi. Le filtre « Suivis » n'affiche que vos projets favoris.
+
+**Archivage de projets** : cliquez l'icône 🗃 sur une carte projet pour l'archiver. Les projets archivés disparaissent de la vue par défaut. Le bouton « Projets archivés (N) » dans la barre de filtres les affiche — ils apparaissent en opacité réduite. Depuis la vue archivés, vous pouvez désarchiver (🗃) ou supprimer définitivement (×) un projet. La suppression nécessite une double confirmation et n'est pas possible pour les projets contenant des soumissions vendues.
 
 ### Plans architecturaux
 

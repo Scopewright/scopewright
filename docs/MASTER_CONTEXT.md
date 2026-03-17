@@ -622,6 +622,8 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 - **Cartes** : Kanban par statut pipeline. Drag & drop entre colonnes
 - **Soumissions** : liste plate de toutes les soumissions avec statut workflow
 
+**Archivage projets** (#221) : `projects.is_archived` BOOLEAN. Projets archivés masqués par défaut, bouton "Projets archivés (N)" dans les filtres. Suppression uniquement depuis la vue archivés (double confirmation). `toggleArchiveProject`, `toggleArchiveProjectFilter`
+
 ### Vue projet (`calculateur.html` — drawer latéral)
 
 - **Onglets** : Estimateur (lead), Vendeur/CP, Approbateur, Remise interne, Remise client

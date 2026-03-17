@@ -6254,7 +6254,7 @@
                 drop.innerHTML = '<div class="comp-cb-item" style="color:var(--sw-muted);cursor:default;">Aucun résultat</div>';
             } else {
                 drop.innerHTML = items.map(function(item) {
-                    return '<div class="comp-cb-item" onmousedown="event.preventDefault()" onclick="_compCbSelect(\'' + fieldKey + '\',\'' + escapeAttr(item.id) + '\',' + JSON.stringify(item.client_text).replace(/'/g, "\\'") + ')">' +
+                    return '<div class="comp-cb-item" onmousedown="event.preventDefault(); _compCbSelect(\'' + fieldKey + '\',\'' + escapeAttr(item.id) + '\',' + JSON.stringify(item.client_text).replace(/'/g, "\\'") + ')">' +
                         '<span class="comp-cb-item-code">' + escapeHtml(item.id) + '</span>' +
                         '<span class="comp-cb-item-text">' + escapeHtml(item.client_text) + '</span>' +
                         '<span class="comp-cb-item-cat">' + escapeHtml(item.category || '') + '</span>' +
@@ -6449,7 +6449,7 @@
 
             results.innerHTML = filtered.slice(0, 20).map(function(c) {
                 var typeColor = _compTypeColor(c.dm_type);
-                return '<div class="comp-groupe-search-item" onmousedown="event.preventDefault();" onclick="_groupeAddItem(\'' + c.id + '\')">' +
+                return '<div class="comp-groupe-search-item" onmousedown="event.preventDefault(); _groupeAddItem(\'' + c.id + '\')">' +
                     '<span class="comp-groupe-member-code">' + escapeHtml(c.code) + '</span>' +
                     '<span class="comp-groupe-member-nom">' + escapeHtml(c.nom) + '</span>' +
                     '<span class="comp-groupe-member-type" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(c.dm_type) + '</span>' +

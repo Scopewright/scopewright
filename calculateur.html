@@ -1253,7 +1253,7 @@
             if (ov && ov.labor) Object.assign(laborMinutes, ov.labor);
             var materialCosts = Object.assign({}, item.material_costs || {});
             // Apply coupe factor to placage-related material costs
-            var _cfRentab = _getCoupeFacteurForRow(row);
+            var _cfRentab = _getCoupeFacteurForRow(row, item.client_text);
             _applyCoupeFactor(materialCosts, _cfRentab);
             if (ov && ov.materialAuto) {
                 Object.keys(ov.materialAuto).forEach(function(cat) {
@@ -13220,28 +13220,58 @@
         }
 
         /** Get coupe factor by label */
-        function getCoupeFacteur(coupeLabel) {
-            if (!coupeLabel || !COUPE_TYPES || !COUPE_TYPES.length) return 1.0;
-            var found = COUPE_TYPES.find(function(c) { return c.label === coupeLabel; });
-            return found ? (found.facteur || 1.0) : 1.0;
+        /** Detect wood species from article client_text (#219) */
+        function _detectEssence(clientText) {
+            if (!clientText) return null;
+            var text = clientText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            var map = [
+                { code: 'chene_blanc',  keywords: ['chene blanc', 'white oak'] },
+                { code: 'chene_rouge',  keywords: ['chene rouge', 'red oak'] },
+                { code: 'noyer',        keywords: ['noyer', 'walnut'] },
+                { code: 'erable',       keywords: ['erable', 'maple'] },
+                { code: 'merisier',     keywords: ['merisier', 'yellow birch'] },
+                { code: 'frene',        keywords: ['frene', 'ash'] },
+                { code: 'cerisier',     keywords: ['cerisier', 'cherry'] },
+                { code: 'pin_noueux',   keywords: ['pin noueux', 'knotty pine'] },
+                { code: 'acajou',       keywords: ['acajou', 'mahogany'] }
+            ];
+            for (var i = 0; i < map.length; i++) {
+                for (var j = 0; j < map[i].keywords.length; j++) {
+                    if (text.indexOf(map[i].keywords[j]) !== -1) return map[i].code;
+                }
+            }
+            return null;
         }
 
-        /** Check if a material cost category is placage-related */
+        /** Get coupe factor — per-essence if available, else facteur_defaut, else facteur (#219) */
+        function getCoupeFacteur(coupeLabel, articleClientText) {
+            if (!coupeLabel || !COUPE_TYPES || !COUPE_TYPES.length) return 1.0;
+            var found = COUPE_TYPES.find(function(c) { return c.label === coupeLabel; });
+            if (!found) return 1.0;
+            var essence = _detectEssence(articleClientText);
+            if (essence && found.facteurs && found.facteurs[essence] != null) {
+                return found.facteurs[essence];
+            }
+            return found.facteur_defaut || found.facteur || 1.0;
+        }
+
+        /** Check if a material cost category is placage/panneau-related (coupe factor applies) */
         function _isPlacageCategory(catName) {
             if (!catName) return false;
             var lower = catName.toLowerCase();
-            return lower.indexOf('placage') !== -1 || lower === 'panneau bois';
+            // Exclude bande de chant, finition, bois brut
+            if (lower.indexOf('bande') !== -1 || lower.indexOf('brut') !== -1 || lower.indexOf('finition') !== -1) return false;
+            return lower.indexOf('placage') !== -1 || lower.indexOf('panneau') !== -1;
         }
 
         /** Get the coupe factor for a row from its room's DM entries */
-        function _getCoupeFacteurForRow(row) {
+        function _getCoupeFacteurForRow(row, articleClientText) {
             var group = row ? row.closest('.furniture-group') : null;
             if (!group) return 1.0;
             var dm = roomDM[group.id];
             if (!dm || !dm.length) return 1.0;
-            // Find the first DM entry with a coupe value
             for (var i = 0; i < dm.length; i++) {
-                if (dm[i].coupe) return getCoupeFacteur(dm[i].coupe);
+                if (dm[i].coupe) return getCoupeFacteur(dm[i].coupe, articleClientText);
             }
             return 1.0;
         }
@@ -15308,7 +15338,7 @@
                         var installCb = document.getElementById(rowId + '-install');
                         var includeInstall = installCb ? installCb.checked : true;
                         // Apply coupe factor for display
-                        var _cfDisplay = _getCoupeFacteurForRow(row);
+                        var _cfDisplay = _getCoupeFacteurForRow(row, item.client_text);
                         var _itemDisplay = item;
                         if (_cfDisplay !== 1.0 && item.material_costs) {
                             var _cmDisplay = Object.assign({}, item.material_costs);
@@ -16080,7 +16110,7 @@
                     var installCb = document.getElementById(row.id + '-install');
                     var includeInstall = installCb ? installCb.checked : true;
                     // Apply coupe factor to material costs
-                    var _coupeFactor = _getCoupeFacteurForRow(row);
+                    var _coupeFactor = _getCoupeFacteurForRow(row, item.client_text);
                     var _itemForPrice = item;
                     if (_coupeFactor !== 1.0 && item.material_costs) {
                         var _cMat = Object.assign({}, item.material_costs);

@@ -357,15 +357,17 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.
-- **Stockage** : `app_config.coupe_types` JSONB array `[{ code, label, facteur, notes }]`
+- **Stockage** : `app_config.coupe_types` JSONB array `[{ code, label, facteur, facteur_defaut, facteurs, notes }]`. `facteur` = legacy (backward compat), `facteur_defaut` = facteur quand l'essence n'est pas détectée, `facteurs` = objet `{ essence_code: number }` par essence (#219)
 - **Variable globale** : `COUPE_TYPES` — chargé au démarrage dans `calculateur.html` et `catalogue_prix_stele_complet.html`. Fallback `COUPE_TYPES_DEFAULT` si absent en DB
-- **Drawer catalogue** : bouton "Coupes" dans `.catalogue-header-bar`, drawer 480px `#coupesDrawer` avec liste, modale création/édition/suppression. Code auto-généré depuis initiales du label (`_coupeGenCode`)
+- **Drawer catalogue** : bouton "Coupes" dans `.catalogue-header-bar`, drawer 480px `#coupesDrawer` avec liste, modale création/édition/suppression. Code auto-généré depuis initiales du label (`_coupeGenCode`). Modale 560px avec tableau facteurs par essence (9 essences × input number)
 - **Dropdown composante** : le champ `coupe` dans `#composanteModal` est un `<select>` peuplé depuis `COUPE_TYPES` (`_populateCoupeSelect`). Valeur stockée = `label` (texte client)
 - **Dropdown DM enrichi** : le champ `coupe` dans `renderEnrichedPanel` est un `<select>` peuplé depuis `COUPE_TYPES` (au lieu d'un input texte libre). `onchange` → `saveEnrichedText` → `_rebuildDmClientText`
-- **Facteur prix** : `getCoupeFacteur(coupeLabel)` retourne le multiplicateur. `_isPlacageCategory(catName)` vérifie si une catégorie est placage-related (contient "placage" ou === "panneau bois"). `_getCoupeFacteurForRow(row)` cherche la coupe dans le DM de la pièce. `_applyCoupeFactor(materialCosts, factor)` multiplie les coûts placage-related
-- **Formule** : `prix_matériau = material_costs[cat] × facteur_coupe × (1 + waste%/100) × (1 + markup%/100)` — le facteur s'applique avant waste et markup
-- **Intégration calcul** : appliqué dans `getRowTotal`, `updateRow` (display), et `computeRentabilityData`. Si coupe absente ou facteur = 1.0 → aucun impact
-- **Fonctions** : `loadCoupeTypes`, `_saveCoupeTypes`, `openCoupesDrawer`, `closeCoupesDrawer`, `renderCoupesList`, `openCoupeModal`, `closeCoupeModal`, `saveCoupeModal`, `deleteCoupeFromModal`, `deleteCoupeConfirm`, `getCoupeFacteur`, `_isPlacageCategory`, `_getCoupeFacteurForRow`, `_applyCoupeFactor`
+- **Détection essence** : `_detectEssence(clientText)` détecte l'essence de bois depuis le `client_text` d'un article. 9 essences supportées : chene_blanc, chene_rouge, noyer, erable, merisier, frene, cerisier, pin_noueux, acajou. Normalisation NFD (accents). Keywords FR + EN (ex: "noyer" / "walnut")
+- **Facteur prix** : `getCoupeFacteur(coupeLabel, articleClientText)` retourne le multiplicateur. Chaîne : essence détectée → `facteurs[essence]` → `facteur_defaut` → `facteur` (legacy) → 1.0. `_isPlacageCategory(catName)` vérifie si une catégorie est panneau/placage-related (contient "placage" ou "panneau", exclut "bande", "brut", "finition"). `_getCoupeFacteurForRow(row, articleClientText)` cherche la coupe dans le DM de la pièce. `_applyCoupeFactor(materialCosts, factor)` multiplie les coûts placage-related
+- **Formule** : `prix_matériau = material_costs[cat] × facteur_coupe(essence) × (1 + waste%/100) × (1 + markup%/100)` — le facteur s'applique avant waste et markup
+- **Intégration calcul** : appliqué dans `getRowTotal`, `updateRow` (display), et `computeRentabilityData`. `item.client_text` passé à chaque callsite pour la détection d'essence. Si coupe absente ou facteur = 1.0 → aucun impact
+- **Fonctions** : `loadCoupeTypes`, `_saveCoupeTypes`, `openCoupesDrawer`, `closeCoupesDrawer`, `renderCoupesList`, `openCoupeModal`, `closeCoupeModal`, `saveCoupeModal`, `deleteCoupeFromModal`, `deleteCoupeConfirm`, `getCoupeFacteur`, `_detectEssence`, `_isPlacageCategory`, `_getCoupeFacteurForRow`, `_applyCoupeFactor`, `COUPE_ESSENCES` (catalogue), `_renderCoupeEssenceTable`, `_readCoupeEssenceTable`
+- **Migration** : `sql/coupe_types_essences.sql`
 
 ### QTY multiplicateur universel (`qty_multiplier`)
 
@@ -799,7 +801,7 @@ Chaque prompt a un **default hardcodé** dans le code TypeScript + un **override
 | `prompt_change_log` | JSONB | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | shared/master-agent.js |
 | `master_context_synced_at` | TEXT (ISO datetime) | Timestamp dernière synchronisation MASTER_CONTEXT.md | ai-master (fraîcheur), shared/master-agent.js (écriture) |
 | `debug_ai_images` | BOOLEAN (JSONB) | Flag debug — sauvegarder les images base64 envoyées à l'AI dans Storage bucket `debug-ai-images` | ai-assistant (edge function), admin.html (toggle + gallery) |
-| `coupe_types` | JSONB array | Types de coupe de placage `[{code, label, facteur, notes}]`. Facteur multiplicateur sur `material_costs` placage | calculateur.html, catalogue_prix_stele_complet.html |
+| `coupe_types` | JSONB array | Types de coupe de placage `[{code, label, facteur, facteur_defaut, facteurs, notes}]`. Facteur par essence (#219) sur `material_costs` panneau/placage | calculateur.html, catalogue_prix_stele_complet.html |
 
 **Mécanisme override :** `loadPromptOverride(supabase, key)` → `app_config` → si string non-vide → utiliser. Sinon → constante hardcodée.
 

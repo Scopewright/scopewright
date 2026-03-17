@@ -825,20 +825,22 @@ Pour les doublons détectés, un bouton **Uniformiser** permet de corriger en un
 
 ### Coupes de placage
 
-Les coupes de placage définissent comment le bois est débité (fil courant, rift cut, quarter cut, etc.). Chaque type de coupe a un **facteur multiplicateur** qui ajuste automatiquement le coût matériau du placage.
+Les coupes de placage définissent comment le bois est débité (fil courant, rift cut, quarter cut, etc.). Chaque type de coupe a un **facteur multiplicateur** qui ajuste automatiquement le coût matériau du placage. Depuis la version #219, le facteur varie par **essence de bois** — le même rift cut peut coûter +10% sur chêne blanc mais seulement +3% sur frêne.
 
 **Accès** : Catalogue → bouton **Coupes** dans la barre d'en-tête. Un panneau latéral s'ouvre avec la liste des coupes disponibles.
 
 **Ce que vous pouvez faire** :
-- **Créer** un type de coupe avec le bouton **+** : texte client (ce que le client voit, ex: "Faux quartier / Rift cut"), facteur multiplicateur (ex: ×1.40), notes internes
+- **Créer** un type de coupe avec le bouton **+** : texte client (ce que le client voit, ex: "Faux quartier / Rift cut"), facteur par défaut (ex: ×1.10), facteurs par essence (tableau avec les 9 essences supportées), notes internes
 - **Modifier** un type existant en cliquant dessus
 - **Supprimer** un type (avec confirmation)
 
-**Facteur prix** : le facteur de coupe s'applique automatiquement au coût des matériaux placage (catégories contenant "placage" ou "panneau bois"). Par exemple, un placage à 10$ avec un facteur ×1.40 coûtera 14$ avant les ajustements de perte et markup. Un facteur de 1.00 (fil courant) n'a aucun impact sur le prix.
+**Facteurs par essence** : la modale d'édition affiche un tableau avec les 9 essences (Chêne blanc, Chêne rouge, Noyer, Érable, Merisier, Frêne, Cerisier, Pin noueux, Acajou). Vous pouvez définir un facteur spécifique pour chaque essence. Si un champ est vide, le facteur par défaut s'applique. L'essence est détectée automatiquement depuis le texte client de l'article (ex: "Placage de chêne blanc" → Chêne blanc).
+
+**Facteur prix** : le facteur de coupe s'applique automatiquement au coût des matériaux panneau/placage (catégories contenant "placage" ou "panneau", hors bande de chant/finition/bois brut). Par exemple, un placage de noyer à 10$ avec un facteur rift cut noyer de ×1.15 coûtera 11.50$ avant les ajustements de perte et markup. Un facteur de 1.00 (fil courant) n'a aucun impact sur le prix.
 
 **Utilisation** : quand vous configurez les matériaux par défaut d'une pièce (panneau DM enrichi), le champ Coupe est un dropdown peuplé depuis ce référentiel. Le même dropdown apparaît dans la modale composante. Le facteur est appliqué automatiquement dans tous les calculs (prix ligne, rentabilité, modale rentabilité).
 
-**Types par défaut** : Fil courant (×1.00), Faux quartier / Rift cut (×1.40), Sur quartier / Quarter cut (×1.25), Déroulé / Rotary cut (×0.85), Loupe / Burl (×2.00), Demi-rond / Half round (×1.15).
+**Types par défaut** : Fil courant (×1.00), Faux quartier / Rift cut (×1.10), Sur quartier / Quarter cut (×1.25), Déroulé / Rotary cut (×0.85), Loupe / Burl (×2.00), Demi-rond / Half round (×1.15).
 
 ### Composantes
 

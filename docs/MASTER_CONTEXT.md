@@ -205,7 +205,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 | `why_title/why_text/why_image_url` | TEXT | Page "Pourquoi" (quote.html) |
 | `project_steps` | JSONB array | 8 étapes projet (quote.html) |
 | `category_group_mapping` | JSONB object | Mapping catégories catalogue → groupes DM |
-| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur}]` |
+| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur, facteur_defaut, facteurs}]` |
 | `permissions` | JSONB | Matrice rôle × permission (13 permissions, 6 rôles) |
 | `user_roles` | JSONB | email → rôle |
 | `taux_horaires` | JSONB array | Départements MO + taux + salaire + frais fixes |
@@ -262,11 +262,12 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **Migration** : `sql/composante_groupes.sql`
 
 #### Coupes de placage
-- `app_config.coupe_types` : JSONB array `[{code, label, facteur}]`. Fallback `COUPE_TYPES_DEFAULT` (6 entrées)
+- `app_config.coupe_types` : JSONB array `[{code, label, facteur, facteur_defaut, facteurs, notes}]`. `facteurs` = objet par essence `{chene_blanc: 1.10, noyer: 1.15, ...}`. Fallback `COUPE_TYPES_DEFAULT` (6 entrées)
 - `COUPE_TYPES` : global chargé au démarrage (`loadCoupeTypes`)
-- **Drawer CRUD** dans le catalogue : bouton "Coupes", liste + modale création/édition
+- **Drawer CRUD** dans le catalogue : bouton "Coupes", modale 560px avec tableau facteurs par essence (9 essences)
+- **Détection essence** (#219) : `_detectEssence(clientText)` — 9 essences (chêne blanc/rouge, noyer, érable, merisier, frêne, cerisier, pin noueux, acajou), keywords FR+EN, NFD normalized
 - **Dropdown** dans panneau DM enrichi (champ `coupe`) et modale composante
-- **Facteur prix** : `material_costs[cat] × facteur_coupe × (1 + waste%) × (1 + markup%)` — appliqué uniquement aux catégories placage (`_isPlacageCategory`). Intégré dans `getRowTotal`, `updateRow`, `computeRentabilityData`
+- **Facteur prix** : `getCoupeFacteur(coupeLabel, articleClientText)` → essence → `facteurs[essence]` → `facteur_defaut` → `facteur` → 1.0. Appliqué aux catégories panneau/placage (`_isPlacageCategory` exclut bande/brut/finition). Intégré dans `getRowTotal`, `updateRow`, `computeRentabilityData`
 
 ### 8.3 Prix composé
 ```
@@ -499,7 +500,7 @@ Ces clés définissent le comportement du produit et changent **sans déploiemen
 | `tag_nomenclature` | JSONB array | Préfixes tags plans (C, P, E, PI, F, A, PO, EC, RM) | Annotations + cascade matching |
 | `catalogue_categories` | JSONB array | Catégories catalogue (auto-sync) | Filtrage et classification articles |
 | `category_group_mapping` | JSONB object | Mapping catégories → groupes DM | `getAllowedCategoriesForGroup()` |
-| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur}]` | Facteur prix matériaux placage + dropdown DM/composante |
+| `coupe_types` | JSONB array | Types de coupe placage `[{code, label, facteur, facteur_defaut, facteurs}]` | Facteur prix matériaux placage + dropdown DM/composante |
 | `pipeline_statuses` | JSONB array | Statuts visuels pipeline `[{value, label, color}]` | Vue pipeline commercial |
 | `permissions` | JSONB | Matrice 13 permissions × 6 rôles | Vérification côté client uniquement |
 | `prompt_change_log` | JSONB array | Historique modifications prompts `[{key, old_text, new_text, reason, timestamp}]` | Traçabilité Agent Maître |

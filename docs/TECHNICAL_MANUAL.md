@@ -760,23 +760,53 @@ Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. 
 
 ### 4.7 Coupes de placage (`coupe_types`)
 
-Référentiel centralisé des types de coupe de placage (fil courant, rift cut, quarter cut, etc.) avec facteur multiplicateur sur le coût matériau.
+Référentiel centralisé des types de coupe de placage (fil courant, rift cut, quarter cut, etc.) avec facteur multiplicateur sur le coût matériau. Facteur par essence depuis #219.
 
 #### Stockage
 
 `app_config.coupe_types` — JSONB array :
 ```json
 [
-  { "code": "FC", "label": "Fil courant", "facteur": 1.00, "notes": "" },
-  { "code": "EP", "label": "Faux quartier / Rift cut", "facteur": 1.40, "notes": "Seulement chêne et noyer" }
+  {
+    "code": "EP",
+    "label": "Faux quartier / Rift cut",
+    "facteur": 1.10,
+    "facteur_defaut": 1.10,
+    "facteurs": {
+      "chene_blanc": 1.10, "noyer": 1.15, "erable": 1.12
+    },
+    "notes": ""
+  }
 ]
 ```
 
+- `facteur` : legacy (backward compat)
+- `facteur_defaut` : utilisé quand l'essence n'est pas détectée
+- `facteurs` : objet `{ essence_code: number }` — facteur spécifique par essence
+
 Variable globale `COUPE_TYPES` chargée au démarrage. Fallback `COUPE_TYPES_DEFAULT` si la clé n'existe pas en DB.
+
+#### Détection d'essence (#219)
+
+`_detectEssence(clientText)` détecte l'essence de bois depuis le `client_text` d'un article catalogue. Normalisation NFD (strip accents). 9 essences supportées :
+
+| Code | Français | English |
+|------|----------|---------|
+| `chene_blanc` | chêne blanc | white oak |
+| `chene_rouge` | chêne rouge | red oak |
+| `noyer` | noyer | walnut |
+| `erable` | érable | maple |
+| `merisier` | merisier | yellow birch |
+| `frene` | frêne | ash |
+| `cerisier` | cerisier | cherry |
+| `pin_noueux` | pin noueux | knotty pine |
+| `acajou` | acajou | mahogany |
+
+Retourne le `code` de la première essence détectée, ou `null`.
 
 #### Drawer catalogue
 
-Bouton "Coupes" dans `.catalogue-header-bar`. Drawer 480px `#coupesDrawer` avec liste des coupes (label + badge facteur + notes). Modale CRUD : texte client, facteur (number step 0.01), notes. Code auto-généré depuis initiales du label.
+Bouton "Coupes" dans `.catalogue-header-bar`. Drawer 480px `#coupesDrawer` avec liste des coupes (label + badge facteur + notes). Modale CRUD 560px : texte client, facteur par défaut (number step 0.01), tableau facteurs par essence (9 lignes, grid 2 colonnes), notes. Code auto-généré depuis initiales du label. `COUPE_ESSENCES` : constante avec les 9 essences (code + label FR). `_renderCoupeEssenceTable(facteurs)` / `_readCoupeEssenceTable()` pour le rendu et la lecture.
 
 #### Intégration composantes
 
@@ -788,16 +818,18 @@ Le champ `coupe` dans `renderEnrichedPanel` (calculateur) est un `<select>` peup
 
 #### Facteur prix
 
-Le facteur coupe s'applique sur les `material_costs` des catégories placage avant waste et markup :
+Le facteur coupe s'applique sur les `material_costs` des catégories panneau/placage avant waste et markup :
 
 ```
-prix_matériau = material_costs[cat] × facteur_coupe × (1 + waste%/100) × (1 + markup%/100)
+prix_matériau = material_costs[cat] × facteur_coupe(essence) × (1 + waste%/100) × (1 + markup%/100)
 ```
 
-- `_isPlacageCategory(catName)` : vérifie si la catégorie contient "placage" ou === "panneau bois"
-- `_getCoupeFacteurForRow(row)` : cherche la première entrée DM avec `coupe` dans la pièce de la ligne
+Chaîne de résolution : `getCoupeFacteur(coupeLabel, articleClientText)` → `_detectEssence(articleClientText)` → `facteurs[essence]` si trouvé → `facteur_defaut` → `facteur` (legacy) → 1.0.
+
+- `_isPlacageCategory(catName)` : vérifie si la catégorie contient "placage" ou "panneau" (exclut "bande", "brut", "finition")
+- `_getCoupeFacteurForRow(row, articleClientText)` : cherche la première entrée DM avec `coupe` dans la pièce de la ligne, passe le `client_text` de l'article pour la détection d'essence
 - `_applyCoupeFactor(materialCosts, factor)` : multiplie les coûts placage-related in-place
-- Appliqué dans : `getRowTotal`, `updateRow` (affichage), `computeRentabilityData`
+- Appliqué dans : `getRowTotal`, `updateRow` (affichage), `computeRentabilityData` — `item.client_text` passé à chaque callsite
 - Si coupe absente ou facteur = 1.0 → aucun impact sur le calcul existant
 
 ### 4.8 Composantes (#209)

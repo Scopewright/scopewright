@@ -5754,6 +5754,44 @@
             list.innerHTML = html;
         }
 
+        var COUPE_ESSENCES = [
+            { code: 'chene_blanc', label: 'Ch\u00eane blanc' },
+            { code: 'chene_rouge', label: 'Ch\u00eane rouge' },
+            { code: 'noyer', label: 'Noyer' },
+            { code: 'erable', label: '\u00c9rable' },
+            { code: 'merisier', label: 'Merisier' },
+            { code: 'frene', label: 'Fr\u00eane' },
+            { code: 'cerisier', label: 'Cerisier' },
+            { code: 'pin_noueux', label: 'Pin noueux' },
+            { code: 'acajou', label: 'Acajou' }
+        ];
+
+        function _renderCoupeEssenceTable(facteurs) {
+            var container = document.getElementById('coupeEssenceTable');
+            if (!container) return;
+            var html = '';
+            COUPE_ESSENCES.forEach(function(e) {
+                var val = (facteurs && facteurs[e.code] != null) ? facteurs[e.code] : '';
+                html += '<div style="display:flex;align-items:center;gap:6px;">'
+                    + '<span style="font-size:12px;color:#374151;min-width:90px;">' + e.label + '</span>'
+                    + '<input type="number" step="0.01" min="0" data-essence="' + e.code + '" value="' + val + '" placeholder="\u2014" style="width:72px;padding:4px 6px;font-size:12px;border:1px solid #E2E8F0;border-radius:6px;text-align:center;">'
+                    + '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        function _readCoupeEssenceTable() {
+            var container = document.getElementById('coupeEssenceTable');
+            if (!container) return {};
+            var facteurs = {};
+            var inputs = container.querySelectorAll('input[data-essence]');
+            inputs.forEach(function(inp) {
+                var val = parseFloat(inp.value);
+                if (!isNaN(val)) facteurs[inp.dataset.essence] = val;
+            });
+            return facteurs;
+        }
+
         function openCoupeModal(idx) {
             var modal = document.getElementById('coupeModal');
             if (!modal) return;
@@ -5763,15 +5801,18 @@
             document.getElementById('coupeModalNotes').value = '';
             document.getElementById('coupeModalTitle').textContent = 'Nouvelle coupe';
             document.getElementById('coupeBtnDelete').style.display = 'none';
+            var facteurs = {};
 
             if (idx != null && idx >= 0 && COUPE_TYPES[idx]) {
                 var c = COUPE_TYPES[idx];
                 document.getElementById('coupeModalLabel').value = c.label || '';
-                document.getElementById('coupeModalFacteur').value = c.facteur != null ? c.facteur : 1.00;
+                document.getElementById('coupeModalFacteur').value = c.facteur_defaut != null ? c.facteur_defaut : (c.facteur != null ? c.facteur : 1.00);
                 document.getElementById('coupeModalNotes').value = c.notes || '';
                 document.getElementById('coupeModalTitle').textContent = 'Modifier la coupe';
                 document.getElementById('coupeBtnDelete').style.display = '';
+                facteurs = c.facteurs || {};
             }
+            _renderCoupeEssenceTable(facteurs);
             document.getElementById('coupeModalLabel').style.borderColor = '';
             modal.classList.add('active');
         }
@@ -5787,11 +5828,12 @@
                 document.getElementById('coupeModalLabel').focus();
                 return;
             }
-            var facteur = parseFloat(document.getElementById('coupeModalFacteur').value) || 1.00;
+            var facteur_defaut = parseFloat(document.getElementById('coupeModalFacteur').value) || 1.00;
             var notes = document.getElementById('coupeModalNotes').value.trim();
+            var facteurs = _readCoupeEssenceTable();
             var idx = parseInt(document.getElementById('coupeModalIdx').value, 10);
             var code = _coupeGenCode(label);
-            var entry = { code: code, label: label, facteur: facteur, notes: notes };
+            var entry = { code: code, label: label, facteur: facteur_defaut, facteur_defaut: facteur_defaut, facteurs: facteurs, notes: notes };
 
             if (idx >= 0 && COUPE_TYPES[idx]) {
                 COUPE_TYPES[idx] = entry;
@@ -9888,7 +9930,7 @@
 
 <!-- Coupe modal -->
 <div class="comp-modal-overlay" id="coupeModal">
-    <div class="comp-modal" style="width:420px;">
+    <div class="comp-modal" style="width:560px;">
         <div class="comp-modal-header">
             <h3 id="coupeModalTitle">Nouvelle coupe</h3>
             <button class="comp-modal-close" onclick="closeCoupeModal()">&times;</button>
@@ -9899,13 +9941,19 @@
                 <label>Texte client *</label>
                 <input type="text" id="coupeModalLabel" placeholder="Ex: Faux quartier / Rift cut">
             </div>
-            <div class="comp-field">
-                <label>Facteur multiplicateur</label>
-                <input type="number" id="coupeModalFacteur" step="0.01" min="0" value="1.00" style="width:120px;">
+            <div style="display:flex;gap:16px;">
+                <div class="comp-field" style="flex:0 0 120px;">
+                    <label>Facteur par d&eacute;faut</label>
+                    <input type="number" id="coupeModalFacteur" step="0.01" min="0" value="1.00" style="width:100%;">
+                </div>
+                <div class="comp-field" style="flex:1;">
+                    <label>Notes</label>
+                    <textarea id="coupeModalNotes" rows="2" placeholder="Notes internes (optionnel)&hellip;"></textarea>
+                </div>
             </div>
             <div class="comp-field">
-                <label>Notes</label>
-                <textarea id="coupeModalNotes" placeholder="Notes internes (optionnel)&hellip;"></textarea>
+                <label style="margin-bottom:6px;">Facteurs par essence</label>
+                <div id="coupeEssenceTable" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;"></div>
             </div>
         </div>
         <div class="comp-modal-footer">

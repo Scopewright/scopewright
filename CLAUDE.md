@@ -323,8 +323,8 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 
 **Phase 1D — Résolution cascade par composante_id** :
 - **`filterDmByComposante(dmEntries, composanteId)`** : filtre les entrées DM par `composante_id`. Si aucun match → fallback liste complète (rétrocompatibilité)
-- **`resolveCascadeTarget`** (`$default:`) : après dédup `deduplicateDmByClientText`, applique `filterDmByComposante` avec `materialCtx.composante_id`. Réduit les candidats DM avant le filtre catégorie et les modales de choix — élimine les modales ambiguës quand une composante est définie
-- **`resolveMatchTarget`** (`$match:`) : filtre les DM par `composante_id` avant le lookup DM par word-similarity et le Tier 0 (enriched fields). Même fallback si aucun match
+- **`resolveCascadeTarget`** (`$default:`) : après dédup `deduplicateDmByClientText`, applique `filterDmByComposante` avec `materialCtx.composante_id` **seulement si le `dm_type` de la composante matche le type cible** (fix #219 — empêche une composante Caisson de filtrer les DM Façades). Réduit les candidats DM avant le filtre catégorie et les modales de choix — élimine les modales ambiguës quand une composante est définie
+- **`resolveMatchTarget`** (`$match:`) : filtre les DM par `composante_id` avant le lookup DM par word-similarity et le Tier 0 (enriched fields). Même guard type-aware (#219) — ne filtre que si au moins un DM entry matche le `dm_type` de la composante. Même fallback si aucun match
 - **`materialCtx.composante_id`** : propagé depuis l'entrée DM du parent FAB (single ou multi-DM path). Hérité par copie shallow dans `executeCascade` → se propage à toute la chaîne parent → enfant → petit-enfant
 - **Rétrocompatibilité** : `composante_id = null/undefined` → `filterDmByComposante` retourne la liste non filtrée → comportement identique à avant
 

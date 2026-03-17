@@ -903,9 +903,9 @@ Quand une composante est appliquée à un DM (via `applyComposanteToDm`), le `co
 
 **Points d'injection dans le moteur** :
 
-1. **`resolveCascadeTarget`** (`$default:`) : après `deduplicateDmByClientText()`, le filtre `filterDmByComposante` est appliqué avec `materialCtx.composante_id` sur `dmUnique`. Ceci réduit les candidats DM **avant** le filtre catégorie `getAllowedCategoriesForGroup` et les modales de choix. Si un seul candidat reste après filtre → résolution directe sans modale.
+1. **`resolveCascadeTarget`** (`$default:`) : après `deduplicateDmByClientText()`, le filtre `filterDmByComposante` est appliqué avec `materialCtx.composante_id` sur `dmUnique` **seulement si le `dm_type` de la composante matche le type cible** (fix #219). Ceci empêche une composante Caisson de filtrer les DM Façades/Panneaux. Réduit les candidats DM **avant** le filtre catégorie `getAllowedCategoriesForGroup` et les modales de choix. Si un seul candidat reste après filtre → résolution directe sans modale.
 
-2. **`resolveMatchTarget`** (`$match:`) : les DM récupérés par `getDefaultMaterialsForGroup(groupId)` sont filtrés par `filterDmByComposante` **avant** le lookup DM par word-similarity et le Tier 0 (enriched fields).
+2. **`resolveMatchTarget`** (`$match:`) : les DM récupérés par `getDefaultMaterialsForGroup(groupId)` sont filtrés par `filterDmByComposante` **avant** le lookup DM par word-similarity et le Tier 0 (enriched fields). Même guard type-aware (#219) — ne filtre que si au moins un DM entry matche le `dm_type` de la composante.
 
 **Propagation via `materialCtx`** :
 

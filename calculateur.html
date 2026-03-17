@@ -4776,12 +4776,20 @@
             var dmUnique = deduplicateDmByClientText(dmMatches);
 
             // #209 Phase 1D: filter by composante_id from materialCtx (priority, fallback to all)
+            // Only filter when the composante's dm_type matches the target type — prevents
+            // Caisson composante_id from filtering Façades DM entries (#219)
             var _compId = materialCtx && materialCtx.composante_id;
             if (_compId) {
-                var _beforeComp = dmUnique.length;
-                dmUnique = filterDmByComposante(dmUnique, _compId);
-                if (dmUnique.length < _beforeComp) {
-                    cascadeLog('info', '#209: $default: DM filtered by composante_id ' + _compId + ': ' + _beforeComp + ' → ' + dmUnique.length);
+                var _comp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === _compId; });
+                var _compTypeMatches = _comp && normalizeDmType(_comp.dm_type) === groupNameNorm;
+                if (_compTypeMatches) {
+                    var _beforeComp = dmUnique.length;
+                    dmUnique = filterDmByComposante(dmUnique, _compId);
+                    if (dmUnique.length < _beforeComp) {
+                        cascadeLog('info', '#209: $default: DM filtered by composante_id ' + _compId + ': ' + _beforeComp + ' → ' + dmUnique.length);
+                    }
+                } else {
+                    cascadeLog('info', '#219: skip composante filter — comp type "' + (_comp ? _comp.dm_type : '?') + '" ≠ target "' + groupName + '"');
                 }
             }
 
@@ -4913,8 +4921,18 @@
         var dmCatItem = null;
         var dm = getDefaultMaterialsForGroup(groupId);
         // #209 Phase 1D: filter DM by composante_id from materialCtx
+        // For $match:, the composante filter is only useful when the DM type being matched
+        // corresponds to the composante's dm_type. Otherwise skip (#219).
         if (materialCtx && materialCtx.composante_id && dm && dm.length > 0) {
-            dm = filterDmByComposante(dm, materialCtx.composante_id);
+            var _mComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === materialCtx.composante_id; });
+            if (_mComp) {
+                var _mCompNorm = normalizeDmType(_mComp.dm_type);
+                // Only filter if at least one DM entry's type matches the composante type
+                var _hasTypeMatch = dm.some(function(d) { return normalizeDmType(d.type) === _mCompNorm; });
+                if (_hasTypeMatch) {
+                    dm = filterDmByComposante(dm, materialCtx.composante_id);
+                }
+            }
         }
         if (dm && dm.length > 0) {
             var _expWords = expenseCategory.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });

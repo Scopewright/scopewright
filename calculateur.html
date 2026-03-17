@@ -2842,13 +2842,17 @@
             html += '</select>';
         }
 
-        // Material search input
+        // Material search input — readonly for enriched types (title built from sub-fields)
+        var _isEnrichedType = !!enrichedConfig;
         html += '<div class="dm-search-wrap">' +
-                '<input type="text" value="' + escapeAttr(displayLabel) + '" placeholder="Rechercher dans le catalogue..." ' +
-                    'oninput="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)" ' +
-                    'onfocus="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)" ' +
-                    'onkeydown="rdmSearchKeydown(event,\'' + groupId + '\',' + idx + ')" ' +
-                    (entry.catalogue_item_id ? 'class="dm-resolved"' : '') + '>' +
+                '<input type="text" value="' + escapeAttr(displayLabel) + '"' +
+                    (_isEnrichedType
+                        ? ' placeholder="Remplir les sous-champs ci-dessous" readonly style="cursor:default;opacity:0.85;"'
+                        : ' placeholder="Rechercher dans le catalogue..."' +
+                          ' oninput="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)"' +
+                          ' onfocus="rdmSearchCatalogue(\'' + groupId + '\',' + idx + ',this)"' +
+                          ' onkeydown="rdmSearchKeydown(event,\'' + groupId + '\',' + idx + ')"') +
+                    ((entry.catalogue_item_id || (_isEnrichedType && displayLabel)) ? ' class="dm-resolved"' : '') + '>' +
                 '<div class="dm-autocomplete" id="' + acId + '"></div>' +
             '</div>' +
             '<button class="dm-remove" onclick="removeRoomDmEntry(\'' + groupId + '\',' + idx + ')" title="Supprimer">&times;</button>' +
@@ -2993,7 +2997,36 @@
             delete rdm[idx][field];
         }
         _detachComposanteOnEdit(groupId, idx);
+        _rebuildDmClientText(groupId, idx);
         saveRoomDm(groupId);
+    }
+
+    /** Rebuild DM client_text from enriched sub-fields (materiau + coupe) */
+    function _rebuildDmClientText(groupId, idx) {
+        var rdm = roomDM[groupId];
+        if (!rdm || !rdm[idx]) return;
+        var entry = rdm[idx];
+        // Only for enriched types
+        if (!entry.type || !DM_ENRICHED_GROUPS[entry.type]) return;
+        var matText = '';
+        if (entry.materiau && entry.materiau.client_text) {
+            matText = entry.materiau.client_text;
+        } else if (entry.client_text && !entry.materiau) {
+            // Legacy: keep existing client_text if no materiau sub-field yet
+            return;
+        }
+        var coupeText = entry.coupe || '';
+        var built = [matText, coupeText].filter(Boolean).join(' ').trim();
+        entry.client_text = built || '';
+        // Update the main label in the DOM
+        var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
+        if (rowWrap) {
+            var input = rowWrap.querySelector('.dm-search-wrap input');
+            if (input) {
+                input.value = built || '';
+                input.classList.toggle('dm-resolved', !!built);
+            }
+        }
     }
 
     /** Clear an enriched catalogue field */
@@ -3002,6 +3035,7 @@
         if (!rdm || !rdm[idx]) return;
         delete rdm[idx][field];
         _detachComposanteOnEdit(groupId, idx);
+        _rebuildDmClientText(groupId, idx);
         saveRoomDm(groupId);
         // Re-render just the enriched panel
         var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
@@ -3224,6 +3258,9 @@
             if (toggleBtn) toggleBtn.classList.add('has-data');
         }
 
+        // Rebuild client_text from enriched sub-fields (materiau + coupe)
+        _rebuildDmClientText(groupId, idx);
+
         // Re-trigger cascades for this room
         reprocessDefaultCascades(rdm[idx].type, groupId);
     }
@@ -3416,10 +3453,16 @@
         var dm = roomDM[groupId][dmIndex];
         if (!dm) return;
 
-        dm.client_text       = comp.materiau_client_text || dm.client_text;
         dm.catalogue_item_id = comp.materiau_catalogue_id || dm.catalogue_item_id;
+        dm.materiau          = comp.materiau_client_text
+            ? { client_text: comp.materiau_client_text, catalogue_item_id: comp.materiau_catalogue_id }
+            : null;
         dm.style             = comp.style || null;
         dm.coupe             = comp.coupe || null;
+        // Rebuild client_text from materiau + coupe
+        var _matTxt = comp.materiau_client_text || '';
+        var _coupeTxt = comp.coupe || '';
+        dm.client_text       = [_matTxt, _coupeTxt].filter(Boolean).join(' ').trim() || dm.client_text;
         dm.bande_chant       = comp.bande_chant_client_text
             ? { client_text: comp.bande_chant_client_text, catalogue_item_id: comp.bande_chant_catalogue_id }
             : null;

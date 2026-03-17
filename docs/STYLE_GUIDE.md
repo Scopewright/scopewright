@@ -250,6 +250,7 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Séparateur : `border-top: 0.5px solid rgba(255,255,255,0.07)`
 - Label type : `rgba(255,255,255,0.35)`, 12px, min-width 72px
 - Valeur matériau : `rgba(255,255,255,0.85)`, 13px, input underline only
+- **Types enrichis** (Caisson, Façades, Panneaux) : champ principal **readonly** (`cursor:default`, `opacity:0.85`), construit automatiquement depuis les sous-champs "{panneau} {coupe}" via `_rebuildDmClientText`. Placeholder : "Remplir les sous-champs ci-dessous"
 - Bouton × : `rgba(255,255,255,0.15)` → hover `rgba(255,255,255,0.6)`
 
 **Sous-champs enrichis** :

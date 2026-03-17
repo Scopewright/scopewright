@@ -264,9 +264,9 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward compatible — champs ajoutés au JSONB `project_rooms.default_materials` existant, aucune migration SQL.
 
 **Structure enrichie** (champs optionnels) :
-- **Caisson** : matériau (existant) + `coupe` (texte libre, si placage) + `bande_chant` + `finition`
-- **Façades** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
-- **Panneaux** : matériau (existant) + `style` (texte libre) + `coupe` (si placage) + `bande_chant` + `finition` + `bois_brut`
+- **Caisson** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition`
+- **Façades** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition` + `bois_brut`
+- **Panneaux** : panneau (combobox catalogue) + `coupe` (texte libre) + `bande_chant` + `finition` + `bois_brut`
 
 **Sous-champs catalogue** (`materiau`, `bande_chant`, `finition`, `bois_brut`) :
 ```json
@@ -280,7 +280,7 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 - `ENRICHED_DM_FIELD_MAP` : `'PLACAGE'` → `materiau`, `'PANNEAU'` → `materiau`, `'MATERIAU'`/`'MATÉRIAU'` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
 - `rdmSearchEnriched` fieldCatMap `materiau`: `['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU']`
 
-**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `materiau`/`bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `style`/`coupe`. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
+**UI** : bouton ▾ sur les lignes DM enrichies → accordion `.rdm-enriched` avec sous-champs. Combobox catalogue pour `materiau`/`bande_chant`/`finition`/`bois_brut` (`rdmSearchEnriched`, `rdmSelectEnrichedItem`). Texte libre pour `coupe`. **Champ principal readonly** : pour les types enrichis (Caisson/Façades/Panneaux), le champ texte principal est en lecture seule — son contenu est construit automatiquement depuis les sous-champs via `_rebuildDmClientText(groupId, idx)` : `"{panneau} {coupe}"`. Si composante appliquée → affiche le nom composante. Chaque `rdmSelectEnrichedItem`, `saveEnrichedText` et `clearEnrichedField` déclenche la reconstruction. Champ `coupe` conditionnel : affiché seulement si matériau principal est un placage (`_isDmPlacage`). Champ `finition` désactivé pour mélamine (`_isDmMelamine`). Warning non-bloquant si bande de chant incompatible avec matériau principal (fuzzy match `client_text`)
 
 **Validation cohérence** : quand le matériau principal change vers mélamine, `finition` est automatiquement supprimée + toast. `rdmSelectItem` re-rend le panneau enrichi (visibilité `coupe` dépend du matériau)
 

@@ -2854,18 +2854,6 @@
         // Type select (hidden label style)
         html += '<select class="dm-type-select" onchange="updateRoomDmType(\'' + groupId + '\',' + idx + ',this.value)">' + typeOptions + '</select>';
 
-        // Composante dropdown (filtered by dm_type)
-        var _entryType = (entry.type || '').toLowerCase();
-        var compOptions = (COMPOSANTES_DATA || []).filter(function(c) { return c.is_active === true && (c.dm_type || '').toLowerCase() === _entryType && _entryType !== ''; });
-        if (compOptions.length > 0) {
-            html += '<select class="dm-comp-select" onchange="applyComposanteToDm(\'' + groupId + '\',' + idx + ',this.value)">' +
-                '<option value="">\u2014 Composante \u2014</option>';
-            compOptions.forEach(function(c) {
-                html += '<option value="' + c.id + '">' + escapeHtml(c.code + ' \u2014 ' + c.nom) + '</option>';
-            });
-            html += '</select>';
-        }
-
         // Material search input — readonly for enriched types (title built from sub-fields)
         var _isEnrichedType = !!enrichedConfig;
         html += '<div class="dm-search-wrap">' +
@@ -2916,6 +2904,34 @@
         var isMelamine = _isDmMelamine(entry);
 
         var html = '<div class="rdm-enriched collapsed" id="rdmEnriched-' + groupId + '-' + idx + '">';
+
+        // Composante selector — first field in accordion
+        var _entryType = (entry.type || '').toLowerCase();
+        var _compOptions = (COMPOSANTES_DATA || []).filter(function(c) {
+            return c.is_active === true && (c.dm_type || '').toLowerCase() === _entryType && _entryType !== '';
+        });
+        if (_compOptions.length > 0) {
+            var _appliedComp = entry.composante_id
+                ? (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; })
+                : null;
+            html += '<div class="rdm-enriched-row rdm-comp-row">';
+            html += '<label class="rdm-enriched-label">Composante</label>';
+            if (_appliedComp) {
+                html += '<div class="rdm-comp-applied">' +
+                    '<span class="rdm-comp-name">' + escapeHtml(_appliedComp.code + ' \u2014 ' + _appliedComp.nom) + '</span>' +
+                    '<button class="rdm-comp-detach" onclick="_detachComposanteOnEdit(\'' + groupId + '\',' + idx + '); renderRoomDm(\'' + groupId + '\')" title="D\u00e9tacher">&times;</button>' +
+                    '</div>';
+            } else {
+                html += '<select class="dm-comp-select" onchange="applyComposanteToDm(\'' + groupId + '\',' + idx + ',this.value)">' +
+                    '<option value="">\u2014 Choisir \u2014</option>';
+                _compOptions.forEach(function(c) {
+                    html += '<option value="' + c.id + '">' + escapeHtml(c.code + ' \u2014 ' + c.nom) + '</option>';
+                });
+                html += '</select>';
+            }
+            html += '</div>';
+        }
+
         for (var fi = 0; fi < config.fields.length; fi++) {
             var field = config.fields[fi];
             var label = DM_ENRICHED_LABELS[field] || field;
@@ -10708,6 +10724,18 @@
         }
         .dm-comp-select option { background: #0B1220; color: rgba(255,255,255,0.85); }
         .dm-comp-select:focus { border-color: rgba(255,255,255,0.4); outline: none; }
+        .rdm-comp-applied {
+            display: flex; align-items: center; gap: 6px; flex: 1;
+        }
+        .rdm-comp-name {
+            font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 500;
+            background: rgba(255,255,255,0.06); border-radius: 3px; padding: 2px 8px;
+        }
+        .rdm-comp-detach {
+            background: none; border: none; color: rgba(255,255,255,0.3);
+            cursor: pointer; font-size: 13px; padding: 0 4px; line-height: 1;
+        }
+        .rdm-comp-detach:hover { color: rgba(255,255,255,0.7); }
 
         /* ── Selects génériques dans le panneau DM navy ── */
         .room-dm-section select,

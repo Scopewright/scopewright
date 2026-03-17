@@ -296,6 +296,11 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Focus : `border-bottom-color: rgba(255,255,255,0.4)`, pas d'outline
 - Sélecteur : `.room-dm-section select` — s'applique au select Coupe et tout futur `<select>` dans le panneau
 
+**Indicateur dirty DM (header collapsé)** :
+- Point orange `#F59E0B`, 8px, `border-radius: 50%`, `::before` pseudo-element
+- Classe `.dm-dirty` sur `.room-dm-label` — apparaît quand DM modifié sans recalcul
+- Disparaît quand `_clearDmDirty` est appelé (recalcul terminé)
+
 **Composante appliquée (dans l'accordion enrichi)** :
 - Badge : `background: rgba(255,255,255,0.06)`, `border-radius: 3px`, `padding: 2px 8px`
 - Texte : `font-size: 11px`, `color: rgba(255,255,255,0.7)`, `font-weight: 500`

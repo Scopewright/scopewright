@@ -3331,6 +3331,9 @@
         }
         var bar = document.getElementById(groupId + '-dmDirtyBar');
         if (bar) bar.style.display = '';
+        // Show dirty dot on collapsed header
+        var label = document.querySelector('#' + groupId + ' .room-dm-label');
+        if (label) label.classList.add('dm-dirty');
     }
 
     /** #218 — Clear dirty state after recalcul */
@@ -3338,6 +3341,8 @@
         _dmDirtyTypes[groupId] = [];
         var bar = document.getElementById(groupId + '-dmDirtyBar');
         if (bar) bar.style.display = 'none';
+        var label = document.querySelector('#' + groupId + ' .room-dm-label');
+        if (label) label.classList.remove('dm-dirty');
     }
 
     /** #218 — Recalculate cascades for all dirty DM types */
@@ -10599,6 +10604,10 @@
             font-size: 13px; font-weight: 600; margin-left: 2px;
             color: rgba(255,255,255,0.7);
             animation: dm-pulse 2.2s ease-in-out infinite;
+        }
+        .room-dm-label.dm-dirty::before {
+            content: ''; width: 8px; height: 8px; border-radius: 50%;
+            background: #F59E0B; flex-shrink: 0;
         }
         .rdm-rows { display: flex; flex-direction: column; }
         .rdm-actions {

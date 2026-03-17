@@ -3159,7 +3159,8 @@
             results = filtered.filter(function(item) {
                 var desc = (item.description || '').toLowerCase();
                 var ct = (item.client_text || '').toLowerCase();
-                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1;
+                var code = (item.id || '').toLowerCase();
+                return ct.indexOf(query) !== -1 || desc.indexOf(query) !== -1 || code.indexOf(query) !== -1;
             }).slice(0, 25);
         }
 
@@ -3170,31 +3171,42 @@
             return;
         }
 
-        // Deduplicate by client_text
-        var deduped = [];
-        var seenCT = {};
-        results.forEach(function(item) {
-            var ct = (item.client_text || '').trim();
-            if (!ct) {
-                deduped.push({ items: [item], clientText: '', displayName: item.description || item.id });
-            } else if (!seenCT[ct]) {
-                seenCT[ct] = { items: [item], clientText: ct, displayName: ct };
-                deduped.push(seenCT[ct]);
-            } else {
-                seenCT[ct].items.push(item);
-            }
-        });
-
         var html = '';
-        deduped.forEach(function(entry) {
-            var repId = entry.items[0].id;
-            var secondary = entry.items.length > 1 ? (entry.items.length + ' articles') : (entry.items[0].description !== entry.displayName ? entry.items[0].description : '');
-            html += '<div class="dm-ac-item" ' +
-                'onmousedown="rdmSelectEnrichedItem(\'' + groupId + '\',' + idx + ',\'' + field + '\',\'' + escapeAttr(repId) + '\',\'' + escapeAttr(entry.clientText) + '\')">' +
-                '<span>' + escapeHtml(entry.displayName) + '</span>' +
-                (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
-                '</div>';
-        });
+        if (field === 'materiau') {
+            // Materiau/Panneau: show every article individually with code + description
+            results.forEach(function(item) {
+                var ct = (item.client_text || '').trim();
+                html += '<div class="dm-ac-item" ' +
+                    'onmousedown="rdmSelectEnrichedItem(\'' + groupId + '\',' + idx + ',\'' + field + '\',\'' + escapeAttr(item.id) + '\',\'' + escapeAttr(ct) + '\')">' +
+                    '<span>' + escapeHtml(item.id) + ' \u2014 ' + escapeHtml(item.description || ct || item.id) + '</span>' +
+                    (item.category ? '<span class="dm-ac-secondary">' + escapeHtml(item.category) + '</span>' : '') +
+                    '</div>';
+            });
+        } else {
+            // Other fields (bande_chant, finition, bois_brut): deduplicate by client_text
+            var deduped = [];
+            var seenCT = {};
+            results.forEach(function(item) {
+                var ct = (item.client_text || '').trim();
+                if (!ct) {
+                    deduped.push({ items: [item], clientText: '', displayName: item.description || item.id });
+                } else if (!seenCT[ct]) {
+                    seenCT[ct] = { items: [item], clientText: ct, displayName: ct };
+                    deduped.push(seenCT[ct]);
+                } else {
+                    seenCT[ct].items.push(item);
+                }
+            });
+            deduped.forEach(function(entry) {
+                var repId = entry.items[0].id;
+                var secondary = entry.items.length > 1 ? (entry.items.length + ' articles') : (entry.items[0].description !== entry.displayName ? entry.items[0].description : '');
+                html += '<div class="dm-ac-item" ' +
+                    'onmousedown="rdmSelectEnrichedItem(\'' + groupId + '\',' + idx + ',\'' + field + '\',\'' + escapeAttr(repId) + '\',\'' + escapeAttr(entry.clientText) + '\')">' +
+                    '<span>' + escapeHtml(entry.displayName) + '</span>' +
+                    (secondary ? '<span class="dm-ac-secondary">' + escapeHtml(secondary) + '</span>' : '') +
+                    '</div>';
+            });
+        }
         acDiv.innerHTML = html;
         acDiv.classList.add('open');
         roomDmActiveAC = acId;

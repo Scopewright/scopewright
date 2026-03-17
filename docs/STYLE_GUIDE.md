@@ -265,6 +265,11 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Composante enregistrée : filled `rgba(255,255,255,0.7)` **persistant** (`.dm-bookmark-btn.saved`) — vérifié au rendu, pas d'animation temporaire. Le label principal de la ligne affiche le nom composante (`buildComposanteName`) au lieu du `client_text`
 - **Détachement** : modification manuelle d'un sous-champ enrichi → bookmark repasse en stroke, `composante_id` supprimé, label revient au `client_text`
 
+**Badge groupe** (bouton "Groupe" dans le footer DM) :
+- Repos (non synced) : stroke `currentColor`, fill `none`, style `.rdm-copy-btn` standard (gris `0.3`)
+- Synced (`.rdm-groupe-synced`) : SVG fill `rgba(255,255,255,0.7)`, text `rgba(255,255,255,0.7)`, border `rgba(255,255,255,0.25)`, fond `rgba(255,255,255,0.06)`
+- Détachement automatique quand un DM est modifié (via `_detachComposanteOnEdit` → `_updateGroupeBadge`)
+
 **Dropdown composantes** :
 - Background transparent, text `rgba(255,255,255,0.6)`, border `0.5px solid rgba(255,255,255,0.15)`
 - Options : `background: #0B1220`

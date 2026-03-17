@@ -6389,7 +6389,7 @@
 
             results.innerHTML = filtered.slice(0, 20).map(function(c) {
                 var typeColor = _compTypeColor(c.dm_type);
-                return '<div class="comp-groupe-search-item" onclick="_groupeAddItem(\'' + c.id + '\')">' +
+                return '<div class="comp-groupe-search-item" onmousedown="event.preventDefault();" onclick="_groupeAddItem(\'' + c.id + '\')">' +
                     '<span class="comp-groupe-member-code">' + escapeHtml(c.code) + '</span>' +
                     '<span class="comp-groupe-member-nom">' + escapeHtml(c.nom) + '</span>' +
                     '<span class="comp-groupe-member-type" style="background:' + typeColor.bg + ';color:' + typeColor.text + '">' + escapeHtml(c.dm_type) + '</span>' +
@@ -6402,10 +6402,39 @@
             var groupeId = document.getElementById('compModalId').value;
 
             if (!groupeId) {
-                // Groupe not saved yet — save first
-                await saveComposante();
-                groupeId = document.getElementById('compModalId').value;
-                if (!groupeId) return;
+                // Groupe not saved yet — save inline (without closing modal)
+                var nom = document.getElementById('compModalNom').value.trim();
+                if (!nom) {
+                    document.getElementById('compModalNom').style.borderColor = '#DC2626';
+                    document.getElementById('compModalNom').focus();
+                    return;
+                }
+                document.getElementById('compModalNom').style.borderColor = '';
+                try {
+                    var body = {
+                        nom: nom,
+                        dm_type: 'Groupe',
+                        notes: document.getElementById('compModalNotes').value.trim() || null,
+                        updated_at: new Date().toISOString()
+                    };
+                    var saveResp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!saveResp.ok) { console.warn('[Groupes] Save groupe failed:', saveResp.status); return; }
+                    var saveResult = await saveResp.json();
+                    var saved = Array.isArray(saveResult) ? saveResult[0] : saveResult;
+                    COMPOSANTES_DATA.push(saved);
+                    document.getElementById('compModalId').value = saved.id;
+                    document.getElementById('compModalCode').value = saved.code || '';
+                    document.getElementById('compModalCode').parentElement.style.display = '';
+                    document.getElementById('compModalTitle').textContent = 'Modifier ' + (saved.code || 'Groupe');
+                    groupeId = saved.id;
+                } catch(e) {
+                    console.warn('[Groupes] Save groupe error:', e);
+                    return;
+                }
             }
 
             try {

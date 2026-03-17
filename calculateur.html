@@ -191,6 +191,7 @@
     let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
     var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
     var COMPOSANTES_GROUPE_ITEMS = {}; // #217 — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
+    var _roomAppliedGroupe = {};      // { groupDomId: groupeComposanteId } — last applied groupe per room
     var COUPE_TYPES = [];            // coupes de placage from app_config
     var COUPE_TYPES_DEFAULT = [
         { code: 'FC', label: 'Fil courant', facteur: 1.00, notes: '' },
@@ -2779,10 +2780,13 @@
         html += '<div class="rdm-actions">';
         html += '<button class="dm-add-btn" onclick="addRoomDmEntry(\'' + groupId + '\')">+ Ajouter</button>';
         html += '<button class="rdm-copy-btn" onclick="openRoomDmCopyMenu(\'' + groupId + '\', this)">Copier de\u2026</button>';
-        // #217: Groupe button — visible only if groupes exist
+        // #217: Groupe button — visible only if groupes exist, badge synced state
         var _hasGroupes = (COMPOSANTES_DATA || []).some(function(c) { return c.dm_type === 'Groupe' && c.is_active !== false; });
         if (_hasGroupes) {
-            html += '<button class="rdm-copy-btn" onclick="openGroupeChoiceModal(\'' + groupId + '\')">Groupe</button>';
+            var _grpSynced = _dmMatchesGroupe(groupId);
+            html += '<button class="rdm-copy-btn rdm-groupe-btn' + (_grpSynced ? ' rdm-groupe-synced' : '') + '" id="' + groupId + '-grpBadge" onclick="openGroupeChoiceModal(\'' + groupId + '\')">' +
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (_grpSynced ? 'rgba(255,255,255,0.7)' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>' +
+                ' Groupe</button>';
         }
         var configuredCount = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; }).length;
         if (configuredCount >= 2) {
@@ -2995,6 +2999,14 @@
         if (!entry) return false;
         var ct = (entry.client_text || '').toLowerCase();
         if (/placage/i.test(ct)) return true;
+        // Check enriched materiau sub-field
+        if (entry.materiau) {
+            if (entry.materiau.client_text && /placage/i.test(entry.materiau.client_text)) return true;
+            if (entry.materiau.catalogue_item_id) {
+                var matItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === entry.materiau.catalogue_item_id; });
+                if (matItem && matItem.category && /placage/i.test(matItem.category)) return true;
+            }
+        }
         if (entry.catalogue_item_id) {
             var item = (CATALOGUE_DATA || []).find(function(c) { return c.id === entry.catalogue_item_id; });
             if (item && item.category && /placage/i.test(item.category)) return true;
@@ -3044,7 +3056,8 @@
             return;
         }
         var coupeText = entry.coupe || '';
-        var built = [matText, coupeText].filter(Boolean).join(' ').trim();
+        var finitionText = (entry.finition && entry.finition.client_text) || '';
+        var built = [matText, coupeText, finitionText].filter(Boolean).join(' ').trim();
         entry.client_text = built || '';
         // Update the main label in the DOM
         var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
@@ -3221,6 +3234,42 @@
             var labelEl = rowWrap.querySelector('.rdm-main-label');
             if (labelEl && rdm[idx].client_text) labelEl.textContent = rdm[idx].client_text;
         }
+        // Update groupe badge (may have deviated)
+        _updateGroupeBadge(groupId);
+    }
+
+    /** Check if current DM config matches the last applied groupe */
+    function _dmMatchesGroupe(roomGroupId) {
+        var grpId = _roomAppliedGroupe[roomGroupId];
+        if (!grpId) return false;
+        var members = COMPOSANTES_GROUPE_ITEMS[grpId] || [];
+        if (members.length === 0) return false;
+        var rdm = roomDM[roomGroupId] || [];
+        for (var i = 0; i < members.length; i++) {
+            var comp = COMPOSANTES_DATA.find(function(c) { return c.id === members[i].composante_id; });
+            if (!comp) return false;
+            var dm = rdm.find(function(e) { return e.type === comp.dm_type; });
+            if (!dm) return false;
+            // Compare key fields
+            if ((dm.client_text || '') !== ([comp.materiau_client_text || '', comp.coupe || ''].filter(Boolean).join(' ').trim() || '')) return false;
+            if ((dm.style || '') !== (comp.style || '')) return false;
+            if ((dm.coupe || '') !== (comp.coupe || '')) return false;
+            var dmBC = (dm.bande_chant && dm.bande_chant.client_text) || '';
+            if (dmBC !== (comp.bande_chant_client_text || '')) return false;
+            var dmFin = (dm.finition && dm.finition.client_text) || '';
+            if (dmFin !== (comp.finition_client_text || '')) return false;
+            var dmBB = (dm.bois_brut && dm.bois_brut.client_text) || '';
+            if (dmBB !== (comp.bois_brut_client_text || '')) return false;
+        }
+        return true;
+    }
+
+    /** Update the groupe badge visual state in the DM footer */
+    function _updateGroupeBadge(roomGroupId) {
+        var btn = document.getElementById(roomGroupId + '-grpBadge');
+        if (!btn) return;
+        var matches = _dmMatchesGroupe(roomGroupId);
+        btn.classList.toggle('rdm-groupe-synced', matches);
     }
 
     /** Select a catalogue item for an enriched sub-field */
@@ -3312,6 +3361,7 @@
         if (oldType) delete dmChoiceCache[groupId + ':' + oldType];
         if (newType) delete dmChoiceCache[groupId + ':' + newType];
         rdm[idx].type = newType;
+        _detachComposanteOnEdit(groupId, idx);
         saveRoomDm(groupId);
         reprocessDefaultCascades(oldType, groupId);
         reprocessDefaultCascades(newType, groupId);
@@ -3418,13 +3468,59 @@
     }
 
     /** Save all DM entries of a room as a group composante */
+    /** Prompt modal for groupe name — returns entered name or null if cancelled */
+    function _promptGroupeName(defaultName) {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#fff;border-radius:14px;width:400px;padding:24px;box-shadow:0 20px 60px rgba(15,23,42,0.18);transform:scale(0.95);transition:transform 0.15s;';
+            box.innerHTML =
+                '<div style="font-size:15px;font-weight:600;color:#0F172A;margin-bottom:16px;">Enregistrer comme groupe</div>' +
+                '<label style="display:block;font-size:12px;font-weight:500;color:#64748B;margin-bottom:4px;">Nom du groupe</label>' +
+                '<input id="_grpNameInput" type="text" value="' + escapeAttr(defaultName) + '" style="width:100%;height:40px;border:1px solid #E2E8F0;border-radius:10px;padding:0 12px;font-size:13px;color:#0F172A;box-sizing:border-box;font-family:inherit;" />' +
+                '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">' +
+                    '<button id="_grpNameCancel" style="height:36px;padding:0 16px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;color:#64748B;font-size:13px;cursor:pointer;font-family:inherit;">Annuler</button>' +
+                    '<button id="_grpNameOk" style="height:36px;padding:0 16px;border:none;border-radius:10px;background:#0B1220;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer comme groupe</button>' +
+                '</div>';
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            requestAnimationFrame(function() { overlay.style.opacity = '1'; box.style.transform = 'scale(1)'; });
+            var inp = document.getElementById('_grpNameInput');
+            inp.focus();
+            inp.select();
+
+            function close(val) {
+                overlay.style.opacity = '0';
+                box.style.transform = 'scale(0.95)';
+                setTimeout(function() { overlay.remove(); }, 150);
+                resolve(val);
+            }
+            document.getElementById('_grpNameCancel').onclick = function() { close(null); };
+            document.getElementById('_grpNameOk').onclick = function() {
+                var v = inp.value.trim();
+                if (!v) { inp.style.borderColor = '#DC2626'; inp.focus(); return; }
+                close(v);
+            };
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') close(null);
+                if (e.key === 'Enter') { document.getElementById('_grpNameOk').click(); }
+            });
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) close(null); });
+        });
+    }
+
     async function saveAllDmAsComposante(groupId) {
         var rdm = roomDM[groupId] || [];
         var configured = rdm.filter(function(e) { return e.client_text || e.catalogue_item_id; });
         if (configured.length < 2) return;
 
         var shortNames = configured.map(buildComposanteName);
-        var nom = shortNames.join(' / ');
+        var suggestedName = shortNames.join(' / ');
+
+        // Prompt for groupe name
+        var nom = await _promptGroupeName(suggestedName);
+        if (!nom) return; // user cancelled
 
         // Dedup: check if group composante with same nom already exists
         var existing = COMPOSANTES_DATA.find(function(c) {
@@ -3635,6 +3731,9 @@
             await reprocessDefaultCascades(changedTypes[t], roomGroupId);
         }
 
+        // Track applied groupe for badge sync
+        _roomAppliedGroupe[roomGroupId] = groupeComposanteId;
+
         showConstraintToast('Groupe appliqu\u00e9 \u2014 ' + applied + ' composante' + (applied > 1 ? 's' : '') + ' configur\u00e9e' + (applied > 1 ? 's' : ''));
     }
 
@@ -3768,6 +3867,7 @@
         rdm[idx].catalogue_item_id = itemId;
         rdm[idx].client_text = clientText || '';
         rdm[idx].description = itemDesc;
+        _detachComposanteOnEdit(groupId, idx);
 
         // #208: Validation — if matériau changed to mélamine, clear finition sub-field
         if (rdm[idx].finition && _isDmMelamine(rdm[idx])) {
@@ -10345,6 +10445,12 @@
             padding: 2px 8px; border-radius: 3px; white-space: nowrap;
         }
         .rdm-copy-btn:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.3); }
+        .rdm-groupe-btn { display: inline-flex; align-items: center; gap: 4px; }
+        .rdm-groupe-btn svg { flex-shrink: 0; }
+        .rdm-groupe-btn.rdm-groupe-synced {
+            color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.06);
+        }
         .rdm-clear-btn {
             font-size: 12px; color: rgba(255,255,255,0.2); background: none;
             border: 0.5px solid rgba(255,255,255,0.1); cursor: pointer;
@@ -13931,7 +14037,7 @@
             if (!opts.existingId && !opts.cascade && !opts.parentRowId && !opts.skipSave) {
                 var missingDm = getMissingRequiredDm(groupId);
                 if (missingDm.length > 0) {
-                    showToast('Configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut (' + missingDm.join(', ') + ')');
+                    showConstraintToast('Configurez d\u2019abord les mat\u00e9riaux par d\u00e9faut (' + missingDm.join(', ') + ')');
                     var dmBody = document.getElementById(groupId + '-dmBody');
                     if (dmBody && dmBody.classList.contains('collapsed')) toggleRoomDm(groupId);
                     return null;
@@ -14280,7 +14386,7 @@
             var sel = row.querySelector('.item-select');
             var selectedId = sel ? sel.value : '';
             if (!selectedId || selectedId === '__AJOUT__' || selectedId === '__PROPOSER__') {
-                showToast('Sélectionnez d\u2019abord un article catalogue'); return;
+                showConstraintToast('Sélectionnez d\u2019abord un article catalogue'); return;
             }
             var item = CATALOGUE_DATA.find(function(i) { return i.id === selectedId; });
             if (!item) return;
@@ -23497,7 +23603,7 @@
                 steleAlert('Impossible de supprimer ce projet. Il contient peut-\u00eatre des donn\u00e9es li\u00e9es.');
                 return;
             }
-            showToast('Projet supprim\u00e9');
+            showConstraintToast('Projet supprim\u00e9');
             renderProjectList();
         }
 

@@ -6221,6 +6221,44 @@
                 }
             }
 
+            // #219b: Per-rule composante_id — override materialCtx with the composante
+            // from the DM type targeted by this specific rule (not the parent's type)
+            if (rule.target.startsWith('$default:')) {
+                var _ruleType = rule.target.substring(9);
+                var _ruleTypeNorm = normalizeDmType(_ruleType);
+                var _parentTypeNorm = normalizeDmType(_getCategoryDmType(catItem ? catItem.category : '') || '');
+                // Only override if the rule targets a DIFFERENT type than the parent
+                if (_ruleTypeNorm !== _parentTypeNorm) {
+                    var _ruleDmEntries = (getDefaultMaterialsForGroup(groupId) || []).filter(function(d) {
+                        return d.composante_id && normalizeDmType(d.type) === _ruleTypeNorm;
+                    });
+                    if (_ruleDmEntries.length === 1) {
+                        materialCtx.composante_id = _ruleDmEntries[0].composante_id;
+                        cascadeLog('info', '#219b: per-rule composante_id for ' + rule.target + ' → ' + _ruleDmEntries[0].composante_id);
+                    } else if (_ruleDmEntries.length > 1) {
+                        // 2+ composantes of same type — check cache or show modal
+                        var _ruleCompCacheKey = groupId + ':comp:' + _ruleType;
+                        if (dmChoiceCache[_ruleCompCacheKey]) {
+                            materialCtx.composante_id = dmChoiceCache[_ruleCompCacheKey];
+                            cascadeLog('info', '#219b: per-rule composante_id from cache → ' + dmChoiceCache[_ruleCompCacheKey]);
+                        } else {
+                            var _ruleCompId = await showComposanteChoiceModal(_ruleType, _ruleDmEntries);
+                            if (_ruleCompId) {
+                                materialCtx.composante_id = _ruleCompId;
+                                dmChoiceCache[_ruleCompCacheKey] = _ruleCompId;
+                            } else {
+                                materialCtx.composante_id = _ruleDmEntries[0].composante_id;
+                            }
+                            cascadeLog('info', '#219b: per-rule composante_id from modal → ' + materialCtx.composante_id);
+                        }
+                    } else {
+                        // No composante for this type — clear so resolveByComposante falls through
+                        materialCtx.composante_id = null;
+                        cascadeLog('info', '#219b: no composante for ' + _ruleType + ' — cleared');
+                    }
+                }
+            }
+
             // For dynamic targets, reuse existing child if it already satisfies the rule (skip popup)
             var resolvedTarget = null;
             if (rule.target.startsWith('$default:') || rule.target.startsWith('$match:')) {

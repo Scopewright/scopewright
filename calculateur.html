@@ -4880,6 +4880,16 @@
                 }
             }
 
+            // Enriched fallback: if client_text empty but materiau sub-field has data, use it
+            if (!chosenEntry.client_text && chosenEntry.materiau) {
+                if (chosenEntry.materiau.client_text) {
+                    chosenEntry.client_text = chosenEntry.materiau.client_text;
+                } else if (chosenEntry.materiau.catalogue_item_id) {
+                    var _matItem = CATALOGUE_DATA.find(function(c) { return c.id === chosenEntry.materiau.catalogue_item_id; });
+                    if (_matItem) chosenEntry.client_text = _matItem.client_text || _matItem.description || '';
+                }
+            }
+
             // Step 4: Resolve to specific catalogue item via client_text
             if (chosenEntry.client_text) {
                 var allowedCats = getAllowedCategoriesForGroup(groupName);
@@ -21475,6 +21485,12 @@
                             if (catItem && catItem.client_text) {
                                 entry.client_text = catItem.client_text;
                             }
+                        }
+                    });
+                    // Rebuild enriched client_text to clean up stale data (coupe was previously included)
+                    roomDM[groupId].forEach(function(entry, dmIdx) {
+                        if (entry.type && DM_ENRICHED_GROUPS[entry.type] && entry.materiau) {
+                            _rebuildDmClientText(groupId, dmIdx);
                         }
                     });
                     updateRoomDmBadge(groupId);

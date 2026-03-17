@@ -2898,6 +2898,8 @@
             var f = config.fields[fi];
             if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(f) !== -1) {
                 var sub = entry[f];
+                // Backward compat: style may be a plain string
+                if (typeof sub === 'string' && sub) return true;
                 if (sub && (sub.client_text || sub.catalogue_item_id)) return true;
             } else {
                 if (entry[f]) return true; // text fields
@@ -2930,6 +2932,8 @@
             if (isCatField) {
                 // Catalogue combobox search
                 var subVal = entry[field];
+                // Backward compat: style may be a plain string (legacy)
+                if (typeof subVal === 'string') subVal = { client_text: subVal };
                 var subDisplay = (subVal && subVal.client_text) ? subVal.client_text : '';
                 if (!subDisplay && subVal && subVal.catalogue_item_id) {
                     var subItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === subVal.catalogue_item_id; });
@@ -3113,11 +3117,13 @@
         // Determine allowed categories based on the field
         var fieldCatMap = {
             'materiau': ['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU'],
+            'style':    ['FACADE', 'FAÇADE'],
             'bande_chant': ['BANDE DE CHANT', 'BANDES DE CHANT'],
             'finition': ['FINITION', 'FINITION BOIS', 'FINITIONS'],
             'bois_brut': ['BOIS BRUT']
         };
         var allowedFieldCats = fieldCatMap[field] || [];
+        var isStyleField = (field === 'style');
 
         var items = CATALOGUE_DATA || [];
         var seen = {};
@@ -3125,7 +3131,12 @@
         var filtered = items.filter(function(item) {
             if (seen[item.id]) return false;
             seen[item.id] = true;
-            if (item.item_type === 'fabrication') return false;
+            // Style: FAB only. All others: exclude FAB
+            if (isStyleField) {
+                if (item.item_type !== 'fabrication') return false;
+            } else {
+                if (item.item_type === 'fabrication') return false;
+            }
             // Check material_costs keys for the field's expense categories
             if (item.material_costs) {
                 var mcKeys = Object.keys(item.material_costs);
@@ -3136,11 +3147,12 @@
                     }
                 }
             }
-            // Also match by catalogue category name
+            // Also match by catalogue category name (NFD-normalized for accent-insensitive)
             if (item.category) {
-                var catU = item.category.toUpperCase();
+                var catU = item.category.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 for (var ci = 0; ci < allowedFieldCats.length; ci++) {
-                    if (catU.indexOf(allowedFieldCats[ci]) !== -1 || allowedFieldCats[ci].indexOf(catU) !== -1) return true;
+                    var _acNorm = allowedFieldCats[ci].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    if (catU.indexOf(_acNorm) !== -1 || _acNorm.indexOf(catU) !== -1) return true;
                 }
             }
             return false;
@@ -3166,7 +3178,7 @@
         }
 
         var html = '';
-        if (field === 'materiau') {
+        if (field === 'materiau' || field === 'style') {
             // Materiau/Panneau: show every article individually with code + description + client_text
             results.forEach(function(item) {
                 var ct = (item.client_text || '').trim();
@@ -3445,11 +3457,18 @@
 
     // ── #209 Phase 1B — Save DM as composante ──
 
+    /** Extract display value from a DM sub-field (string or {client_text} object) */
+    function _dmFieldText(val) {
+        if (!val) return null;
+        if (typeof val === 'string') return val;
+        return val.client_text || null;
+    }
+
     /** Build short composante name from a DM entry */
     function buildComposanteName(dmEntry) {
         var parts = [
             dmEntry.type || null,
-            dmEntry.style || null,
+            _dmFieldText(dmEntry.style),
             dmEntry.client_text || null,
             dmEntry.coupe || null
         ].filter(Boolean);
@@ -4610,7 +4629,7 @@
     };
 
     // Sub-fields that use catalogue combobox search (vs free text)
-    var DM_ENRICHED_CATALOGUE_FIELDS = ['materiau', 'bande_chant', 'finition', 'bois_brut'];
+    var DM_ENRICHED_CATALOGUE_FIELDS = ['materiau', 'style', 'bande_chant', 'finition', 'bois_brut'];
 
     /** #209 Phase 1D: filter DM entries by composante_id (priority filter with fallback) */
     function filterDmByComposante(dmEntries, composanteId) {

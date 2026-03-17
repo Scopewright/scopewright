@@ -293,9 +293,13 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 Regroupements nommés de propriétés constructives (matériau, style, coupe, bande de chant, finition, bois brut) par type DM.
 - **Table** : `composantes` — UUID PK, code `COMP-XXX` auto-généré par trigger (`composante_code_seq` + `generate_composante_code()`), RLS authentifié
 - **Dual storage** : `materiau_client_text` + `materiau_catalogue_id`, même pattern pour bande_chant, finition, bois_brut
-- **CRUD drawer** : `catalogue_prix_stele_complet.html` — bouton "Composantes" dans `.catalogue-header-bar`, drawer 480px avec filtre par type DM, modale création/édition
+- **CRUD drawer** : `catalogue_prix_stele_complet.html` — bouton "Composantes" dans `.catalogue-header-bar`, drawer 760px avec filtre par type DM, modale création/édition/duplication
 - **Soft delete** : `is_active = false` (pas de DELETE)
-- **Fonctions** : `loadComposantes`, `openComposantesDrawer`, `closeComposantesDrawer`, `renderComposantesList`, `openComposanteModal`, `closeComposanteModal`, `saveComposante`, `deleteComposante`, `filterComposantesByType`
+- **Fonctions** : `loadComposantes`, `openComposantesDrawer`, `closeComposantesDrawer`, `renderComposantesList`, `openComposanteModal`, `closeComposanteModal`, `saveComposante`, `deleteComposante`, `duplicateComposante`, `filterComposantesByType`
+- **Dupliquer** : `duplicateComposante()` — copie tous les champs sauf `id`/`code`, ajoute " (copie)" au nom, INSERT → nouveau COMP-XXX auto-généré, rouvre la modale sur la copie. Bouton visible uniquement en mode édition
+- **Champs conditionnels** : `_COMP_FIELDS_BY_TYPE` — chaque type DM n'affiche que ses champs pertinents. Caisson: matériau+coupe+bande_chant+finition. Façades/Panneaux: tous les champs. Tiroirs/Poignées: matériau seulement. Groupe: tous. `_compUpdateFieldVisibility()` au changement de type. Les champs masqués sont vidés avant sauvegarde
+- **Combobox catalogue** : les champs Matériau, Bande de chant, Finition, Bois brut utilisent un combobox avec recherche dans `CATALOGUE_DATA` (`.comp-combobox`). Matériau → toutes catégories. Bande de chant → filtre "bande de chant". Finition → filtre "finition". Bois brut → filtre "bois brut". Dédup par `client_text`, max 30 résultats. Stockage dual : `*_client_text` + `*_catalogue_id`. Fonctions : `_compCbSearch`, `_compCbSelect`, `_compCbClear`, `_COMP_CB_IDS`, `_COMP_CB_CAT_FILTER`
+- **Section "Utilisée dans"** : `_compLoadUsage(compId)` — en bas de la modale édition, liste les soumissions utilisant cette composante via `room_items.composante_id` JOIN `project_rooms → submissions → projects`. Dédup par submission. Liens cliquables vers `calculateur.html?project=X&submission=Y`. Badge statut coloré (`_COMP_STATUS_COLORS`)
 - **Lien room_items** : `room_items.composante_id` UUID FK (nullable, ON DELETE SET NULL)
 - **Migration** : `sql/composantes.sql`
 

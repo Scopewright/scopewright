@@ -908,7 +908,7 @@
         }
         .comp-drawer-overlay.active { opacity:1; pointer-events:auto; }
         .comp-drawer {
-            position:fixed; top:0; right:-500px; width:480px; height:100vh;
+            position:fixed; top:0; right:-780px; width:760px; height:100vh;
             background:#fff; z-index:901; display:flex; flex-direction:column;
             box-shadow:-4px 0 24px rgba(0,0,0,0.10); transition:right 0.25s cubic-bezier(0.4,0,0.2,1);
         }
@@ -1021,6 +1021,49 @@
         }
         .comp-btn-cancel { border:1px solid var(--sw-border); background:#fff; color:var(--sw-text); }
         .comp-btn-cancel:hover { background:#f8fafc; }
+        .comp-btn-duplicate { border:1px solid var(--sw-border); background:#fff; color:var(--sw-text); }
+        .comp-btn-duplicate:hover { background:#f0f9ff; border-color:#93c5fd; color:#1d4ed8; }
+        /* Combobox for composante catalogue fields */
+        .comp-combobox { position:relative; }
+        .comp-combobox input { padding-right:28px; }
+        .comp-combobox-clear {
+            position:absolute; right:8px; top:50%; transform:translateY(-50%);
+            background:none; border:none; cursor:pointer; font-size:14px;
+            color:var(--sw-muted); padding:0 2px; line-height:1; display:none;
+        }
+        .comp-combobox-clear:hover { color:var(--sw-text); }
+        .comp-combobox-drop {
+            position:absolute; left:0; right:0; top:100%; margin-top:2px;
+            background:#fff; border:1px solid var(--sw-border); border-radius:10px;
+            box-shadow:0 8px 24px rgba(15,23,42,0.10); max-height:220px;
+            overflow-y:auto; z-index:920; display:none;
+        }
+        .comp-combobox-drop.active { display:block; }
+        .comp-cb-item {
+            padding:6px 12px; font-size:12px; color:var(--sw-text); cursor:pointer;
+            display:flex; align-items:center; gap:6px;
+        }
+        .comp-cb-item:hover { background:#f1f5f9; }
+        .comp-cb-item-code { color:var(--sw-muted); font-family:monospace; font-size:10px; }
+        .comp-cb-item-cat { color:var(--sw-muted); font-size:10px; margin-left:auto; }
+        .comp-cb-item-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        /* "Utilisée dans" section */
+        .comp-usage-section { border-top:1px solid var(--sw-border); margin-top:8px; padding-top:12px; }
+        .comp-usage-title { font-size:12px; font-weight:600; color:var(--sw-text-2); margin-bottom:8px; }
+        .comp-usage-list { list-style:none; padding:0; margin:0; }
+        .comp-usage-item {
+            display:flex; align-items:center; gap:8px; padding:6px 8px;
+            border-radius:6px; cursor:pointer; transition:background 0.1s;
+            font-size:12px; color:var(--sw-text); text-decoration:none;
+        }
+        .comp-usage-item:hover { background:#f1f5f9; }
+        .comp-usage-proj { font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .comp-usage-date { color:var(--sw-muted); font-size:11px; white-space:nowrap; }
+        .comp-usage-badge {
+            font-size:9px; font-weight:600; padding:2px 6px; border-radius:999px;
+            white-space:nowrap;
+        }
+        .comp-usage-empty { color:var(--sw-muted); font-size:12px; font-style:italic; }
         .comp-btn-save { border:none; background:var(--sw-navy); color:#fff; }
         .comp-btn-save:hover { background:var(--sw-navy-hover); }
         @media (max-width:600px) {
@@ -5589,7 +5632,8 @@
                 'Panneaux': { bg: '#ECFDF5', text: '#065F46' },
                 'Tiroirs': { bg: '#FFF1F2', text: '#9F1239' },
                 'Finition': { bg: '#F5F3FF', text: '#6D28D9' },
-                'Poignées': { bg: '#F0F9FF', text: '#0C4A6E' }
+                'Poignées': { bg: '#F0F9FF', text: '#0C4A6E' },
+                'Groupe': { bg: '#FFF7ED', text: '#9A3412' }
             };
             return colors[dmType] || { bg: '#F1F5F9', text: '#475569' };
         }
@@ -5606,13 +5650,26 @@
             document.getElementById('compModalNom').value = '';
             document.getElementById('compModalDmType').value = 'Caisson';
             document.getElementById('compModalMateriau').value = '';
+            document.getElementById('compModalMateriauId').value = '';
             document.getElementById('compModalStyle').value = '';
             document.getElementById('compModalCoupe').value = '';
             document.getElementById('compModalBandeChant').value = '';
+            document.getElementById('compModalBandeChantId').value = '';
             document.getElementById('compModalFinition').value = '';
+            document.getElementById('compModalFinitionId').value = '';
             document.getElementById('compModalBoisBrut').value = '';
+            document.getElementById('compModalBoisBrutId').value = '';
             document.getElementById('compModalNotes').value = '';
             document.getElementById('compModalTitle').textContent = 'Nouvelle composante';
+            // Reset clear buttons
+            document.querySelectorAll('#composanteModal .comp-combobox-clear').forEach(function(b) { b.style.display = 'none'; });
+            // Reset dropdowns
+            document.querySelectorAll('#composanteModal .comp-combobox-drop').forEach(function(d) { d.classList.remove('active'); d.innerHTML = ''; });
+            var dupBtn = document.getElementById('compBtnDuplicate');
+            if (dupBtn) dupBtn.style.display = 'none';
+            // Clear usage section
+            var usageSec = document.getElementById('compUsageSection');
+            if (usageSec) usageSec.innerHTML = '';
 
             if (compId) {
                 var comp = COMPOSANTES_DATA.find(function(c) { return c.id === compId; });
@@ -5623,19 +5680,29 @@
                 document.getElementById('compModalNom').value = comp.nom || '';
                 document.getElementById('compModalDmType').value = comp.dm_type || 'Caisson';
                 document.getElementById('compModalMateriau').value = comp.materiau_client_text || '';
+                document.getElementById('compModalMateriauId').value = comp.materiau_catalogue_id || '';
                 document.getElementById('compModalStyle').value = comp.style || '';
                 document.getElementById('compModalCoupe').value = comp.coupe || '';
                 document.getElementById('compModalBandeChant').value = comp.bande_chant_client_text || '';
+                document.getElementById('compModalBandeChantId').value = comp.bande_chant_catalogue_id || '';
                 document.getElementById('compModalFinition').value = comp.finition_client_text || '';
+                document.getElementById('compModalFinitionId').value = comp.finition_catalogue_id || '';
                 document.getElementById('compModalBoisBrut').value = comp.bois_brut_client_text || '';
+                document.getElementById('compModalBoisBrutId').value = comp.bois_brut_catalogue_id || '';
                 document.getElementById('compModalNotes').value = comp.notes || '';
                 document.getElementById('compModalTitle').textContent = 'Modifier ' + comp.code;
+                if (dupBtn) dupBtn.style.display = '';
+                // Show clear buttons for filled comboboxes
+                ['materiau','bande_chant','finition','bois_brut'].forEach(function(fk) {
+                    var ids = _COMP_CB_IDS[fk];
+                    if (ids && document.getElementById(ids.input).value) {
+                        var cb = document.getElementById(ids.input).parentElement.querySelector('.comp-combobox-clear');
+                        if (cb) cb.style.display = '';
+                    }
+                });
+                // Load usage section
+                _compLoadUsage(comp.id);
             }
-
-            // Populate datalists from distinct COMPOSANTES_DATA values
-            _populateCompDatalist('compDlBandeChant', 'bande_chant_client_text');
-            _populateCompDatalist('compDlFinition', 'finition_client_text');
-            _populateCompDatalist('compDlBoisBrut', 'bois_brut_client_text');
 
             // Auto-regenerate nom when fields change (only for new composantes)
             var nomInput = document.getElementById('compModalNom');
@@ -5660,6 +5727,7 @@
                 el.addEventListener('change', el._compNomHandler);
             });
 
+            _compUpdateFieldVisibility();
             modal.classList.add('active');
         }
 
@@ -5674,6 +5742,199 @@
             dl.innerHTML = Object.keys(values).sort().map(function(v) {
                 return '<option value="' + escapeAttr(v) + '">';
             }).join('');
+        }
+
+        /** Fields visible per DM type */
+        var _COMP_FIELDS_BY_TYPE = {
+            'Caisson':  ['materiau','coupe','bande_chant','finition'],
+            'Façades':  ['materiau','style','coupe','bande_chant','finition','bois_brut'],
+            'Panneaux': ['materiau','style','coupe','bande_chant','finition','bois_brut'],
+            'Tiroirs':  ['materiau'],
+            'Poignées': ['materiau'],
+            'Groupe':   ['materiau','style','coupe','bande_chant','finition','bois_brut']
+        };
+
+        /** Update field visibility based on selected DM type */
+        function _compUpdateFieldVisibility() {
+            var dmType = document.getElementById('compModalDmType').value;
+            var allowed = _COMP_FIELDS_BY_TYPE[dmType] || _COMP_FIELDS_BY_TYPE['Groupe'];
+            var allFields = document.querySelectorAll('#composanteModal [data-comp-field]');
+            allFields.forEach(function(el) {
+                var field = el.getAttribute('data-comp-field');
+                // style-coupe row: show if either style or coupe is allowed
+                if (field === 'style-coupe') {
+                    el.style.display = (allowed.indexOf('style') !== -1 || allowed.indexOf('coupe') !== -1) ? '' : 'none';
+                } else {
+                    el.style.display = allowed.indexOf(field) !== -1 ? '' : 'none';
+                }
+            });
+        }
+
+        /** Catalogue category filters for combobox fields */
+        var _COMP_CB_CAT_FILTER = {
+            'materiau':    null, // all categories
+            'bande_chant': 'bande de chant',
+            'finition':    'finition',
+            'bois_brut':   'bois brut'
+        };
+
+        /** Combobox field → input/hidden/drop IDs */
+        var _COMP_CB_IDS = {
+            'materiau':    { input: 'compModalMateriau', hidden: 'compModalMateriauId', drop: 'compCbDropMateriau' },
+            'bande_chant': { input: 'compModalBandeChant', hidden: 'compModalBandeChantId', drop: 'compCbDropBandeChant' },
+            'finition':    { input: 'compModalFinition', hidden: 'compModalFinitionId', drop: 'compCbDropFinition' },
+            'bois_brut':   { input: 'compModalBoisBrut', hidden: 'compModalBoisBrutId', drop: 'compCbDropBoisBrut' }
+        };
+
+        /** Search catalogue for combobox dropdown */
+        function _compCbSearch(inputEl, fieldKey) {
+            var ids = _COMP_CB_IDS[fieldKey];
+            if (!ids) return;
+            var drop = document.getElementById(ids.drop);
+            var clearBtn = inputEl.parentElement.querySelector('.comp-combobox-clear');
+            var query = inputEl.value.trim().toLowerCase();
+            var catFilter = _COMP_CB_CAT_FILTER[fieldKey];
+
+            var items = (typeof CATALOGUE_DATA !== 'undefined' ? CATALOGUE_DATA : []).filter(function(item) {
+                if (!item.client_text) return false;
+                if (catFilter) {
+                    var cat = (item.category || '').toLowerCase();
+                    if (cat.indexOf(catFilter) === -1) return false;
+                }
+                if (query.length < 1) return true;
+                var haystack = ((item.client_text || '') + ' ' + (item.description || '') + ' ' + (item.id || '')).toLowerCase();
+                return haystack.indexOf(query) !== -1;
+            });
+
+            // Deduplicate by client_text
+            var seen = {};
+            var unique = [];
+            items.forEach(function(item) {
+                var key = item.client_text.toLowerCase();
+                if (!seen[key]) { seen[key] = true; unique.push(item); }
+            });
+            items = unique.slice(0, 30);
+
+            if (items.length === 0) {
+                drop.innerHTML = '<div class="comp-cb-item" style="color:var(--sw-muted);cursor:default;">Aucun résultat</div>';
+            } else {
+                drop.innerHTML = items.map(function(item) {
+                    return '<div class="comp-cb-item" onclick="_compCbSelect(\'' + fieldKey + '\',\'' + escapeAttr(item.id) + '\',' + JSON.stringify(item.client_text).replace(/'/g, "\\'") + ')">' +
+                        '<span class="comp-cb-item-code">' + escapeHtml(item.id) + '</span>' +
+                        '<span class="comp-cb-item-text">' + escapeHtml(item.client_text) + '</span>' +
+                        '<span class="comp-cb-item-cat">' + escapeHtml(item.category || '') + '</span>' +
+                    '</div>';
+                }).join('');
+            }
+            drop.classList.add('active');
+            if (clearBtn) clearBtn.style.display = inputEl.value ? '' : 'none';
+        }
+
+        /** Select an item from combobox dropdown */
+        function _compCbSelect(fieldKey, catId, clientText) {
+            var ids = _COMP_CB_IDS[fieldKey];
+            if (!ids) return;
+            document.getElementById(ids.input).value = clientText;
+            document.getElementById(ids.hidden).value = catId;
+            document.getElementById(ids.drop).classList.remove('active');
+            var clearBtn = document.getElementById(ids.input).parentElement.querySelector('.comp-combobox-clear');
+            if (clearBtn) clearBtn.style.display = '';
+            // Trigger auto-nom
+            var ev = new Event('input', { bubbles: true });
+            document.getElementById(ids.input).dispatchEvent(ev);
+        }
+
+        /** Clear combobox selection */
+        function _compCbClear(fieldKey) {
+            var ids = _COMP_CB_IDS[fieldKey];
+            if (!ids) return;
+            document.getElementById(ids.input).value = '';
+            document.getElementById(ids.hidden).value = '';
+            document.getElementById(ids.drop).classList.remove('active');
+            var clearBtn = document.getElementById(ids.input).parentElement.querySelector('.comp-combobox-clear');
+            if (clearBtn) clearBtn.style.display = 'none';
+            var ev = new Event('input', { bubbles: true });
+            document.getElementById(ids.input).dispatchEvent(ev);
+        }
+
+        // Close combobox dropdowns on click outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.comp-combobox')) {
+                document.querySelectorAll('.comp-combobox-drop.active').forEach(function(d) {
+                    d.classList.remove('active');
+                });
+            }
+        });
+
+        /** Status badge colors for usage section */
+        var _COMP_STATUS_COLORS = {
+            'draft':             { bg: '#F1F5F9', text: '#475569' },
+            'pending_internal':  { bg: '#FEF3C7', text: '#92400E' },
+            'returned':          { bg: '#FEE2E2', text: '#991B1B' },
+            'approved_internal': { bg: '#DBEAFE', text: '#1E40AF' },
+            'sent_client':       { bg: '#E0E7FF', text: '#3730A3' },
+            'accepted':          { bg: '#DCFCE7', text: '#166534' },
+            'invoiced':          { bg: '#F3E8FF', text: '#6B21A8' }
+        };
+
+        /** Load submissions using this composante */
+        async function _compLoadUsage(compId) {
+            var sec = document.getElementById('compUsageSection');
+            if (!sec) return;
+            sec.innerHTML = '<div class="comp-usage-section"><div class="comp-usage-title">Chargement…</div></div>';
+
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/room_items?composante_id=eq.' + compId + '&select=room_id,project_rooms(submission_id,submissions(id,title,status,created_at,project_id,projects(name)))');
+                if (!resp.ok) { sec.innerHTML = ''; return; }
+                var data = await resp.json();
+
+                // Deduplicate by submission id
+                var subMap = {};
+                data.forEach(function(ri) {
+                    var pr = ri.project_rooms;
+                    if (!pr || !pr.submissions) return;
+                    var sub = pr.submissions;
+                    if (subMap[sub.id]) return;
+                    subMap[sub.id] = {
+                        id: sub.id,
+                        title: sub.title || 'Sans titre',
+                        status: sub.status || 'draft',
+                        created_at: sub.created_at,
+                        project_id: sub.project_id,
+                        project_name: (sub.projects && sub.projects.name) || ''
+                    };
+                });
+
+                var subs = Object.values(subMap);
+                subs.sort(function(a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+
+                var html = '<div class="comp-usage-section">';
+                html += '<div class="comp-usage-title">Utilisée dans ' + subs.length + ' soumission' + (subs.length > 1 ? 's' : '') + '</div>';
+
+                if (subs.length === 0) {
+                    html += '<div class="comp-usage-empty">Aucune soumission pour l\'instant</div>';
+                } else {
+                    html += '<ul class="comp-usage-list">';
+                    subs.forEach(function(s) {
+                        var col = _COMP_STATUS_COLORS[s.status] || _COMP_STATUS_COLORS['draft'];
+                        var dateStr = s.created_at ? new Date(s.created_at).toLocaleDateString('fr-CA') : '';
+                        var statusLabel = (s.status || 'draft').replace(/_/g, ' ');
+                        html += '<li>' +
+                            '<a class="comp-usage-item" href="calculateur.html?project=' + encodeURIComponent(s.project_id) + '&submission=' + encodeURIComponent(s.id) + '" target="_blank">' +
+                                '<span class="comp-usage-proj">' + escapeHtml(s.project_name || s.title) + '</span>' +
+                                '<span class="comp-usage-date">' + escapeHtml(dateStr) + '</span>' +
+                                '<span class="comp-usage-badge" style="background:' + col.bg + ';color:' + col.text + '">' + escapeHtml(statusLabel) + '</span>' +
+                            '</a>' +
+                        '</li>';
+                    });
+                    html += '</ul>';
+                }
+                html += '</div>';
+                sec.innerHTML = html;
+            } catch(e) {
+                console.warn('[Composantes] Usage load error:', e);
+                sec.innerHTML = '';
+            }
         }
 
         /** Close composante modal */
@@ -5695,15 +5956,22 @@
             }
             document.getElementById('compModalNom').style.borderColor = '';
 
+            // Determine which fields are visible for this DM type
+            var allowed = _COMP_FIELDS_BY_TYPE[dmType] || _COMP_FIELDS_BY_TYPE['Groupe'];
+
             var body = {
                 nom: nom,
                 dm_type: dmType,
-                materiau_client_text: document.getElementById('compModalMateriau').value.trim() || null,
-                style: document.getElementById('compModalStyle').value.trim() || null,
-                coupe: document.getElementById('compModalCoupe').value.trim() || null,
-                bande_chant_client_text: document.getElementById('compModalBandeChant').value.trim() || null,
-                finition_client_text: document.getElementById('compModalFinition').value.trim() || null,
-                bois_brut_client_text: document.getElementById('compModalBoisBrut').value.trim() || null,
+                materiau_client_text: allowed.indexOf('materiau') !== -1 ? (document.getElementById('compModalMateriau').value.trim() || null) : null,
+                materiau_catalogue_id: allowed.indexOf('materiau') !== -1 ? (document.getElementById('compModalMateriauId').value || null) : null,
+                style: allowed.indexOf('style') !== -1 ? (document.getElementById('compModalStyle').value.trim() || null) : null,
+                coupe: allowed.indexOf('coupe') !== -1 ? (document.getElementById('compModalCoupe').value.trim() || null) : null,
+                bande_chant_client_text: allowed.indexOf('bande_chant') !== -1 ? (document.getElementById('compModalBandeChant').value.trim() || null) : null,
+                bande_chant_catalogue_id: allowed.indexOf('bande_chant') !== -1 ? (document.getElementById('compModalBandeChantId').value || null) : null,
+                finition_client_text: allowed.indexOf('finition') !== -1 ? (document.getElementById('compModalFinition').value.trim() || null) : null,
+                finition_catalogue_id: allowed.indexOf('finition') !== -1 ? (document.getElementById('compModalFinitionId').value || null) : null,
+                bois_brut_client_text: allowed.indexOf('bois_brut') !== -1 ? (document.getElementById('compModalBoisBrut').value.trim() || null) : null,
+                bois_brut_catalogue_id: allowed.indexOf('bois_brut') !== -1 ? (document.getElementById('compModalBoisBrutId').value || null) : null,
                 notes: document.getElementById('compModalNotes').value.trim() || null,
                 updated_at: new Date().toISOString()
             };
@@ -5779,6 +6047,51 @@
                 _compToast('Composante supprimée');
             } catch(e) {
                 console.warn('[Composantes] Delete error:', e);
+            }
+        }
+
+        /** Duplicate current composante */
+        async function duplicateComposante() {
+            var id = document.getElementById('compModalId').value;
+            if (!id) return;
+            var comp = COMPOSANTES_DATA.find(function(c) { return c.id === id; });
+            if (!comp) return;
+
+            var body = {
+                nom: (comp.nom || '') + ' (copie)',
+                dm_type: comp.dm_type,
+                materiau_client_text: comp.materiau_client_text || null,
+                materiau_catalogue_id: comp.materiau_catalogue_id || null,
+                style: comp.style || null,
+                coupe: comp.coupe || null,
+                bande_chant_client_text: comp.bande_chant_client_text || null,
+                bande_chant_catalogue_id: comp.bande_chant_catalogue_id || null,
+                finition_client_text: comp.finition_client_text || null,
+                finition_catalogue_id: comp.finition_catalogue_id || null,
+                bois_brut_client_text: comp.bois_brut_client_text || null,
+                bois_brut_catalogue_id: comp.bois_brut_catalogue_id || null,
+                notes: comp.notes || null
+            };
+
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) {
+                    console.warn('[Composantes] Duplicate failed:', resp.status);
+                    return;
+                }
+                var result = await resp.json();
+                var saved = Array.isArray(result) ? result[0] : result;
+                COMPOSANTES_DATA.push(saved);
+                renderComposantesList();
+                _compToast('Composante dupliquée — ' + saved.code);
+                closeComposanteModal();
+                openComposanteModal(saved.id);
+            } catch(e) {
+                console.warn('[Composantes] Duplicate error:', e);
             }
         }
 
@@ -9002,8 +9315,8 @@
             <option value="Fa&ccedil;ades">Fa&ccedil;ades</option>
             <option value="Panneaux">Panneaux</option>
             <option value="Tiroirs">Tiroirs</option>
-            <option value="Finition">Finition</option>
             <option value="Poign&eacute;es">Poign&eacute;es</option>
+            <option value="Groupe">Groupe</option>
         </select>
         <button class="comp-add-btn" onclick="openComposanteModal()" title="Nouvelle composante">+</button>
     </div>
@@ -9032,52 +9345,71 @@
             <div class="comp-field-row">
                 <div class="comp-field">
                     <label>Type DM *</label>
-                    <select id="compModalDmType">
+                    <select id="compModalDmType" onchange="_compUpdateFieldVisibility()">
                         <option value="Caisson">Caisson</option>
                         <option value="Fa&ccedil;ades">Fa&ccedil;ades</option>
                         <option value="Panneaux">Panneaux</option>
                         <option value="Tiroirs">Tiroirs</option>
-                        <option value="Finition">Finition</option>
                         <option value="Poign&eacute;es">Poign&eacute;es</option>
+                        <option value="Groupe">Groupe</option>
                     </select>
                 </div>
-                <div class="comp-field">
+                <div class="comp-field" data-comp-field="materiau">
                     <label>Mat&eacute;riau principal</label>
-                    <input type="text" id="compModalMateriau" placeholder="Ex: Placage ch&ecirc;ne blanc">
+                    <div class="comp-combobox">
+                        <input type="text" id="compModalMateriau" placeholder="Rechercher un mat&eacute;riau…" autocomplete="off" oninput="_compCbSearch(this,'materiau')" onfocus="_compCbSearch(this,'materiau')">
+                        <input type="hidden" id="compModalMateriauId">
+                        <button class="comp-combobox-clear" onclick="_compCbClear('materiau')">&times;</button>
+                        <div class="comp-combobox-drop" id="compCbDropMateriau"></div>
+                    </div>
                 </div>
             </div>
-            <div class="comp-field-row">
-                <div class="comp-field">
+            <div class="comp-field-row" data-comp-field="style-coupe">
+                <div class="comp-field" data-comp-field="style">
                     <label>Style</label>
                     <input type="text" id="compModalStyle" placeholder="Ex: Shaker">
                 </div>
-                <div class="comp-field">
+                <div class="comp-field" data-comp-field="coupe">
                     <label>Coupe</label>
                     <input type="text" id="compModalCoupe" placeholder="Ex: Rift cut">
                 </div>
             </div>
-            <div class="comp-field">
+            <div class="comp-field" data-comp-field="bande_chant">
                 <label>Bande de chant</label>
-                <input type="text" id="compModalBandeChant" placeholder="Texte client bande de chant" list="compDlBandeChant">
-                <datalist id="compDlBandeChant"></datalist>
+                <div class="comp-combobox">
+                    <input type="text" id="compModalBandeChant" placeholder="Rechercher bande de chant…" autocomplete="off" oninput="_compCbSearch(this,'bande_chant')" onfocus="_compCbSearch(this,'bande_chant')">
+                    <input type="hidden" id="compModalBandeChantId">
+                    <button class="comp-combobox-clear" onclick="_compCbClear('bande_chant')">&times;</button>
+                    <div class="comp-combobox-drop" id="compCbDropBandeChant"></div>
+                </div>
             </div>
-            <div class="comp-field">
+            <div class="comp-field" data-comp-field="finition">
                 <label>Finition</label>
-                <input type="text" id="compModalFinition" placeholder="Texte client finition" list="compDlFinition">
-                <datalist id="compDlFinition"></datalist>
+                <div class="comp-combobox">
+                    <input type="text" id="compModalFinition" placeholder="Rechercher finition…" autocomplete="off" oninput="_compCbSearch(this,'finition')" onfocus="_compCbSearch(this,'finition')">
+                    <input type="hidden" id="compModalFinitionId">
+                    <button class="comp-combobox-clear" onclick="_compCbClear('finition')">&times;</button>
+                    <div class="comp-combobox-drop" id="compCbDropFinition"></div>
+                </div>
             </div>
-            <div class="comp-field">
+            <div class="comp-field" data-comp-field="bois_brut">
                 <label>Bois brut</label>
-                <input type="text" id="compModalBoisBrut" placeholder="Texte client bois brut" list="compDlBoisBrut">
-                <datalist id="compDlBoisBrut"></datalist>
+                <div class="comp-combobox">
+                    <input type="text" id="compModalBoisBrut" placeholder="Rechercher bois brut…" autocomplete="off" oninput="_compCbSearch(this,'bois_brut')" onfocus="_compCbSearch(this,'bois_brut')">
+                    <input type="hidden" id="compModalBoisBrutId">
+                    <button class="comp-combobox-clear" onclick="_compCbClear('bois_brut')">&times;</button>
+                    <div class="comp-combobox-drop" id="compCbDropBoisBrut"></div>
+                </div>
             </div>
             <div class="comp-field">
                 <label>Notes</label>
                 <textarea id="compModalNotes" placeholder="Notes internes&hellip;"></textarea>
             </div>
+            <div id="compUsageSection"></div>
         </div>
         <div class="comp-modal-footer">
             <button class="comp-btn-cancel" onclick="closeComposanteModal()">Annuler</button>
+            <button class="comp-btn-duplicate" id="compBtnDuplicate" onclick="duplicateComposante()" style="display:none;">Dupliquer</button>
             <button class="comp-btn-save" onclick="saveComposante()">Enregistrer</button>
         </div>
     </div>

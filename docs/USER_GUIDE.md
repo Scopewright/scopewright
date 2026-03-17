@@ -834,12 +834,17 @@ Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
 **Accès** : Catalogue → bouton **Composantes** dans la barre d'en-tête. Un panneau latéral s'ouvre avec la liste de toutes vos composantes.
 
 **Ce que vous pouvez faire** :
-- **Filtrer** par type (Caisson, Façades, Panneaux…) via le dropdown en haut
-- **Créer** une composante avec le bouton **+** — choisir le type, nommer la composante, remplir les champs matériau/bande de chant/finition/bois brut/style/coupe
+- **Filtrer** par type (Caisson, Façades, Panneaux, Tiroirs, Poignées, Groupe) via le dropdown en haut
+- **Créer** une composante avec le bouton **+** — choisir le type, nommer la composante, remplir les champs pertinents
 - **Modifier** une composante existante en cliquant dessus
+- **Dupliquer** une composante — en mode édition, cliquez « Dupliquer » pour créer une copie avec un nouveau code COMP-XXX. Pratique pour créer une variante (ex: même caisson mais finition différente)
 - **Supprimer** une composante (suppression douce — elle peut être récupérée)
 
-Les champs bande de chant, finition et bois brut proposent des suggestions basées sur vos composantes existantes (datalist auto-rempli).
+**Champs intelligents selon le type** : la modale adapte les champs affichés selon le type DM choisi. Les Tiroirs et Poignées n'affichent que le matériau. Les Façades et Panneaux affichent tous les champs (matériau, style, coupe, bande de chant, finition, bois brut). Les Caissons n'affichent pas le style ni le bois brut. Cela vous évite de remplir des champs inutiles.
+
+**Recherche dans le catalogue** : les champs Matériau, Bande de chant, Finition et Bois brut proposent une recherche en temps réel dans votre catalogue de prix. Tapez quelques lettres pour voir les articles correspondants avec leur code et catégorie. Style et Coupe restent en texte libre.
+
+**Voir où une composante est utilisée** : en bas de la modale d'édition, une section « Utilisée dans » liste toutes les soumissions qui utilisent cette composante. Chaque ligne est cliquable et ouvre directement la soumission dans le calculateur.
 
 #### Enregistrer une composante depuis le calculateur
 

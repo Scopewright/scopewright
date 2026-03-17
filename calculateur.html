@@ -4253,14 +4253,14 @@
     // ── Enriched DM groups config (#208) ──
     // Defines which sub-fields are available per DM group type.
     var DM_ENRICHED_GROUPS = {
-        'Caisson':  { fields: ['coupe', 'bande_chant', 'finition'] },
-        'Façades':  { fields: ['materiau', 'style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] },
-        'Panneaux': { fields: ['materiau', 'style', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
+        'Caisson':  { fields: ['materiau', 'coupe', 'bande_chant', 'finition'] },
+        'Façades':  { fields: ['materiau', 'coupe', 'bande_chant', 'finition', 'bois_brut'] },
+        'Panneaux': { fields: ['materiau', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
     };
 
     // Labels for enriched sub-fields
     var DM_ENRICHED_LABELS = {
-        'materiau': 'Matériau',
+        'materiau': 'Panneau',
         'style': 'Style',
         'coupe': 'Coupe',
         'bande_chant': 'Bande de chant',

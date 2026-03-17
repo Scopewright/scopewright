@@ -792,14 +792,16 @@ Regroupements nommés de propriétés constructives par type DM (Caisson, Façad
 Drawer dans `catalogue_prix_stele_complet.html`, 760px slide-right, filtre par type DM, modale création/édition/duplication avec champs conditionnels. Soft delete (is_active=false). Code COMP-XXX auto-généré par trigger `trg_composante_auto_code`.
 
 **Champs conditionnels par type DM** (`_COMP_FIELDS_BY_TYPE`) :
-- Caisson : matériau, coupe, bande de chant, finition
-- Façades / Panneaux : matériau, style, coupe, bande de chant, finition, bois brut
-- Tiroirs / Poignées : matériau seulement
-- Groupe : tous les champs
+- Caisson : panneau, coupe, bande de chant, finition
+- Façades / Panneaux : panneau, coupe, bande de chant, finition, bois brut
+- Tiroirs / Poignées : panneau seulement
+- Groupe : tous les champs (inclut style)
+
+Le label "Panneau" remplace "Matériau" pour les trois types principaux (Caisson, Façades, Panneaux) — reflète le vocabulaire terrain. La clé interne reste `materiau`.
 
 Au changement de type, `_compUpdateFieldVisibility()` masque/affiche les champs. Les champs masqués sont vidés avant sauvegarde.
 
-**Combobox catalogue** : les champs Matériau, Bande de chant, Finition, Bois brut sont des combobox avec recherche dans `CATALOGUE_DATA`. Filtrage par catégorie catalogue (matériau → toutes, bande de chant → "bande de chant", finition → "finition", bois brut → "bois brut"). Déduplication par `client_text`, max 30 résultats. Stockage dual `*_client_text` + `*_catalogue_id`. Style et Coupe restent en texte libre.
+**Combobox catalogue** : les champs Panneau, Bande de chant, Finition, Bois brut sont des combobox avec recherche dans `CATALOGUE_DATA`. Filtrage par catégorie catalogue (panneau → toutes, bande de chant → "bande de chant", finition → "finition", bois brut → "bois brut"). Déduplication par `client_text`, max 30 résultats. Stockage dual `*_client_text` + `*_catalogue_id`. Coupe reste en texte libre.
 
 **Duplication** : `duplicateComposante()` copie tous les champs sauf `id`/`code`, suffixe " (copie)" au nom, INSERT avec code auto-généré, rouvre la modale sur la copie. Bouton visible en mode édition seulement.
 

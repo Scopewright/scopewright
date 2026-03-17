@@ -275,8 +275,8 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes. Backward comp
 
 **Config** : `DM_ENRICHED_GROUPS` (groupes enrichis + champs), `DM_ENRICHED_LABELS` (labels FR), `DM_ENRICHED_CATALOGUE_FIELDS` (champs combobox vs texte libre)
 - `DM_ENRICHED_CATALOGUE_FIELDS` = `['materiau', 'bande_chant', 'finition', 'bois_brut']`
-- `DM_ENRICHED_GROUPS` — Façades et Panneaux : `materiau` en premier champ (avant `style`/`coupe`/`bande_chant`/`finition`/`bois_brut`)
-- `DM_ENRICHED_LABELS` : `'materiau': 'Matériau'`
+- `DM_ENRICHED_GROUPS` — Caisson: `materiau`+`coupe`+`bande_chant`+`finition`. Façades/Panneaux: `materiau`+`coupe`+`bande_chant`+`finition`+`bois_brut` (pas de `style`)
+- `DM_ENRICHED_LABELS` : `'materiau': 'Panneau'`
 - `ENRICHED_DM_FIELD_MAP` : `'PLACAGE'` → `materiau`, `'PANNEAU'` → `materiau`, `'MATERIAU'`/`'MATÉRIAU'` → `materiau`, `BANDE DE CHANT` → `bande_chant`, `FINITION`/`FINITION BOIS` → `finition`, `BOIS BRUT` → `bois_brut`
 - `rdmSearchEnriched` fieldCatMap `materiau`: `['PLACAGE', 'PANNEAU', 'PANNEAU MÉLAMINE', 'PANNEAU BOIS', 'PANNEAUX', 'MATÉRIAU', 'MATERIAU']`
 
@@ -297,7 +297,7 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **Soft delete** : `is_active = false` (pas de DELETE)
 - **Fonctions** : `loadComposantes`, `openComposantesDrawer`, `closeComposantesDrawer`, `renderComposantesList`, `openComposanteModal`, `closeComposanteModal`, `saveComposante`, `deleteComposante`, `duplicateComposante`, `filterComposantesByType`
 - **Dupliquer** : `duplicateComposante()` — copie tous les champs sauf `id`/`code`, ajoute " (copie)" au nom, INSERT → nouveau COMP-XXX auto-généré, rouvre la modale sur la copie. Bouton visible uniquement en mode édition
-- **Champs conditionnels** : `_COMP_FIELDS_BY_TYPE` — chaque type DM n'affiche que ses champs pertinents. Caisson: matériau+coupe+bande_chant+finition. Façades/Panneaux: tous les champs. Tiroirs/Poignées: matériau seulement. Groupe: tous. `_compUpdateFieldVisibility()` au changement de type. Les champs masqués sont vidés avant sauvegarde
+- **Champs conditionnels** : `_COMP_FIELDS_BY_TYPE` — chaque type DM n'affiche que ses champs pertinents. Caisson: panneau+coupe+bande_chant+finition. Façades/Panneaux: panneau+coupe+bande_chant+finition+bois_brut (pas de style). Tiroirs/Poignées: panneau seulement. Groupe: tous (inclut style). `_compUpdateFieldVisibility()` au changement de type. Les champs masqués sont vidés avant sauvegarde
 - **Combobox catalogue** : les champs Matériau, Bande de chant, Finition, Bois brut utilisent un combobox avec recherche dans `CATALOGUE_DATA` (`.comp-combobox`). Matériau → toutes catégories. Bande de chant → filtre "bande de chant". Finition → filtre "finition". Bois brut → filtre "bois brut". Dédup par `client_text`, max 30 résultats. Stockage dual : `*_client_text` + `*_catalogue_id`. Fonctions : `_compCbSearch`, `_compCbSelect`, `_compCbClear`, `_COMP_CB_IDS`, `_COMP_CB_CAT_FILTER`
 - **Section "Utilisée dans"** : `_compLoadUsage(compId)` — en bas de la modale édition, liste les soumissions utilisant cette composante via `room_items.composante_id` JOIN `project_rooms → submissions → projects`. Dédup par submission. Liens cliquables vers `calculateur.html?project=X&submission=Y`. Badge statut coloré (`_COMP_STATUS_COLORS`)
 - **Lien room_items** : `room_items.composante_id` UUID FK (nullable, ON DELETE SET NULL)

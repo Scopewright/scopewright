@@ -3102,10 +3102,9 @@
                 }
             }
         }
-        // Re-cascade if the cleared field was cascade-relevant
+        // #218: mark dirty if the cleared field was cascade-relevant — user triggers recalcul via button
         if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(field) !== -1) {
             _markDmDirty(groupId, rdm[idx].type);
-            reprocessDefaultCascades(rdm[idx].type, groupId);
         }
     }
 
@@ -3375,9 +3374,8 @@
         // Rebuild client_text from enriched sub-fields (materiau + coupe)
         _rebuildDmClientText(groupId, idx);
 
-        // Re-trigger cascades for this room
+        // #218: mark dirty — user triggers recalcul via button
         _markDmDirty(groupId, rdm[idx].type);
-        reprocessDefaultCascades(rdm[idx].type, groupId);
     }
 
     function addRoomDmEntry(groupId) {
@@ -3641,8 +3639,7 @@
         saveRoomDm(groupId);
         _markDmDirty(groupId, dm.type);
         renderRoomDm(groupId);
-        reprocessDefaultCascades(dm.type, groupId);
-        showConstraintToast('Composante appliqu\u00e9e \u2014 recalcul en cours\u2026');
+        showConstraintToast('Composante appliqu\u00e9e \u2014 cliquez Recalculer pour mettre \u00e0 jour les articles');
         // Warn if Façades/Caisson composante has no finition
         if ((dm.type === 'Fa\u00e7ades' || dm.type === 'Caisson') && !comp.finition_client_text) {
             setTimeout(function() { showConstraintToast('\u26a0 Aucune finition d\u00e9finie sur cette composante', 4000); }, 1500);
@@ -3769,11 +3766,6 @@
             _markDmDirty(roomGroupId, changedTypes[d]);
         }
         renderRoomDm(roomGroupId);
-
-        // Reprocess cascades once for all changed types
-        for (var t = 0; t < changedTypes.length; t++) {
-            await reprocessDefaultCascades(changedTypes[t], roomGroupId);
-        }
 
         // Track applied groupe for badge sync
         _roomAppliedGroupe[roomGroupId] = groupeComposanteId;
@@ -3954,9 +3946,8 @@
             }
         }
 
-        // Re-trigger cascades for this room
+        // #218: mark dirty — user triggers recalcul via button
         _markDmDirty(groupId, changedGroup);
-        reprocessDefaultCascades(changedGroup, groupId);
     }
 
     var roomDmSaveTimers = {};
@@ -6082,8 +6073,16 @@
         if (!materialCtx.chosenClientText && catItem && catItem.category) {
             var parentDmType = _getCategoryDmType(catItem.category) || catItem.category;
             var parentDm = getDefaultMaterialsForGroup(groupId);
+            var _parentNorm = normalizeDmType(parentDmType);
             var parentDmEntries = parentDm.filter(function(d) {
-                return d.type && normalizeDmType(d.type) === normalizeDmType(parentDmType) && (d.client_text || d.catalogue_item_id);
+                if (!d.type || (!d.client_text && !d.catalogue_item_id)) return false;
+                var _dNorm = normalizeDmType(d.type);
+                // Exact match first
+                if (_dNorm === _parentNorm) return true;
+                // Word-similarity fallback: if any word in the category matches any word in the DM type
+                var _catWords = _parentNorm.split(/\s+/).filter(function(w) { return w.length > 2; });
+                var _dmWords = _dNorm.split(/\s+/).filter(function(w) { return w.length > 2; });
+                return _catWords.some(function(cw) { return _dmWords.some(function(dw) { return cw === dw; }); });
             });
             var parentDmUnique = deduplicateDmByClientText(parentDmEntries);
             if (parentDmUnique.length === 1 && parentDmUnique[0].client_text) {

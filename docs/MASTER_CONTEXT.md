@@ -234,6 +234,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - 5 groupes requis : Caisson, Panneaux, Tiroirs, Façades, Poignées (Finition retiré)
 - 2 groupes cachés : Autre, Éclairage
 - `reprocessDefaultCascades` re-cascade sur changement DM (avec guard + barre progression)
+- **Bouton Recalculer (#218)** : barre dirty en haut du panneau DM quand un DM est modifié. `_dmDirtyTypes` trace les types changés. Bouton déclenche `recalculateDmCascades` → `reprocessDefaultCascades` par type. Auto-clear après reprocess
 - **Panneau DM navy** : fond `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, `border-radius: 4px 4px 0 0`, zéro gap vers `.calc-header`
 
 #### Enrichissement DM (#208)

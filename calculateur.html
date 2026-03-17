@@ -192,6 +192,7 @@
     var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
     var COMPOSANTES_GROUPE_ITEMS = {}; // #217 — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
     var _roomAppliedGroupe = {};      // { groupDomId: groupeComposanteId } — last applied groupe per room
+    var _dmDirtyTypes = {};           // #218 — { groupDomId: ['Caisson','Façades',...] } — DM types changed since last recalcul
     var COUPE_TYPES = [];            // coupes de placage from app_config
     var COUPE_TYPES_DEFAULT = [
         { code: 'FC', label: 'Fil courant', facteur: 1.00, notes: '' },
@@ -2771,7 +2772,13 @@
         var rdm = roomDM[groupId] || [];
         var body = document.getElementById(groupId + '-dmBody');
         if (!body) return;
-        var html = '<div class="rdm-rows" id="' + groupId + '-dmRows">';
+        // #218: dirty bar
+        var _isDirty = (_dmDirtyTypes[groupId] || []).length > 0;
+        var html = '<div class="rdm-dirty-bar" id="' + groupId + '-dmDirtyBar" style="' + (_isDirty ? '' : 'display:none;') + '">' +
+            '<span class="rdm-dirty-text">DM modifi\u00e9s \u2014 articles existants non recalcul\u00e9s</span>' +
+            '<button class="rdm-dirty-btn" onclick="recalculateDmCascades(\'' + groupId + '\')">Recalculer</button>' +
+            '</div>';
+        html += '<div class="rdm-rows" id="' + groupId + '-dmRows">';
         rdm.forEach(function(entry, idx) {
             html += renderRoomDmRow(groupId, idx, entry);
         });
@@ -3038,6 +3045,7 @@
         }
         _detachComposanteOnEdit(groupId, idx);
         _rebuildDmClientText(groupId, idx);
+        _markDmDirty(groupId, rdm[idx].type);
         saveRoomDm(groupId);
     }
 
@@ -3096,6 +3104,7 @@
         }
         // Re-cascade if the cleared field was cascade-relevant
         if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(field) !== -1) {
+            _markDmDirty(groupId, rdm[idx].type);
             reprocessDefaultCascades(rdm[idx].type, groupId);
         }
     }
@@ -3272,6 +3281,34 @@
         btn.classList.toggle('rdm-groupe-synced', matches);
     }
 
+    /** #218 — Mark DM as dirty (changed since last recalcul) */
+    function _markDmDirty(groupId, dmType) {
+        if (!_dmDirtyTypes[groupId]) _dmDirtyTypes[groupId] = [];
+        if (dmType && _dmDirtyTypes[groupId].indexOf(dmType) === -1) {
+            _dmDirtyTypes[groupId].push(dmType);
+        }
+        var bar = document.getElementById(groupId + '-dmDirtyBar');
+        if (bar) bar.style.display = '';
+    }
+
+    /** #218 — Clear dirty state after recalcul */
+    function _clearDmDirty(groupId) {
+        _dmDirtyTypes[groupId] = [];
+        var bar = document.getElementById(groupId + '-dmDirtyBar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    /** #218 — Recalculate cascades for all dirty DM types */
+    async function recalculateDmCascades(groupId) {
+        var types = _dmDirtyTypes[groupId] || [];
+        if (types.length === 0) return;
+        _clearDmDirty(groupId);
+        for (var i = 0; i < types.length; i++) {
+            await reprocessDefaultCascades(types[i], groupId);
+        }
+        showConstraintToast('Recalcul termin\u00e9 \u2014 ' + types.length + ' type' + (types.length > 1 ? 's' : '') + ' DM');
+    }
+
     /** Select a catalogue item for an enriched sub-field */
     function rdmSelectEnrichedItem(groupId, idx, field, itemId, clientText) {
         var rdm = roomDM[groupId];
@@ -3339,6 +3376,7 @@
         _rebuildDmClientText(groupId, idx);
 
         // Re-trigger cascades for this room
+        _markDmDirty(groupId, rdm[idx].type);
         reprocessDefaultCascades(rdm[idx].type, groupId);
     }
 
@@ -3362,6 +3400,8 @@
         if (newType) delete dmChoiceCache[groupId + ':' + newType];
         rdm[idx].type = newType;
         _detachComposanteOnEdit(groupId, idx);
+        if (oldType) _markDmDirty(groupId, oldType);
+        if (newType) _markDmDirty(groupId, newType);
         saveRoomDm(groupId);
         reprocessDefaultCascades(oldType, groupId);
         reprocessDefaultCascades(newType, groupId);
@@ -3599,6 +3639,7 @@
         dm.composante_id     = comp.id;
 
         saveRoomDm(groupId);
+        _markDmDirty(groupId, dm.type);
         renderRoomDm(groupId);
         reprocessDefaultCascades(dm.type, groupId);
         showConstraintToast('Composante appliqu\u00e9e \u2014 recalcul en cours\u2026');
@@ -3724,6 +3765,9 @@
 
         // Save once, render once
         saveRoomDm(roomGroupId);
+        for (var d = 0; d < changedTypes.length; d++) {
+            _markDmDirty(roomGroupId, changedTypes[d]);
+        }
         renderRoomDm(roomGroupId);
 
         // Reprocess cascades once for all changed types
@@ -3911,6 +3955,7 @@
         }
 
         // Re-trigger cascades for this room
+        _markDmDirty(groupId, changedGroup);
         reprocessDefaultCascades(changedGroup, groupId);
     }
 
@@ -5849,6 +5894,15 @@
         } finally {
             _cascadeRunning = false;
             hideCascadeProgress();
+        }
+        // #218: clear dirty for this type after successful reprocess
+        if (_dmDirtyTypes[scopeGroupId]) {
+            var _idx = _dmDirtyTypes[scopeGroupId].indexOf(changedGroup);
+            if (_idx !== -1) _dmDirtyTypes[scopeGroupId].splice(_idx, 1);
+            if (_dmDirtyTypes[scopeGroupId].length === 0) {
+                var _bar = document.getElementById(scopeGroupId + '-dmDirtyBar');
+                if (_bar) _bar.style.display = 'none';
+            }
         }
     }
 
@@ -10464,6 +10518,21 @@
         .rdm-required-label { font-size:10px; font-weight:500; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:0.05em; margin-right:4px; }
         .rdm-required-tag { font-size:10px; color:rgba(255,255,255,0.4); background:rgba(255,255,255,0.06); border:0.5px solid rgba(255,255,255,0.1); border-radius:3px; padding:1px 6px; }
         .btn-add.dm-blocked, .add-row-text.dm-blocked { opacity:0.35; cursor:not-allowed; }
+        /* #218: DM dirty bar */
+        .rdm-dirty-bar {
+            display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+            background: rgba(255,255,255,0.04); border-bottom: 0.5px solid rgba(255,255,255,0.07);
+        }
+        .rdm-dirty-text {
+            flex: 1; font-size: 11px; color: rgba(255,255,255,0.4);
+        }
+        .rdm-dirty-btn {
+            font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+            background: none; border: 0.5px solid rgba(255,255,255,0.25);
+            border-radius: 3px; padding: 2px 10px; cursor: pointer;
+            white-space: nowrap; transition: all 0.15s;
+        }
+        .rdm-dirty-btn:hover { color: #fff; border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.08); }
         .rdm-copy-dropdown {
             background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 180px; padding: 4px 0;

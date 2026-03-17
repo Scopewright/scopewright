@@ -700,6 +700,7 @@ Déclenché quand un DM est modifié :
 - **Indicateur DM vide** : Classe `.dm-needs-config` sur `.room-dm-label` quand DM count = 0 et ≥1 article dans la pièce. Flèche `←` avec animation `dm-pulse` (opacity 0.35→1, 2.2s). Disparaît dès qu'un DM est ajouté. CSS pur, pas de JS timer
 - **Validation DM obligatoires** : `DM_REQUIRED_GROUPS = ['Caisson','Panneaux','Tiroirs','Façades','Poignées']`. `addRow()` bloque l'ajout d'articles si des groupes requis manquent (sauf chargement legacy, cascades, bulk load). Le bouton "+" est grisé (`.dm-blocked`)
 - **Groupes cachés** : `DM_HIDDEN_GROUPS = ['Autre','Éclairage']` — filtrés dans `getDmTypes()`, n'apparaissent pas dans le dropdown DM
+- **Indicateur DM dirty + Bouton Recalculer (#218)** : quand un DM est modifié, une barre d'avertissement apparaît en haut du panneau DM ("DM modifiés — articles existants non recalculés" + bouton "Recalculer"). `_dmDirtyTypes[groupId]` trace les types modifiés. `_markDmDirty(groupId, dmType)` ajoute un type dirty et affiche la barre. `recalculateDmCascades(groupId)` itère les types dirty et appelle `reprocessDefaultCascades` pour chacun. Auto-cleared après reprocess réussi. Points d'appel : `rdmSelectItem`, `rdmSelectEnrichedItem`, `saveEnrichedText`, `clearEnrichedField`, `applyComposanteToDm`, `applyGroupeToDm`, `updateRoomDmType`
 
 ### 4.6 Enrichissement DM — Phase 1A (#208)
 

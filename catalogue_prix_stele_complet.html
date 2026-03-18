@@ -6254,7 +6254,8 @@
                 drop.innerHTML = '<div class="comp-cb-item" style="color:var(--sw-muted);cursor:default;">Aucun résultat</div>';
             } else {
                 drop.innerHTML = items.map(function(item) {
-                    return '<div class="comp-cb-item" onmousedown="event.preventDefault(); _compCbSelect(\'' + fieldKey + '\',\'' + escapeAttr(item.id) + '\',' + JSON.stringify(item.client_text).replace(/'/g, "\\'") + ')">' +
+                    var _ctEsc = escapeAttr(item.client_text || '');
+                    return '<div class="comp-cb-item" onmousedown="event.preventDefault(); _compCbSelect(\'' + fieldKey + '\',\'' + escapeAttr(item.id) + '\',\'' + _ctEsc + '\')">' +
                         '<span class="comp-cb-item-code">' + escapeHtml(item.id) + '</span>' +
                         '<span class="comp-cb-item-text">' + escapeHtml(item.client_text) + '</span>' +
                         '<span class="comp-cb-item-cat">' + escapeHtml(item.category || '') + '</span>' +

@@ -2944,6 +2944,7 @@
             html += '</div>';
         }
 
+        console.log('[renderEnrichedPanel] type=' + entry.type + ' fields=' + JSON.stringify(config.fields));
         for (var fi = 0; fi < config.fields.length; fi++) {
             var field = config.fields[fi];
             var label = DM_ENRICHED_LABELS[field] || field;

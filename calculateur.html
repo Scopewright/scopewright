@@ -2835,7 +2835,7 @@
         // DEC-057: enriched types always show full name (style+mat+coupe+finition)
         // Bookmark filled/stroke indicates composante link — title is always rich
         var _dejaEnregistre = !!(entry.composante_id && (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; }));
-        var _isEnriched = entry.type && DM_ENRICHED_GROUPS[entry.type];
+        var _isEnriched = entry.type && _getEnrichedConfig(entry.type);
         if (_isEnriched && (entry.client_text || _dmFieldText(entry.style) || entry.coupe || (entry.finition && entry.finition.client_text))) {
             displayLabel = buildComposanteName(entry);
         }
@@ -2852,7 +2852,7 @@
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="' + _bkmFill + '" stroke="' + _bkmStroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>';
 
         // Enriched toggle arrow (only for enriched groups)
-        var enrichedConfig = entry.type ? DM_ENRICHED_GROUPS[entry.type] : null;
+        var enrichedConfig = entry.type ? _getEnrichedConfig(entry.type) : null;
         if (enrichedConfig) {
             var hasEnrichedData = _hasEnrichedData(entry, enrichedConfig);
             html += '<button class="rdm-enrich-toggle' + (hasEnrichedData ? ' has-data' : '') + '" onclick="toggleEnrichedDm(\'' + groupId + '\',' + idx + ')" title="D\u00e9tails mat\u00e9riau">&#9662;</button>';
@@ -3082,7 +3082,7 @@
         if (!rdm || !rdm[idx]) return;
         var entry = rdm[idx];
         // Only for enriched types
-        if (!entry.type || !DM_ENRICHED_GROUPS[entry.type]) return;
+        if (!entry.type || !_getEnrichedConfig(entry.type)) return;
         var matText = '';
         if (entry.materiau && entry.materiau.client_text) {
             matText = entry.materiau.client_text;
@@ -3115,7 +3115,7 @@
         // Re-render just the enriched panel
         var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
         if (panel) {
-            var config = DM_ENRICHED_GROUPS[rdm[idx].type];
+            var config = _getEnrichedConfig(rdm[idx].type);
             if (config) {
                 var wasOpen = !panel.classList.contains('collapsed');
                 var newHtml = renderEnrichedPanel(groupId, idx, rdm[idx], config);
@@ -3403,7 +3403,7 @@
         // Re-render enriched panel to show clear button
         var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
         if (panel) {
-            var config = DM_ENRICHED_GROUPS[rdm[idx].type];
+            var config = _getEnrichedConfig(rdm[idx].type);
             if (config) {
                 var wasOpen = !panel.classList.contains('collapsed');
                 var newHtml = renderEnrichedPanel(groupId, idx, rdm[idx], config);
@@ -3988,7 +3988,7 @@
         roomDmActiveAC = null;
 
         // #208: Re-render enriched panel (coupe visibility depends on matériau)
-        var enrichedConfig = rdm[idx].type ? DM_ENRICHED_GROUPS[rdm[idx].type] : null;
+        var enrichedConfig = rdm[idx].type ? _getEnrichedConfig(rdm[idx].type) : null;
         if (enrichedConfig) {
             var panel = document.getElementById('rdmEnriched-' + groupId + '-' + idx);
             if (panel) {
@@ -4655,6 +4655,18 @@
         'Panneaux': { fields: ['materiau', 'coupe', 'bande_chant', 'finition', 'bois_brut'] }
     };
 
+    /** Normalized lookup into DM_ENRICHED_GROUPS — handles accent/plural mismatches */
+    function _getEnrichedConfig(type) {
+        if (!type) return null;
+        if (DM_ENRICHED_GROUPS[type]) return DM_ENRICHED_GROUPS[type]; // exact match first
+        var norm = normalizeDmType(type);
+        var keys = Object.keys(DM_ENRICHED_GROUPS);
+        for (var i = 0; i < keys.length; i++) {
+            if (normalizeDmType(keys[i]) === norm) return DM_ENRICHED_GROUPS[keys[i]];
+        }
+        return null;
+    }
+
     // Labels for enriched sub-fields
     var DM_ENRICHED_LABELS = {
         'materiau': 'Panneau',
@@ -4846,7 +4858,7 @@
 
             // FAB-priority: scan enriched sub-fields for a FAB article before MAT resolution
             // Order defined by DM_ENRICHED_GROUPS[type].fields (Façades: style first, others: materiau first)
-            var _fabConfig = DM_ENRICHED_GROUPS[groupName];
+            var _fabConfig = _getEnrichedConfig(groupName);
             if (_fabConfig && _fabConfig.fields) {
                 for (var _fdi = 0; _fdi < dmMatches.length; _fdi++) {
                     var _fdEntry = dmMatches[_fdi];
@@ -21604,7 +21616,7 @@
                     // Rebuild enriched client_text to clean up stale data (DEC-052)
                     var _dmRebuilt = false;
                     roomDM[groupId].forEach(function(entry, dmIdx) {
-                        if (entry.type && DM_ENRICHED_GROUPS[entry.type]) {
+                        if (entry.type && _getEnrichedConfig(entry.type)) {
                             // Parse serialized JSON sub-fields (stored as string instead of object)
                             ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'].forEach(function(sf) {
                                 if (typeof entry[sf] === 'string' && entry[sf].startsWith('{')) {

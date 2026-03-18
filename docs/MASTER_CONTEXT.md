@@ -238,7 +238,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **Panneau DM navy** : fond `#0B1220`, texte `rgba(255,255,255,*)`, zéro bordure d'input visible, `border-radius: 4px 4px 0 0`, zéro gap vers `.calc-header`
 
 #### Enrichissement DM (#208)
-- 3 groupes enrichis : **Caisson** (matériau + coupe + bande_chant + finition), **Façades** (matériau + style + coupe + bande_chant + finition + bois_brut), **Panneaux** (idem Façades)
+- 3 groupes enrichis : **Caisson** (matériau + coupe + bande_chant + finition), **Façades** (style + matériau + coupe + bande_chant + finition + bois_brut), **Panneaux** (idem Façades sans style). Lookup via `_getEnrichedConfig(type)` — normalisé accents/pluriel
 - Sous-champs catalogue (`materiau`, `bande_chant`, `finition`, `bois_brut`) : `{ catalogue_item_id, client_text }`. Texte libre : `style`, `coupe` (dropdown `COUPE_TYPES`)
 - Types enrichis : champ principal **readonly**, construit automatiquement depuis sous-champs via `_rebuildDmClientText` (format `"{panneau} {coupe}"`)
 - Moteur cascade Tier 0 : `getEnrichedDmField(dmEntry, expenseCat)` → résolution directe depuis sous-champs enrichis, sans modale

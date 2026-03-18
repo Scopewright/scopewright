@@ -252,7 +252,8 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **#215** : `resolveByComposante` composante-first — résolution directe depuis les champs composante avant fuzzy/modales. Cross-type lookup. `resolveByComposante` avec `client_text` seul → lookup `CATALOGUE_DATA` par texte exact
 - **#219b** : per-rule `composante_id` — chaque `$default:X` override `materialCtx.composante_id` avec le DM ciblé (guard : les deux types doivent être non-vides ET différents)
 - **FAB-priority** (DEC-058) : dans `$default:X`, scanne les sous-champs enrichis dans l'ordre de `DM_ENRICHED_GROUPS[type].fields`. Détection FAB : `item_type === 'fabrication'` OU (`!= 'materiau'` ET `calculation_rule_ai` non-null). Premier FAB trouvé → résolu directement, cascade ses propres enfants. Si aucun FAB → pipeline normal (Step 2b → Step 4). **Pas de Tier 0** dans `$default:` (retiré — causait régression)
-- **DEC-059** : `_rebuildDmClientText` lit `client_text` depuis `CATALOGUE_DATA` (par `catalogue_item_id`) au lieu de `entry.materiau.client_text` — garantit match exact dans Step 4
+- **DEC-059** : `_rebuildDmClientText` lit `client_text` depuis `CATALOGUE_DATA` (par `catalogue_item_id`) — garantit match exact
+- **DEC-060** : Step 4a dans `resolveCascadeTarget` — `materiau.catalogue_item_id` résolu en priorité avant `client_text` matching. Élimine ambiguïté multi-articles. Fallback Step 4b si ID absent/invalide
 - **Guard stale data** (DEC-052/055/056) : au chargement, (0) parse les sous-champs `style/materiau/bande_chant/finition/bois_brut` sérialisés en strings JSON. (1) détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → lookup catalogue. (2) reset `entry.client_text` stale. Puis rebuild + save DB. `_dmFieldText` gère les 3 formats (string, JSON string, objet)
 - `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
 - `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante

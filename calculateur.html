@@ -4960,7 +4960,20 @@
                 }
             }
 
-            // Step 4: Resolve to specific catalogue item via client_text
+            // Step 4a: Direct ID resolution from enriched sub-field (DEC-060 — ID > client_text)
+            if (chosenEntry.materiau && chosenEntry.materiau.catalogue_item_id) {
+                var _idItem = CATALOGUE_DATA.find(function(c) { return c.id === chosenEntry.materiau.catalogue_item_id; });
+                if (_idItem) {
+                    var _idAllowed = getAllowedCategoriesForGroup(groupName);
+                    if (!_idAllowed || _idAllowed.indexOf(_idItem.category) !== -1) {
+                        cascadeLog('info', '$default: Step 4a — direct ID from materiau sub-field → ' + _idItem.id);
+                        if (materialCtx) { materialCtx.chosenClientText = _idItem.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _idItem.id; }
+                        dmChoiceCache[cacheKey] = _idItem.id;
+                        return _idItem.id;
+                    }
+                }
+            }
+            // Step 4b: Resolve to specific catalogue item via client_text (fallback)
             if (chosenEntry.client_text) {
                 var allowedCats = getAllowedCategoriesForGroup(groupName);
                 var candidates = CATALOGUE_DATA.filter(function(c) {
@@ -4988,16 +5001,6 @@
                 var finalItem = CATALOGUE_DATA.find(function(c) { return c.id === finalId; });
                 if (materialCtx && finalItem && finalItem.client_text) { materialCtx.chosenClientText = finalItem.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = finalItem.id; }
                 return finalId;
-            }
-            // Enriched fallback: client_text empty but materiau sub-field has catalogue_item_id
-            if (chosenEntry.materiau && chosenEntry.materiau.catalogue_item_id) {
-                var _matFb = CATALOGUE_DATA.find(function(c) { return c.id === chosenEntry.materiau.catalogue_item_id; });
-                if (_matFb) {
-                    cascadeLog('info', '$default: enriched materiau fallback → ' + _matFb.id);
-                    if (materialCtx) { materialCtx.chosenClientText = _matFb.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _matFb.id; }
-                    dmChoiceCache[cacheKey] = _matFb.id;
-                    return _matFb.id;
-                }
             }
             // Legacy fallback: no client_text → use catalogue_item_id directly
             if (chosenEntry.catalogue_item_id) dmChoiceCache[cacheKey] = chosenEntry.catalogue_item_id;

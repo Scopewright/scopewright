@@ -1130,3 +1130,25 @@ Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`
 - `entry.client_text` matche toujours exactement `CATALOGUE_DATA[].client_text`
 - Le pipeline normal Step 2b → Step 4 fonctionne sans modification
 - 374 tests passent
+
+---
+
+## DEC-060 — Step 4a : ID > client_text dans resolveCascadeTarget
+
+**Date** : 2026-03-18
+
+**Contexte** : Les sous-champs enrichis du DM (`materiau`, `bande_chant`, etc.) stockent `{ catalogue_item_id, client_text }`. Step 4 résolvait uniquement par `client_text` (match exact) — quand plusieurs articles partagent le même `client_text` (ex: "Placage de chene blanc" = ST-0043 Panneaux + ST-0013 Bande de chant), une modale technique s'ouvrait ou le mauvais article était choisi. Le `catalogue_item_id` est unique et élimine toute ambiguïté.
+
+**Décision** : Insérer Step 4a avant Step 4b. Si `chosenEntry.materiau.catalogue_item_id` existe et est valide dans `CATALOGUE_DATA` + catégorie autorisée (`getAllowedCategoriesForGroup`) → résolution directe par ID. Propagation `materialCtx` + `dmChoiceCache` comme Step 4b. Si ID absent, invalide, ou catégorie non autorisée → fallback Step 4b (`client_text` matching inchangé).
+
+L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a le rend redondant.
+
+**Alternatives rejetées** :
+- Tier 0 avant Step 2b : interceptait le pipeline, causait des régressions (DEC-054, retiré)
+- Normalisation `client_text` (`toLowerCase()`) : risque de faux positifs, ne résout pas l'ambiguïté multi-articles
+
+**Conséquences** :
+- Résolution sans ambiguïté quand `catalogue_item_id` est défini
+- Zéro modale technique pour les DM enrichis avec IDs
+- Backward compatible : sans sous-champ `materiau` → Step 4b identique à avant
+- 374 tests passent

@@ -6230,8 +6230,8 @@
             delete _pendingMaterialCtx[parentRowId];
             cascadeLog('info', 'materialCtx: manual child override → "' + materialCtx.chosenClientText + '"');
         }
-        // #215: populate composante_id from DM if not inherited from ancestor
-        if (!materialCtx.composante_id && catItem && catItem.category) {
+        // #215 / DEC-061: always lookup own composante from DM (don't inherit parent's)
+        if (catItem && catItem.category) {
             var _relevantComp = getRelevantComposanteId(catItem, groupId);
             if (_relevantComp) {
                 if (_relevantComp.candidates.length === 1) {

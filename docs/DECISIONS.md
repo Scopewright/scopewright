@@ -1152,3 +1152,21 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - Zéro modale technique pour les DM enrichis avec IDs
 - Backward compatible : sans sous-champ `materiau` → Step 4b identique à avant
 - 374 tests passent
+
+---
+
+## DEC-061 — Chaque FAB trouve sa propre composante (pas d'héritage parent)
+
+**Date** : 2026-03-18
+
+**Contexte** : Un FAB Façade (ST-0045) créé par `$default:Facades` héritait `materialCtx.composante_id` du Caisson parent. Quand ce FAB cascadait `$default:Panneaux`, la composante Caisson était utilisée au lieu de la composante Façades — résolution depuis les mauvais champs matériau.
+
+**Décision** : Retirer la condition `!materialCtx.composante_id` dans `executeCascade` (ligne 6234). `getRelevantComposanteId(catItem, groupId)` est appelé **toujours**, à chaque depth. Chaque FAB trouve sa propre composante basée sur sa propre catégorie via `_getCategoryDmType`. Le `composante_id` hérité du parent est écrasé par celui du FAB courant.
+
+**Fix** : 1 ligne — `if (!materialCtx.composante_id && catItem && catItem.category)` → `if (catItem && catItem.category)`.
+
+**Conséquences** :
+- FAB Façade trouve la composante Façades, pas celle du Caisson parent
+- `_getCategoryDmType` retourne null → `getRelevantComposanteId` retourne null → `composante_id` = null → fallback pipeline normal
+- #219b (per-rule override) et cross-type lookup dans `resolveByComposante` deviennent candidats au retrait futur
+- 374 tests passent

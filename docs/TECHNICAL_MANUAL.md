@@ -1090,7 +1090,7 @@ RLS : tous authentifiés. Index sur `groupe_id`.
 
 #### Migration
 
-`sql/composante_groupes.sql`
+`sql/composante_groupes.sql` — idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`). Si la table n'existe pas en prod, `loadComposanteGroupeItems` log un warning 404 sans affecter `COMPOSANTES_DATA` — le pipeline composante-first fonctionne en mode dégradé (pas de groupes, composantes individuelles OK).
 
 ### 4.10 Archivage de projets (#221)
 

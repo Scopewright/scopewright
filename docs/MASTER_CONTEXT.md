@@ -257,7 +257,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 
 #### Groupes de composantes (#217)
 - **Concept** : ensemble nommé de composantes (Caisson + Façades + Panneaux…) applicable d'un coup à une pièce. Code `GRP-XXX`
-- **Table** : `composante_groupe_items` — liaison groupe→composantes (groupe_id, composante_id, ordre). RLS authentifié
+- **Table** : `composante_groupe_items` — liaison groupe→composantes (groupe_id, composante_id, ordre). RLS authentifié. Migration idempotent. Guard 404 : `loadComposanteGroupeItems` tolère la table absente sans affecter `COMPOSANTES_DATA`
 - **Trigger** : `generate_composante_code()` génère `GRP-XXX` quand `dm_type = 'Groupe'`
 - **`COMPOSANTES_GROUPE_ITEMS`** : objet global `{ groupe_id: [...] }` chargé au démarrage
 - **Catalogue** : modale groupe sans champs matériaux, section membres (ajouter/retirer). Bouton "Nouveau groupe" séparé dans le drawer

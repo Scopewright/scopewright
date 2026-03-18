@@ -349,7 +349,7 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 
 **#217 — Groupes de composantes** :
 - **Concept** : un groupe = ensemble nommé de composantes individuelles (Caisson + Façades + Panneaux + Tiroirs) applicable d'un coup à une pièce. Code `GRP-XXX` distinct de `COMP-XXX`
-- **Table** : `composante_groupe_items` — UUID PK, `groupe_id` FK → `composantes`, `composante_id` FK → `composantes`, `ordre` INTEGER, UNIQUE(groupe_id, composante_id). RLS authentifié. Migration : `sql/composante_groupes.sql`
+- **Table** : `composante_groupe_items` — UUID PK, `groupe_id` FK → `composantes`, `composante_id` FK → `composantes`, `ordre` INTEGER, UNIQUE(groupe_id, composante_id). RLS authentifié. Migration : `sql/composante_groupes.sql` (idempotent — `CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`). **Guard 404** : `loadComposanteGroupeItems` log un warning sur 404 sans affecter `COMPOSANTES_DATA` — le pipeline composante-first fonctionne même si la table n'existe pas
 - **Trigger modifié** : `generate_composante_code()` génère `GRP-XXX` quand `dm_type = 'Groupe'`, sinon `COMP-XXX`
 - **`COMPOSANTES_GROUPE_ITEMS`** : objet global `{ groupe_id: [{ id, groupe_id, composante_id, ordre }] }` — chargé au démarrage via `loadComposanteGroupeItems()` (appelé depuis `loadComposantes`)
 - **Modale catalogue** : quand `dm_type === 'Groupe'`, les champs matériaux sont masqués (`_COMP_FIELDS_BY_TYPE['Groupe'] = []`), section "Composantes du groupe" affichée à la place (liste membres + bouton "+ Ajouter"). Dropdown searchable pour ajouter des composantes (filtre `dm_type !== 'Groupe'`). Le dropdown Type DM ne contient pas "Groupe" — créer un groupe se fait via bouton séparé "Nouveau groupe" dans le drawer

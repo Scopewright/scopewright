@@ -11,8 +11,9 @@ CREATE TABLE IF NOT EXISTS composante_groupe_items (
 
 CREATE INDEX IF NOT EXISTS idx_cgi_groupe ON composante_groupe_items(groupe_id);
 
--- RLS
+-- RLS (idempotent)
 ALTER TABLE composante_groupe_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS cgi_authenticated ON composante_groupe_items;
 CREATE POLICY cgi_authenticated ON composante_groupe_items
   FOR ALL USING (auth.role() = 'authenticated');
 

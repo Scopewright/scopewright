@@ -251,6 +251,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **Phase 1D** : `filterDmByComposante(dmEntries, composanteId)` — résolution cascade filtrée par `materialCtx.composante_id` (type-aware : skip si dm_type mismatch #219). Propagé dans toute la chaîne parent→enfant→petit-enfant
 - **#215** : `resolveByComposante` composante-first — résolution directe depuis les champs composante avant fuzzy/modales. Cross-type lookup. `resolveByComposante` avec `client_text` seul → lookup `CATALOGUE_DATA` par texte exact
 - **#219b** : per-rule `composante_id` — chaque `$default:X` override `materialCtx.composante_id` avec le DM ciblé (guard : les deux types doivent être non-vides ET différents). **Tier 0 enriched dans `$default:`** : `getEnrichedDmField` consulté avant le choix DM entry — résolution directe via sous-champ materiau (symétrique avec `resolveMatchTarget`)
+- **Guard stale data** (DEC-052/055) : au chargement, détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → lookup catalogue pour récupérer le texte brut, ou vide si ID absent. Puis rebuild `entry.client_text` + save DB
 - `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
 - `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante
 

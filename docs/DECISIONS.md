@@ -1045,4 +1045,23 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - Les cascades fonctionnent à nouveau quand le FAB parent n'est pas dans le `categoryGroupMapping`
 - Les DM enrichis avec matériau configuré (sous-champ `materiau`) résolvent sans modale
 - La résolution `$default:` et `$match:` sont désormais symétriques (Tier 0 dans les deux)
-- 347 tests passent
+- 372 tests passent
+
+---
+
+## DEC-055 — Guard stale data materiau.client_text (extension DEC-052)
+
+**Date** : 2026-03-18
+
+**Contexte** : Le guard stale data dans `openSubmission` détectait et nettoyait `entry.client_text` corrompu (coupe/finition baked in pré-DEC-052), mais ne vérifiait pas `entry.materiau.client_text`. Des entrées DM créées avant DEC-052 avaient `materiau.client_text` = `"Placage de chene blanc FC | EP Laque claire..."` et `materiau.catalogue_item_id = null`. `_rebuildDmClientText` lisait ce texte corrompu et le recopiait dans `entry.client_text`.
+
+**Décision** : Étendre le guard pour détecter `entry.materiau.client_text` corrompu. Critère principal : contient `|` (séparateur spécifique de `buildComposanteName` — un `client_text` brut catalogue ne contient jamais `|`). Critère secondaire : longueur > 60 chars. Si corrompu : lookup `CATALOGUE_DATA` par `materiau.catalogue_item_id` pour récupérer le `client_text` brut. Si ID absent → vider (force resélection).
+
+**Alternatives considérées** :
+- Critère longueur > 40 : trop agressif — des `client_text` légitimes peuvent dépasser 40 chars
+- Script de migration one-shot : nettoierait la DB mais ne protégerait pas les données futures. Le guard au chargement est défensif et permanent
+
+**Conséquences** :
+- Les données corrompues pré-DEC-052 sont nettoyées automatiquement au premier chargement
+- Le nettoyage est persisté en DB (`saveRoomDm`)
+- Les entrées sans `catalogue_item_id` ni `client_text` après nettoyage forcent l'utilisateur à resélectionner

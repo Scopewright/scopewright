@@ -257,7 +257,7 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 4. **`getDefaultMaterialKeywords`** : lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`. `materialCtx` sert uniquement à disambiguïer dans chaque tier (pas de shortcut)
 5. **`getMissingRequiredDm`** : vérifie `client_text || catalogue_item_id || materiau.client_text || style` (enriched fallback). Comparaison types via `normalizeDmType` (accent/plural-insensitive)
 6. **`findDmEntryByType`** : accepte entries avec `client_text` sans `catalogue_item_id`
-7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy. Puis `_rebuildDmClientText` sur toutes les entrées enrichies avec `materiau` pour nettoyer les données stale (coupe qui était incluse dans `client_text` avant le fix)
+7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy. Puis guard stale data sur toutes les entrées enrichies : (a) détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → récupère le `client_text` brut depuis `CATALOGUE_DATA` par `catalogue_item_id`, ou vide si ID absent. (b) détecte `entry.client_text` stale (contient `|` ou > 60 chars ou ≠ `materiau.client_text`) → reset. Puis `_rebuildDmClientText` + save DB si changé
 8. **Enriched fallback** : dans `resolveCascadeTarget` Step 4, si `chosenEntry.client_text` est vide mais `chosenEntry.materiau` a un `client_text` ou `catalogue_item_id` → utilisé comme fallback pour la résolution catalogue
 8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
 

@@ -1044,6 +1044,15 @@ Dans la boucle des règles de `executeCascade`, chaque `$default:X` dont le type
 
 **Tier 0 enriched dans `$default:`** (DEC-054) : dans `resolveCascadeTarget`, après le cache check et avant le choix de DM entry, `getEnrichedDmField` est consulté sur chaque DM entry matchée via les clés `ENRICHED_DM_FIELD_MAP` (PLACAGE, PANNEAU, PANNEAU BOIS, PANNEAU MÉLAMINE, MATERIAU, MATÉRIAU). Si un sous-champ a `catalogue_item_id` valide dans `CATALOGUE_DATA` → résolution directe. Si `client_text` seul → lookup + filtre catégorie. Si 1 match → direct. Si 2+ → peuple `client_text` sur l'entry et laisse le pipeline normal choisir. Symétrique avec le Tier 0 de `resolveMatchTarget`. Remplace l'ancien fallback patchy qui bypassait vers `catalogue_item_id` direct.
 
+#### Guard stale data enrichi (DEC-052 extension)
+
+Au chargement (`openSubmission`), avant `_rebuildDmClientText`, le guard détecte les données corrompues pré-DEC-052 :
+
+1. **`entry.materiau.client_text` corrompu** : contient `|` (séparateur coupe `buildComposanteName`) ou > 60 chars → récupère le `client_text` brut via lookup `CATALOGUE_DATA` par `entry.materiau.catalogue_item_id`. Si ID absent → vide (force resélection).
+2. **`entry.client_text` stale** : contient `|` ou > 60 chars ou ≠ `entry.materiau.client_text` → reset à `''`.
+3. **`_rebuildDmClientText`** reconstruit `entry.client_text` depuis les sources nettoyées.
+4. Si des modifications détectées → `saveRoomDm` persiste en DB.
+
 ### 4.9 Groupes de composantes (#217)
 
 Un groupe = ensemble nommé de composantes individuelles applicable d'un coup à une pièce. N'ajoute aucune ligne dans le calculateur — application des DM uniquement.

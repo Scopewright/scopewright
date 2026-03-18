@@ -21557,13 +21557,28 @@
                             }
                         }
                     });
-                    // Rebuild enriched client_text to clean up stale data
+                    // Rebuild enriched client_text to clean up stale data (DEC-052)
                     var _dmRebuilt = false;
                     roomDM[groupId].forEach(function(entry, dmIdx) {
                         if (entry.type && DM_ENRICHED_GROUPS[entry.type]) {
+                            // Detect corrupted materiau.client_text (coupe/finition baked in pre-DEC-052)
+                            // Criteria: contains | (buildComposanteName separator) or length > 60
+                            if (entry.materiau && entry.materiau.client_text) {
+                                var _matCt = entry.materiau.client_text;
+                                if (_matCt.indexOf('|') !== -1 || _matCt.length > 60) {
+                                    // Try to recover from catalogue_item_id
+                                    if (entry.materiau.catalogue_item_id) {
+                                        var _catLookup = CATALOGUE_DATA.find(function(c) { return c.id === entry.materiau.catalogue_item_id; });
+                                        entry.materiau.client_text = _catLookup ? (_catLookup.client_text || '') : '';
+                                    } else {
+                                        entry.materiau.client_text = '';
+                                    }
+                                    _dmRebuilt = true;
+                                }
+                            }
                             var _oldCt = entry.client_text || '';
-                            // Reset stale client_text before rebuild (data saved with coupe/finition/style baked in)
-                            if (_oldCt.length > 80 || (entry.materiau && entry.materiau.client_text && _oldCt !== entry.materiau.client_text)) {
+                            // Reset stale entry.client_text before rebuild
+                            if (_oldCt.indexOf('|') !== -1 || _oldCt.length > 60 || (entry.materiau && entry.materiau.client_text && _oldCt !== entry.materiau.client_text)) {
                                 entry.client_text = '';
                             }
                             _rebuildDmClientText(groupId, dmIdx);

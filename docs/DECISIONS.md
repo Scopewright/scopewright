@@ -1083,3 +1083,30 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - Les entrées corrompues sont auto-réparées au premier chargement
 - `_dmFieldText` gère 3 formats : string plain, string JSON, objet natif
 - Le save DB persiste la correction → pas de re-parse aux chargements suivants
+
+---
+
+## DEC-058 — FAB-priority dans $default: résolution (#DM-FAB-PRIORITY)
+
+**Date** : 2026-03-18
+
+**Contexte** : `$default:Facades` résolvait toujours vers le matériau panneau (MAT) via `materiau.catalogue_item_id`. Si le DM Façades avait un FAB façade configuré dans `style.catalogue_item_id` (ex: ST-0045 "de type plate"), il était ignoré. Le FAB devrait être généré en priorité — il cascade ensuite ses propres enfants MAT.
+
+**Décision** : Avant le Tier 0 dans `resolveCascadeTarget`, scanner les sous-champs enrichis de chaque DM entry dans l'ordre défini par `DM_ENRICHED_GROUPS[type].fields`. Le premier sous-champ dont `catalogue_item_id` pointe vers un article `item_type === 'fabrication'` dans `CATALOGUE_DATA` est résolu directement. Si aucun FAB → fallback au Tier 0 (MAT) et pipeline normal.
+
+L'ordre de scan est défini par la structure existante :
+- **Façades** : `style` → `materiau` → `bande_chant` → `finition` → `bois_brut` (style en premier = FAB façade)
+- **Caisson/Panneaux** : `materiau` → ... (materiau en premier)
+
+Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe` qui est un dropdown, pas un catalogue field).
+
+**Alternatives considérées** :
+- **Mapping hardcodé par type** (`FAB_FIELD_MAP = { Façades: 'style', Panneaux: 'materiau' }`) : plus explicite mais fragile, nécessite un mapping par type. L'approche scan est générique et s'adapte automatiquement quand `DM_ENRICHED_GROUPS` change.
+- **Toujours résoudre vers MAT** : l'estimateur ajoute les FAB manuellement. Plus simple mais empêche la cascade automatique de FAB sous-jacents (ex: Caisson crée automatiquement un FAB Façade qui crée ses propres enfants).
+
+**Conséquences** :
+- Un FAB dans le DM est cascadé automatiquement, puis cascade ses propres enfants
+- Zéro mapping hardcodé — `item_type` dans `CATALOGUE_DATA` est la source de vérité
+- L'ordre de scan respecte l'ordre sémantique de `DM_ENRICHED_GROUPS[type].fields`
+- Backward compatible : si aucun FAB dans les sous-champs → comportement identique à avant
+- 372 tests passent

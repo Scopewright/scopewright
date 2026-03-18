@@ -1042,7 +1042,9 @@ Dans la boucle des règles de `executeCascade`, chaque `$default:X` dont le type
 
 **Guard** : l'override ne s'exécute que si `_parentTypeNorm` ET `_ruleTypeNorm` sont tous deux non-vides et différents (`_parentTypeNorm && _ruleTypeNorm && _ruleTypeNorm !== _parentTypeNorm`). Si l'un est vide → skip entier du block → `materialCtx.composante_id` préservé. Corrige la régression où le #219b écrasait le composante_id valide quand `_getCategoryDmType` retournait null.
 
-**Tier 0 enriched dans `$default:`** (DEC-054) : dans `resolveCascadeTarget`, après le cache check et avant le choix de DM entry, `getEnrichedDmField` est consulté sur chaque DM entry matchée via les clés `ENRICHED_DM_FIELD_MAP` (PLACAGE, PANNEAU, PANNEAU BOIS, PANNEAU MÉLAMINE, MATERIAU, MATÉRIAU). Si un sous-champ a `catalogue_item_id` valide dans `CATALOGUE_DATA` → résolution directe. Si `client_text` seul → lookup + filtre catégorie. Si 1 match → direct. Si 2+ → peuple `client_text` sur l'entry et laisse le pipeline normal choisir. Symétrique avec le Tier 0 de `resolveMatchTarget`. Remplace l'ancien fallback patchy qui bypassait vers `catalogue_item_id` direct.
+**FAB-priority dans `$default:`** : avant le Tier 0, scanne les sous-champs enrichis dans l'ordre de `DM_ENRICHED_GROUPS[type].fields` (Façades: `style`→`materiau`→..., Caisson/Panneaux: `materiau`→...). Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`). Le premier dont `catalogue_item_id` pointe vers `item_type === 'fabrication'` dans `CATALOGUE_DATA` est résolu directement. Le FAB cascade ensuite ses propres enfants MAT. Si aucun FAB → fallback au Tier 0.
+
+**Tier 0 enriched dans `$default:`** (DEC-054) : après le FAB-priority, `getEnrichedDmField` est consulté sur chaque DM entry matchée via les clés `ENRICHED_DM_FIELD_MAP`. Si un sous-champ a `catalogue_item_id` valide → résolution MAT directe. Si `client_text` seul → lookup + filtre catégorie. Symétrique avec le Tier 0 de `resolveMatchTarget`.
 
 #### Guard stale data enrichi (DEC-052 extension)
 

@@ -4842,6 +4842,36 @@
                 }
             }
 
+            // FAB-priority: scan enriched sub-fields for a FAB article before MAT resolution
+            // Order defined by DM_ENRICHED_GROUPS[type].fields (Façades: style first, others: materiau first)
+            var _fabConfig = DM_ENRICHED_GROUPS[groupName];
+            if (_fabConfig && _fabConfig.fields) {
+                for (var _fdi = 0; _fdi < dmMatches.length; _fdi++) {
+                    var _fdEntry = dmMatches[_fdi];
+                    for (var _ffi = 0; _ffi < _fabConfig.fields.length; _ffi++) {
+                        var _fField = _fabConfig.fields[_ffi];
+                        if (DM_ENRICHED_CATALOGUE_FIELDS.indexOf(_fField) === -1) continue; // skip coupe (not catalogue)
+                        var _fSub = _fdEntry[_fField];
+                        // Parse JSON string if needed
+                        if (typeof _fSub === 'string' && _fSub.startsWith('{')) {
+                            try { _fSub = JSON.parse(_fSub); } catch(e) { continue; }
+                        }
+                        if (!_fSub || !_fSub.catalogue_item_id) continue;
+                        var _fabItem = CATALOGUE_DATA.find(function(c) { return c.id === _fSub.catalogue_item_id; });
+                        if (_fabItem && _fabItem.item_type === 'fabrication') {
+                            cascadeLog('info', '$default: FAB-priority — found FAB ' + _fabItem.id + ' in DM field "' + _fField + '" for ' + groupName);
+                            if (materialCtx) {
+                                materialCtx.chosenClientText = _fabItem.client_text || '';
+                                materialCtx._updatedBySiblingDefault = true;
+                                materialCtx._defaultResolvedId = _fabItem.id;
+                            }
+                            dmChoiceCache[cacheKey] = _fabItem.id;
+                            return _fabItem.id;
+                        }
+                    }
+                }
+            }
+
             // Tier 0: Enriched DM field — direct resolution from sub-fields (materiau, bande_chant, etc.)
             // Same pattern as Tier 0 in resolveMatchTarget — symmetric for $default:
             for (var _t0di = 0; _t0di < dmMatches.length; _t0di++) {

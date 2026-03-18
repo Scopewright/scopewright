@@ -4783,11 +4783,32 @@
                 var _compResult = resolveByComposante(materialCtx.composante_id, groupName, true, groupId);
                 if (_compResult) {
                     var _compCatId = _compResult.catalogue_item_id;
-                    // Propagate materialCtx like normal $default: resolution
-                    if (_compResult.client_text) { materialCtx.chosenClientText = _compResult.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _compCatId; }
-                    // Cache the result
-                    dmChoiceCache[groupId + ':' + groupName] = _compCatId;
-                    return _compCatId;
+                    // If no catalogue_item_id but client_text exists → lookup in CATALOGUE_DATA
+                    if (!_compCatId && _compResult.client_text) {
+                        var _compAllowedCats = getAllowedCategoriesForGroup(groupName);
+                        var _compCandidates = CATALOGUE_DATA.filter(function(c) {
+                            if (c.client_text !== _compResult.client_text) return false;
+                            return !_compAllowedCats || _compAllowedCats.indexOf(c.category) !== -1;
+                        });
+                        if (_compCandidates.length === 0) {
+                            _compCandidates = CATALOGUE_DATA.filter(function(c) { return c.client_text === _compResult.client_text; });
+                        }
+                        if (_compCandidates.length === 1) {
+                            _compCatId = _compCandidates[0].id;
+                            cascadeLog('info', '#215: composante client_text lookup → single match ' + _compCatId);
+                        } else if (_compCandidates.length > 1) {
+                            var _compM2 = await showTechnicalItemModal(groupName, _compCandidates);
+                            _compCatId = _compM2 ? _compM2.itemId : _compCandidates[0].id;
+                            cascadeLog('info', '#215: composante client_text lookup → ' + _compCandidates.length + ' matches, chose ' + _compCatId);
+                        }
+                    }
+                    if (_compCatId) {
+                        // Propagate materialCtx like normal $default: resolution
+                        if (_compResult.client_text) { materialCtx.chosenClientText = _compResult.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _compCatId; }
+                        // Cache the result
+                        dmChoiceCache[groupId + ':' + groupName] = _compCatId;
+                        return _compCatId;
+                    }
                 }
                 // fallback: composante doesn't have this field → continue normal flow
             }
@@ -4951,10 +4972,26 @@
             if (_compResult) {
                 var _compCatId = _compResult.catalogue_item_id;
                 // Validate in CATALOGUE_DATA
-                var _compCatItem = CATALOGUE_DATA.find(function(c) { return c.id === _compCatId; });
-                if (_compCatItem) {
-                    dmChoiceCache[groupId + ':' + expenseCategory] = _compCatId;
-                    return _compCatId;
+                if (_compCatId) {
+                    var _compCatItem = CATALOGUE_DATA.find(function(c) { return c.id === _compCatId; });
+                    if (_compCatItem) {
+                        dmChoiceCache[groupId + ':' + expenseCategory] = _compCatId;
+                        return _compCatId;
+                    }
+                }
+                // If no catalogue_item_id but client_text exists → lookup
+                if (!_compCatId && _compResult.client_text) {
+                    var _mCandidates = CATALOGUE_DATA.filter(function(c) { return c.client_text === _compResult.client_text; });
+                    if (_mCandidates.length === 1) {
+                        dmChoiceCache[groupId + ':' + expenseCategory] = _mCandidates[0].id;
+                        cascadeLog('info', '#215: $match composante client_text → single match ' + _mCandidates[0].id);
+                        return _mCandidates[0].id;
+                    } else if (_mCandidates.length > 1) {
+                        var _mChosen = await showTechnicalItemModal(expenseCategory, _mCandidates);
+                        var _mId = _mChosen ? _mChosen.itemId : _mCandidates[0].id;
+                        dmChoiceCache[groupId + ':' + expenseCategory] = _mId;
+                        return _mId;
+                    }
                 }
             }
             // fallback: composante doesn't have this field → continue normal flow

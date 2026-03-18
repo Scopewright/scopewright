@@ -1011,7 +1011,7 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - `client_text` plus court → matching catalogue plus fiable
 - Le moteur cascade utilise `client_text` pour la résolution — un texte plus court matche plus précisément
 - Stale data en DB nettoyé automatiquement au premier chargement
-- **Titre DM conditionnel** : `buildComposanteName` appelé uniquement quand `entry.composante_id` est défini (lookup direct). Sans composante → `displayLabel = entry.client_text` (materiau seul). L'ancien matching heuristique par nom (`_compNom === COMPOSANTES_DATA[].nom`) est supprimé — remplacé par le check `composante_id`
+- **Titre DM enrichi** (DEC-057 révisé) : pour les types enrichis (Caisson/Façades/Panneaux), `buildComposanteName` est toujours appelé dès qu'un champ est rempli (client_text, style, coupe ou finition) — que `composante_id` soit présent ou non. L'estimateur voit style+mat+coupe+finition sans ouvrir l'accordion. Le bookmark filled/stroke distingue visuellement si une composante est liée. L'ancien matching heuristique par nom est supprimé — `_dejaEnregistre` est un check direct sur `composante_id`
 
 ---
 

@@ -2830,14 +2830,12 @@
             if (catItem && catItem.client_text) displayLabel = catItem.client_text;
         }
 
-        // #209 / DEC-052: composante name only when composante_id is set
-        var _dejaEnregistre = false;
-        if (entry.composante_id) {
-            var _linkedComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; });
-            if (_linkedComp) {
-                displayLabel = buildComposanteName(entry);
-                _dejaEnregistre = true;
-            }
+        // DEC-057: enriched types always show full name (style+mat+coupe+finition)
+        // Bookmark filled/stroke indicates composante link — title is always rich
+        var _dejaEnregistre = !!(entry.composante_id && (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; }));
+        var _isEnriched = entry.type && DM_ENRICHED_GROUPS[entry.type];
+        if (_isEnriched && (entry.client_text || _dmFieldText(entry.style) || entry.coupe || (entry.finition && entry.finition.client_text))) {
+            displayLabel = buildComposanteName(entry);
         }
 
         var acId = 'rdmAC-' + groupId + '-' + idx;

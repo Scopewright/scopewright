@@ -246,7 +246,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 #### Composantes (#209)
 - Table `composantes` : UUID PK, code `COMP-XXX` auto-généré, `dm_type`, `nom`, `materiau_*`, `bande_chant_*`, `finition_*`, `bois_brut_*`, `style`, `coupe`, `is_active`, soft delete
 - **Drawer CRUD** : `catalogue_prix_stele_complet.html` — bouton "Composantes", filtre par type DM, modale création/édition
-- **Phase 1B** : bookmark SVG par ligne DM (stroke → filled quand `composante_id` défini). `buildComposanteName(dmEntry)` = nom auto (affiché uniquement si `composante_id` présent — sinon `entry.client_text`). "Enregistrer tout" pour composante groupe
+- **Phase 1B** : bookmark SVG par ligne DM (stroke → filled quand `composante_id` défini). `buildComposanteName(dmEntry)` = nom auto (affiché pour tous les types enrichis dès qu'un champ est rempli — bookmark indique la liaison composante). "Enregistrer tout" pour composante groupe
 - **Phase 1C** : dropdown composantes dans le panneau DM (`.dm-comp-select`), filtré par `dm_type`. `applyComposanteToDm` applique tous les champs
 - **Phase 1D** : `filterDmByComposante(dmEntries, composanteId)` — résolution cascade filtrée par `materialCtx.composante_id` (type-aware : skip si dm_type mismatch #219). Propagé dans toute la chaîne parent→enfant→petit-enfant
 - **#215** : `resolveByComposante` composante-first — résolution directe depuis les champs composante avant fuzzy/modales. Cross-type lookup. `resolveByComposante` avec `client_text` seul → lookup `CATALOGUE_DATA` par texte exact

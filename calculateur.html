@@ -2944,7 +2944,6 @@
             html += '</div>';
         }
 
-        console.log('[renderEnrichedPanel] type=' + entry.type + ' fields=' + JSON.stringify(config.fields));
         for (var fi = 0; fi < config.fields.length; fi++) {
             var field = config.fields[fi];
             var label = DM_ENRICHED_LABELS[field] || field;
@@ -4889,46 +4888,6 @@
                 }
             }
 
-            // Tier 0: Enriched DM field — direct resolution from sub-fields (materiau, bande_chant, etc.)
-            // Same pattern as Tier 0 in resolveMatchTarget — symmetric for $default:
-            for (var _t0di = 0; _t0di < dmMatches.length; _t0di++) {
-                var _t0entry = dmMatches[_t0di];
-                // For $default:, the expense category maps to the materiau sub-field
-                // Use ENRICHED_DM_FIELD_MAP keys that correspond to this group type
-                var _t0cats = ['PLACAGE', 'PANNEAU', 'PANNEAU BOIS', 'PANNEAU MÉLAMINE', 'MATERIAU', 'MATÉRIAU'];
-                for (var _t0ci = 0; _t0ci < _t0cats.length; _t0ci++) {
-                    var _t0sub = getEnrichedDmField(_t0entry, _t0cats[_t0ci]);
-                    if (_t0sub) {
-                        if (_t0sub.catalogue_item_id) {
-                            var _t0item = CATALOGUE_DATA.find(function(c) { return c.id === _t0sub.catalogue_item_id; });
-                            if (_t0item) {
-                                cascadeLog('info', '$default: tier 0 — enriched DM field "' + groupName + '" → ' + _t0item.id);
-                                if (materialCtx) { materialCtx.chosenClientText = _t0item.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _t0item.id; }
-                                dmChoiceCache[cacheKey] = _t0item.id;
-                                return _t0item.id;
-                            }
-                        }
-                        if (_t0sub.client_text) {
-                            var _t0byct = CATALOGUE_DATA.filter(function(c) { return c.client_text === _t0sub.client_text; });
-                            var _t0allowed = getAllowedCategoriesForGroup(groupName);
-                            if (_t0allowed) _t0byct = _t0byct.filter(function(c) { return _t0allowed.indexOf(c.category) !== -1; }) || _t0byct;
-                            if (_t0byct.length === 0) _t0byct = CATALOGUE_DATA.filter(function(c) { return c.client_text === _t0sub.client_text; });
-                            if (_t0byct.length === 1) {
-                                cascadeLog('info', '$default: tier 0 — enriched client_text "' + _t0sub.client_text + '" → ' + _t0byct[0].id);
-                                if (materialCtx) { materialCtx.chosenClientText = _t0sub.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _t0byct[0].id; }
-                                dmChoiceCache[cacheKey] = _t0byct[0].id;
-                                return _t0byct[0].id;
-                            }
-                            // 2+ matches: fall through to normal resolution with client_text populated
-                            if (_t0byct.length > 1 && !dmMatches[_t0di].client_text) {
-                                dmMatches[_t0di].client_text = _t0sub.client_text;
-                            }
-                        }
-                        break; // Only process first matching enriched field per entry
-                    }
-                }
-            }
-
             // Step 2b: Choose DM entry
             var chosenEntry;
             var dmUnique = deduplicateDmByClientText(dmMatches);
@@ -5023,6 +4982,16 @@
                 var finalItem = CATALOGUE_DATA.find(function(c) { return c.id === finalId; });
                 if (materialCtx && finalItem && finalItem.client_text) { materialCtx.chosenClientText = finalItem.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = finalItem.id; }
                 return finalId;
+            }
+            // Enriched fallback: client_text empty but materiau sub-field has catalogue_item_id
+            if (chosenEntry.materiau && chosenEntry.materiau.catalogue_item_id) {
+                var _matFb = CATALOGUE_DATA.find(function(c) { return c.id === chosenEntry.materiau.catalogue_item_id; });
+                if (_matFb) {
+                    cascadeLog('info', '$default: enriched materiau fallback → ' + _matFb.id);
+                    if (materialCtx) { materialCtx.chosenClientText = _matFb.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _matFb.id; }
+                    dmChoiceCache[cacheKey] = _matFb.id;
+                    return _matFb.id;
+                }
             }
             // Legacy fallback: no client_text → use catalogue_item_id directly
             if (chosenEntry.catalogue_item_id) dmChoiceCache[cacheKey] = chosenEntry.catalogue_item_id;

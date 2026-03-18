@@ -1037,15 +1037,14 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 
 **Décision** :
 1. Guard : l'override #219b ne s'exécute que si les DEUX types sont non-vides et différents (`if (_parentTypeNorm && _ruleTypeNorm && _ruleTypeNorm !== _parentTypeNorm)`). Si l'un est vide → skip entier → `materialCtx.composante_id` préservé.
-2. Tier 0 enriched dans `$default:` : `getEnrichedDmField` consulté dans `resolveCascadeTarget` avant le choix de DM entry (symétrique avec `resolveMatchTarget`). Résolution directe via `catalogue_item_id` ou `client_text` du sous-champ enrichi. Remplace l'ancien fallback patchy qui bypassait vers `catalogue_item_id` direct.
+2. ~~Tier 0 enriched dans `$default:`~~ **RETIRÉ** — le Tier 0 interceptait le pipeline normal et causait des régressions (panneau mélamine manquant pour `$default:Caisson`). Remplacé par un **fallback minimal dans Step 4** : si `chosenEntry.client_text` et `catalogue_item_id` sont vides mais `chosenEntry.materiau.catalogue_item_id` existe → lookup direct dans `CATALOGUE_DATA`. Les deux chemins `$default:` et `$match:` ne sont **PAS** symétriques : `$default:` résout via `entry.client_text` (pipeline normal), `$match:` résout via expense category (Tier 0).
 
 **Alternatives rejetées** :
-- Patch `chosenEntry.materiau.catalogue_item_id` en bypass direct : fonctionnel mais contournait le pipeline normal → `findExistingChildForDynamicRule` et `dmChoiceCache` ne recevaient pas les bonnes données downstream. Le Tier 0 symétrique est propre et utilise les mêmes patterns que `resolveMatchTarget`.
+- Tier 0 symétrique dans `$default:` : interceptait le pipeline normal, causait la régression `$default:Caisson` → retiré. `$default:` et `$match:` ont des logiques fondamentalement différentes.
 
 **Conséquences** :
-- Les cascades fonctionnent à nouveau quand le FAB parent n'est pas dans le `categoryGroupMapping`
-- Les DM enrichis avec matériau configuré (sous-champ `materiau`) résolvent sans modale
-- La résolution `$default:` et `$match:` sont désormais symétriques (Tier 0 dans les deux)
+- Les cascades `$default:Caisson` fonctionnent à nouveau (pipeline normal non intercepté)
+- Le fallback enriched couvre le cas `client_text` vide + `materiau.catalogue_item_id` rempli
 - 374 tests passent
 
 ---

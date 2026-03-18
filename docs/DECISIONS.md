@@ -1139,7 +1139,7 @@ Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`
 
 **Contexte** : Les sous-champs enrichis du DM (`materiau`, `bande_chant`, etc.) stockent `{ catalogue_item_id, client_text }`. Step 4 résolvait uniquement par `client_text` (match exact) — quand plusieurs articles partagent le même `client_text` (ex: "Placage de chene blanc" = ST-0043 Panneaux + ST-0013 Bande de chant), une modale technique s'ouvrait ou le mauvais article était choisi. Le `catalogue_item_id` est unique et élimine toute ambiguïté.
 
-**Décision** : Insérer Step 4a avant Step 4b. Si `chosenEntry.materiau.catalogue_item_id` existe et est valide dans `CATALOGUE_DATA` + catégorie autorisée (`getAllowedCategoriesForGroup`) → résolution directe par ID. Propagation `materialCtx` + `dmChoiceCache` comme Step 4b. Si ID absent, invalide, ou catégorie non autorisée → fallback Step 4b (`client_text` matching inchangé).
+**Décision** : Insérer Step 4a avant Step 4b. Scanne **tous** les sous-champs enrichis dans l'ordre `style → materiau → bande_chant → finition → bois_brut`. Le premier `catalogue_item_id` valide dans `CATALOGUE_DATA` + catégorie autorisée → résolution directe par ID. Style en premier = FAB façade prioritaire. Propagation `materialCtx` + `dmChoiceCache` comme Step 4b. Si aucun ID valide → fallback Step 4b (`client_text` matching inchangé).
 
 L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a le rend redondant.
 

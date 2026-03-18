@@ -4960,17 +4960,22 @@
                 }
             }
 
-            // Step 4a: Direct ID resolution from enriched sub-field (DEC-060 — ID > client_text)
-            if (chosenEntry.materiau && chosenEntry.materiau.catalogue_item_id) {
-                var _idItem = CATALOGUE_DATA.find(function(c) { return c.id === chosenEntry.materiau.catalogue_item_id; });
-                if (_idItem) {
-                    var _idAllowed = getAllowedCategoriesForGroup(groupName);
-                    if (!_idAllowed || _idAllowed.indexOf(_idItem.category) !== -1) {
-                        cascadeLog('info', '$default: Step 4a — direct ID from materiau sub-field → ' + _idItem.id);
-                        if (materialCtx) { materialCtx.chosenClientText = _idItem.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _idItem.id; }
-                        dmChoiceCache[cacheKey] = _idItem.id;
-                        return _idItem.id;
-                    }
+            // Step 4a: Direct ID resolution from enriched sub-fields (DEC-060 — ID > client_text)
+            // Scan order: style (FAB) → materiau → bande_chant → finition → bois_brut
+            var _step4aFields = ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'];
+            var _step4aAllowed = getAllowedCategoriesForGroup(groupName);
+            for (var _s4i = 0; _s4i < _step4aFields.length; _s4i++) {
+                var _s4sub = chosenEntry[_step4aFields[_s4i]];
+                if (typeof _s4sub === 'string' && _s4sub.startsWith('{')) {
+                    try { _s4sub = JSON.parse(_s4sub); } catch(e) { continue; }
+                }
+                if (!_s4sub || !_s4sub.catalogue_item_id) continue;
+                var _s4item = CATALOGUE_DATA.find(function(c) { return c.id === _s4sub.catalogue_item_id; });
+                if (_s4item && (!_step4aAllowed || _step4aAllowed.indexOf(_s4item.category) !== -1)) {
+                    cascadeLog('info', '$default: Step 4a — direct ID from "' + _step4aFields[_s4i] + '" → ' + _s4item.id);
+                    if (materialCtx) { materialCtx.chosenClientText = _s4item.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _s4item.id; }
+                    dmChoiceCache[cacheKey] = _s4item.id;
+                    return _s4item.id;
                 }
             }
             // Step 4b: Resolve to specific catalogue item via client_text (fallback)

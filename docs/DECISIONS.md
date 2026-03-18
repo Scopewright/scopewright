@@ -1110,3 +1110,23 @@ Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`
 - **Détection FAB défensive** : `item_type === 'fabrication'` OU (`item_type !== 'materiau'` ET `calculation_rule_ai` non-null) — couvre les articles legacy sans `item_type` explicite. Migration backfill : `sql/backfill_item_type.sql`
 - Backward compatible : si aucun FAB dans les sous-champs → comportement identique à avant
 - 374 tests passent
+
+---
+
+## DEC-059 — _rebuildDmClientText lit client_text depuis CATALOGUE_DATA (pas depuis entry.materiau)
+
+**Date** : 2026-03-18
+
+**Contexte** : `$default:Caisson` ne générait plus le panneau mélamine. La cause : `_rebuildDmClientText` copiait `entry.materiau.client_text` dans `entry.client_text`. Si `entry.materiau.client_text` divergeait du `client_text` en catalogue (casse, accent, espace), le match exact dans Step 4 de `resolveCascadeTarget` (`c.client_text !== chosenEntry.client_text`) échouait → 0 candidats → null → pas d'enfant. Avant DEC-052, `entry.client_text` était le texte original copié du catalogue (match garanti).
+
+**Décision** : Dans `_rebuildDmClientText`, si `entry.materiau.catalogue_item_id` existe, lire le `client_text` **frais depuis `CATALOGUE_DATA`** au lieu d'utiliser `entry.materiau.client_text`. Fallback à `entry.materiau.client_text` si l'ID n'est pas trouvé. Aucune modification à `resolveCascadeTarget` — la source est corrigée, le pipeline normal fonctionne.
+
+**Alternatives rejetées** :
+- Tier 0 dans `$default:` : interceptait le pipeline, causait des régressions (DEC-054 retiré)
+- Fallback enriched avant Step 4 : recréait le même problème d'interception
+- Normalisation dans Step 4 (`toLowerCase()`) : changement global risqué, pourrait créer des faux positifs
+
+**Conséquences** :
+- `entry.client_text` matche toujours exactement `CATALOGUE_DATA[].client_text`
+- Le pipeline normal Step 2b → Step 4 fonctionne sans modification
+- 374 tests passent

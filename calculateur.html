@@ -3084,8 +3084,14 @@
         // Only for enriched types
         if (!entry.type || !_getEnrichedConfig(entry.type)) return;
         var matText = '';
-        if (entry.materiau && entry.materiau.client_text) {
-            matText = entry.materiau.client_text;
+        if (entry.materiau) {
+            // Always read fresh client_text from CATALOGUE_DATA to guarantee exact match
+            if (entry.materiau.catalogue_item_id) {
+                var _matCatItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === entry.materiau.catalogue_item_id; });
+                matText = _matCatItem ? (_matCatItem.client_text || '') : (entry.materiau.client_text || '');
+            } else {
+                matText = entry.materiau.client_text || '';
+            }
         } else if (entry.client_text && !entry.materiau) {
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;

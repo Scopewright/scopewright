@@ -4858,7 +4858,9 @@
                         }
                         if (!_fSub || !_fSub.catalogue_item_id) continue;
                         var _fabItem = CATALOGUE_DATA.find(function(c) { return c.id === _fSub.catalogue_item_id; });
-                        if (_fabItem && _fabItem.item_type === 'fabrication') {
+                        // FAB detection: explicit item_type OR has calculation_rule_ai (legacy FAB without item_type)
+                        var _isFab = _fabItem && (_fabItem.item_type === 'fabrication' || (_fabItem.item_type !== 'materiau' && _fabItem.calculation_rule_ai));
+                        if (_isFab) {
                             cascadeLog('info', '$default: FAB-priority — found FAB ' + _fabItem.id + ' in DM field "' + _fField + '" for ' + groupName);
                             if (materialCtx) {
                                 materialCtx.chosenClientText = _fabItem.client_text || '';

@@ -1108,5 +1108,6 @@ Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`
 - Un FAB dans le DM est cascadé automatiquement, puis cascade ses propres enfants
 - Zéro mapping hardcodé — `item_type` dans `CATALOGUE_DATA` est la source de vérité
 - L'ordre de scan respecte l'ordre sémantique de `DM_ENRICHED_GROUPS[type].fields`
+- **Détection FAB défensive** : `item_type === 'fabrication'` OU (`item_type !== 'materiau'` ET `calculation_rule_ai` non-null) — couvre les articles legacy sans `item_type` explicite. Migration backfill : `sql/backfill_item_type.sql`
 - Backward compatible : si aucun FAB dans les sous-champs → comportement identique à avant
 - 372 tests passent

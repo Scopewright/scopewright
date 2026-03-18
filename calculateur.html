@@ -13405,6 +13405,11 @@
                     var rows = await resp.json();
                     if (rows.length > 0 && Array.isArray(rows[0].value) && rows[0].value.length > 0) {
                         COUPE_TYPES = rows[0].value;
+                        // Backfill facteur_defaut from facteur if missing (#219 migration guard)
+                        COUPE_TYPES.forEach(function(ct) {
+                            if (ct.facteur_defaut == null && ct.facteur != null) ct.facteur_defaut = ct.facteur;
+                            if (!ct.facteurs) ct.facteurs = {};
+                        });
                         return;
                     }
                 }

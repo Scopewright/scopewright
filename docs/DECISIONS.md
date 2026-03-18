@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-16
+> **Dernière mise à jour** : 2026-03-18
 
 ---
 
@@ -934,3 +934,95 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - Warning UI orange sur sous-champs enrichis vides liés à une composante
 - 347 tests passent (15 dans GROUP 36), dont cross-type lookup et no-roomDM fallback
 - Rétrocompatibilité totale : `composante_id = null` → pipeline fuzzy inchangé
+
+---
+
+## DEC-049 — Type-aware composante filter + per-rule composante_id (#219, #219b)
+
+**Date** : 2026-03-17
+
+**Contexte** : Le `materialCtx.composante_id` était unique pour toute la cascade d'un parent FAB — peuplé depuis le DM du parent (ex: Caisson). Les règles `$default:Facades` et `$default:Panneaux` héritaient le composante_id du Caisson, causant deux bugs : (1) `filterDmByComposante` filtrait les DM Façades par le composante_id Caisson (aucun match), (2) `resolveByComposante` cross-type lookup échouait si le DM ciblé n'avait pas de composante.
+
+**Décision** : Deux corrections complémentaires :
+1. **Guard type-aware** (#219) : `filterDmByComposante` vérifie que le `dm_type` de la composante matche le type cible avant de filtrer. Si mismatch → skip le filtre, retourne la liste complète. Même guard dans `resolveMatchTarget`.
+2. **Per-rule composante_id** (#219b) : dans la boucle des règles, chaque `$default:X` dont le type diffère du parent override `materialCtx.composante_id` avec la composante du DM ciblé. Lookup direct par `normalizeDmType(X)` dans `roomDM[groupId]`. Si 0 match → `composante_id = null` (fallback normal). Si 2+ → cache ou modale.
+
+**Alternatives considérées** :
+- **Composante_id par règle dès le départ** : remplacer entièrement `getRelevantComposanteId` par le per-rule lookup. Plus radical mais risqué — `getRelevantComposanteId` est utile pour les `$match:` du même type que le parent.
+
+**Conséquences** :
+- `_getCategoryDmType` et `getRelevantComposanteId` restent pour le contexte initial du parent
+- Le per-rule override coexiste — chaque règle a le bon composante_id pour son type cible
+- Le cross-type lookup dans `resolveByComposante` devient redondant à terme mais reste comme fallback
+
+---
+
+## DEC-050 — Archivage projets (#221)
+
+**Date** : 2026-03-17
+
+**Contexte** : Le pipeline commercial s'alourdit avec des projets terminés ou abandonnés. L'archivage existait au niveau soumission (`submissions.is_archived`) mais pas au niveau projet.
+
+**Décision** : Ajouter `projects.is_archived` BOOLEAN DEFAULT false. Projets archivés masqués par défaut. Bouton 🗃 sur chaque carte projet (archive/désarchive). Filtre "Projets archivés (N)" dans la barre pipeline, masqué si aucun projet archivé. Suppression uniquement depuis la vue archivés avec double confirmation. Projets avec soumission `accepted`/`invoiced` bloqués à la suppression (pas à l'archivage).
+
+**Alternatives considérées** :
+- **Statut pipeline "Archivé"** : ajouter un statut dans `pipeline_statuses`. Plus simple mais mélange statut métier et statut lifecycle. Un projet "Gagné" peut être archivé sans changer son statut.
+- **Soft delete** : `deleted_at TIMESTAMP`. Plus destructif visuellement (pas de bouton "désarchiver"). L'archivage est réversible, la suppression non.
+
+**Conséquences** :
+- Migration `sql/project_archive.sql`
+- `filterProjects` exclut `is_archived` par défaut
+- `toggleArchiveProject` PATCH + refresh vue
+- `handleDeleteProject` bloque si `!is_archived`
+- Visual : `.project-card-archived` opacity 0.55, `.project-row-archived td` opacity 0.5
+
+---
+
+## DEC-051 — Facteur coupe par essence de bois (#219)
+
+**Date** : 2026-03-17
+
+**Contexte** : Le facteur coupe était global par type de coupe (ex: rift cut = ×1.40). En réalité, le même type de coupe coûte différemment selon l'essence — rift cut sur chêne blanc est +10%, sur frêne seulement +3%.
+
+**Décision** : Enrichir `app_config.coupe_types` avec `facteur_defaut` (nouveau nom) + `facteurs` (objet `{essence_code: number}`). `_detectEssence(clientText)` détecte l'essence depuis le `client_text` de l'article (9 essences, mots-clés FR+EN, NFD normalisé). Chaîne : `facteurs[essence]` → `facteur_defaut` → `facteur` (legacy) → 1.0. `_isPlacageCategory` élargi à "panneau", exclut "bande"/"brut"/"finition".
+
+**Alternatives considérées** :
+- **Facteur sur l'article catalogue** : chaque article a son propre facteur coupe. Plus granulaire mais explosion combinatoire (9 essences × 6 coupes × N articles).
+- **Essence comme champ DM explicite** : dropdown essence dans le panneau DM. Plus explicite mais la convention `client_text` contient toujours le nom d'essence — la détection automatique est plus simple.
+
+**Conséquences** :
+- Backward compatible : `facteur` legacy conservé comme fallback
+- Drawer catalogue 560px avec tableau 9 essences éditables
+- `_getCoupeFacteurForRow(row, articleClientText)` passe le `client_text` pour détection
+- Migration `sql/coupe_types_essences.sql`
+
+---
+
+## DEC-052 — client_text = matériau uniquement dans DM enrichis
+
+**Date** : 2026-03-17
+
+**Contexte** : `_rebuildDmClientText` incluait style, coupe et finition dans `entry.client_text`, puis `buildComposanteName` les ajoutait à nouveau pour l'affichage → duplication systématique dans les titres DM (style ×2, coupe ×2, finition ×2). `applyComposanteToDm` et `applyGroupeToDm` avaient le même bug (coupe baked in).
+
+**Décision** : `client_text` ne contient que le matériau (texte du sous-champ `materiau`). Style, coupe et finition sont ajoutés uniquement par `buildComposanteName` pour l'affichage : `[type, style, client_text, coupe, finition]`. Nettoyage au chargement dans `openSubmission` (reset + rebuild + save si changé).
+
+**Conséquences** :
+- Zéro duplication dans les titres DM
+- `client_text` plus court → matching catalogue plus fiable
+- Le moteur cascade utilise `client_text` pour la résolution — un texte plus court matche plus précisément
+- Stale data en DB nettoyé automatiquement au premier chargement
+
+---
+
+## DEC-053 — Composante dropdown dans l'accordion enrichi (pas la ligne principale)
+
+**Date** : 2026-03-17
+
+**Contexte** : Le dropdown composante était sur la ligne principale DM, entre le select type et la recherche matériau. Cela rendait la ligne encombrée et le dropdown n'était pas dans le contexte visuel des sous-champs qu'il affecte.
+
+**Décision** : Déplacer le dropdown en premier champ de l'accordion enrichi. Quand une composante est appliquée → badge code compact (COMP-XXX) + bouton × détacher. Quand détachée → dropdown réapparaît. Vérification de cohérence type : si `composante_id` pointe vers un type différent → auto-clear.
+
+**Conséquences** :
+- Ligne principale épurée : bookmark + type + titre auto-généré + ×
+- Accordion : Composante → Style → Panneau → Coupe → Bande de chant → Finition → Bois brut
+- Badge code-only (le titre de la ligne affiche déjà le nom complet via `buildComposanteName`)

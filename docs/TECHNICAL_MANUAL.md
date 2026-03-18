@@ -1075,6 +1075,27 @@ RLS : tous authentifiés. Index sur `groupe_id`.
 
 `sql/composante_groupes.sql`
 
+### 4.10 Archivage de projets (#221)
+
+`projects.is_archived` BOOLEAN DEFAULT false. Migration : `sql/project_archive.sql`.
+
+#### UI
+
+- **Filtre** : bouton "Projets archivés (N)" dans la barre pipeline (`#filterArchiveProjBtn`). Masqué si aucun projet archivé. `pipelineFilters.showArchivedProjects`
+- **Carte** : bouton 🗃 (`.project-card-archive`). Non archivé → 🗃 seul. Archivé → 🗃 (désarchiver) + × (supprimer)
+- **Table** : lignes archivées à opacity 0.5 (`.project-row-archived`)
+- **Cartes** : opacity 0.55 (`.project-card-archived`)
+
+#### Fonctions
+
+- `toggleArchiveProjectFilter()` : toggle `showArchivedProjects`, rafraîchit la vue
+- `toggleArchiveProject(projectId, event)` : PATCH `is_archived` avec confirmation simple
+- `handleDeleteProject` : bloque si `!is_archived` ("Archivez d'abord"). Double confirmation. Message FK clair
+
+#### Filtrage
+
+`filterProjects` exclut `is_archived` par défaut. `renderCurrentView` met à jour le compteur et la visibilité du bouton filtre.
+
 ---
 
 ## 5. Workflow de soumission

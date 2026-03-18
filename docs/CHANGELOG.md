@@ -2,7 +2,34 @@
 
 > Historique chronologique des modifications significatives.
 >
-> **Dernière mise à jour** : 2026-03-16
+> **Dernière mise à jour** : 2026-03-18
+
+---
+
+## 2026-03-17 / 2026-03-18
+
+### Features
+- **#219 — Facteur coupe par essence** : `_detectEssence(clientText)` détecte 9 essences (chêne blanc/rouge, noyer, érable, merisier, frêne, cerisier, pin noueux, acajou) par mots-clés FR/EN avec normalisation NFD. `getCoupeFacteur(coupeLabel, articleClientText)` : chaîne `facteurs[essence]` → `facteur_defaut` → `facteur` → 1.0. `_isPlacageCategory` élargi à "panneau", exclut "bande"/"brut"/"finition". Drawer catalogue 560px avec tableau facteurs par essence. Migration `sql/coupe_types_essences.sql`
+- **#219b — Per-rule composante_id** : dans la boucle des règles cascade, chaque `$default:X` dont le type cible diffère du parent overrride `materialCtx.composante_id` avec la composante du DM ciblé. Lookup direct par `normalizeDmType(X)` — indépendant de `_getCategoryDmType`
+- **#221 — Archivage projets** : `projects.is_archived` BOOLEAN DEFAULT false. Bouton 🗃 sur cartes projet. Filtre "Projets archivés (N)" dans la barre pipeline. Suppression uniquement depuis la vue archivés avec double confirmation. Message FK clair. Migration `sql/project_archive.sql`
+- **#218 — Bouton Recalculer DM** : `_dmDirtyTypes[groupId]` trace les types DM modifiés. Barre d'avertissement + bouton "Recalculer" dans le panneau DM. Point orange 8px `#F59E0B` sur le header collapsé (`.dm-dirty`). Auto-clear après reprocess réussi
+- **Style Façades → combobox catalogue** : champ Style passe de texte libre à combobox filtré par `item_type=fabrication` + catégories façade. Dual storage `{catalogue_item_id, client_text}`. Backward compat string via `_dmFieldText()`
+- **Composante résolution client_text-only** : `resolveByComposante` avec `client_text` sans `catalogue_item_id` → lookup `CATALOGUE_DATA` par texte exact. 1 match → direct. 2+ → modale technique
+- **Composante dans accordion DM** : dropdown composante déplacé de la ligne principale vers le premier champ de l'accordion enrichi. Badge code compact (COMP-XXX) quand appliquée + bouton × détacher
+- **Panneau DM enrichi — Materiau sans dédup** : champ materiau affiche chaque article individuellement (ST-XXXX — Description), pas dédupliqué par client_text
+
+### Corrections
+- **#219 — Type-aware composante filter** : `filterDmByComposante` vérifie que le `dm_type` de la composante matche le type cible avant de filtrer. Empêche Caisson de filtrer les DM Façades
+- **Titre DM — client_text = materiau only** : `_rebuildDmClientText` ne met que le matériau dans `client_text`. Style, coupe, finition affichés uniquement par `buildComposanteName` → zéro duplication
+- **Stale data cleanup** : `openSubmission` reset `client_text` si >80 chars ou incohérent, puis rebuild + save DB
+- **Badge composante type check** : vérifie `normalizeDmType(_appliedComp.dm_type) === entry type` avant affichage. Clear `composante_id` si mismatch
+- **getMissingRequiredDm** : comparaison via `normalizeDmType` + vérifie enriched sub-fields
+- **AI DM context** : `slimDM` fallback `materiau.client_text` quand `client_text` vide → élimine "Panneaux: ?"
+- **Composante combobox click** : `JSON.stringify` double quotes cassait le HTML `onmousedown`. Fix : `escapeAttr` + single quotes
+- **Groupe button toujours rendu** : plus de condition `_hasGroupes` (timing `loadComposantes`)
+- **Bookmark toujours visible** : plus de condition `entry.client_text` (visible même sur DM vide)
+- **Container 1600px** : `max-width: 1600px` sur `.calc-container`
+- **Dims 290px** : colonne dims élargie 260→290px, empêche troncature label "Tir."
 
 ---
 

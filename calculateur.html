@@ -2906,9 +2906,9 @@
         var html = '<div class="rdm-enriched collapsed" id="rdmEnriched-' + groupId + '-' + idx + '">';
 
         // Composante selector — first field in accordion
-        var _entryType = (entry.type || '').toLowerCase();
+        var _entryTypeNorm = normalizeDmType(entry.type || '');
         var _compOptions = (COMPOSANTES_DATA || []).filter(function(c) {
-            return c.is_active === true && (c.dm_type || '').toLowerCase() === _entryType && _entryType !== '';
+            return c.is_active === true && normalizeDmType(c.dm_type || '') === _entryTypeNorm && _entryTypeNorm !== '';
         });
         if (_compOptions.length > 0) {
             var _appliedComp = entry.composante_id

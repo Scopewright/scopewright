@@ -302,8 +302,9 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Disparaît quand `_clearDmDirty` est appelé (recalcul terminé)
 
 **Composante appliquée (dans l'accordion enrichi)** :
-- Badge : `background: rgba(255,255,255,0.06)`, `border-radius: 3px`, `padding: 2px 8px`
+- Badge code compact (ex: COMP-011) : `background: rgba(255,255,255,0.06)`, `border-radius: 3px`, `padding: 2px 8px`
 - Texte : `font-size: 11px`, `color: rgba(255,255,255,0.7)`, `font-weight: 500`
+- Pas de nom complet — le titre de la ligne l'affiche déjà via `buildComposanteName`
 - Bouton × détacher : `color: rgba(255,255,255,0.3)`, hover `0.7`
 - Si aucune composante → dropdown `<select>` `.dm-comp-select` (même style que les selects natifs DM)
 

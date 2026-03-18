@@ -2918,7 +2918,7 @@
             html += '<label class="rdm-enriched-label">Composante</label>';
             if (_appliedComp) {
                 html += '<div class="rdm-comp-applied">' +
-                    '<span class="rdm-comp-name">' + escapeHtml(_appliedComp.code + ' \u2014 ' + _appliedComp.nom) + '</span>' +
+                    '<span class="rdm-comp-name">' + escapeHtml(_appliedComp.code) + '</span>' +
                     '<button class="rdm-comp-detach" onclick="_detachComposanteOnEdit(\'' + groupId + '\',' + idx + '); renderRoomDm(\'' + groupId + '\')" title="D\u00e9tacher">&times;</button>' +
                     '</div>';
             } else {
@@ -3078,14 +3078,13 @@
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;
         }
-        var finitionText = (entry.finition && entry.finition.client_text) || '';
-        // Coupe NOT included — buildComposanteName adds it for display to avoid duplication
+        // Only materiau in client_text — coupe and finition are displayed via buildComposanteName
         var built;
         if (entry.type === 'Façades') {
             var styleText = _dmFieldText(entry.style) || '';
-            built = [styleText, matText, finitionText].filter(Boolean).join(' ').trim();
+            built = [styleText, matText].filter(Boolean).join(' ').trim();
         } else {
-            built = [matText, finitionText].filter(Boolean).join(' ').trim();
+            built = matText.trim();
         }
         entry.client_text = built || '';
         // Update the main label in the DOM
@@ -3498,7 +3497,8 @@
             dmEntry.type || null,
             _dmFieldText(dmEntry.style),
             dmEntry.client_text || null,
-            dmEntry.coupe || null
+            dmEntry.coupe || null,
+            (dmEntry.finition && dmEntry.finition.client_text) || null
         ].filter(Boolean);
         return parts.join(' ');
     }
@@ -21488,11 +21488,15 @@
                         }
                     });
                     // Rebuild enriched client_text to clean up stale data (coupe was previously included)
+                    var _dmRebuilt = false;
                     roomDM[groupId].forEach(function(entry, dmIdx) {
                         if (entry.type && DM_ENRICHED_GROUPS[entry.type] && entry.materiau) {
+                            var _oldCt = entry.client_text || '';
                             _rebuildDmClientText(groupId, dmIdx);
+                            if (entry.client_text !== _oldCt) _dmRebuilt = true;
                         }
                     });
+                    if (_dmRebuilt) saveRoomDm(groupId);
                     updateRoomDmBadge(groupId);
 
                     // Load legacy images from JSONB

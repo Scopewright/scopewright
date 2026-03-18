@@ -756,7 +756,7 @@ Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. 
 
 - Entrées DM sans champs enrichis : comportement identique (tier 0 retourne `null`, fallback automatique)
 - `saveRoomDm` / `copyDmFrom` : sérialisent l'objet complet (sous-champs inclus)
-- `getMissingRequiredDm` : vérifie uniquement le matériau principal
+- `getMissingRequiredDm` : vérifie `client_text || catalogue_item_id || materiau.client_text || style` (enriched sub-field fallback). Comparaison types via `normalizeDmType` (accent/plural-insensitive)
 
 ### 4.7 Coupes de placage (`coupe_types`)
 

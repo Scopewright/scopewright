@@ -255,7 +255,7 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 2. **Trois modales** : `showDmChoiceModal(groupName, dmEntries)` — Modale 1 (choix matériau client, label = `composante.nom || client_text` — #214). `showTechnicalItemModal(groupName, catalogueItems)` — Modale 2 (choix article technique, label = code + `description` + catégorie + prix). `showMatchChoiceModal(expenseCategory, scored, keywords)` — Modale 3 (choix `$match:` multi-résultats, label = code + `description` + catégorie)
 3. **`findExistingChildForDynamicRule`** : `validIds` expandés via `client_text` + filtre catégorie (`getAllowedCategoriesForGroup`)
 4. **`getDefaultMaterialKeywords`** : lookup catalogue via `client_text` d'abord, fallback `catalogue_item_id`. `materialCtx` sert uniquement à disambiguïer dans chaque tier (pas de shortcut)
-5. **`getMissingRequiredDm`** : vérifie `client_text || catalogue_item_id`
+5. **`getMissingRequiredDm`** : vérifie `client_text || catalogue_item_id || materiau.client_text || style` (enriched fallback). Comparaison types via `normalizeDmType` (accent/plural-insensitive)
 6. **`findDmEntryByType`** : accepte entries avec `client_text` sans `catalogue_item_id`
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy. Puis `_rebuildDmClientText` sur toutes les entrées enrichies avec `materiau` pour nettoyer les données stale (coupe qui était incluse dans `client_text` avant le fix)
 8. **Enriched fallback** : dans `resolveCascadeTarget` Step 4, si `chosenEntry.client_text` est vide mais `chosenEntry.materiau` a un `client_text` ou `catalogue_item_id` → utilisé comme fallback pour la résolution catalogue

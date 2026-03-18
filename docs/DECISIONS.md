@@ -1065,3 +1065,20 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - Les données corrompues pré-DEC-052 sont nettoyées automatiquement au premier chargement
 - Le nettoyage est persisté en DB (`saveRoomDm`)
 - Les entrées sans `catalogue_item_id` ni `client_text` après nettoyage forcent l'utilisateur à resélectionner
+
+---
+
+## DEC-056 — Parse des sous-champs DM stockés comme strings JSON
+
+**Date** : 2026-03-18
+
+**Contexte** : Les sous-champs enrichis (`style`, `materiau`, `bande_chant`, `finition`, `bois_brut`) sont des objets `{ client_text, catalogue_item_id }` en mémoire. Certaines entrées DM en DB contiennent ces valeurs sous forme de string JSON sérialisée (ex: `'{"client_text":"de type plate","catalogue_item_id":"ST-0045"}'`) au lieu d'un objet parsé. `_dmFieldText` recevait une string et la retournait telle quelle → combobox vide, texte corrompu dans les titres.
+
+**Décision** : Détection défensive à deux niveaux :
+1. `_dmFieldText(val)` : si `typeof val === 'string' && val.startsWith('{')` → `JSON.parse` + try/catch → `parsed.client_text`.
+2. `openSubmission` guard : avant tout autre nettoyage, parse les 5 sous-champs sérialisés en strings JSON. Même critère de détection. Persist en DB si modifié.
+
+**Conséquences** :
+- Les entrées corrompues sont auto-réparées au premier chargement
+- `_dmFieldText` gère 3 formats : string plain, string JSON, objet natif
+- Le save DB persiste la correction → pas de re-parse aux chargements suivants

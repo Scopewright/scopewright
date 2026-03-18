@@ -1046,8 +1046,9 @@ Dans la boucle des règles de `executeCascade`, chaque `$default:X` dont le type
 
 #### Guard stale data enrichi (DEC-052 extension)
 
-Au chargement (`openSubmission`), avant `_rebuildDmClientText`, le guard détecte les données corrompues pré-DEC-052 :
+Au chargement (`openSubmission`), avant `_rebuildDmClientText`, le guard détecte les données corrompues :
 
+0. **Sous-champs JSON sérialisés** : `style`, `materiau`, `bande_chant`, `finition`, `bois_brut` stockés comme string JSON (ex: `'{"client_text":"...", "catalogue_item_id":"ST-0045"}'`) → `JSON.parse`. Détection : `typeof val === 'string' && val.startsWith('{')`. `_dmFieldText(val)` applique la même détection en lecture.
 1. **`entry.materiau.client_text` corrompu** : contient `|` (séparateur coupe `buildComposanteName`) ou > 60 chars → récupère le `client_text` brut via lookup `CATALOGUE_DATA` par `entry.materiau.catalogue_item_id`. Si ID absent → vide (force resélection).
 2. **`entry.client_text` stale** : contient `|` ou > 60 chars ou ≠ `entry.materiau.client_text` → reset à `''`.
 3. **`_rebuildDmClientText`** reconstruit `entry.client_text` depuis les sources nettoyées.

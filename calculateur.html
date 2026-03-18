@@ -3492,7 +3492,13 @@
     /** Extract display value from a DM sub-field (string or {client_text} object) */
     function _dmFieldText(val) {
         if (!val) return null;
-        if (typeof val === 'string') return val;
+        if (typeof val === 'string') {
+            if (val.startsWith('{')) {
+                try { val = JSON.parse(val); } catch(e) { return val; }
+                return val.client_text || null;
+            }
+            return val;
+        }
         return val.client_text || null;
     }
 
@@ -21561,6 +21567,12 @@
                     var _dmRebuilt = false;
                     roomDM[groupId].forEach(function(entry, dmIdx) {
                         if (entry.type && DM_ENRICHED_GROUPS[entry.type]) {
+                            // Parse serialized JSON sub-fields (stored as string instead of object)
+                            ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'].forEach(function(sf) {
+                                if (typeof entry[sf] === 'string' && entry[sf].startsWith('{')) {
+                                    try { entry[sf] = JSON.parse(entry[sf]); _dmRebuilt = true; } catch(e) {}
+                                }
+                            });
                             // Detect corrupted materiau.client_text (coupe/finition baked in pre-DEC-052)
                             // Criteria: contains | (buildComposanteName separator) or length > 60
                             if (entry.materiau && entry.materiau.client_text) {

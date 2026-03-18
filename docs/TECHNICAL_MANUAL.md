@@ -898,7 +898,7 @@ Deux points d'entrée pour enregistrer des composantes directement depuis le pan
 
 2. **Bouton "Enregistrer tout"** (`.rdm-save-all-btn`) : visible si ≥2 DM configurés dans la pièce. Appelle `saveAllDmAsComposante(groupId)` qui crée une composante de type `"Groupe"` avec nom concaténé et notes résumé.
 
-**Nommage auto** : `buildComposanteName(dmEntry)` → `{type} {style} {client_text} {coupe}` (champs vides omis). Pour un groupe : noms joints par ` / `.
+**Nommage auto** : `buildComposanteName(dmEntry)` → `{type} {style} {client_text} {coupe} {finition}` (champs vides omis). Pour un groupe : noms joints par ` / `. **Utilisation titre DM** (DEC-052) : `buildComposanteName` est appelé uniquement quand `entry.composante_id` est défini — sinon le titre affiche `entry.client_text` (materiau seul). Pas de matching heuristique par nom.
 
 **Mapping DM → composante** :
 

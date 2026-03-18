@@ -1011,6 +1011,7 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - `client_text` plus court → matching catalogue plus fiable
 - Le moteur cascade utilise `client_text` pour la résolution — un texte plus court matche plus précisément
 - Stale data en DB nettoyé automatiquement au premier chargement
+- **Titre DM conditionnel** : `buildComposanteName` appelé uniquement quand `entry.composante_id` est défini (lookup direct). Sans composante → `displayLabel = entry.client_text` (materiau seul). L'ancien matching heuristique par nom (`_compNom === COMPOSANTES_DATA[].nom`) est supprimé — remplacé par le check `composante_id`
 
 ---
 

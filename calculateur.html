@@ -2830,14 +2830,15 @@
             if (catItem && catItem.client_text) displayLabel = catItem.client_text;
         }
 
-        // #209: check if composante already registered for this DM entry
-        var _compNom = entry.client_text ? buildComposanteName(entry) : '';
-        var _compType = entry.type || 'Autre';
-        var _dejaEnregistre = _compNom && COMPOSANTES_DATA.some(function(c) {
-            return c.is_active === true && c.nom === _compNom && (c.dm_type || '').toLowerCase() === _compType.toLowerCase();
-        });
-        // Replace display label with composante name if registered
-        if (_dejaEnregistre && _compNom) displayLabel = _compNom;
+        // #209 / DEC-052: composante name only when composante_id is set
+        var _dejaEnregistre = false;
+        if (entry.composante_id) {
+            var _linkedComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; });
+            if (_linkedComp) {
+                displayLabel = buildComposanteName(entry);
+                _dejaEnregistre = true;
+            }
+        }
 
         var acId = 'rdmAC-' + groupId + '-' + idx;
         var html = '<div class="rdm-row-wrap" data-rdm-idx="' + idx + '" data-rdm-group="' + groupId + '">' +

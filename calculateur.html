@@ -2910,6 +2910,8 @@
         var _compOptions = (COMPOSANTES_DATA || []).filter(function(c) {
             return c.is_active === true && normalizeDmType(c.dm_type || '') === _entryTypeNorm && _entryTypeNorm !== '';
         });
+        console.log('[DM Composante] entry.type="' + entry.type + '" norm="' + _entryTypeNorm + '" options=' + _compOptions.length + ' applied=' + (entry.composante_id || 'none'),
+            _compOptions.map(function(c) { return c.code + '(' + c.dm_type + ')'; }));
         if (_compOptions.length > 0) {
             var _appliedComp = entry.composante_id
                 ? (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; })
@@ -3078,14 +3080,8 @@
             // Legacy: keep existing client_text if no materiau sub-field yet
             return;
         }
-        // Only materiau in client_text — coupe and finition are displayed via buildComposanteName
-        var built;
-        if (entry.type === 'Façades') {
-            var styleText = _dmFieldText(entry.style) || '';
-            built = [styleText, matText].filter(Boolean).join(' ').trim();
-        } else {
-            built = matText.trim();
-        }
+        // Only materiau in client_text — style, coupe, finition displayed via buildComposanteName
+        var built = matText.trim();
         entry.client_text = built || '';
         // Update the main label in the DOM
         var rowWrap = document.querySelector('.rdm-row-wrap[data-rdm-group="' + groupId + '"][data-rdm-idx="' + idx + '"]');
@@ -3676,10 +3672,8 @@
             : null;
         dm.style             = comp.style || null;
         dm.coupe             = comp.coupe || null;
-        // Rebuild client_text from materiau + coupe
-        var _matTxt = comp.materiau_client_text || '';
-        var _coupeTxt = comp.coupe || '';
-        dm.client_text       = [_matTxt, _coupeTxt].filter(Boolean).join(' ').trim() || dm.client_text;
+        // client_text = materiau only — coupe/finition/style via buildComposanteName for display
+        dm.client_text       = comp.materiau_client_text || dm.client_text;
         dm.bande_chant       = comp.bande_chant_client_text
             ? { client_text: comp.bande_chant_client_text, catalogue_item_id: comp.bande_chant_catalogue_id }
             : null;
@@ -3797,9 +3791,8 @@
                 : null;
             dm.style = comp.style || null;
             dm.coupe = comp.coupe || null;
-            var _matTxt = comp.materiau_client_text || '';
-            var _coupeTxt = comp.coupe || '';
-            dm.client_text = [_matTxt, _coupeTxt].filter(Boolean).join(' ').trim() || dm.client_text;
+            // client_text = materiau only — coupe/finition/style via buildComposanteName for display
+            dm.client_text = comp.materiau_client_text || dm.client_text;
             dm.bande_chant = comp.bande_chant_client_text
                 ? { client_text: comp.bande_chant_client_text, catalogue_item_id: comp.bande_chant_catalogue_id }
                 : null;

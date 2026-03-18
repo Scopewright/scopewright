@@ -1036,6 +1036,14 @@ executeCascade(parentRowId)
 
 **Tests** : GROUP 36 (15 assertions) dans `tests/cascade-engine.test.js`. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`.
 
+#### Per-rule composante_id (#219b)
+
+Dans la boucle des règles de `executeCascade`, chaque `$default:X` dont le type cible diffère du type parent override `materialCtx.composante_id` avec la composante du DM ciblé. Lookup direct par `normalizeDmType(X)` dans `roomDM[groupId]`.
+
+**Guard** : l'override ne s'exécute que si `_parentTypeNorm` ET `_ruleTypeNorm` sont tous deux non-vides et différents (`_parentTypeNorm && _ruleTypeNorm && _ruleTypeNorm !== _parentTypeNorm`). Si l'un est vide → skip entier du block → `materialCtx.composante_id` préservé. Corrige la régression où le #219b écrasait le composante_id valide quand `_getCategoryDmType` retournait null.
+
+**Tier 0 enriched dans `$default:`** (DEC-054) : dans `resolveCascadeTarget`, après le cache check et avant le choix de DM entry, `getEnrichedDmField` est consulté sur chaque DM entry matchée via les clés `ENRICHED_DM_FIELD_MAP` (PLACAGE, PANNEAU, PANNEAU BOIS, PANNEAU MÉLAMINE, MATERIAU, MATÉRIAU). Si un sous-champ a `catalogue_item_id` valide dans `CATALOGUE_DATA` → résolution directe. Si `client_text` seul → lookup + filtre catégorie. Si 1 match → direct. Si 2+ → peuple `client_text` sur l'entry et laisse le pipeline normal choisir. Symétrique avec le Tier 0 de `resolveMatchTarget`. Remplace l'ancien fallback patchy qui bypassait vers `catalogue_item_id` direct.
+
 ### 4.9 Groupes de composantes (#217)
 
 Un groupe = ensemble nommé de composantes individuelles applicable d'un coup à une pièce. N'ajoute aucune ligne dans le calculateur — application des DM uniquement.

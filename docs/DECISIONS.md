@@ -1025,4 +1025,24 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 **Conséquences** :
 - Ligne principale épurée : bookmark + type + titre auto-généré + ×
 - Accordion : Composante → Style → Panneau → Coupe → Bande de chant → Finition → Bois brut
-- Badge code-only (le titre de la ligne affiche déjà le nom complet via `buildComposanteName`)
+
+---
+
+## DEC-054 — Guard #219b + résolution directe materiau enrichi
+
+**Date** : 2026-03-18
+
+**Contexte** : Deux régressions post-composantes. (1) Le #219b écrasait `materialCtx.composante_id` même quand `_getCategoryDmType` retournait null → `_parentTypeNorm = ''` → la condition `_ruleTypeNorm !== ''` était toujours vraie → le block s'exécutait pour TOUTES les règles → il mettait `composante_id = null` quand le DM ciblé n'avait pas de composante liée, détruisant le composante_id initial du parent. (2) `resolveCascadeTarget` ne résolvait pas quand le DM enrichi avait `materiau.catalogue_item_id` mais pas de `client_text` au niveau entry.
+
+**Décision** :
+1. Guard : l'override #219b ne s'exécute que si les DEUX types sont non-vides et différents (`if (_parentTypeNorm && _ruleTypeNorm && _ruleTypeNorm !== _parentTypeNorm)`). Si l'un est vide → skip entier → `materialCtx.composante_id` préservé.
+2. Tier 0 enriched dans `$default:` : `getEnrichedDmField` consulté dans `resolveCascadeTarget` avant le choix de DM entry (symétrique avec `resolveMatchTarget`). Résolution directe via `catalogue_item_id` ou `client_text` du sous-champ enrichi. Remplace l'ancien fallback patchy qui bypassait vers `catalogue_item_id` direct.
+
+**Alternatives rejetées** :
+- Patch `chosenEntry.materiau.catalogue_item_id` en bypass direct : fonctionnel mais contournait le pipeline normal → `findExistingChildForDynamicRule` et `dmChoiceCache` ne recevaient pas les bonnes données downstream. Le Tier 0 symétrique est propre et utilise les mêmes patterns que `resolveMatchTarget`.
+
+**Conséquences** :
+- Les cascades fonctionnent à nouveau quand le FAB parent n'est pas dans le `categoryGroupMapping`
+- Les DM enrichis avec matériau configuré (sous-champ `materiau`) résolvent sans modale
+- La résolution `$default:` et `$match:` sont désormais symétriques (Tier 0 dans les deux)
+- 347 tests passent

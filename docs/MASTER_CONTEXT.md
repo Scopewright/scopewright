@@ -248,7 +248,9 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **Drawer CRUD** : `catalogue_prix_stele_complet.html` — bouton "Composantes", filtre par type DM, modale création/édition
 - **Phase 1B** : bookmark SVG par ligne DM (stroke → filled persistant quand composante enregistrée). `buildComposanteName(dmEntry)` = nom auto. "Enregistrer tout" pour composante groupe
 - **Phase 1C** : dropdown composantes dans le panneau DM (`.dm-comp-select`), filtré par `dm_type`. `applyComposanteToDm` applique tous les champs
-- **Phase 1D** : `filterDmByComposante(dmEntries, composanteId)` — résolution cascade filtrée par `materialCtx.composante_id`. Propagé dans toute la chaîne parent→enfant→petit-enfant
+- **Phase 1D** : `filterDmByComposante(dmEntries, composanteId)` — résolution cascade filtrée par `materialCtx.composante_id` (type-aware : skip si dm_type mismatch #219). Propagé dans toute la chaîne parent→enfant→petit-enfant
+- **#215** : `resolveByComposante` composante-first — résolution directe depuis les champs composante avant fuzzy/modales. Cross-type lookup. `resolveByComposante` avec `client_text` seul → lookup `CATALOGUE_DATA` par texte exact
+- **#219b** : per-rule `composante_id` — chaque `$default:X` override `materialCtx.composante_id` avec le DM ciblé (guard : les deux types doivent être non-vides ET différents). **Tier 0 enriched dans `$default:`** : `getEnrichedDmField` consulté avant le choix DM entry — résolution directe via sous-champ materiau (symétrique avec `resolveMatchTarget`)
 - `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
 - `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante
 

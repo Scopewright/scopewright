@@ -1034,7 +1034,7 @@ executeCascade(parentRowId)
            └─ si null → Tier 0 enriched → scoreMatchCandidates → modales
 ```
 
-**Tests** : GROUP 36 (15 assertions) dans `tests/cascade-engine.test.js`. Fonction pure `resolveByComposante(id, key, isDefault, composantesData, catalogueData, roomDmEntries)` dans `tests/cascade-helpers.js`.
+**Tests** : GROUP 36 (15 assertions resolveByComposante), GROUP 37 (8 assertions filterDmByComposante #219), GROUP 38 (9 assertions getEnrichedDmField #208), GROUP 39 (8 assertions shouldOverrideComposanteId #219b) dans `tests/cascade-engine.test.js`. Fonctions pures dans `tests/cascade-helpers.js` : `resolveByComposante`, `filterDmByComposante`, `getEnrichedDmField`, `shouldOverrideComposanteId`.
 
 #### Per-rule composante_id (#219b)
 

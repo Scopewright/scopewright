@@ -756,6 +756,30 @@ function resolveByComposante(composanteId, lookupKey, isDefault, composantesData
     return _resolveFromComposanteFields(effectiveComp, mapKey, catalogueData);
 }
 
+// ── filterDmByComposante (calculateur.html ~4622) ──
+// Type-aware DM filtering by composante_id.
+
+function filterDmByComposante(dmEntries, composanteId, targetTypeNorm, composantesData) {
+    if (!composanteId) return dmEntries;
+    // Type-aware guard: only filter if composante dm_type matches target
+    if (targetTypeNorm && composantesData) {
+        var comp = composantesData.find(function(c) { return c.id === composanteId; });
+        if (comp && normalizeDmType(comp.dm_type || '') !== targetTypeNorm) {
+            return dmEntries; // Type mismatch — skip filter
+        }
+        if (!comp) return dmEntries; // Unknown composante — skip filter
+    }
+    var filtered = dmEntries.filter(function(e) { return e.composante_id === composanteId; });
+    return filtered.length > 0 ? filtered : dmEntries;
+}
+
+// ── shouldOverrideComposanteId (#219b guard) ──
+// Pure function testing whether the per-rule override should execute.
+
+function shouldOverrideComposanteId(parentTypeNorm, ruleTypeNorm) {
+    return !!parentTypeNorm && !!ruleTypeNorm && ruleTypeNorm !== parentTypeNorm;
+}
+
 // ── Module exports ──
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -785,6 +809,8 @@ if (typeof module !== 'undefined' && module.exports) {
         ENRICHED_DM_FIELD_MAP: ENRICHED_DM_FIELD_MAP,
         resolveByComposante: resolveByComposante,
         _resolveFromComposanteFields: _resolveFromComposanteFields,
-        COMPOSANTE_FIELD_MAP: COMPOSANTE_FIELD_MAP
+        COMPOSANTE_FIELD_MAP: COMPOSANTE_FIELD_MAP,
+        filterDmByComposante: filterDmByComposante,
+        shouldOverrideComposanteId: shouldOverrideComposanteId
     };
 }

@@ -227,7 +227,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - `materialCtx` propagé parent→enfant→petit-enfant, mis à jour par `$default:` après résolution
 - `child_dims` : formules dimensionnelles. Multi-instance quand `child_dims` + qty > 1
 - Persistance immédiate (pas de debounce). Enfants locked protégés. `cascade_suppressed` pour suppressions manuelles
-- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (347 assertions, 35 groupes)
+- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (372 assertions, 39 groupes)
 
 ### 8.2 Matériaux par défaut (DM)
 - Room-level uniquement (`roomDM[groupId]`). `client_text` = identifiant primaire
@@ -405,7 +405,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 
 ## 15. TESTS AUTOMATISÉS
 
-- **Fichier** : `tests/cascade-engine.test.js` — 347 assertions, 35 groupes
+- **Fichier** : `tests/cascade-engine.test.js` — 372 assertions, 39 groupes
 - **Runner** : Inline, 0 dépendances (`node tests/cascade-engine.test.js`)
 - **Helpers** : `tests/cascade-helpers.js` — 21 fonctions pures copiées de calculateur.html
 - **Fixtures** : `tests/fixtures/catalogue.js` (21 articles), `tests/fixtures/room-dm.js` (5 configs DM), `tests/fixtures/enriched-dm.js` (DM enrichis)

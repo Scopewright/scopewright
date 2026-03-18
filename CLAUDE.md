@@ -1003,15 +1003,15 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 330 assertions en 35 groupes, mini runner inline (0 dépendances) |
-| `tests/cascade-helpers.js` | 21 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
+| `tests/cascade-engine.test.js` | 372 assertions en 39 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-helpers.js` | 23 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |
 | `tests/fixtures/enriched-dm.js` | Fixtures DM enrichis pour tests #208 |
 
 ### Fonctions couvertes
 
-`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `filterDmByExpenseRelevance`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`, `getEnrichedDmField`
+`evalFormula`, `normalizeDmType`, `isFormulaQty`, `computeCascadeQty`, `mergeOverrideChildren`, `isRuleOverridden`, `checkAskCompleteness`, `inferAskFromDimsConfig`, `extractMatchKeywords`, `scoreMatchCandidates`, `deduplicateDmByClientText`, `filterDmByExpenseRelevance`, `getAllowedCategoriesForGroup`, `itemHasMaterialCost`, `findExistingChildForDynamicRule`, `computeChildDims`, `evaluateLaborModifiers`, `checkDefaultItemMatchCategory`, `parseFraction`, `computeRentabilityPure`, `getEnrichedDmField`, `filterDmByComposante`, `shouldOverrideComposanteId`
 
 ### Synchronisation
 

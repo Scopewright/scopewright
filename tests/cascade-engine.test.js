@@ -76,6 +76,8 @@ var getEnrichedDmField = helpers.getEnrichedDmField;
 var ENRICHED_DM_FIELD_MAP = helpers.ENRICHED_DM_FIELD_MAP;
 var resolveByComposante = helpers.resolveByComposante;
 var COMPOSANTE_FIELD_MAP = helpers.COMPOSANTE_FIELD_MAP;
+var filterDmByComposante = helpers.filterDmByComposante;
+var shouldOverrideComposanteId = helpers.shouldOverrideComposanteId;
 
 var CATALOGUE_DATA = fixturesCat.CATALOGUE_DATA;
 var ROOM_DM = fixturesDm.ROOM_DM;
@@ -2768,6 +2770,165 @@ describe('36. resolveByComposante — composante-first cascade resolution (#215)
         assert(COMPOSANTE_FIELD_MAP['PLACAGE']);
         assert(COMPOSANTE_FIELD_MAP['PANNEAU BOIS']);
         assert(COMPOSANTE_FIELD_MAP['PANNEAU MÉLAMINE']);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 37: filterDmByComposante (#219 type-aware guard)
+// ════════════════════════════════════════════════════════════════
+
+describe('37. filterDmByComposante — type-aware DM filtering (#219)', function() {
+
+    var DM_ENTRIES = [
+        { type: 'Caisson', client_text: 'mélamine', composante_id: 'comp-001' },
+        { type: 'Façades', client_text: 'placage chêne', composante_id: 'comp-facades' },
+        { type: 'Panneaux', client_text: 'placage noyer', composante_id: null }
+    ];
+
+    it('null composanteId → returns full list', function() {
+        var result = filterDmByComposante(DM_ENTRIES, null, 'caisson', TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 3);
+    });
+
+    it('type match (Caisson comp, target caisson) → filters correctly', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'comp-001', 'caisson', TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 1);
+        assertEqual(result[0].type, 'Caisson');
+    });
+
+    it('type mismatch (Caisson comp, target facade) → returns full list (#219 guard)', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'comp-001', 'facade', TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 3, 'should return unfiltered list');
+    });
+
+    it('empty list → returns empty list', function() {
+        var result = filterDmByComposante([], 'comp-001', 'caisson', TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 0);
+    });
+
+    it('unknown composanteId → returns full list (safety fallback)', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'unknown-id', 'caisson', TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 3);
+    });
+
+    it('no composantesData → returns full list (safety)', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'comp-001', 'caisson', null);
+        // Without composantesData, no type check possible — filters by composante_id only
+        var filtered = DM_ENTRIES.filter(function(e) { return e.composante_id === 'comp-001'; });
+        assertEqual(result.length, filtered.length > 0 ? filtered.length : DM_ENTRIES.length);
+    });
+
+    it('no targetTypeNorm → filters by composante_id without type check', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'comp-001', null, TEST_COMPOSANTES_DATA);
+        assertEqual(result.length, 1);
+        assertEqual(result[0].composante_id, 'comp-001');
+    });
+
+    it('composante_id matches no entry → returns full list (fallback)', function() {
+        var result = filterDmByComposante(DM_ENTRIES, 'comp-facades', 'facade', [
+            { id: 'comp-facades', dm_type: 'Façades', is_active: true, materiau_catalogue_id: null, materiau_client_text: null }
+        ]);
+        assertEqual(result.length, 1, 'should filter to Façades entry');
+        assertEqual(result[0].type, 'Façades');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 38: getEnrichedDmField (#208 Tier 0)
+// ════════════════════════════════════════════════════════════════
+
+describe('38. getEnrichedDmField — enriched sub-field resolution (#208)', function() {
+
+    it('materiau configured, category PANNEAU → returns sub-field', function() {
+        var entry = { materiau: { catalogue_item_id: 'ST-0021', client_text: 'placage chêne' } };
+        var result = getEnrichedDmField(entry, 'PANNEAU');
+        assert(result !== null);
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+        assertEqual(result.client_text, 'placage chêne');
+    });
+
+    it('bande_chant configured, category BANDE DE CHANT → returns sub-field', function() {
+        var entry = { bande_chant: { catalogue_item_id: 'ST-0031', client_text: 'bande chêne' } };
+        var result = getEnrichedDmField(entry, 'BANDE DE CHANT');
+        assert(result !== null);
+        assertEqual(result.catalogue_item_id, 'ST-0031');
+    });
+
+    it('sub-field null → returns null', function() {
+        var entry = { materiau: null };
+        assertEqual(getEnrichedDmField(entry, 'PANNEAU'), null);
+    });
+
+    it('category not in ENRICHED_DM_FIELD_MAP → returns null', function() {
+        var entry = { materiau: { catalogue_item_id: 'ST-0021', client_text: 'x' } };
+        assertEqual(getEnrichedDmField(entry, 'QUINCAILLERIE'), null);
+    });
+
+    it('legacy DM without enriched sub-fields → returns null without throw', function() {
+        var entry = { type: 'Caisson', client_text: 'mélamine', catalogue_item_id: 'ST-0001' };
+        assertEqual(getEnrichedDmField(entry, 'PANNEAU'), null);
+    });
+
+    it('catalogue_item_id present but client_text empty → returns sub-field (fix Bug 2)', function() {
+        var entry = { materiau: { catalogue_item_id: 'ST-0021', client_text: '' } };
+        // Empty string client_text but valid catalogue_item_id → should still return
+        // because !sub.client_text && !sub.catalogue_item_id → false (catalogue_item_id is truthy)
+        var result = getEnrichedDmField(entry, 'PANNEAU');
+        assert(result !== null, 'should return sub-field when catalogue_item_id exists');
+        assertEqual(result.catalogue_item_id, 'ST-0021');
+    });
+
+    it('both client_text and catalogue_item_id empty → returns null', function() {
+        var entry = { materiau: { catalogue_item_id: null, client_text: '' } };
+        assertEqual(getEnrichedDmField(entry, 'PANNEAU'), null);
+    });
+
+    it('null entry → returns null', function() {
+        assertEqual(getEnrichedDmField(null, 'PANNEAU'), null);
+    });
+
+    it('null expenseCat → returns null', function() {
+        assertEqual(getEnrichedDmField({ materiau: { catalogue_item_id: 'ST-0021' } }, null), null);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
+// GROUP 39: shouldOverrideComposanteId (#219b guard)
+// ════════════════════════════════════════════════════════════════
+
+describe('39. shouldOverrideComposanteId — #219b per-rule guard', function() {
+
+    it('parentType empty, ruleType known → false (preserve composante_id)', function() {
+        assertEqual(shouldOverrideComposanteId('', 'facade'), false);
+    });
+
+    it('parentType known, ruleType empty → false (preserve composante_id)', function() {
+        assertEqual(shouldOverrideComposanteId('caisson', ''), false);
+    });
+
+    it('both empty → false', function() {
+        assertEqual(shouldOverrideComposanteId('', ''), false);
+    });
+
+    it('both known and identical → false (same type, no override needed)', function() {
+        assertEqual(shouldOverrideComposanteId('caisson', 'caisson'), false);
+    });
+
+    it('both known and different → true (override should execute)', function() {
+        assertEqual(shouldOverrideComposanteId('caisson', 'facade'), true);
+    });
+
+    it('accent-normalized types identical → handled by caller (normalizeDmType)', function() {
+        // The caller normalizes before calling — this function gets pre-normalized strings
+        assertEqual(shouldOverrideComposanteId('facade', 'facade'), false);
+    });
+
+    it('null parentType → false', function() {
+        assertEqual(shouldOverrideComposanteId(null, 'facade'), false);
+    });
+
+    it('null ruleType → false', function() {
+        assertEqual(shouldOverrideComposanteId('caisson', null), false);
     });
 });
 

@@ -259,7 +259,7 @@ Le DM représente un matériau client, pas un article technique. `client_text` e
 6. **`findDmEntryByType`** : accepte entries avec `client_text` sans `catalogue_item_id`
 7. **Migration données** : au `openSubmission`, dérive `client_text` depuis `catalogue_item_id` pour les DM legacy. Puis guard stale data sur toutes les entrées enrichies : (0) parse les sous-champs `style/materiau/bande_chant/finition/bois_brut` stockés comme strings JSON sérialisées (`typeof val === 'string' && val.startsWith('{')` → `JSON.parse`). (a) détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → récupère le `client_text` brut depuis `CATALOGUE_DATA` par `catalogue_item_id`, ou vide si ID absent. (b) détecte `entry.client_text` stale (contient `|` ou > 60 chars ou ≠ `materiau.client_text`) → reset. Puis `_rebuildDmClientText` + save DB si changé
 8. **Enriched fallback** : dans `resolveCascadeTarget` Step 4, si `chosenEntry.client_text` est vide mais `chosenEntry.materiau` a un `client_text` ou `catalogue_item_id` → utilisé comme fallback pour la résolution catalogue
-8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM
+8. **`getAllowedCategoriesForGroup(groupName)`** : inverse `categoryGroupMapping` (chargé depuis `app_config.category_group_mapping`) pour trouver les catégories catalogue autorisées par groupe DM. Comparaison via `normalizeDmType` (accent/plural-insensitive) — `"Façades"` matche `"Facade"` dans le mapping
 
 #### Enrichissement DM — Phase 1A (#208)
 
@@ -1004,7 +1004,7 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 372 assertions en 39 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 374 assertions en 39 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 23 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

@@ -2613,10 +2613,12 @@
     // Build set of allowed catalogue categories for a given material group
     function getAllowedCategoriesForGroup(groupName) {
         if (!groupName || !categoryGroupMapping || typeof categoryGroupMapping !== 'object') return null;
+        var groupNorm = normalizeDmType(groupName);
         // Invert the mapping: category → groups[] → find categories that include this group
         var allowed = [];
         Object.keys(categoryGroupMapping).forEach(function(cat) {
-            if (Array.isArray(categoryGroupMapping[cat]) && categoryGroupMapping[cat].indexOf(groupName) !== -1) {
+            var groups = categoryGroupMapping[cat];
+            if (Array.isArray(groups) && groups.some(function(g) { return normalizeDmType(g) === groupNorm; })) {
                 allowed.push(cat);
             }
         });

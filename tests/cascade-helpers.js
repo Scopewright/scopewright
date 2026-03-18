@@ -165,11 +165,12 @@ function itemHasMaterialCost(item, expenseCategoryUpper) {
 
 function getAllowedCategoriesForGroup(groupName, categoryGroupMapping) {
     if (!groupName || !categoryGroupMapping) return null;
+    var groupNorm = normalizeDmType(groupName);
     var allowed = [];
     var keys = Object.keys(categoryGroupMapping);
     for (var i = 0; i < keys.length; i++) {
         var groups = categoryGroupMapping[keys[i]];
-        if (Array.isArray(groups) && groups.indexOf(groupName) !== -1) {
+        if (Array.isArray(groups) && groups.some(function(g) { return normalizeDmType(g) === groupNorm; })) {
             allowed.push(keys[i]);
         }
     }

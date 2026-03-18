@@ -1046,7 +1046,7 @@ De plus, `executeCascade` utilisait `parentDmType = catItem.category` (la catég
 - Les cascades fonctionnent à nouveau quand le FAB parent n'est pas dans le `categoryGroupMapping`
 - Les DM enrichis avec matériau configuré (sous-champ `materiau`) résolvent sans modale
 - La résolution `$default:` et `$match:` sont désormais symétriques (Tier 0 dans les deux)
-- 372 tests passent
+- 374 tests passent
 
 ---
 
@@ -1110,4 +1110,4 @@ Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`
 - L'ordre de scan respecte l'ordre sémantique de `DM_ENRICHED_GROUPS[type].fields`
 - **Détection FAB défensive** : `item_type === 'fabrication'` OU (`item_type !== 'materiau'` ET `calculation_rule_ai` non-null) — couvre les articles legacy sans `item_type` explicite. Migration backfill : `sql/backfill_item_type.sql`
 - Backward compatible : si aucun FAB dans les sous-champs → comportement identique à avant
-- 372 tests passent
+- 374 tests passent

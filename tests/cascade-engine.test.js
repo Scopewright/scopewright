@@ -578,6 +578,19 @@ describe('getAllowedCategoriesForGroup', function() {
     it('null mapping → null', function() {
         assertEqual(getAllowedCategoriesForGroup('Caisson', null), null);
     });
+    it('accent mismatch: groupName "Façades" matches mapping value "Facade" (normalizeDmType)', function() {
+        var accentMapping = { 'Panneaux placage': ['Caisson', 'Facade'], 'Bandes de chant': ['Facade'] };
+        var result = getAllowedCategoriesForGroup('Façades', accentMapping);
+        assert(result !== null, 'should match despite accent difference');
+        assert(result.indexOf('Panneaux placage') !== -1);
+        assert(result.indexOf('Bandes de chant') !== -1);
+    });
+    it('plural mismatch: groupName "Panneaux" matches mapping value "Panneau" (normalizeDmType)', function() {
+        var pluralMapping = { 'Panneaux mélamine': ['Panneau'] };
+        var result = getAllowedCategoriesForGroup('Panneaux', pluralMapping);
+        assert(result !== null, 'should match despite plural difference');
+        assertDeepEqual(result, ['Panneaux mélamine']);
+    });
 });
 
 // ════════════════════════════════════════════════════════════════

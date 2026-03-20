@@ -2962,11 +2962,11 @@
             var field = config.fields[fi];
             var label = DM_ENRICHED_LABELS[field] || field;
 
-            // Coupe only shown for placage
-            if (field === 'coupe' && !isPlacage) continue;
+            // Coupe: shown for placage (editable) and mélamine (disabled), hidden otherwise
+            if (field === 'coupe' && !isPlacage && !isMelamine) continue;
 
             var isCatField = DM_ENRICHED_CATALOGUE_FIELDS.indexOf(field) !== -1;
-            var isDisabled = (field === 'finition' && isMelamine);
+            var isDisabled = (field === 'finition' && isMelamine) || (field === 'coupe' && isMelamine);
 
             html += '<div class="rdm-enriched-row' + (isDisabled ? ' rdm-disabled' : '') + '">';
             html += '<label class="rdm-enriched-label">' + escapeHtml(label) + '</label>';
@@ -3006,13 +3006,18 @@
             } else if (field === 'coupe') {
                 // Coupe dropdown from COUPE_TYPES
                 var coupeVal = entry[field] || '';
-                html += '<select class="rdm-enriched-text" onchange="saveEnrichedText(\'' + groupId + '\',' + idx + ',\'' + field + '\',this.value)">';
-                html += '<option value="">\u2014</option>';
-                (COUPE_TYPES || []).forEach(function(ct) {
-                    var sel = (ct.label === coupeVal) ? ' selected' : '';
-                    html += '<option value="' + escapeAttr(ct.label) + '"' + sel + '>' + escapeHtml(ct.label) + '</option>';
-                });
-                html += '</select>';
+                if (isDisabled) {
+                    html += '<select class="rdm-enriched-text" disabled style="opacity:0.4;">' +
+                        '<option>Non applicable (m\u00e9lamine)</option></select>';
+                } else {
+                    html += '<select class="rdm-enriched-text" onchange="saveEnrichedText(\'' + groupId + '\',' + idx + ',\'' + field + '\',this.value)">';
+                    html += '<option value="">\u2014</option>';
+                    (COUPE_TYPES || []).forEach(function(ct) {
+                        var sel = (ct.label === coupeVal) ? ' selected' : '';
+                        html += '<option value="' + escapeAttr(ct.label) + '"' + sel + '>' + escapeHtml(ct.label) + '</option>';
+                    });
+                    html += '</select>';
+                }
             } else {
                 // Free text field (style)
                 var textVal = entry[field] || '';
@@ -4009,10 +4014,12 @@
         rdm[idx].description = itemDesc;
         _detachComposanteOnEdit(groupId, idx);
 
-        // #208: Validation — if matériau changed to mélamine, clear finition sub-field
-        if (rdm[idx].finition && _isDmMelamine(rdm[idx])) {
-            delete rdm[idx].finition;
-            showConstraintToast('Finition retirée automatiquement (mélamine)', 3000);
+        // #208: Validation — if matériau changed to mélamine, clear finition + coupe
+        if (_isDmMelamine(rdm[idx])) {
+            var _clearedFields = [];
+            if (rdm[idx].finition) { delete rdm[idx].finition; _clearedFields.push('Finition'); }
+            if (rdm[idx].coupe) { delete rdm[idx].coupe; _clearedFields.push('Coupe'); }
+            if (_clearedFields.length) showConstraintToast(_clearedFields.join(' et ') + ' retirée(s) automatiquement (mélamine)', 3000);
         }
 
         saveRoomDm(groupId);

@@ -2608,13 +2608,19 @@
     }
     function getMissingRequiredDm(groupId) {
         var rdm = roomDM[groupId] || [];
-        var filledNorm = rdm.filter(function(e) {
-            // Include entries with client_text, catalogue_item_id, or enriched materiau/style
+        var filled = rdm.filter(function(e) {
             return e.client_text || e.catalogue_item_id
                 || (e.materiau && (e.materiau.client_text || e.materiau.catalogue_item_id))
                 || _dmFieldText(e.style);
-        }).map(function(e) { return normalizeDmType(e.type || ''); });
-        return DM_REQUIRED_GROUPS.filter(function(g) { return filledNorm.indexOf(normalizeDmType(g)) === -1; });
+        });
+        // #226: UUID-first check, fallback normalizeDmType
+        var filledTypeIds = filled.map(function(e) { return e.type_id || null; }).filter(Boolean);
+        var filledNorm = filled.map(function(e) { return normalizeDmType(e.type || ''); });
+        return DM_REQUIRED_GROUPS.filter(function(g) {
+            var gId = _resolveTypeId(g);
+            if (gId && filledTypeIds.indexOf(gId) !== -1) return false;
+            return filledNorm.indexOf(normalizeDmType(g)) === -1;
+        });
     }
     var dmActiveAC = null; // currently open autocomplete index (room-level DM reuses this pattern)
 
@@ -2664,10 +2670,11 @@
     // Returns { composanteId, candidates[] } — candidates has length > 1 when multiple composantes of same type.
     function getRelevantComposanteId(catItem, groupId) {
         if (!catItem || !groupId) return null;
-        // #224 Phase C: direct lookup via composante_type_id, fallback _getCategoryDmType
+        // #226 Phase 2: UUID-first lookup, fallback normalizeDmType
+        var _catTypeId = catItem.composante_type_id || null;
         var dmType = null;
-        if (catItem.composante_type_id && window.COMPOSANTE_TYPES && COMPOSANTE_TYPES.length > 0) {
-            var _ct = COMPOSANTE_TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+        if (_catTypeId && window.COMPOSANTE_TYPES && COMPOSANTE_TYPES.length > 0) {
+            var _ct = COMPOSANTE_TYPES.find(function(t) { return t.id === _catTypeId; });
             if (_ct) dmType = _ct.label;
         }
         if (!dmType) dmType = _getCategoryDmType(catItem.category);
@@ -2675,7 +2682,11 @@
         var dm = getDefaultMaterialsForGroup(groupId);
         var dmTypeNorm = normalizeDmType(dmType);
         var matching = dm.filter(function(d) {
-            return d.composante_id && normalizeDmType(d.type) === dmTypeNorm;
+            if (!d.composante_id) return false;
+            // UUID comparison (preferred)
+            if (_catTypeId && d.type_id) return d.type_id === _catTypeId;
+            // Fallback: string comparison
+            return normalizeDmType(d.type) === dmTypeNorm;
         });
         if (matching.length === 0) return null;
         // Deduplicate by composante_id (same composante on multiple DM entries)
@@ -4723,10 +4734,17 @@
     };
 
     /** Normalized lookup into DM_ENRICHED_GROUPS — handles accent/plural mismatches */
-    function _getEnrichedConfig(type) {
-        if (!type) return null;
-        if (DM_ENRICHED_GROUPS[type]) return DM_ENRICHED_GROUPS[type]; // exact match first
-        var norm = normalizeDmType(type);
+    function _getEnrichedConfig(typeOrId) {
+        if (!typeOrId) return null;
+        // Direct label match
+        if (DM_ENRICHED_GROUPS[typeOrId]) return DM_ENRICHED_GROUPS[typeOrId];
+        // #226: UUID → lookup label from COMPOSANTE_TYPES → match DM_ENRICHED_GROUPS
+        if (typeOrId.length > 20 && window.COMPOSANTE_TYPES) { // looks like a UUID
+            var _ct = COMPOSANTE_TYPES.find(function(t) { return t.id === typeOrId; });
+            if (_ct && DM_ENRICHED_GROUPS[_ct.label]) return DM_ENRICHED_GROUPS[_ct.label];
+        }
+        // Fallback: normalizeDmType string comparison
+        var norm = normalizeDmType(typeOrId);
         var keys = Object.keys(DM_ENRICHED_GROUPS);
         for (var i = 0; i < keys.length; i++) {
             if (normalizeDmType(keys[i]) === norm) return DM_ENRICHED_GROUPS[keys[i]];
@@ -4965,7 +4983,15 @@
             var _compId = materialCtx && materialCtx.composante_id;
             if (_compId) {
                 var _comp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === _compId; });
-                var _compTypeMatches = _comp && normalizeDmType(_comp.dm_type) === groupNameNorm;
+                // #226: UUID type comparison, fallback normalizeDmType
+                var _compTypeMatches = false;
+                if (_comp) {
+                    if (_comp.composante_type_id && dmMatches.length > 0 && dmMatches[0].type_id) {
+                        _compTypeMatches = _comp.composante_type_id === dmMatches[0].type_id;
+                    } else {
+                        _compTypeMatches = normalizeDmType(_comp.dm_type || '') === groupNameNorm;
+                    }
+                }
                 if (_compTypeMatches) {
                     var _beforeComp = dmUnique.length;
                     dmUnique = filterDmByComposante(dmUnique, _compId);
@@ -5145,9 +5171,11 @@
         if (materialCtx && materialCtx.composante_id && dm && dm.length > 0) {
             var _mComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === materialCtx.composante_id; });
             if (_mComp) {
-                var _mCompNorm = normalizeDmType(_mComp.dm_type);
-                // Only filter if at least one DM entry's type matches the composante type
-                var _hasTypeMatch = dm.some(function(d) { return normalizeDmType(d.type) === _mCompNorm; });
+                // #226: UUID type match, fallback normalizeDmType
+                var _hasTypeMatch = dm.some(function(d) {
+                    if (_mComp.composante_type_id && d.type_id) return d.type_id === _mComp.composante_type_id;
+                    return normalizeDmType(d.type || '') === normalizeDmType(_mComp.dm_type || '');
+                });
                 if (_hasTypeMatch) {
                     dm = filterDmByComposante(dm, materialCtx.composante_id);
                 }
@@ -6308,13 +6336,15 @@
                     cascadeLog('info', 'materialCtx: composante_id from DM → ' + _relevantComp.composanteId);
                 } else {
                     // 2+ composantes of same type — check cache or show modal
-                    var _compCacheKey = groupId + ':comp:' + (_getCategoryDmType(catItem.category) || '');
+                    // #226: use composante_type_id for cache key when available
+                    var _compDmType = _getCategoryDmType(catItem.category) || catItem.category;
+                    var _compCacheKey = groupId + ':comp:' + (catItem.composante_type_id || _compDmType);
                     if (dmChoiceCache[_compCacheKey]) {
                         materialCtx.composante_id = dmChoiceCache[_compCacheKey];
                         cascadeLog('info', 'materialCtx: composante_id from cache → ' + dmChoiceCache[_compCacheKey]);
                     } else {
                         var _chosenCompId = await showComposanteChoiceModal(
-                            _getCategoryDmType(catItem.category) || catItem.category,
+                            _compDmType,
                             _relevantComp.candidates
                         );
                         if (_chosenCompId) {

@@ -388,6 +388,14 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **Filtre composante accordion** : `renderEnrichedPanel` filtre par `c.composante_type_id === entry.type_id` (UUID) en priorité, fallback `normalizeDmType` string si UUID absent
 - **Points d'écriture** : `addRoomDmEntry` (création) et `updateRoomDmType` (changement type) stockent `type_id`
 
+**#226 Phase 2 — UUID everywhere** :
+- **`getRelevantComposanteId`** : filtre DM entries par `d.type_id === catItem.composante_type_id` (UUID), fallback `normalizeDmType`
+- **`resolveCascadeTarget` composante filter** : compare `comp.composante_type_id === dmMatches[0].type_id`, fallback string
+- **`resolveMatchTarget` composante filter** : compare `d.type_id === comp.composante_type_id`, fallback string
+- **`getMissingRequiredDm`** : résout chaque groupe requis en UUID via `_resolveTypeId`, compare `type_id` des entries, fallback `normalizeDmType`
+- **`_getEnrichedConfig`** : accepte UUID en entrée → lookup `COMPOSANTE_TYPES` → label → `DM_ENRICHED_GROUPS[label]`
+- **`executeCascade` cache key** : utilise `composante_type_id` quand disponible pour le cache composante choice
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.

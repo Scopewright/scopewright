@@ -690,7 +690,7 @@ Pas de hiérarchie multi-niveaux. Chaque pièce gère ses propres DM de façon i
 Déclenché quand un DM est modifié :
 1. Trouve tous les parents (lignes racine) qui ont des règles `$default:` correspondant au groupe modifié
 2. Re-exécute `executeCascade()` séquentiellement sur chacun
-3. Re-trigger les parents avec `$default:` ET `$match:` targets. Invalide **sélectivement** `matchDefaults` (fix #188e : seules les entrées dont l'expense category partage un mot avec les catégories catalogue liées au `changedGroup` via `categoryGroupMapping` — word-similarity — sont supprimées, les choix `$match:` des catégories non modifiées sont préservés) ET `dmChoiceCache` (seul le type modifié `groupId:changedGroup` + entries cross-DM — les choix mémorisés des autres types sont préservés). Exécute sous guard `_cascadeRunning = true`
+3. Re-trigger les parents avec `$default:` ET `$match:` targets. Le matching `$default:X` utilise `normalizeDmType` (DEC-067) — tolère les écarts accents/pluriel entre le label DM et la cible cascade (ex: `$default:Façades` matche DM type `"Facade"`). Invalide **sélectivement** `matchDefaults` (fix #188e : seules les entrées dont l'expense category partage un mot avec les catégories catalogue liées au `changedGroup` via `categoryGroupMapping` — word-similarity — sont supprimées, les choix `$match:` des catégories non modifiées sont préservés) ET `dmChoiceCache` (seul le type modifié `groupId:changedGroup` + entries cross-DM — les choix mémorisés des autres types sont préservés). Exécute sous guard `_cascadeRunning = true`
 4. **Barre de progression** (#141) : `showCascadeProgress()` / `hideCascadeProgress()` affichent un overlay semi-transparent `rgba(255,255,255,0.25)` avec barre indeterminate navy 3px + texte "⟳ Recalcul…" `#9CA3AF` 11px. Bloque l'interaction utilisateur pendant le recalcul. Ref-counting (`_cascadeProgressRef`) pour les callers multi-reprocess (updateRoomDmType appelle 2× pour old+new type, clearRoomDm appelle N× pour chaque type). Fade-out 150ms ease-out
 
 ### 4.5 UI
@@ -745,12 +745,17 @@ Champs additionnels optionnels sur les entrées DM pour 3 groupes (Caisson, Faç
 #### Validation cohérence
 
 - Matériau mélamine → `finition` désactivé + auto-supprimé si présent
+- **Coupe disabled for mélamine** : `isDisabled = (field === 'coupe' && isMelamine)`. Le champ affiche "Non applicable (mélamine)" au lieu d'être masqué. Switching vers mélamine auto-clear `coupe` + `finition`
 - `coupe` visible seulement si matériau est un placage (`_isDmPlacage`)
 - Warning non-bloquant si bande de chant incompatible avec matériau principal
 
 #### UI
 
 Bouton ▾ sur les lignes DM enrichies → panneau `.rdm-enriched` collapsible. Indicateur `.has-data` (navy) quand sous-champs remplis. Combobox catalogue pour champs objet (`materiau`, `bande_chant`, `finition`, `bois_brut`). Dropdown `COUPE_TYPES` pour `coupe` (peuplé depuis `app_config.coupe_types`). Texte libre pour `style`.
+
+**Enriched field display** : `_dmEnrichedDisplay(itemId, fallbackText)` — après sélection d'un article dans un sous-champ enrichi, le champ affiche `"ST-XXXX  Description"` avec tooltip contenant le `client_text` complet. Appliqué dans `rdmSelectEnrichedItem` et `renderEnrichedPanel`.
+
+**Empty `material_costs` keys** : `rdmSearchEnriched` skip les clés vides (`if (!ku) continue`) — empêche les faux positifs via `"anything".indexOf("") === 0`.
 
 #### Backward compatibility
 
@@ -953,7 +958,7 @@ Quand `materialCtx.composante_id` est présent, le moteur tente une résolution 
 
 **Fonctions utilitaires** :
 - **`_getCategoryDmType(category)`** : mappe une catégorie catalogue → type DM via l'inversé de `categoryGroupMapping`. Ex: `"Caissons mélamine"` → `"Caisson"`. Fallback case-insensitive. Remplace le fragile `parentDmType = catItem.category` dans `executeCascade`
-- **`getRelevantComposanteId(catItem, groupId)`** : trouve le(s) `composante_id` pertinent(s) depuis les entrées DM du room. Retourne `{ composanteId, candidates[] }` — `candidates.length > 1` quand plusieurs composantes du même type coexistent. Déduplique par `composante_id`
+- **`getRelevantComposanteId(catItem, groupId)`** : trouve le(s) `composante_id` pertinent(s) depuis les entrées DM du room. Retourne `{ composanteId, candidates[] }` — `candidates.length > 1` quand plusieurs composantes du même type coexistent. Déduplique par `composante_id`. **Phase C** (#224) : lookup direct via `catItem.composante_type_id` → `COMPOSANTE_TYPES` → label. Fallback `_getCategoryDmType(catItem.category)` si `composante_type_id` est null. Fonction pure testable : `resolveDmTypeFromFab(catItem, composanteTypes)` dans `tests/cascade-helpers.js`
 - **`showComposanteChoiceModal(dmType, candidates)`** : modale de choix entre 2+ composantes du même type (radio buttons, Utiliser/Annuler). Cache dans `dmChoiceCache[groupId + ':comp:' + dmType]`
 
 **`COMPOSANTE_FIELD_MAP`** — table statique complète (20 entrées) :
@@ -1042,7 +1047,7 @@ Dans la boucle des règles de `executeCascade`, chaque `$default:X` dont le type
 
 **Guard** : l'override ne s'exécute que si `_parentTypeNorm` ET `_ruleTypeNorm` sont tous deux non-vides et différents (`_parentTypeNorm && _ruleTypeNorm && _ruleTypeNorm !== _parentTypeNorm`). Si l'un est vide → skip entier du block → `materialCtx.composante_id` préservé. Corrige la régression où le #219b écrasait le composante_id valide quand `_getCategoryDmType` retournait null.
 
-**FAB-priority dans `$default:`** : avant Step 2b, scanne les sous-champs enrichis dans l'ordre de `DM_ENRICHED_GROUPS[type].fields` (Façades: `style`→`materiau`→..., Caisson/Panneaux: `materiau`→...). Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`). **Détection FAB** : `item_type === 'fabrication'` OU (`item_type !== 'materiau'` ET `calculation_rule_ai` non-null). Si aucun FAB → pipeline normal (Step 2b → Step 4). Migration backfill : `sql/backfill_item_type.sql`.
+**FAB-priority dans `$default:`** : avant Step 2b, scanne les sous-champs enrichis dans l'ordre de `DM_ENRICHED_GROUPS[type].fields` (Façades: `style`→`materiau`→..., Caisson/Panneaux: `materiau`→...). Seuls les champs dans `DM_ENRICHED_CATALOGUE_FIELDS` sont scannés (skip `coupe`). **Détection FAB** : `item_type === 'fabrication'` OU (`item_type !== 'materiau'` ET `calculation_rule_ai` non-null). Si aucun FAB → pipeline normal (Step 2b → Step 4). Migration backfill : `sql/backfill_item_type.sql` — requires `jsonb_array_length(calculation_rule_ai->'cascade') > 0` (ne backfill que les articles avec des règles cascade réelles).
 
 **Step 4a — ID > client_text** (DEC-060) : dans `resolveCascadeTarget`, **avant** le lookup `client_text` (Step 4b), scanne les sous-champs enrichis dans l'ordre `style → materiau → bande_chant → finition → bois_brut`. Le premier `catalogue_item_id` valide dans `CATALOGUE_DATA` + `getAllowedCategoriesForGroup` → résolution directe par ID unique. Style en premier = FAB façade prioritaire. Gère les strings JSON sérialisées (`JSON.parse`). Propage `materialCtx` + cache normalement. **Fallback** : Step 4b (matching `client_text`) si aucun sous-champ avec ID valide + catégorie autorisée. **Pas de Tier 0** dans `$default:`.
 
@@ -1670,7 +1675,12 @@ catalogue_items
   └── item_media (images/PDF avec tags)
 
 composantes (regroupements propriétés constructives par type DM)
-  └── room_items.composante_id FK (nullable, ON DELETE SET NULL)
+  ├── composante_groupe_items (liaison groupe → composantes membres)
+  └── referenced by room_items.composante_id FK (nullable, ON DELETE SET NULL)
+
+composante_types (UUID PK, code UNIQUE, label, sort_order, is_active, created_at)
+  ├── FK from composantes.composante_type_id
+  └── FK from catalogue_items.composante_type_id
 
 contacts ─── contact_companies ─── companies
   └── communications
@@ -1839,14 +1849,14 @@ Tests Node.js headless (0 dépendances externes) couvrant les fonctions pures du
 
 ```bash
 node tests/cascade-engine.test.js
-# Attendu : 282 passed, 0 failed, exit code 0
+# Attendu : 393 passed, 0 failed, exit code 0
 ```
 
 ### 14.2 Fichiers
 
 | Fichier | Contenu | Lignes |
 |---------|---------|--------|
-| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 292 assertions en 34 groupes | ~2 302 |
+| `tests/cascade-engine.test.js` | Mini runner (`describe`/`it`/`assert`/`assertEqual`/`assertDeepEqual`/`assertApprox`) + 393 assertions en 42 groupes | ~2 302 |
 | `tests/cascade-helpers.js` | 19 fonctions pures + constante `MATCH_STOP_WORDS` | ~618 |
 | `tests/fixtures/catalogue.js` | 21 articles réalistes (8 FAB + 13 MAT) | ~330 |
 | `tests/fixtures/room-dm.js` | 5 configurations DM (`room-1` à `room-5`) + `CATEGORY_GROUP_MAPPING` | ~49 |

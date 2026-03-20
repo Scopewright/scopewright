@@ -184,7 +184,21 @@ Utiliser des modales HTML Promise-based (`_compTypePrompt`, `_compTypeConfirm`, 
 
 ### Accès aux drawers secondaires
 
-Les drawers secondaires (Types de composante, Coupes) sont accessibles **depuis le drawer parent** (Composantes), pas depuis la barre d'outils principale du catalogue. Bouton compact dans le header du drawer parent.
+Les drawers secondaires (Types de composante, Coupes) sont accessibles **depuis le drawer parent** (Composantes), pas depuis la barre d'outils principale du catalogue. Bouton compact dans le header du drawer parent. Style : `border: 0.5px solid rgba(255,255,255,0.15)`, `font-size: 11px`, `color: rgba(255,255,255,0.4)` (gray), hover `rgba(255,255,255,0.7)`.
+
+### Modale catalogue — Layout header
+
+- **Row 1** : Code ST-XXXX (90px, readonly) + Catégorie dropdown (flex) + Classification/Type (140px)
+- **Row 2** : Type composante dropdown + Dimensions checkboxes (FAB only, inline)
+- Les rows utilisent `display: flex; gap: 12px; align-items: center`
+
+### Coupe disabled state (mélamine)
+
+Quand le matériau principal est mélamine, le dropdown coupe est désactivé :
+- Texte placeholder : "Non applicable (mélamine)"
+- `opacity: 0.4`, `pointer-events: none`, `cursor: default`
+- Même pattern visuel que le champ finition désactivé pour mélamine
+- S'applique dans le panneau DM enrichi et dans la modale composante
 
 ---
 

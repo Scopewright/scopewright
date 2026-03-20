@@ -50,7 +50,7 @@
 ## 3. TABLES SUPABASE (HIÉRARCHIE)
 
 ```
-projects (user_id → RLS)
+projects (user_id → RLS, is_archived BOOLEAN DEFAULT false)
   ├── submissions (status machine: draft→pending→approved→sent→accepted)
   │     ├── project_rooms (pièces)
   │     │     ├── room_items (lignes calcul, parent_item_id pour cascade)
@@ -70,6 +70,10 @@ catalogue_items (id TEXT PK auto ST-XXXX, RLS trop permissif — SEC-01)
 composantes (regroupements propriétés constructives par type DM)
   ├── composante_groupe_items (liaison groupe → composantes membres)
   └── referenced by room_items.composante_id
+
+composante_types (UUID PK, code UNIQUE, label, sort_order, is_active)
+  ├── FK from composantes.composante_type_id
+  └── FK from catalogue_items.composante_type_id
 
 contacts ─── contact_companies ─── companies
   └── communications
@@ -227,7 +231,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - `materialCtx` propagé parent→enfant→petit-enfant, mis à jour par `$default:` après résolution
 - `child_dims` : formules dimensionnelles. Multi-instance quand `child_dims` + qty > 1
 - Persistance immédiate (pas de debounce). Enfants locked protégés. `cascade_suppressed` pour suppressions manuelles
-- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (374 assertions, 39 groupes)
+- **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (393 assertions, 42 groupes)
 
 ### 8.2 Matériaux par défaut (DM)
 - Room-level uniquement (`roomDM[groupId]`). `client_text` = identifiant primaire
@@ -256,6 +260,11 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **DEC-060** : Step 4a dans `resolveCascadeTarget` — scanne `style → materiau → bande_chant → finition → bois_brut`, premier `catalogue_item_id` valide + catégorie autorisée → résolution directe. Style first = FAB prioritaire. Fallback Step 4b (`client_text`) si aucun ID valide
 - **DEC-061** : chaque FAB trouve sa propre composante via `getRelevantComposanteId` à chaque depth — pas d'héritage `composante_id` du parent. Fix 1 ligne : retrait de `!materialCtx.composante_id` guard
 - **DEC-062** : table `composante_types` dynamique (#224 Phase A) — CRUD admin, dropdown composante peuplé depuis DB, fallback hardcodé. Phase B : `catalogue_items.composante_type_id` FK vers `composante_types`, dropdown FAB dans modale catalogue. Phase C : `getRelevantComposanteId` utilise `composante_type_id` directement, fallback `_getCategoryDmType`. Constantes métier (`DM_ENRICHED_GROUPS` etc.) restent hardcodées
+- **DEC-063** : pas de `item_type = 'style'` — FAB suffit pour les articles façade/style
+- **DEC-064** : pas de renommage nomenclature — conserver les noms existants (types DM, catégories)
+- **DEC-065** : modale conditionnelle — 0 candidats → skip, 1 → auto-select, 2+ → modale de choix
+- **DEC-066** : retrait #219b (per-rule `composante_id` override) différé post-backfill `composante_type_id`
+- **DEC-067** : `reprocessDefaultCascades` utilise `normalizeDmType` pour le matching `$default:X` — tolère accents/pluriel
 - **Guard stale data** (DEC-052/055/056) : au chargement, (0) parse les sous-champs `style/materiau/bande_chant/finition/bois_brut` sérialisés en strings JSON. (1) détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → lookup catalogue. (2) reset `entry.client_text` stale. Puis rebuild + save DB. `_dmFieldText` gère les 3 formats (string, JSON string, objet)
 - `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
 - `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante
@@ -411,7 +420,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 
 ## 15. TESTS AUTOMATISÉS
 
-- **Fichier** : `tests/cascade-engine.test.js` — 374 assertions, 39 groupes
+- **Fichier** : `tests/cascade-engine.test.js` — 393 assertions, 42 groupes
 - **Runner** : Inline, 0 dépendances (`node tests/cascade-engine.test.js`)
 - **Helpers** : `tests/cascade-helpers.js` — 21 fonctions pures copiées de calculateur.html
 - **Fixtures** : `tests/fixtures/catalogue.js` (21 articles), `tests/fixtures/room-dm.js` (5 configs DM), `tests/fixtures/enriched-dm.js` (DM enrichis)

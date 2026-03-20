@@ -63,6 +63,7 @@
 | `catalogue_items` | Authenticated: full CRUD | **Trop permissif** (voir SEC-01) |
 | `app_config` | Admin write via `is_admin()` | **Fragile** (voir SEC-02) |
 | `ai_learnings` | Authenticated: full CRUD | **Trop permissif** — tout user peut modifier/supprimer les learnings d'un autre |
+| `composante_types` | Authenticated: read. Admin write via `is_admin()` | **Même pattern que `catalogue_items`** — peut être trop permissif en multi-tenant |
 | `submission_reviews` | Authenticated: SELECT + INSERT | Correct — pas de UPDATE/DELETE (immuable) |
 
 #### Tables potentiellement sans RLS
@@ -488,6 +489,38 @@ Modal ajout personnalisé refait : coût fournisseur + marge% → prix de vente 
 **[FEATURE-25] `disambiguateMatchByDm()` — auto-résolution $match multi-candidats (#188c)**
 
 Nouvelle fonction qui filtre les candidats `$match:` multi-résultats en utilisant les mots du `client_text` DM comme discriminant. Si un seul candidat reste après filtrage → auto-sélection sans modale.
+
+### 3.9 Bugs corrigés (2026-03-19)
+
+**[BUG-37] CORRIGÉ — `reprocessDefaultCascades` accent mismatch (Façades vs Facades)**
+
+`reprocessDefaultCascades` comparait les types DM en string exact, causant un mismatch entre `"Façades"` (avec accent) et `"Facades"` (sans accent) dans différents contextes.
+
+**Fix** : Comparaison via `normalizeDmType` (strip accents, lowercase, strip pluriel) — `"Façades"` et `"Facades"` normalisent tous les deux en `"facade"`.
+
+**[BUG-38] CORRIGÉ — Empty `material_costs` keys matching everything in `rdmSearchEnriched`**
+
+Les clés vides (`""`) dans `material_costs` passaient le filtre de catégorie dans `rdmSearchEnriched`, causant des matchs faux positifs sur toutes les catégories.
+
+**Fix** : Guard `if (!ku) continue` — les clés vides sont ignorées lors du matching catégorie.
+
+**[BUG-39] CORRIGÉ — Stale `materiau.client_text` (contient `|` ou > 60 chars)**
+
+Les DM entries legacy pouvaient avoir un `materiau.client_text` corrompu (contenant le caractère `|` séparateur ou des chaînes > 60 caractères issues d'anciennes concaténations). Ces valeurs causaient des échecs de résolution cascade par `client_text`.
+
+**Fix** : Guard ajouté dans `openSubmission` — détecte `client_text` contenant `|` ou > 60 chars, récupère le `client_text` brut depuis `CATALOGUE_DATA` par `catalogue_item_id`, ou vide si ID absent. Puis `_rebuildDmClientText` + save DB si changé.
+
+**[BUG-40] CORRIGÉ — Style field stored as JSON string instead of object**
+
+Le champ `entry.style` dans les DM entries pouvait être stocké sous 3 formats : string plain (legacy), objet `{catalogue_item_id, client_text}` (nouveau), ou string JSON sérialisée (bug stale data). Le code ne gérait que les 2 premiers formats.
+
+**Fix** : `_dmFieldText(val)` détecte les 3 cas : string commençant par `{` → `JSON.parse` + `client_text`, objet → `client_text`, string plain → retourne directement. Guard `openSubmission` parse les sous-champs sérialisés au chargement.
+
+**[BUG-41] CORRIGÉ — `backfill_item_type.sql` too aggressive**
+
+Le script de migration `backfill_item_type.sql` marquait des articles comme `fabrication` en se basant uniquement sur la présence de `calculation_rule_ai`, même si celui-ci ne contenait pas de règles cascade réelles.
+
+**Fix** : Le backfill exige désormais la présence de vraies règles cascade (`cascade` array non-null et non-vide) dans `calculation_rule_ai` avant de classer un article comme `fabrication`.
 
 ---
 

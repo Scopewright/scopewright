@@ -81,7 +81,17 @@ La liste des projets offre 3 vues :
 
 **★ Suivis** : cliquez l'étoile à gauche d'un projet pour le marquer comme suivi. Le filtre « Suivis » n'affiche que vos projets favoris.
 
-**Archivage de projets** : cliquez l'icône 🗃 sur une carte projet pour l'archiver. Les projets archivés disparaissent de la vue par défaut. Le bouton « Projets archivés (N) » dans la barre de filtres les affiche — ils apparaissent en opacité réduite. Depuis la vue archivés, vous pouvez désarchiver (🗃) ou supprimer définitivement (×) un projet. La suppression nécessite une double confirmation et n'est pas possible pour les projets contenant des soumissions vendues.
+#### Archivage de projets
+
+L'archivage permet de retirer un projet de la vue principale sans le supprimer. Pratique pour les projets terminés ou en pause.
+
+**Archiver un projet** : cliquez l'icône 🗃 sur une carte projet. Le projet disparait immediatement de la vue par defaut.
+
+**Voir les projets archives** : cliquez le bouton **Projets archives (N)** dans la barre de filtres. Ce bouton n'apparait que si au moins un projet est archive. Les projets archives s'affichent en opacite reduite (55%) pour les distinguer visuellement des projets actifs.
+
+**Desarchiver** : depuis la vue archives, cliquez l'icone 🗃 sur le projet. Il revient dans la vue principale.
+
+**Supprimer definitivement** : seuls les projets archives peuvent etre supprimes. Depuis la vue archives, cliquez **x** sur le projet. Une double confirmation est requise (« Cette action est irreversible »). La suppression est bloquee si le projet contient des soumissions avec un statut **accepte** ou **facture** — un message explicite vous le signale. Si le projet contient d'autres donnees liees (soumissions, pieces), un message vous invite a les supprimer d'abord.
 
 ### Plans architecturaux
 
@@ -161,7 +171,17 @@ Pour chaque groupe :
 2. Recherchez le matériau dans le catalogue
 3. Sélectionnez-le — le système retient le choix
 
-**Sous-champs enrichis (Façades et Panneaux)** : après avoir sélectionné le matériau principal, cliquez le bouton ▾ sur la ligne pour déplier les sous-champs optionnels. Le premier champ est **Matériau** — un combobox catalogue qui permet de préciser l'article technique du matériau de façade ou de panneau (ex: placage, panneau mélamine). Les autres sous-champs sont : Style (texte libre), Coupe (texte libre, si placage), Bande de chant (combobox catalogue), Finition (combobox catalogue), et Bois brut (combobox catalogue). Ces sous-champs permettent au moteur de résoudre les composantes associées directement, sans afficher de modales de choix.
+**Sous-champs enrichis (Caisson, Facades et Panneaux)** : apres avoir selectionne le materiau principal, cliquez le bouton ▾ sur la ligne pour deplier les sous-champs optionnels. Chaque sous-champ catalogue (Materiau, Bande de chant, Finition, Bois brut) est un combobox de recherche dans le catalogue. Apres selection, le champ affiche le code article et la description technique (ex: `ST-0087  Bande chene blanc`). Un tooltip apparait au survol si le texte est tronque. Les sous-champs disponibles varient selon le type :
+
+- **Caisson** : Materiau (combobox catalogue) + Coupe (dropdown) + Bande de chant + Finition
+- **Facades** : Style (combobox catalogue — articles FAB facades uniquement) + Materiau + Coupe + Bande de chant + Finition + Bois brut
+- **Panneaux** : Materiau + Coupe + Bande de chant + Finition + Bois brut
+
+Le champ **Coupe** est un dropdown peuple depuis le referentiel des coupes de placage (voir Partie 4 — Coupes). Il est affiche uniquement si le materiau principal est un placage, et desactive pour la melamine. Le champ **Finition** est egalement desactive pour les materiaux de type melamine.
+
+Ces sous-champs permettent au moteur de resoudre les composantes associees directement, sans afficher de modales de choix.
+
+**Bouton Recalculer** : quand vous modifiez un materiau par defaut (changement de materiau, de sous-champ enrichi, de composante, ou de type), une barre d'avertissement apparait en haut du panneau DM avec un bouton **Recalculer**. Les modifications ne sont pas appliquees aux articles existants tant que vous ne cliquez pas ce bouton — cela vous permet de faire plusieurs ajustements avant de relancer la cascade. Un **point orange** apparait sur l'en-tete du panneau DM quand il est replie, pour signaler qu'un recalcul est en attente. La barre est masquee automatiquement si la piece ne contient aucun article.
 
 **Copier de…** : si plusieurs meubles utilisent les mêmes matériaux, cliquez « Copier de… » pour copier la configuration d'un autre meuble.
 
@@ -836,9 +856,15 @@ Les coupes de placage définissent comment le bois est débité (fil courant, ri
 - **Modifier** un type existant en cliquant dessus
 - **Supprimer** un type (avec confirmation)
 
-**Facteurs par essence** : la modale d'édition affiche un tableau avec les 9 essences (Chêne blanc, Chêne rouge, Noyer, Érable, Merisier, Frêne, Cerisier, Pin noueux, Acajou). Vous pouvez définir un facteur spécifique pour chaque essence. Si un champ est vide, le facteur par défaut s'applique. L'essence est détectée automatiquement depuis le texte client de l'article (ex: "Placage de chêne blanc" → Chêne blanc).
+**Facteurs par essence** : la modale d'edition affiche un tableau avec les 9 essences supportees (Chene blanc, Chene rouge, Noyer, Erable, Merisier, Frene, Cerisier, Pin noueux, Acajou). Vous pouvez definir un facteur specifique pour chaque essence. Le systeme detecte automatiquement l'essence depuis le texte client de l'article (ex: "Placage de chene blanc" detecte Chene blanc, "Noyer" detecte Noyer). La detection fonctionne en francais et en anglais (ex: "walnut" detecte Noyer).
 
-**Facteur prix** : le facteur de coupe s'applique automatiquement au coût des matériaux panneau/placage (catégories contenant "placage" ou "panneau", hors bande de chant/finition/bois brut). Par exemple, un placage de noyer à 10$ avec un facteur rift cut noyer de ×1.15 coûtera 11.50$ avant les ajustements de perte et markup. Un facteur de 1.00 (fil courant) n'a aucun impact sur le prix.
+**Chaine de fallback** : quand le systeme calcule le facteur de coupe pour un article, il suit cette chaine de priorite :
+1. **Facteur par essence** — si l'essence est detectee et un facteur specifique est defini pour cette essence
+2. **Facteur par defaut** — si l'essence n'est pas detectee ou n'a pas de facteur specifique
+3. **Facteur legacy** — ancien champ de compatibilite
+4. **1.0** — aucun ajustement si rien n'est configure
+
+**Facteur prix** : le facteur de coupe s'applique automatiquement au cout des materiaux panneau/placage (categories contenant "placage" ou "panneau", hors bande de chant/finition/bois brut). Par exemple, un placage de noyer a 10$ avec un facteur rift cut noyer de x1.15 coutera 11.50$ avant les ajustements de perte et markup. Un facteur de 1.00 (fil courant) n'a aucun impact sur le prix.
 
 **Utilisation** : quand vous configurez les matériaux par défaut d'une pièce (panneau DM enrichi), le champ Coupe est un dropdown peuplé depuis ce référentiel. Le même dropdown apparaît dans la modale composante. Le facteur est appliqué automatiquement dans tous les calculs (prix ligne, rentabilité, modale rentabilité).
 
@@ -850,20 +876,22 @@ Une composante, c'est une « recette matériau » réutilisable. Au lieu de reco
 
 Chaque composante reçoit un code unique COMP-XXX généré automatiquement.
 
-#### Gérer les composantes dans le catalogue
+#### Gerer les composantes dans le catalogue
 
-**Accès** : Catalogue → bouton **Composantes** dans la barre d'en-tête. Un panneau latéral s'ouvre avec la liste de toutes vos composantes.
+**Acces** : Catalogue → bouton **Composantes** dans la barre d'en-tete. Un panneau lateral s'ouvre avec la liste de toutes vos composantes.
 
 **Ce que vous pouvez faire** :
-- **Filtrer** par type (Caisson, Façades, Panneaux, Tiroirs, Poignées, Groupe) via le dropdown en haut
-- **Créer** une composante avec le bouton **+** — choisir le type, nommer la composante, remplir les champs pertinents
+- **Filtrer** par type (Caisson, Facades, Panneaux, Tiroirs, Poignees, Groupe) via le dropdown en haut
+- **Creer** une composante avec le bouton **+** — choisir le type, nommer la composante, remplir les champs pertinents
 - **Modifier** une composante existante en cliquant dessus
-- **Dupliquer** une composante — en mode édition, cliquez « Dupliquer » pour créer une copie avec un nouveau code COMP-XXX. Pratique pour créer une variante (ex: même caisson mais finition différente)
-- **Supprimer** une composante (suppression douce — elle peut être récupérée)
+- **Dupliquer** une composante — en mode edition, cliquez « Dupliquer » pour creer une copie avec un nouveau code COMP-XXX. Pratique pour creer une variante (ex: meme caisson mais finition differente)
+- **Supprimer** une composante (suppression douce — elle peut etre recuperee)
 
-**Champs intelligents selon le type** : la modale adapte les champs affichés selon le type DM choisi. Les Tiroirs et Poignées n'affichent que le matériau. Les Façades et Panneaux affichent tous les champs (matériau, style, coupe, bande de chant, finition, bois brut). Les Caissons n'affichent pas le style ni le bois brut. Cela vous évite de remplir des champs inutiles.
+**Types de composante dynamiques** : les types de composante sont entierement configurables. Cliquez le bouton **Types** dans le drawer Composantes pour gerer les types disponibles. Vous pouvez ajouter de nouveaux types, renommer les existants ou les desactiver. Les 5 types integres sont Caisson, Facades, Panneaux, Tiroirs et Poignees. Les types desactives n'apparaissent plus dans les dropdowns de creation de composante ni dans le panneau DM, mais les composantes existantes de ce type restent fonctionnelles.
 
-**Recherche dans le catalogue** : les champs Matériau, Bande de chant, Finition et Bois brut proposent une recherche en temps réel dans votre catalogue de prix. Tapez quelques lettres pour voir les articles correspondants avec leur code et catégorie. Style reste en texte libre. Coupe est un dropdown peuplé depuis le référentiel centralisé des coupes de placage (voir section Coupes ci-dessous).
+**Champs intelligents selon le type** : la modale adapte les champs affiches selon le type DM choisi. Les Tiroirs et Poignees n'affichent que le materiau. Les Facades et Panneaux affichent tous les champs (materiau, style, coupe, bande de chant, finition, bois brut). Les Caissons n'affichent pas le style ni le bois brut. Cela vous evite de remplir des champs inutiles.
+
+**Recherche dans le catalogue** : les champs Materiau, Bande de chant, Finition et Bois brut proposent une recherche en temps reel dans votre catalogue de prix. Tapez quelques lettres pour voir les articles correspondants avec leur code et categorie. Apres selection, le champ affiche le code article et la description (ex: `ST-0087  Bande chene blanc`). Style est un combobox catalogue filtre sur les articles FAB facades (pour le type Facades). Coupe est un dropdown peuple depuis le referentiel centralise des coupes de placage (voir section Coupes ci-dessus).
 
 **Voir où une composante est utilisée** : en bas de la modale d'édition, une section « Utilisée dans » liste toutes les soumissions qui utilisent cette composante. Chaque ligne est cliquable et ouvre directement la soumission dans le calculateur.
 

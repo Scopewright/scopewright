@@ -2,7 +2,36 @@
 
 > Historique chronologique des modifications significatives.
 >
-> **Dernière mise à jour** : 2026-03-18
+> **Dernière mise à jour** : 2026-03-19
+
+---
+
+## 2026-03-18 / 2026-03-19
+
+### Features
+- **#224 Phase A — Table `composante_types` dynamique** : nouvelle table `composante_types` (id UUID PK, nom TEXT UNIQUE, ordre INTEGER, is_active BOOLEAN) remplace les constantes hardcodées `DM_ENRICHED_GROUPS`, `_COMP_FIELDS_BY_TYPE`, `_COMP_MATERIAU_TYPE_FILTER`. Les types DM sont désormais gérés dynamiquement depuis la DB. Migration SQL dédiée
+- **#224 Phase B — `composante_type_id` sur `catalogue_items`** : nouvelle colonne FK `catalogue_items.composante_type_id` → `composante_types`. Lie chaque article catalogue à un type de composante. Remplace le mapping fragile `categoryGroupMapping` pour la résolution cascade
+- **#224 Phase C — `getRelevantComposanteId` simplifié** : la résolution composante utilise `composante_type_id` de l'article catalogue au lieu de dériver le type DM via `_getCategoryDmType` + `categoryGroupMapping`. Chaîne de résolution directe et fiable
+- **#221 — Archivage projets** : `projects.is_archived` BOOLEAN DEFAULT false. Bouton 🗃 sur cartes projet. Filtre "Projets archivés (N)" dans la barre pipeline. Suppression uniquement depuis la vue archivés avec double confirmation. Message FK clair. Migration `sql/project_archive.sql`
+- **#219 — Facteur coupe par essence** : `_detectEssence(clientText)` détecte 9 essences (chêne blanc/rouge, noyer, érable, merisier, frêne, cerisier, pin noueux, acajou). `getCoupeFacteur(coupeLabel, articleClientText)` chaîne `facteurs[essence]` → `facteur_defaut` → `facteur` → 1.0. Drawer catalogue 560px avec tableau facteurs par essence (`COUPE_ESSENCES`). Migration `sql/coupe_types_essences.sql`
+- **#218 — Bouton Recalculer DM** : `_dmDirtyTypes[groupId]` trace les types DM modifiés. Barre d'avertissement + bouton "Recalculer" dans le panneau DM. Point orange 8px `#F59E0B` sur le header collapsé (`.dm-dirty`). `_markDmDirty` appelé depuis 7 fonctions de modification DM. Auto-clear après reprocess réussi
+- **DEC-058 — FAB-priority dans `resolveCascadeTarget`** : avant Step 2b, scanne les sous-champs enrichis dans l'ordre défini par `DM_ENRICHED_GROUPS[type].fields`. Le premier sous-champ pointant vers un FAB est résolu directement — le FAB cascade ensuite ses propres enfants MAT
+- **DEC-060 — Step 4a ID > client_text** : dans `resolveCascadeTarget`, scanne tous les sous-champs enrichis (`style → materiau → bande_chant → finition → bois_brut`) avant le lookup `client_text`. Le premier `catalogue_item_id` valide + catégorie autorisée → résolution directe par ID. Élimine l'ambiguïté multi-articles avec même `client_text`
+- **DEC-061 — Chaque FAB trouve sa propre composante** : `getRelevantComposanteId(catItem, groupId)` appelé pour chaque FAB enfant (pas seulement si `materialCtx.composante_id` absent). Chaque FAB résout sa composante depuis sa propre catégorie via `_getCategoryDmType`, au lieu d'hériter celle du parent
+- **Panneau DM enrichi — Materiau/Style sans dédup** : champs `materiau` et `style` affichent chaque article individuellement (badge code ST-XXXX + description), pas dédupliqué par `client_text`. Layout flex avec `client_text` en gris discret à droite
+
+### Corrections
+- **DEC-059 — `_rebuildDmClientText` lit depuis `CATALOGUE_DATA`** : si `entry.materiau.catalogue_item_id` existe, lit le `client_text` frais depuis `CATALOGUE_DATA` au lieu de `entry.materiau.client_text` qui peut diverger — garantit un match exact dans Step 4 de `resolveCascadeTarget`
+- **`reprocessDefaultCascades` — normalizeDmType matching** : le matching des types DM modifiés utilise `normalizeDmType` pour la comparaison accent/plural-insensitive
+- **Coupe désactivé pour mélamine** : `_isDmMelamine` vérifie le matériau principal — champ coupe masqué quand le matériau est mélamine
+- **Enriched DM fields — affichage ST-XXXX + description** : les champs enrichis `materiau`/`style` affichent le code article + description au lieu du seul `client_text`
+- **`rdmSearchEnriched` — clés `material_costs` vides filtrées** : les clés vides dans `material_costs` sont filtrées avant la recherche catalogue enrichie
+- **Stale data guards** : `materiau.client_text` corrompu (contient `|` ou >60 chars) → reset depuis `CATALOGUE_DATA`. Sous-champs `style` stockés comme strings JSON sérialisées → `JSON.parse` automatique au chargement
+- **`backfill_item_type.sql`** : la migration requiert des règles cascade réelles (pas de données factices) pour identifier les FAB
+- **`getAllowedCategoriesForGroup`** : comparaison via `normalizeDmType` pour tolérer accent/plural mismatches dans `categoryGroupMapping`
+- **Types drawer z-index** : z-index corrigé pour éviter le chevauchement avec la modale composante
+- **Composante modal — `onmousedown` fix** : les résultats combobox utilisent `onmousedown="event.preventDefault()"` pour empêcher le blur de voler le focus avant la sélection
+- **Grid column widths** : colonne dims élargie 260→290px (empêche troncature "Tir."), container max-width 1600px
 
 ---
 

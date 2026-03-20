@@ -1,7 +1,7 @@
 # Guide du catalogue Stele
 
 > Documentation fonctionnelle et technique du systeme de catalogue de prix.
-> Derniere mise a jour : 2026-03-05
+> Derniere mise a jour : 2026-03-19
 
 ---
 
@@ -25,8 +25,11 @@
 16. [Sandbox](#16-sandbox)
 17. [AI dans le catalogue](#17-ai-dans-le-catalogue)
 18. [Audit](#18-audit)
-19. [FAQ — Questions cles](#19-faq--questions-cles)
-20. [Bugs connus et limitations](#20-bugs-connus-et-limitations)
+19. [Composantes et types de composante](#19-composantes-et-types-de-composante)
+20. [Coupes de placage](#20-coupes-de-placage)
+21. [Layout de la modale catalogue](#21-layout-de-la-modale-catalogue)
+22. [FAQ — Questions cles](#22-faq--questions-cles)
+23. [Bugs connus et limitations](#23-bugs-connus-et-limitations)
 
 ---
 
@@ -113,7 +116,8 @@ Chaque article `catalogue_items` possede ces colonnes :
 | `id` | TEXT (PK) | Code unique auto-genere (`ST-0001`). Voir [section 4](#4-codes-st-xxxx). |
 | `category` | TEXT | Categorie catalogue (ex: "Tiroirs", "Poignees"). |
 | `description` | TEXT | Description technique interne (pas visible au client). |
-| `item_type` | TEXT | Classification : `fabrication` ou `materiau`. Voir [FAQ Q4](#q4--a-quoi-sert-le-champ-item_type-classification-). |
+| `item_type` | TEXT | Classification : `fabrication` ou `materiau`. Voir [FAQ Q4](#q4--a-quoi-sert-le-champ-item_type-classification-). Backfill : `backfill_item_type.sql` marque automatiquement les articles avec `calculation_rule_ai` contenant des regles cascade reelles (`jsonb_array_length > 0`) comme FAB. |
+| `composante_type_id` | UUID (FK) | Type de composante associe (Caisson, Facades, etc.). Nullable. FAB uniquement. Voir [section 19](#19-composantes-et-types-de-composante). |
 | `status` | TEXT | `approved`, `pending`, `rejected`, ou `null` (legacy = approuve). |
 | `proposed_by` | TEXT | Email du proposeur (si `status = pending`). |
 
@@ -1259,7 +1263,153 @@ Resultats groupes par severite (critical > warning > info). Chaque article cliqu
 
 ---
 
-## 19. FAQ — Questions cles
+## 19. Composantes et types de composante
+
+### Types de composante (#224)
+
+Les types de composante sont un referentiel dynamique qui definit les categories de composantes disponibles (Caisson, Facades, Panneaux, Tiroirs, Poignees, Groupe, etc.). Avant #224, ces types etaient hardcodes dans `_COMP_FIELDS_BY_TYPE` et `DM_ENRICHED_GROUPS`. Desormais ils sont geres depuis une table DB et configurables par l'admin.
+
+**Table** : `composante_types`
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | UUID (PK) | Identifiant unique. |
+| `name` | TEXT | Nom du type (ex: "Caisson", "Facades"). |
+| `is_active` | BOOLEAN | Soft delete — les types desactives n'apparaissent plus dans les dropdowns. |
+| `sort_order` | INTEGER | Ordre d'affichage dans les dropdowns. |
+
+**UI — Bouton "Types"** : dans le header du drawer Composantes (`catalogue_prix_stele_complet.html`), un bouton "Types" ouvre un panneau de gestion. L'admin peut :
+- **Ajouter** un nouveau type de composante
+- **Renommer** un type existant
+- **Desactiver** un type (soft delete — les composantes existantes de ce type restent, mais le type n'est plus selectionnable)
+
+**Dropdown composante** : le champ "Type DM" dans la modale de creation/edition de composante est peuple dynamiquement depuis la table `composante_types` (filtree `is_active = true`). Les types desactives n'apparaissent plus comme option.
+
+### Lien FAB → type de composante (#224 Phase B)
+
+Un article de fabrication (FAB) peut etre associe a un type de composante specifique. Cela permet au moteur cascade de savoir quel type de composante correspond a un article FAB sans recourir a la resolution heuristique via `_getCategoryDmType`.
+
+**Colonne** : `catalogue_items.composante_type_id` (UUID FK → `composante_types.id`, nullable, ON DELETE SET NULL)
+
+**UI** : dans la modale d'edition catalogue, un dropdown "Type de composante associee" apparait sur la **ligne 2** du formulaire, visible uniquement pour les articles `item_type = 'fabrication'`. Le dropdown est peuple depuis `composante_types` (actifs uniquement). Valeur par defaut : vide (nullable).
+
+**Resolution cascade** : quand un FAB a un `composante_type_id` defini, le moteur cascade utilise directement ce type pour trouver la composante et les DM pertinents, au lieu de passer par `_getCategoryDmType(category)` qui derive le type DM depuis le `categoryGroupMapping`. Le fallback heuristique reste actif pour les FAB sans `composante_type_id` (retrocompatibilite).
+
+**Migration** : `sql/composante_types.sql` (table) + colonne `composante_type_id` sur `catalogue_items`.
+
+**backfill_item_type.sql** : la migration de backfill qui marque automatiquement les articles comme `item_type = 'fabrication'` a ete mise a jour. La condition requiert desormais `jsonb_array_length(calculation_rule_ai->'cascade') > 0` — seuls les articles avec des regles cascade reelles (array non vide) sont marques comme FAB. Un article avec `calculation_rule_ai = '{"cascade": []}'` (array vide) n'est plus marque comme fabrication.
+
+---
+
+## 20. Coupes de placage
+
+### Referentiel centralise
+
+Les coupes de placage sont un referentiel de types de coupe (droit fil, faux quartier, livre ouvert, etc.) avec des facteurs de prix par essence de bois. Gere depuis le catalogue et consomme par le calculateur.
+
+**Stockage** : `app_config.coupe_types` — JSONB array :
+
+```json
+[
+  {
+    "code": "DF",
+    "label": "Droit fil",
+    "facteur": 1.0,
+    "facteur_defaut": 1.0,
+    "facteurs": {
+      "chene_blanc": 1.0,
+      "chene_rouge": 1.0,
+      "noyer": 1.15,
+      "erable": 1.0,
+      "merisier": 1.0,
+      "frene": 1.0,
+      "cerisier": 1.1,
+      "pin_noueux": 1.0,
+      "acajou": 1.2
+    },
+    "notes": ""
+  }
+]
+```
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `code` | String | Code court auto-genere depuis les initiales du label (`_coupeGenCode`). |
+| `label` | String | Nom affiche (ex: "Faux quartier"). |
+| `facteur` | Number | Legacy — facteur unique (backward compat). Dernier fallback. |
+| `facteur_defaut` | Number | Facteur utilise quand l'essence de bois n'est pas detectee dans le `client_text`. |
+| `facteurs` | Object | Facteurs par essence : `{ essence_code: number }`. 9 essences supportees. |
+| `notes` | String | Notes internes optionnelles. |
+
+### Facteurs par essence (#219)
+
+Chaque coupe a un tableau de facteurs specifiques par essence de bois. La chaine de resolution du facteur est :
+
+1. **Detecter l'essence** : `_detectEssence(clientText)` analyse le `client_text` de l'article. 9 essences supportees avec keywords FR + EN :
+
+| Code essence | Keywords (exemples) |
+|-------------|---------------------|
+| `chene_blanc` | chene blanc, white oak |
+| `chene_rouge` | chene rouge, red oak |
+| `noyer` | noyer, walnut |
+| `erable` | erable, maple |
+| `merisier` | merisier, cherry (birch) |
+| `frene` | frene, ash |
+| `cerisier` | cerisier, cherry |
+| `pin_noueux` | pin noueux, knotty pine |
+| `acajou` | acajou, mahogany |
+
+2. **Resoudre le facteur** : `getCoupeFacteur(coupeLabel, articleClientText)` suit la chaine :
+   - Essence detectee → `facteurs[essence]` (facteur specifique)
+   - Essence non detectee → `facteur_defaut` (facteur par defaut de la coupe)
+   - `facteur_defaut` absent → `facteur` (legacy, backward compat)
+   - Tout absent → `1.0` (pas d'impact)
+
+3. **Appliquer** : `prix_materiau = material_costs[cat] × facteur_coupe × (1 + waste%/100) × (1 + markup%/100)`. Le facteur s'applique uniquement aux categories panneau/placage-related (`_isPlacageCategory` — contient "placage" ou "panneau", exclut "bande", "brut", "finition").
+
+### UI — Drawer Coupes
+
+Bouton "Coupes" dans le header du catalogue (`catalogue_prix_stele_complet.html`) → drawer 480px `#coupesDrawer` avec liste des coupes.
+
+**Modale edition** (560px) : champs label, code, facteur defaut, notes, et un **tableau facteurs par essence** (9 essences × input number). L'admin peut definir un facteur specifique par essence pour chaque type de coupe.
+
+**Dropdown dans les composantes** : le champ `coupe` dans la modale composante est un `<select>` peuple depuis `COUPE_TYPES`. Valeur stockee = `label` (texte client).
+
+**Dropdown dans les DM enrichis** : le champ `coupe` dans le panneau DM enrichi du calculateur est aussi un `<select>` peuple depuis `COUPE_TYPES`. Conditionnel : affiché seulement si le materiau principal est un placage (`_isDmPlacage`).
+
+**Variables globales** : `COUPE_TYPES` charge au demarrage dans `calculateur.html` et `catalogue_prix_stele_complet.html`. Fallback `COUPE_TYPES_DEFAULT` si absent en DB.
+
+**Migration** : `sql/coupe_types_essences.sql`
+
+---
+
+## 21. Layout de la modale catalogue
+
+### Organisation des champs
+
+La modale d'edition d'un article catalogue est organisee en sections. Les champs d'identification en haut suivent un layout en lignes :
+
+**Ligne 1** : Code (ST-XXXX, readonly) | Categorie (dropdown) | Classification (FAB/MAT dropdown)
+
+**Ligne 2** (FAB uniquement) : Type de composante associee (dropdown `composante_types`, nullable) | Dimensions applicables (checkboxes L/H/P)
+
+La ligne 2 n'est visible que pour les articles `item_type = 'fabrication'`. Pour les articles `materiau`, la ligne est masquee. Les checkboxes dimensions sont aussi visibles pour les MAT avec `dims_config` explicite (articles MAT avec baremes dimensionnels — voir [section 5b](#5b-baremes-et-modificateurs-labor_modifiers)).
+
+### Sections suivantes
+
+Apres l'identification, les sections se succedent :
+- **Prix** : prix fixe ou prix compose (MO + materiaux)
+- **Texte client** : `client_text` + suggestions en temps reel
+- **Instructions** : `instruction` (prise de mesure) avec bouton AI
+- **Regles de presentation** : humain + JSON
+- **Regles de calcul** : humain + JSON (`calculation_rule_ai`)
+- **Baremes** (`labor_modifiers`) : section admin uniquement
+- **Composantes fournisseur** : table `catalogue_item_components`
+- **Medias** : images et PDF
+
+---
+
+## 22. FAQ — Questions cles
 
 ### Q1 — Quelle est la difference entre "categorie catalogue" et "categorie de depense" ?
 
@@ -1314,7 +1464,7 @@ Oui. `dims_config` est un objet JSONB `{ "l": true, "h": true, "p": false }` qui
 
 ---
 
-## 20. Bugs connus et limitations
+## 23. Bugs connus et limitations
 
 ### Securite
 

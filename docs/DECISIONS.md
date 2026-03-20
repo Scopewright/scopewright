@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-18
+> **Dernière mise à jour** : 2026-03-19
 
 ---
 
@@ -1190,3 +1190,80 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - 380 tests passent (GROUP 40 ajouté)
 
 **Phase C** (2026-03-19) : `getRelevantComposanteId` utilise `catItem.composante_type_id` → lookup `COMPOSANTE_TYPES` en priorité, fallback `_getCategoryDmType`. Résolution directe sans dérivation fragile depuis la catégorie catalogue. 393 tests passent (GROUP 42 ajouté)
+
+---
+
+## DEC-063 — Pas de item_type 'style' (FAB suffit)
+
+**Date** : 2026-03-19
+
+**Contexte** : Proposition d'ajouter un nouveau `item_type = 'style'` pour distinguer les styles de façade (Slab, Shaker, Contemporain) des FAB normaux dans le moteur cascade.
+
+**Décision** : Rejeté. Un FAB avec des règles cascade fait exactement la même chose qu'un STYLE. La distinction n'apporte pas de valeur fonctionnelle — le filtrage UI (section séparée dans le combobox) est faisable via catégorie catalogue ou tag.
+
+**Conséquences** :
+- Zéro modification au moteur cascade
+- Les styles de façade restent des articles `item_type = 'fabrication'` avec leur propre `calculation_rule_ai.cascade`
+- Si un jour un besoin de distinction UI apparaît, une catégorie catalogue suffit
+
+---
+
+## DEC-064 — Pas de renommage nomenclature
+
+**Date** : 2026-03-19
+
+**Contexte** : Évaluation du pivot architectural #224. Question : faut-il renommer composante/FAB/DM/MAT pour plus de clarté ?
+
+**Décision** : Non. La nomenclature actuelle est stabilisée et documentée dans CLAUDE.md, TECHNICAL_MANUAL.md, et les prompts AI. Un renommage toucherait 4000+ lignes de code, les prompts AI, la documentation, et les données en DB — coût disproportionné.
+
+**Conséquences** :
+- Composante = template matériau réutilisable (COMP-XXX)
+- FAB = article fabrication avec cascade (ST-XXXX, item_type='fabrication')
+- DM = matériaux par défaut room-level (panneau sidebar)
+- MAT = article simple (ST-XXXX, item_type='materiau')
+
+---
+
+## DEC-065 — Modale conditionnelle (pas systématique)
+
+**Date** : 2026-03-19
+
+**Contexte** : Les modales de choix matériau/technique dans le moteur cascade. Faut-il toujours les afficher ou seulement quand il y a ambiguïté ?
+
+**Décision** : Conditionnel. 0 candidat → toast + skip. 1 candidat → auto-select silencieux. 2+ candidats → modale de choix. Ce comportement est préservé dans toutes les phases du pivot #224.
+
+**Conséquences** :
+- UX fluide pour les cas simples (1 DM, 1 composante)
+- L'estimateur n'est interrompu que quand une décision humaine est nécessaire
+- Les caches (`dmChoiceCache`, `matchDefaults`) éliminent les modales répétitives
+
+---
+
+## DEC-066 — Retrait #219b différé post-backfill complet
+
+**Date** : 2026-03-19
+
+**Contexte** : Le per-rule override #219b (27 lignes dans la boucle cascade) est redondant avec DEC-061 (chaque FAB trouve sa propre composante). Faut-il le retirer maintenant ?
+
+**Décision** : Différé. Le retrait nécessite que 100% des FAB aient `composante_type_id` backfillé via le dropdown catalogue (#224 Phase B). Sans backfill complet, les FAB sans type lié tombent sur `_getCategoryDmType` qui peut retourner null — le #219b sert de filet de sécurité.
+
+**Conditions de retrait** :
+1. Tous les FAB en prod ont `composante_type_id` lié
+2. DEC-061 validé sur 3-5 cycles d'estimation
+3. Tests GROUP 39 réécrits pour vérifier le nouveau chemin
+4. `_getCategoryDmType` préservé comme fallback ultime
+
+---
+
+## DEC-067 — reprocessDefaultCascades utilise normalizeDmType
+
+**Date** : 2026-03-19
+
+**Contexte** : Le bouton Recalculer (#218) appelait `reprocessDefaultCascades("Façades", groupId)` qui construisait `$default:Façades`. Les règles cascade utilisent `$default:Facades` (sans accent). Comparaison exacte `===` → aucun match → façades disparaissent.
+
+**Décision** : Remplacer la comparaison exacte par `normalizeDmType` sur le suffixe du target. `$default:Facades` et `$default:Façades` normalisent tous les deux vers `facade` → match correct.
+
+**Conséquences** :
+- Les accents et pluriels dans les targets cascade n'ont plus d'impact
+- Le même fix s'applique implicitement à `$default:Panneaux` vs `$default:Panneau`, etc.
+- Backward compatible — la normalisation est idempotente

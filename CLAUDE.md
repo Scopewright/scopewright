@@ -396,6 +396,12 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **`_getEnrichedConfig`** : accepte UUID en entrée → lookup `COMPOSANTE_TYPES` → label → `DM_ENRICHED_GROUPS[label]`
 - **`executeCascade` cache key** : utilise `composante_type_id` quand disponible pour le cache composante choice
 
+**#226 Phase 4 — Cleanup partiel** :
+- **`_dmMatchesGroupe`** : compare `comp.composante_type_id === entry.type_id` (UUID), fallback `e.type === comp.dm_type`
+- **`applyGroupeToDm`** : trouve DM entry par `type_id` UUID, fallback `e.type === dmType`. Crée les nouvelles entries avec `type_id`
+- **`resolveByComposante` cross-type** : compare `comp.composante_type_id` vs `_resolveTypeId(lookupKey)` pour le type match, DM entries matchées par `type_id`
+- **`composantes.dm_type`** string préservé pour display/logs/dedup — pas retiré
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.

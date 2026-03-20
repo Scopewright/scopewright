@@ -3361,7 +3361,11 @@
         for (var i = 0; i < members.length; i++) {
             var comp = COMPOSANTES_DATA.find(function(c) { return c.id === members[i].composante_id; });
             if (!comp) return false;
-            var dm = rdm.find(function(e) { return e.type === comp.dm_type; });
+            // #226: UUID-first, fallback string
+            var dm = rdm.find(function(e) {
+                if (comp.composante_type_id && e.type_id) return e.type_id === comp.composante_type_id;
+                return e.type === comp.dm_type;
+            });
             if (!dm) return false;
             // Compare key fields
             if ((dm.client_text || '') !== ([comp.materiau_client_text || '', comp.coupe || ''].filter(Boolean).join(' ').trim() || '')) return false;
@@ -3865,12 +3869,16 @@
             if (!comp) continue;
 
             var dmType = comp.dm_type;
-            // Find existing DM entry of same type
-            var dmIdx = rdm.findIndex(function(e) { return e.type === dmType; });
+            var _compTypeId = comp.composante_type_id || null;
+            // #226: Find existing DM entry by UUID-first, fallback string
+            var dmIdx = rdm.findIndex(function(e) {
+                if (_compTypeId && e.type_id) return e.type_id === _compTypeId;
+                return e.type === dmType;
+            });
 
             if (dmIdx === -1) {
                 // Create new DM entry for this type
-                rdm.push({ type: dmType, catalogue_item_id: null, client_text: '', description: '' });
+                rdm.push({ type: dmType, type_id: _compTypeId || _resolveTypeId(dmType), catalogue_item_id: null, client_text: '', description: '' });
                 dmIdx = rdm.length - 1;
                 roomDM[roomGroupId] = rdm;
             }
@@ -4845,15 +4853,20 @@
         // COMPOSANTE_FIELD_MAP directly since expense categories are cross-type.
         var effectiveComp = comp;
         if (isDefault && groupId) {
+            // #226: UUID-first type comparison, fallback normalizeDmType
+            var _compTypeId = comp.composante_type_id || null;
             var compTypeNorm = normalizeDmType(comp.dm_type || '');
             var targetTypeNorm = normalizeDmType(lookupKey);
-            if (compTypeNorm !== targetTypeNorm) {
+            var _targetTypeId = _resolveTypeId(lookupKey);
+            var _typesMatch = (_compTypeId && _targetTypeId) ? _compTypeId === _targetTypeId : compTypeNorm === targetTypeNorm;
+            if (!_typesMatch) {
                 // Cross-type: composante is e.g. "Caisson" but rule is "$default:Panneaux"
-                // Find the correct composante from roomDM entries of the target type
                 var dm = getDefaultMaterialsForGroup(groupId);
                 var crossComp = null;
                 for (var i = 0; i < dm.length; i++) {
-                    if (dm[i].composante_id && normalizeDmType(dm[i].type) === targetTypeNorm) {
+                    if (!dm[i].composante_id) continue;
+                    var _dmMatch = (_targetTypeId && dm[i].type_id) ? dm[i].type_id === _targetTypeId : normalizeDmType(dm[i].type || '') === targetTypeNorm;
+                    if (_dmMatch) {
                         crossComp = (COMPOSANTES_DATA || []).find(function(c) { return c.id === dm[i].composante_id; });
                         if (crossComp) break;
                     }

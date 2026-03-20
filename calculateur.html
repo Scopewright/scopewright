@@ -6282,7 +6282,8 @@
             // DEC-061: sync chosenClientText from the DM entry of this FAB's own type
             // Prevents stale chosenClientText inherited from parent (e.g. Caisson's "mélamine"
             // being used for Facade's $match: resolution)
-            if (materialCtx.composante_id) {
+            // Runs regardless of composante_id — the FAB's type determines the DM context
+            if (catItem.composante_type_id || catItem.category) {
                 var _syncDmType = null;
                 if (catItem.composante_type_id && window.COMPOSANTE_TYPES) {
                     var _syncCt = COMPOSANTE_TYPES.find(function(t) { return t.id === catItem.composante_type_id; });

@@ -3190,6 +3190,7 @@
                 var mcKeys = Object.keys(item.material_costs);
                 for (var ki = 0; ki < mcKeys.length; ki++) {
                     var ku = mcKeys[ki].toUpperCase();
+                    if (!ku) continue; // skip empty keys — they match everything via indexOf("")
                     for (var ai = 0; ai < allowedFieldCats.length; ai++) {
                         if (ku.indexOf(allowedFieldCats[ai]) !== -1 || allowedFieldCats[ai].indexOf(ku) !== -1) return true;
                     }
@@ -3354,11 +3355,14 @@
         if (dmType && _dmDirtyTypes[groupId].indexOf(dmType) === -1) {
             _dmDirtyTypes[groupId].push(dmType);
         }
+        // Don't show dirty bar if room has no articles
+        var rowsContainer = document.getElementById(groupId + '-rows');
+        var hasRows = rowsContainer && rowsContainer.querySelector('.calc-row');
         var bar = document.getElementById(groupId + '-dmDirtyBar');
-        if (bar) bar.style.display = '';
-        // Show dirty dot on collapsed header
+        if (bar) bar.style.display = hasRows ? '' : 'none';
+        // Show dirty dot on collapsed header (only if rows exist)
         var label = document.querySelector('#' + groupId + ' .room-dm-label');
-        if (label) label.classList.add('dm-dirty');
+        if (label) { if (hasRows) label.classList.add('dm-dirty'); else label.classList.remove('dm-dirty'); }
     }
 
     /** #218 — Clear dirty state after recalcul */

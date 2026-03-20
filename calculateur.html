@@ -6145,6 +6145,21 @@
         // triggering parallel cascades while we're executing. Without this, each
         // updateRow(child) during item replacement fires scheduleCascade (debounce 400ms)
         // which creates duplicate children alongside the recursive cascade.
+        // Force re-resolution: clear cascadeRuleTarget on non-locked children
+        // of affected parents. Without cascadeRuleTarget, findExistingChildForDynamicRule
+        // won't recognize the child → executeCascade re-resolves from current DM.
+        // Locked children (manually modified by estimator) are preserved.
+        for (var _fri = 0; _fri < rowIds.length; _fri++) {
+            var _frChildren = findCascadeChildren(rowIds[_fri]);
+            for (var _frj = 0; _frj < _frChildren.length; _frj++) {
+                var _frChild = _frChildren[_frj];
+                if (!_frChild.classList.contains('cascade-locked')) {
+                    delete _frChild.dataset.cascadeRuleTarget;
+                    cascadeLog('info', 'reprocess: cleared cascadeRuleTarget on non-locked child ' + _frChild.id);
+                }
+            }
+        }
+
         showCascadeProgress(scopeGroupId);
         _cascadeRunning = true;
         try {

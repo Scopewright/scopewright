@@ -17446,21 +17446,22 @@
                             }
 
                             // Restore dimensions L/H/P + caisson fields
-                            if (item.length_in || item.height_in || item.depth_in) {
+                            // Use != null (not truthy) — 0 is a valid value for depth and caisson counts
+                            if (item.length_in != null || item.height_in != null || item.depth_in != null) {
                                 var dimsEl = document.getElementById(rowId + '-dims');
                                 if (dimsEl) {
-                                    dimsEl.dataset.l = item.length_in || '';
-                                    dimsEl.dataset.h = item.height_in || '';
-                                    dimsEl.dataset.p = item.depth_in || '';
+                                    dimsEl.dataset.l = item.length_in != null ? item.length_in : '';
+                                    dimsEl.dataset.h = item.height_in != null ? item.height_in : '';
+                                    dimsEl.dataset.p = item.depth_in != null ? item.depth_in : '';
                                 }
                             }
-                            if (item.n_tablettes || item.n_partitions || item.n_portes || item.n_tiroirs) {
+                            if (item.n_tablettes != null || item.n_partitions != null || item.n_portes != null || item.n_tiroirs != null) {
                                 var dimsEl2 = document.getElementById(rowId + '-dims');
                                 if (dimsEl2) {
-                                    dimsEl2.dataset.tab = item.n_tablettes || '';
-                                    dimsEl2.dataset.part = item.n_partitions || '';
-                                    dimsEl2.dataset.porte = item.n_portes || '';
-                                    dimsEl2.dataset.tiroir = item.n_tiroirs || '';
+                                    dimsEl2.dataset.tab = item.n_tablettes != null ? item.n_tablettes : '';
+                                    dimsEl2.dataset.part = item.n_partitions != null ? item.n_partitions : '';
+                                    dimsEl2.dataset.porte = item.n_portes != null ? item.n_portes : '';
+                                    dimsEl2.dataset.tiroir = item.n_tiroirs != null ? item.n_tiroirs : '';
                                 }
                             }
 

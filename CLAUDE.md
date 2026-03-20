@@ -18,8 +18,8 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Rôle | Taille |
 |---------|------|--------|
-| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~23 150 lignes |
-| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~8 720 lignes |
+| `calculateur.html` | App principale — projets, pipeline, soumissions, meubles, cascade engine, DM system, AI chatbox, annotations, preview | ~20 760 lignes |
+| `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, AI import | ~10 370 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections accordion | ~4 040 lignes |
 | `approbation.html` | Approbation soumissions + items proposés, AI review chat | ~2 200 lignes |
 | `clients.html` | CRM — contacts, entreprises, communications, AI import | ~2 280 lignes |
@@ -37,12 +37,14 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 | `shared/auth.js` | `SUPABASE_URL`, `SUPABASE_KEY`, `authenticatedFetch()`, `refreshAccessToken()`, `isTokenExpiringSoon()`, `_tokenDebug()` | Toutes les pages authentifiées (7 fichiers) |
 | `shared/utils.js` | `escapeHtml()`, `escapeAttr()` | Toutes les pages qui affichent des données utilisateur (8 fichiers) |
 | `shared/pricing.js` | `computeComposedPrice(item, includeInstallation)` (flat costs), `computeCatItemPrice(item)` ({cost,qty} objects) | calculateur, catalogue, approbation |
-| `shared/presentation-client.js` | Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (contenteditable — `editClientDescription`, `saveClientDescription`, `refreshDescriptionDisplay`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
+| `shared/presentation-client.js` | ~773 lignes. Texte (`textToHtml`, `htmlToText`, `formatDescriptionForDisplay`, `toSentenceCase`), descriptions (contenteditable — `editClientDescription`, `saveClientDescription`, `refreshDescriptionDisplay`…), clauses (CRUD + drag-drop, 17 fonctions), images (`toggleImageShowInQuote`, `toggleImageAiRef`), snapshot (`generateSnapshotHtml`, `uploadSnapshot`, `getSnapshotUrl`), status UI (`updateStatusBadge`, `updateStatusTimeline`) | calculateur |
 | `shared/pdf-export.js` | `exportSubmissionPdf()`, `_sanitizePdfFilename()` — Export PDF server-side via PDFShift API (Edge Function `pdf-export`) | calculateur |
 | `shared/master-agent.js` | Agent Maître global drawer — FAB button (30px/0.28 au repos, 44px/1.0 hover), chat UI, tool approval, doc sync + timestamp (3 docs : MASTER_CONTEXT.md, CLAUDE.md, USER_GUIDE.md), sanity badge, image paste/drop (JPEG 0.90, 3200px max), **indicateur de progression rotatif** (6 messages, rotation 12s, visible jusqu'à réponse). `masterAgentOpen()`, `masterAgentClose()`, `masterAgentSyncDocs()`, `masterSanityReport(issues)`. **JSONB writes** : toutes les écritures `app_config` passent la valeur brute (pas `JSON.stringify`) car `value` est JSONB — PostgREST sérialise automatiquement | calculateur, catalogue, admin, approbation, clients |
+| `shared/calculateur.css` | CSS calculateur (extrait #126 Vague 1 de calculateur.html) | calculateur |
+| `shared/coupe.js` | `_detectEssence()`, `getCoupeFacteur()`, `_isPlacageCategory()`, `_getCoupeFacteurForRow()`, `_applyCoupeFactor()` | calculateur |
 | `shared/sanity-checks.js` | Deterministic sanity checks (no AI) — `runSanityChecks(opts)`, `SANITY_CHECKS` registry. Checks: `presRuleKeys`, `descriptionsNotEmpty`, `totalNotZero`, `cascadeOrphans` | calculateur, catalogue |
 
-**Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags.
+**Note** : `shared/auth.js` utilise `var` (pas `const`) pour éviter les erreurs de redéclaration entre `<script>` tags. `shared/coupe.js` uses `var` for `COUPE_TYPES` and `roomDM` globals defined in calculateur.html.
 
 ## Conventions de code
 

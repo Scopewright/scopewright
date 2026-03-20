@@ -2,7 +2,7 @@
 
 > Document exhaustif pour assistant AI. Couvre l'architecture, les systèmes, les flux de données et les mécanismes internes de la plateforme Scopewright.
 >
-> **Dernière mise à jour** : 2026-03-14
+> **Dernière mise à jour** : 2026-03-20
 
 ---
 
@@ -22,6 +22,7 @@
 12. [Edge Functions](#12-edge-functions)
 13. [Google Apps Script](#13-google-apps-script)
 14. [Tests automatisés — Moteur cascade](#14-tests-automatisés--moteur-cascade)
+15. [Code extraction (#126)](#15-code-extraction-126)
 
 ---
 
@@ -42,7 +43,7 @@
 
 | Fichier | Rôle | Taille approx. |
 |---------|------|----------------|
-| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~22 950 lignes |
+| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~20 758 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 530 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections | ~4 044 lignes |
 | `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 233 lignes |
@@ -585,6 +586,7 @@ En plus des enfants générés automatiquement par les règles `cascade`, un uti
 2. **`addRow` blur listener** : pour les nouvelles lignes (pas `existingId`, pas `cascade`), un listener `blur` one-shot sur le combobox appelle `removeRow` après 2 secondes si aucun article n'est sélectionné
 3. **`openSubmission` filtre** : au chargement, `room.room_items` est filtré par `catalogue_item_id || item_type === 'custom'` — les lignes fantômes legacy sont ignorées
 4. **`openSubmission` tri topologique** : après filtrage, les items sont triés pour que chaque parent précède ses enfants (`_addWithChildren` récursif). Les roots sont triés par `sort_order`, puis chaque root est suivi de ses children (eux aussi triés par `sort_order`). Prévient l'affichage d'enfants cascade avant leur parent même si `sort_order` en DB est corrompu
+5. **`openSubmission` restore dims — fix truthy checks** : la restauration des dimensions (`depth_in`, `n_portes`, `n_tiroirs`, `n_tablettes`, `n_partitions`) utilisait des checks truthy (`if (item.depth_in)`) qui ignoraient la valeur `0` (falsy en JS). Corrigé en `!= null` — la valeur `0` est désormais correctement restaurée dans les inputs dims au lieu d'être traitée comme absente. Même pattern que le guard `checkAskCompleteness` (0 est valide pour les variables caisson)
 
 ### 3.11 Override par ligne (prix, MO, matériaux)
 
@@ -1928,6 +1930,55 @@ Les copies dans `cascade-helpers.js` doivent être mises à jour manuellement si
 2. Mettre à jour les copies si nécessaire
 3. Rouler `node tests/cascade-engine.test.js`
 4. Vérifier 0 failures avant commit
+
+---
+
+## 15. Code extraction (#126)
+
+Extraction de code depuis `calculateur.html` pour réduire la taille du monolithe (règle d'architecture §1 : seuil de taille).
+
+### 15.1 Fichiers extraits
+
+| Fichier | Lignes | Contenu extrait | Source |
+|---------|--------|-----------------|--------|
+| `shared/calculateur.css` | 4 476 | CSS complet — tout le bloc `<style>` inline de `calculateur.html` | `calculateur.html` `<style>` |
+| `shared/coupe.js` | 88 | Fonctions coupe de placage : `_detectEssence`, `getCoupeFacteur`, `_isPlacageCategory`, `_getCoupeFacteurForRow`, `_applyCoupeFactor` | `calculateur.html` inline JS |
+
+### 15.2 Impact sur `calculateur.html`
+
+- **Avant extraction** : ~25 304 lignes
+- **Après extraction** : ~20 758 lignes
+- **Réduction** : ~4 546 lignes (18%)
+
+### 15.3 `shared/calculateur.css` (4 476 lignes)
+
+Tout le CSS inline de `calculateur.html` extrait dans un fichier séparé. Inclut les styles pour :
+- Grille calculateur (`.calc-row`, `.calc-header`, `.cell-*`)
+- Cascade (`.cascade-child`, `.cascade-parent-row`, `.cascade-manual-edit`)
+- DM panel (`.room-dm-section`, `.rdm-*`)
+- Preview/snapshot (`.pv-*`)
+- Pipeline (`.pipeline-*`, `.project-card`)
+- AI chatbox (`.ai-*`)
+- Composantes (`.comp-*`, `.dm-comp-*`)
+- Modale catalogue, custom items, annotations, rentabilité
+- Responsive breakpoints et print rules
+
+Chargé via `<link rel="stylesheet" href="shared/calculateur.css">`.
+
+### 15.4 `shared/coupe.js` (88 lignes)
+
+5 fonctions pures liées au calcul du facteur de coupe de placage :
+
+| Fonction | Rôle |
+|----------|------|
+| `_detectEssence(clientText)` | Détecte l'essence de bois depuis le `client_text` (9 essences, normalisation NFD) |
+| `getCoupeFacteur(coupeLabel, articleClientText)` | Retourne le multiplicateur coupe : essence → `facteurs[essence]` → `facteur_defaut` → `facteur` → 1.0 |
+| `_isPlacageCategory(catName)` | Vérifie si une catégorie est panneau/placage-related |
+| `_getCoupeFacteurForRow(row, articleClientText)` | Cherche la coupe dans le DM de la pièce |
+| `_applyCoupeFactor(materialCosts, factor)` | Multiplie les coûts placage-related par le facteur |
+
+Dépendances globales requises : `COUPE_TYPES`, `roomDM`, `getDefaultMaterialsForGroup`.
+Chargé via `<script src="shared/coupe.js"></script>`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Chaque entrée documente une décision technique significative, son contexte, les alternatives rejetées et les conséquences.
 >
-> **Dernière mise à jour** : 2026-03-19
+> **Dernière mise à jour** : 2026-03-20
 
 ---
 
@@ -1267,3 +1267,19 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - Les accents et pluriels dans les targets cascade n'ont plus d'impact
 - Le même fix s'applique implicitement à `$default:Panneaux` vs `$default:Panneau`, etc.
 - Backward compatible — la normalisation est idempotente
+
+---
+
+## DEC-068 — Retrait resolveByComposante pour $default:
+
+**Date** : 2026-03-20
+
+**Contexte** : `resolveByComposante` via `COMPOSANTE_FIELD_MAP` mappait `$default:Facades` vers `materiau_catalogue_id` au lieu de `style_catalogue_id`. Causait la résolution de la bande de chant ou du panneau au lieu du FAB façade.
+
+**Décision** : Retirer le composante-first check pour les règles `$default:` dans `resolveCascadeTarget`. FAB-priority (DEC-058) scanne les sous-champs enrichis dans l'ordre de `DM_ENRICHED_GROUPS[type].fields` (style→materiau pour Façades). Step 4a (DEC-060) résout par `catalogue_item_id` direct. `resolveByComposante` reste actif pour `$match:` via `resolveMatchTarget`.
+
+**Conséquences** :
+- `$default:Facades` résout le FAB style (ST-0045) en priorité
+- `$match:BANDE DE CHANT` résout via ENRICHED_DM_FIELD_MAP (correct)
+- Pas de régression sur les `$match:` — COMPOSANTE_FIELD_MAP est correct pour les catégories de dépense
+- 393 tests passent

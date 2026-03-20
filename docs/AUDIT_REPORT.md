@@ -3,7 +3,7 @@
 > Audit indépendant de sécurité, bugs, risques architecturaux et performance.
 > Analyse en lecture seule de l'ensemble du codebase.
 >
-> **Date** : 2026-03-14 (mis à jour)
+> **Date** : 2026-03-20 (mis à jour)
 > **Périmètre** : Tous les fichiers HTML, Edge Functions, SQL migrations, Google Apps Script
 
 ---
@@ -521,6 +521,28 @@ Le champ `entry.style` dans les DM entries pouvait être stocké sous 3 formats 
 Le script de migration `backfill_item_type.sql` marquait des articles comme `fabrication` en se basant uniquement sur la présence de `calculation_rule_ai`, même si celui-ci ne contenait pas de règles cascade réelles.
 
 **Fix** : Le backfill exige désormais la présence de vraies règles cascade (`cascade` array non-null et non-vide) dans `calculation_rule_ai` avant de classer un article comme `fabrication`.
+
+### 3.10 Bugs actifs (2026-03-20)
+
+**[BUG-42] Tag non propagé aux enfants cascade** — Sévérité : moyenne
+
+`propagateTagToDescendants` existe mais ne se déclenche pas de manière consistante. Un parent tagué "c1" ne propage pas le tag à ses enfants cascade. Impact cosmétique mais source de confusion pour l'estimateur (les enfants cascade apparaissent sans tag dans la grille et dans le contexte AI).
+
+**[BUG-43] `depth_in = NULL` en DB** — Sévérité : haute (perte de données)
+
+Le debounce global de `debouncedSaveItem` (500ms) annule les saves précédents quand plusieurs items sont modifiés rapidement. `executeCascade` utilise `updateItem()` immédiat pour les enfants cascade, mais les dims du parent peuvent ne pas être sauvegardées si l'utilisateur modifie la profondeur puis navigue ailleurs avant l'expiration du debounce. Résultat : `depth_in = NULL` en DB, dimensions perdues au rechargement.
+
+**[BUG-44] Triple bande de chant** — Sévérité : haute (corruption de données)
+
+`reprocessDefaultCascades` est appelé 3 fois (une fois par type DM dirty via `recalculateDmCascades`). Le parent caisson matche les 3 appels car la cible `$match:BANDE DE CHANT` se déclenche pour tout type modifié. `findExistingChildForDynamicRule` échoue au 2e et 3e run après que `cascadeRuleTarget` a été vidé. Résultat : création d'enfants en doublon.
+
+**[BUG-45] `openSubmission` truthy restore** — Sévérité : haute (perte de données au rechargement)
+
+`item.n_portes = 0` est traité comme falsy, le bloc de restauration des dims est sauté. Corrigé dans le commit `0e86bee` avec des checks `!= null`. À valider en production.
+
+**[BUG-46] Composantes sans `composante_type_id`** — Sévérité : moyenne
+
+Les composantes créées avant le ticket #224 ont `composante_type_id = null`. Le filtre dropdown tombe en comparaison string qui peut échouer si `dm_type` est null ou vide. Fix possible : SQL backfill ou re-save de chaque composante. Impact : mauvaise composante affichée dans le dropdown accordion DM.
 
 ---
 

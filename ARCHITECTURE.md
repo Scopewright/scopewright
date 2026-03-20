@@ -1,12 +1,10 @@
 # ARCHITECTURE -- Scopewright (Stele)
 
-> **⚠️ LEGACY — Ce fichier n'est plus maintenu depuis 2026-02-25.**
-> Pour la documentation technique à jour, consulter :
-> - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif (architecture, systèmes, Edge Functions, tables)
-> - `docs/MASTER_CONTEXT.md` — Synthèse optimisée AI (contexte système Agent Maître)
-> - `CLAUDE.md` — Instructions Claude Code (conventions, références rapides)
->
-> Derniere mise a jour : 2026-02-25.
+> **⚠️ Ce fichier date du 2026-02-25 et n'est plus maintenu.** Pour l'architecture actuelle, consulter :
+> - `docs/TECHNICAL_MANUAL.md` — Manuel technique exhaustif
+> - `docs/STATUS.md` — Snapshot opérationnel courant
+> - `docs/DECISIONS.md` — Journal des décisions architecturales
+> - `CLAUDE.md` — Instructions projet
 
 ---
 
@@ -56,7 +54,7 @@ Scopewright est une application web pour l'estimation de cuisines et meubles sur
 
 | Fichier | Lignes | Taille | Role | Auth |
 |---------|-------:|-------:|------|:----:|
-| `calculateur.html` | 17 145 | 890 Ko | Application principale -- projets, soumissions, meubles, lignes, AI chatbox, annotations, pipeline, cascades | Oui |
+| `calculateur.html` | 20 758 | ~1 Mo | Application principale -- projets, soumissions, meubles, lignes, AI chatbox, annotations, pipeline, cascades. **Note** : depuis ce document, `shared/calculateur.css` (4 476 lignes) et `shared/coupe.js` (88 lignes) ont été extraits de ce fichier. | Oui |
 | `catalogue_prix_stele_complet.html` | 8 293 | 402 Ko | Catalogue de prix -- CRUD items, images, prix compose, AI import, sandbox editeur de regles | Oui |
 | `admin.html` | 2 864 | 176 Ko | Administration -- permissions, roles, taux horaires, categories, prompts AI | Oui |
 | `clients.html` | 2 343 | 126 Ko | CRM -- contacts, entreprises, communications, AI import | Oui |

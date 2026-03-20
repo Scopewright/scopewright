@@ -1,7 +1,7 @@
 # MASTER_CONTEXT.md — Scopewright System Knowledge (AI-optimized)
 
 > Ce document est optimisé pour être lu par une AI. Pas de prose — sections courtes, labels clairs, règles explicites.
-> Dernière mise à jour : 2026-03-16
+> Dernière mise à jour : 2026-03-20
 
 ---
 
@@ -23,7 +23,7 @@
 
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
-| `calculateur.html` | ~23 150 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
+| `calculateur.html` | ~20 758 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
 | `catalogue_prix_stele_complet.html` | ~8 720 | Catalogue prix — CRUD articles, images, AI import, composantes, coupes |
 | `admin.html` | ~4 040 | Administration — 6 volets sidebar, prompts AI, Agent Maître |
 | `approbation.html` | ~2 200 | Approbation soumissions, AI review |
@@ -44,6 +44,8 @@
 | `shared/pdf-export.js` | `exportSubmissionPdf()` via PDFShift API |
 | `shared/master-agent.js` | Agent Maître drawer global — FAB, chat UI, tool approval, doc sync |
 | `shared/sanity-checks.js` | `runSanityChecks()` — checks déterministes (no AI) |
+| `shared/calculateur.css` | Styles extraits du calculateur (cascade, DM, grille, overrides) |
+| `shared/coupe.js` | Logique coupes de placage — `getCoupeFacteur()`, `_detectEssence()`, `COUPE_TYPES` |
 
 ---
 
@@ -364,7 +366,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | SEC-05 | Tokens publics sans expiration | Lien compromis reste valide indéfiniment |
 | SEC-08 | Pas de validation schéma Edge Functions | Payload arbitraire possible |
 | RC-02 | Permissions client-side uniquement | Bypass via DevTools |
-| ARCH-01 | `calculateur.html` ~23 150 lignes | Maintenabilité critique |
+| ARCH-01 | `calculateur.html` ~20 758 lignes | Maintenabilité critique |
 | ARCH-10 | Supabase single backend | Pas d'abstraction, vendor lock-in |
 | BUG-04 | Prix composé vs manuel ambigu | Confusion source de vérité |
 
@@ -402,6 +404,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | DEC-024 | `cascade_suppressed` mémoire de suppression | Empêcher regénération |
 | DEC-027 | Extraction `shared/presentation-client.js` | Réutilisation calculateur↔quote |
 | DEC-031 | PDFShift server-side (remplace html2pdf.js) | Rendu fidèle Chromium |
+| DEC-068 | Retrait `resolveByComposante` pour `$default:` | FAB-priority + Step 4a scannent dans l'ordre correct |
 
 ---
 

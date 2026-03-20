@@ -382,6 +382,12 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **`getRelevantComposanteId`** : utilise `catItem.composante_type_id` → lookup `COMPOSANTE_TYPES` → `label` en priorité. Fallback `_getCategoryDmType(catItem.category)` si `composante_type_id` null, invalide, ou `COMPOSANTE_TYPES` pas chargé
 - **Fonction pure testable** : `resolveDmTypeFromFab(catItem, composanteTypes, getCategoryDmTypeFn)` dans `tests/cascade-helpers.js`
 
+**#226 Phase 1 — type_id sur les entrées DM** :
+- **`entry.type_id`** : UUID FK vers `composante_types`, stocké à côté de `entry.type` (string display). Résolu via `_resolveTypeId(typeLabel)` — lookup `COMPOSANTE_TYPES` par label normalisé ou code
+- **Migration données** : dans `openSubmission`, dérive `type_id` depuis `type` via `_resolveTypeId` pour les entrées legacy sans `type_id`. Sauvegarde auto si changé
+- **Filtre composante accordion** : `renderEnrichedPanel` filtre par `c.composante_type_id === entry.type_id` (UUID) en priorité, fallback `normalizeDmType` string si UUID absent
+- **Points d'écriture** : `addRoomDmEntry` (création) et `updateRoomDmType` (changement type) stockent `type_id`
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.

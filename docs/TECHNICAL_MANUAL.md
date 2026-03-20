@@ -658,8 +658,9 @@ Overlay semi-transparent sur la zone articles (`.calc-rows`) pendant `reprocessD
 ```javascript
 // Niveau pièce uniquement (project_rooms.default_materials via roomDM[groupId])
 // client_text est l'identifiant primaire pour la résolution cascade
+// #226: type_id (UUID) ajouté pour filtrage composante par ID au lieu de string
 [
-  { "type": "Caisson", "catalogue_item_id": "ST-0142", "client_text": "Mélamine blanche", "description": "Mélamine TFL blanc" },
+  { "type": "Caisson", "type_id": "uuid-caisson", "catalogue_item_id": "ST-0142", "client_text": "Mélamine blanche", "description": "..." },
   { "type": "Facades", "catalogue_item_id": "ST-0088", "client_text": "Placage chêne blanc", "description": "Placage chêne blanc FC 8%" }
 ]
 ```

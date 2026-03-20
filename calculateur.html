@@ -2597,6 +2597,15 @@
     // Structure: [ { type: "Caisson", catalogue_item_id: "ST-0035", client_text: "Placage de chêne blanc", description: "Placage de chêne blanc" }, ... ]
 
     function getDmTypes() { return materialGroups.filter(function(g) { return DM_HIDDEN_GROUPS.indexOf(g) === -1; }); }
+
+    /** #226: Resolve composante_type UUID from a type label string */
+    function _resolveTypeId(typeLabel) {
+        if (!typeLabel) return null;
+        var types = (window.COMPOSANTE_TYPES && COMPOSANTE_TYPES.length > 0) ? COMPOSANTE_TYPES : COMPOSANTE_TYPES_FALLBACK;
+        var norm = normalizeDmType(typeLabel);
+        var found = types.find(function(t) { return normalizeDmType(t.label) === norm || t.code === norm || t.code === norm + 's'; });
+        return found && found.id ? found.id : null;
+    }
     function getMissingRequiredDm(groupId) {
         var rdm = roomDM[groupId] || [];
         var filledNorm = rdm.filter(function(e) {
@@ -2927,18 +2936,27 @@
         var html = '<div class="rdm-enriched collapsed" id="rdmEnriched-' + groupId + '-' + idx + '">';
 
         // Composante selector — first field in accordion
+        // #226: filter by type_id (UUID) with fallback to normalizeDmType string comparison
+        var _entryTypeId = entry.type_id || null;
         var _entryTypeNorm = normalizeDmType(entry.type || '');
         var _compOptions = (COMPOSANTES_DATA || []).filter(function(c) {
-            return c.is_active === true && normalizeDmType(c.dm_type || '') === _entryTypeNorm && _entryTypeNorm !== '';
+            if (c.is_active !== true) return false;
+            // UUID comparison (preferred)
+            if (_entryTypeId && c.composante_type_id) return c.composante_type_id === _entryTypeId;
+            // Fallback: string comparison
+            if (!_entryTypeNorm) return false;
+            return normalizeDmType(c.dm_type || '') === _entryTypeNorm;
         });
         if (_compOptions.length > 0) {
             var _appliedComp = entry.composante_id
                 ? (COMPOSANTES_DATA || []).find(function(c) { return c.id === entry.composante_id; })
                 : null;
-            // Type coherence check — clear stale composante_id if dm_type mismatch
-            if (_appliedComp && normalizeDmType(_appliedComp.dm_type || '') !== _entryTypeNorm) {
-                entry.composante_id = null;
-                _appliedComp = null;
+            // Type coherence check — clear stale composante_id if type mismatch
+            if (_appliedComp) {
+                var _compTypeMatch = (_entryTypeId && _appliedComp.composante_type_id)
+                    ? _appliedComp.composante_type_id === _entryTypeId
+                    : normalizeDmType(_appliedComp.dm_type || '') === _entryTypeNorm;
+                if (!_compTypeMatch) { entry.composante_id = null; _appliedComp = null; }
             }
             html += '<div class="rdm-enriched-row rdm-comp-row">';
             html += '<label class="rdm-enriched-label">Composante</label>';
@@ -3469,7 +3487,8 @@
 
     function addRoomDmEntry(groupId) {
         if (!roomDM[groupId]) roomDM[groupId] = [];
-        roomDM[groupId].push({ type: getDmTypes()[0], catalogue_item_id: null, description: '' });
+        var _newType = getDmTypes()[0];
+        roomDM[groupId].push({ type: _newType, type_id: _resolveTypeId(_newType), catalogue_item_id: null, description: '' });
         saveRoomDm(groupId);
         renderRoomDm(groupId);
         var rows = document.querySelectorAll('#' + groupId + '-dmRows .rdm-row');
@@ -3486,6 +3505,7 @@
         if (oldType) delete dmChoiceCache[groupId + ':' + oldType];
         if (newType) delete dmChoiceCache[groupId + ':' + newType];
         rdm[idx].type = newType;
+        rdm[idx].type_id = _resolveTypeId(newType);
         _detachComposanteOnEdit(groupId, idx);
         if (oldType) _markDmDirty(groupId, oldType);
         if (newType) _markDmDirty(groupId, newType);
@@ -21689,6 +21709,11 @@
                             }
                             _rebuildDmClientText(groupId, dmIdx);
                             if (entry.client_text !== _oldCt) _dmRebuilt = true;
+                        }
+                        // #226: Derive type_id from type string if missing
+                        if (!entry.type_id && entry.type) {
+                            entry.type_id = _resolveTypeId(entry.type);
+                            if (entry.type_id) _dmRebuilt = true;
                         }
                     });
                     if (_dmRebuilt) saveRoomDm(groupId);

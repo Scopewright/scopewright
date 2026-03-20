@@ -116,10 +116,6 @@
     // SOUMISSIONS — CRUD SUPABASE
     // ═══════════════════════════════════════════════════════════════════════
 
-    async function loadSubmissions(projectId) {
-        const r = await authenticatedFetch(SUPABASE_URL + '/rest/v1/submissions?project_id=eq.' + projectId + '&order=submission_number.desc&select=*', {});
-        if (!r.ok) return [];
-
 function getPipelineStatus(slug) {
     return pipelineStatuses.find(function(s) { return s.slug === slug; }) || { slug: slug, label: slug || '—', color: '#9e9e9e' };
 }

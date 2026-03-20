@@ -305,6 +305,12 @@ Le panneau DM utilise un thème navy sombre distinct du reste de l'application.
 - Focus : `border-bottom-color: rgba(255,255,255,0.4)`, pas d'outline
 - Sélecteur : `.room-dm-section select` — s'applique au select Coupe et tout futur `<select>` dans le panneau
 
+**Champs enrichis sélectionnés** :
+- Après sélection, afficher : `ST-XXXX  Description technique` (code + 2 espaces + description)
+- Au lieu de `client_text` seul
+- Tooltip `title` sur l'input pour le texte complet si tronqué
+- `_dmEnrichedDisplay(itemId, fallbackText)` — lookup CATALOGUE_DATA par ID
+
 **Indicateur dirty DM (header collapsé)** :
 - Point orange `#F59E0B`, 8px, `border-radius: 50%`, `::before` pseudo-element
 - Classe `.dm-dirty` sur `.room-dm-label` — apparaît quand DM modifié sans recalcul

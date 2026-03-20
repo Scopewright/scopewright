@@ -2976,10 +2976,11 @@
                 var subVal = entry[field];
                 // Backward compat: style may be a plain string (legacy)
                 if (typeof subVal === 'string') subVal = { client_text: subVal };
-                var subDisplay = (subVal && subVal.client_text) ? subVal.client_text : '';
-                if (!subDisplay && subVal && subVal.catalogue_item_id) {
-                    var subItem = (CATALOGUE_DATA || []).find(function(c) { return c.id === subVal.catalogue_item_id; });
-                    if (subItem) subDisplay = subItem.client_text || subItem.description || '';
+                var subDisplay = '';
+                if (subVal && subVal.catalogue_item_id) {
+                    subDisplay = _dmEnrichedDisplay(subVal.catalogue_item_id, subVal.client_text || '');
+                } else if (subVal && subVal.client_text) {
+                    subDisplay = subVal.client_text;
                 }
                 var subAcId = 'rdmEAC-' + groupId + '-' + idx + '-' + field;
                 var resolvedClass = (subVal && (subVal.client_text || subVal.catalogue_item_id)) ? ' dm-resolved' : '';
@@ -2990,6 +2991,7 @@
                 }
                 html += '<div class="dm-search-wrap rdm-enriched-input' + emptyWarnClass + '">' +
                     '<input type="text" value="' + escapeAttr(subDisplay) + '"' +
+                        (subDisplay ? ' title="' + escapeAttr(subDisplay) + '"' : '') +
                         ' placeholder="' + (isDisabled ? 'Non applicable (mélamine)' : 'Rechercher...') + '"' +
                         ' oninput="rdmSearchEnriched(\'' + groupId + '\',' + idx + ',\'' + field + '\',this)"' +
                         ' onfocus="rdmSearchEnriched(\'' + groupId + '\',' + idx + ',\'' + field + '\',this)"' +
@@ -3418,7 +3420,12 @@
         var acDiv = document.getElementById(acId);
         if (acDiv) {
             var input = acDiv.parentElement.querySelector('input');
-            if (input) { input.value = clientText || itemId; input.classList.add('dm-resolved'); }
+            if (input) {
+                    var _dispText = _dmEnrichedDisplay(itemId, clientText || itemId);
+                    input.value = _dispText;
+                    input.title = _dispText;
+                    input.classList.add('dm-resolved');
+                }
             acDiv.classList.remove('open');
             acDiv.innerHTML = '';
         }
@@ -3515,6 +3522,15 @@
     // ── #209 Phase 1B — Save DM as composante ──
 
     /** Extract display value from a DM sub-field (string or {client_text} object) */
+    /** Format enriched sub-field display: "ST-XXXX  Description" with tooltip */
+    function _dmEnrichedDisplay(itemId, fallbackText) {
+        if (itemId) {
+            var _item = (CATALOGUE_DATA || []).find(function(c) { return c.id === itemId; });
+            if (_item) return _item.id + '  ' + (_item.description || _item.client_text || '');
+        }
+        return fallbackText || '';
+    }
+
     function _dmFieldText(val) {
         if (!val) return null;
         if (typeof val === 'string') {

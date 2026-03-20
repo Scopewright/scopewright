@@ -190,6 +190,14 @@
     let roomModifiers = {};          // { groupDomId: number (percentage) } — price_modifier_pct per room
     let roomDM = {};                 // { groupDomId: [{type, catalogue_item_id, description}] } — per-room default materials
     var COMPOSANTES_DATA = [];       // #209 — composantes loaded from Supabase
+    var COMPOSANTE_TYPES = [];       // #224 — dynamic composante types from DB
+    var COMPOSANTE_TYPES_FALLBACK = [
+        { code: 'caisson', label: 'Caisson' },
+        { code: 'facades', label: 'Façades' },
+        { code: 'panneaux', label: 'Panneaux' },
+        { code: 'tiroirs', label: 'Tiroirs' },
+        { code: 'poignees', label: 'Poignées' }
+    ];
     var COMPOSANTES_GROUPE_ITEMS = {}; // #217 — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
     var _roomAppliedGroupe = {};      // { groupDomId: groupeComposanteId } — last applied groupe per room
     var _dmDirtyTypes = {};           // #218 — { groupDomId: ['Caisson','Façades',...] } — DM types changed since last recalcul
@@ -13404,12 +13412,23 @@
         /** Load composantes from Supabase (#209) */
         async function loadComposantes() {
             try {
+                await _loadComposanteTypes();
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
                 if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
                 COMPOSANTES_DATA = await resp.json();
                 // #217: Load all groupe items
                 await loadComposanteGroupeItems();
             } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
+        /** #224: Load composante types from DB */
+        async function _loadComposanteTypes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?is_active=eq.true&order=sort_order.asc&select=id,code,label,sort_order', {});
+                if (!resp.ok) { console.warn('[ComposanteTypes] Load failed:', resp.status); COMPOSANTE_TYPES = COMPOSANTE_TYPES_FALLBACK; return; }
+                var data = await resp.json();
+                COMPOSANTE_TYPES = data.length > 0 ? data : COMPOSANTE_TYPES_FALLBACK;
+            } catch(e) { console.warn('[ComposanteTypes] Load error:', e); COMPOSANTE_TYPES = COMPOSANTE_TYPES_FALLBACK; }
         }
 
         /** #217: Load all composante_groupe_items, indexed by groupe_id */

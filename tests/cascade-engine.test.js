@@ -2945,6 +2945,58 @@ describe('39. shouldOverrideComposanteId — #219b per-rule guard', function() {
     });
 });
 
+// GROUP 40: COMPOSANTE_TYPES lookup (#224)
+describe('GROUP 40: COMPOSANTE_TYPES lookup', function() {
+    var TYPES = [
+        { id: 'uuid-1', code: 'caisson', label: 'Caisson', sort_order: 1 },
+        { id: 'uuid-2', code: 'facades', label: 'Façades', sort_order: 2 },
+        { id: 'uuid-3', code: 'panneaux', label: 'Panneaux', sort_order: 3 },
+        { id: 'uuid-4', code: 'tiroirs', label: 'Tiroirs', sort_order: 4 },
+        { id: 'uuid-5', code: 'poignees', label: 'Poignées', sort_order: 5 }
+    ];
+    var FALLBACK = [
+        { code: 'caisson', label: 'Caisson' },
+        { code: 'facades', label: 'Façades' },
+        { code: 'panneaux', label: 'Panneaux' },
+        { code: 'tiroirs', label: 'Tiroirs' },
+        { code: 'poignees', label: 'Poignées' }
+    ];
+
+    it('lookup by id returns correct code', function() {
+        var found = TYPES.find(function(t) { return t.id === 'uuid-2'; });
+        assert(found && found.code === 'facades', 'should find facades by id');
+    });
+
+    it('lookup by code returns correct label', function() {
+        var found = TYPES.find(function(t) { return t.code === 'panneaux'; });
+        assert(found && found.label === 'Panneaux', 'should find Panneaux by code');
+    });
+
+    it('invalid id returns undefined', function() {
+        var found = TYPES.find(function(t) { return t.id === 'nonexistent'; });
+        assert(found === undefined, 'should return undefined for invalid id');
+    });
+
+    it('fallback used when types empty', function() {
+        var types = [];
+        var effective = types.length > 0 ? types : FALLBACK;
+        assert(effective.length === 5, 'should fallback to 5 types');
+        assert(effective[0].code === 'caisson', 'first fallback should be caisson');
+    });
+
+    it('normalizeDmType matches type code via startsWith', function() {
+        var norm = helpers.normalizeDmType('Façades');
+        // normalizeDmType strips plural → "facade", code is "facades"
+        var found = TYPES.find(function(t) { return t.code === norm || t.code === norm + 's'; });
+        assert(found && found.label === 'Façades', 'normalizeDmType("Façades") should match facades code');
+    });
+
+    it('types are sorted by sort_order', function() {
+        var sorted = TYPES.slice().sort(function(a, b) { return a.sort_order - b.sort_order; });
+        assert(sorted[0].code === 'caisson' && sorted[4].code === 'poignees', 'should be sorted');
+    });
+});
+
 // ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════

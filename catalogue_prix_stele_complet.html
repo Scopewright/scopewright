@@ -67,6 +67,15 @@
 
     // #209: Composantes data
     var COMPOSANTES_DATA = [];
+    // #224: Dynamic composante types from DB
+    var COMPOSANTE_TYPES = [];
+    var COMPOSANTE_TYPES_FALLBACK = [
+        { code: 'caisson', label: 'Caisson' },
+        { code: 'facades', label: 'Façades' },
+        { code: 'panneaux', label: 'Panneaux' },
+        { code: 'tiroirs', label: 'Tiroirs' },
+        { code: 'poignees', label: 'Poignées' }
+    ];
     // #217: Groupe items — { groupe_id: [{ id, groupe_id, composante_id, ordre }] }
     var COMPOSANTES_GROUPE_ITEMS = {};
 
@@ -2345,6 +2354,7 @@
         <div style="flex:1;"></div>
         <button class="cat-filter-btn" id="batchSelectBtn" onclick="toggleBatchMode()" style="display:none;">S&eacute;lectionner</button>
         <button class="cat-filter-btn" id="auditBtn" onclick="openAuditDrawer()" title="Auditer le catalogue">Auditer</button>
+        <button class="cat-filter-btn" id="compTypesBtn" onclick="openCompTypesDrawer()" title="Types de composante">Types</button>
         <button class="cat-filter-btn" id="coupesBtn" onclick="openCoupesDrawer()" title="Types de coupe de placage">Coupes</button>
         <button class="cat-filter-btn" id="composantesBtn" onclick="openComposantesDrawer()" title="G&eacute;rer les composantes">Composantes</button>
     </div>
@@ -5889,12 +5899,121 @@
         /** Load composantes from Supabase */
         async function loadComposantes() {
             try {
+                await loadComposanteTypes();
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composantes?is_active=eq.true&order=code.asc&select=*', {});
                 if (!resp.ok) { console.warn('[Composantes] Load failed:', resp.status); return; }
                 COMPOSANTES_DATA = await resp.json();
                 // #217: Load all groupe items
                 await _loadAllGroupeItems();
             } catch(e) { console.warn('[Composantes] Load error:', e); }
+        }
+
+        /** #224: Load composante types from DB */
+        async function loadComposanteTypes() {
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?is_active=eq.true&order=sort_order.asc&select=id,code,label,sort_order', {});
+                if (!resp.ok) { console.warn('[ComposanteTypes] Load failed:', resp.status); COMPOSANTE_TYPES = COMPOSANTE_TYPES_FALLBACK; return; }
+                var data = await resp.json();
+                COMPOSANTE_TYPES = data.length > 0 ? data : COMPOSANTE_TYPES_FALLBACK;
+            } catch(e) { console.warn('[ComposanteTypes] Load error:', e); COMPOSANTE_TYPES = COMPOSANTE_TYPES_FALLBACK; }
+        }
+
+        /** #224: Open/close composante types drawer */
+        function openCompTypesDrawer() {
+            document.getElementById('compTypeOverlay').classList.add('active');
+            document.getElementById('compTypesDrawer').classList.add('active');
+            _renderCompTypesList();
+        }
+        function closeCompTypesDrawer() {
+            document.getElementById('compTypeOverlay').classList.remove('active');
+            document.getElementById('compTypesDrawer').classList.remove('active');
+        }
+
+        function _renderCompTypesList() {
+            var list = document.getElementById('compTypesList');
+            if (!list) return;
+            var types = COMPOSANTE_TYPES.length > 0 ? COMPOSANTE_TYPES : COMPOSANTE_TYPES_FALLBACK;
+            if (!types.length) { list.innerHTML = '<div class="comp-empty">Aucun type.</div>'; return; }
+            var compCounts = {};
+            (COMPOSANTES_DATA || []).forEach(function(c) {
+                var t = (c.dm_type || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/s$/,'');
+                if (!compCounts[t]) compCounts[t] = 0;
+                compCounts[t]++;
+            });
+            var html = '';
+            types.forEach(function(t) {
+                var count = compCounts[t.code] || 0;
+                html += '<div class="coupe-item">'
+                    + '<div class="coupe-item-main" onclick="_compTypeEdit(\'' + escapeAttr(t.id || t.code) + '\')">'
+                    + '<div class="coupe-item-label">' + escapeHtml(t.label) + '</div>'
+                    + (count > 0 ? '<div class="coupe-item-notes">' + count + ' composante' + (count > 1 ? 's' : '') + '</div>' : '')
+                    + '</div>'
+                    + '<div class="coupe-item-actions">'
+                    + '<button class="comp-action-btn" onclick="_compTypeEdit(\'' + escapeAttr(t.id || t.code) + '\')" title="Modifier">&#9998;</button>'
+                    + (t.id ? '<button class="comp-action-btn comp-action-delete" onclick="_compTypeDeactivate(\'' + escapeAttr(t.id) + '\')" title="D\u00e9sactiver">&#128465;</button>' : '')
+                    + '</div>'
+                    + '</div>';
+            });
+            list.innerHTML = html;
+        }
+
+        async function _compTypeAdd() {
+            var label = prompt('Nom du nouveau type :');
+            if (!label || !label.trim()) return;
+            label = label.trim();
+            var code = label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            if (!code) { alert('Code invalide.'); return; }
+            var maxSort = COMPOSANTE_TYPES.reduce(function(m, t) { return Math.max(m, t.sort_order || 0); }, 0);
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ code: code, label: label, sort_order: maxSort + 1 })
+                });
+                if (!resp.ok) { var err = await resp.text(); alert('Erreur: ' + err); return; }
+                var newType = (await resp.json())[0];
+                COMPOSANTE_TYPES.push(newType);
+                _renderCompTypesList();
+            } catch(e) { alert('Erreur: ' + e.message); }
+        }
+
+        async function _compTypeEdit(idOrCode) {
+            var t = COMPOSANTE_TYPES.find(function(ct) { return ct.id === idOrCode || ct.code === idOrCode; });
+            if (!t || !t.id) { alert('Type non \u00e9ditable (fallback).'); return; }
+            var newLabel = prompt('Renommer "' + t.label + '" :', t.label);
+            if (!newLabel || !newLabel.trim() || newLabel.trim() === t.label) return;
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?id=eq.' + t.id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ label: newLabel.trim() })
+                });
+                if (!resp.ok) { alert('Erreur: ' + (await resp.text())); return; }
+                t.label = newLabel.trim();
+                _renderCompTypesList();
+            } catch(e) { alert('Erreur: ' + e.message); }
+        }
+
+        async function _compTypeDeactivate(id) {
+            var t = COMPOSANTE_TYPES.find(function(ct) { return ct.id === id; });
+            if (!t) return;
+            var count = (COMPOSANTES_DATA || []).filter(function(c) {
+                return (c.dm_type || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/s$/,'') === t.code;
+            }).length;
+            var msg = 'D\u00e9sactiver le type "' + t.label + '"';
+            if (count > 0) msg += ' (' + count + ' composante' + (count > 1 ? 's' : '') + ' li\u00e9e' + (count > 1 ? 's' : '') + ')';
+            msg += ' ?';
+            if (!confirm(msg)) return;
+            try {
+                var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?id=eq.' + id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: false })
+                });
+                if (!resp.ok) { alert('Erreur: ' + (await resp.text())); return; }
+                COMPOSANTE_TYPES = COMPOSANTE_TYPES.filter(function(ct) { return ct.id !== id; });
+                _renderCompTypesList();
+            } catch(e) { alert('Erreur: ' + e.message); }
         }
 
         /** #217: Load all composante_groupe_items, indexed by groupe_id */
@@ -5994,6 +6113,7 @@
             document.getElementById('compModalCode').value = '';
             document.getElementById('compModalCode').parentElement.style.display = 'none';
             document.getElementById('compModalNom').value = '';
+            _populateCompDmTypeDropdown();
             document.getElementById('compModalDmType').value = 'Caisson';
             document.getElementById('compModalMateriau').value = '';
             document.getElementById('compModalMateriauId').value = '';
@@ -6031,6 +6151,7 @@
                 document.getElementById('compModalCode').value = comp.code;
                 document.getElementById('compModalCode').parentElement.style.display = '';
                 document.getElementById('compModalNom').value = comp.nom || '';
+                _populateCompDmTypeDropdown();
                 document.getElementById('compModalDmType').value = comp.dm_type || 'Caisson';
                 document.getElementById('compModalMateriau').value = comp.materiau_client_text || '';
                 document.getElementById('compModalMateriauId').value = comp.materiau_catalogue_id || '';
@@ -6165,6 +6286,16 @@
             'Poignées': ['materiau'],
             'Groupe':   []
         };
+
+        /** #224: Populate dm_type dropdown from COMPOSANTE_TYPES */
+        function _populateCompDmTypeDropdown() {
+            var sel = document.getElementById('compModalDmType');
+            if (!sel) return;
+            var types = COMPOSANTE_TYPES.length > 0 ? COMPOSANTE_TYPES : COMPOSANTE_TYPES_FALLBACK;
+            sel.innerHTML = types.filter(function(t) { return t.code !== 'groupe'; }).map(function(t) {
+                return '<option value="' + escapeAttr(t.label) + '">' + escapeHtml(t.label) + '</option>';
+            }).join('');
+        }
 
         /** Update field visibility based on selected DM type */
         function _compUpdateFieldVisibility() {
@@ -9952,6 +10083,19 @@
     </div>
 </div>
 
+<!-- #224: Composante Types drawer -->
+<div class="comp-overlay" id="compTypeOverlay" onclick="closeCompTypesDrawer()"></div>
+<div class="coupe-drawer" id="compTypesDrawer">
+    <div class="coupe-drawer-header">
+        <h3>Types de composante</h3>
+        <button class="comp-add-btn" onclick="_compTypeAdd()" title="Nouveau type" style="margin-right:8px;">+</button>
+        <button class="coupe-drawer-close" onclick="closeCompTypesDrawer()">&times;</button>
+    </div>
+    <div class="coupe-list" id="compTypesList">
+        <div class="comp-empty">Chargement&hellip;</div>
+    </div>
+</div>
+
 <!-- Coupe modal -->
 <div class="comp-modal-overlay" id="coupeModal">
     <div class="comp-modal" style="width:560px;">
@@ -10034,11 +10178,6 @@
                 <div class="comp-field">
                     <label>Type DM *</label>
                     <select id="compModalDmType" onchange="_compUpdateFieldVisibility()">
-                        <option value="Caisson">Caisson</option>
-                        <option value="Fa&ccedil;ades">Fa&ccedil;ades</option>
-                        <option value="Panneaux">Panneaux</option>
-                        <option value="Tiroirs">Tiroirs</option>
-                        <option value="Poign&eacute;es">Poign&eacute;es</option>
                     </select>
                 </div>
                 <div class="comp-field" data-comp-field="materiau">

@@ -361,6 +361,17 @@ Regroupements nommés de propriétés constructives (matériau, style, coupe, ba
 - **`applyGroupeToDm(roomGroupId, groupeComposanteId)`** : pour chaque composante membre → trouve ou crée le DM de même type → applique les champs inline (même logique que `applyComposanteToDm` sans reprocess individuel) → `saveRoomDm` + `renderRoomDm` une fois → `reprocessDefaultCascades` une fois par type modifié → toast résumé
 - **Pas de ligne ajoutée** dans le calculateur — application des DM uniquement
 
+### Types de composante (`composante_types`) — #224
+
+Table de référence pour les types de composante (Caisson, Façades, Panneaux, Tiroirs, Poignées).
+- **Table** : `composante_types` — UUID PK, code TEXT UNIQUE, label TEXT, sort_order, is_active. RLS authentifié lecture, admin écriture
+- **FK** : `composantes.composante_type_id` UUID → `composante_types(id)` ON DELETE SET NULL
+- **Variable globale** : `COMPOSANTE_TYPES` — chargé au démarrage dans `calculateur.html` et `catalogue_prix_stele_complet.html`. Fallback `COMPOSANTE_TYPES_FALLBACK` si table vide/absente
+- **Drawer catalogue** : bouton "Types" dans `.catalogue-header-bar`, drawer avec liste, ajout (prompt), renommage (prompt), désactivation (soft delete). Compteur "X composantes" par type
+- **Dropdown modale composante** : `#compModalDmType` peuplé dynamiquement depuis `COMPOSANTE_TYPES` via `_populateCompDmTypeDropdown()`. Exclut le code "groupe"
+- **Constantes métier préservées** : `DM_ENRICHED_GROUPS`, `DM_REQUIRED_GROUPS`, `DM_HIDDEN_GROUPS` restent hardcodées — les types dynamiques sont pour l'admin/display, pas pour la logique métier
+- **Migration** : `sql/composante_types.sql` (idempotent — `CREATE TABLE IF NOT EXISTS`, backfill `composante_type_id` depuis `dm_type`)
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.
@@ -1005,7 +1016,7 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 374 assertions en 39 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 380 assertions en 40 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 23 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

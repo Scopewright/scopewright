@@ -1170,3 +1170,21 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - `_getCategoryDmType` retourne null → `getRelevantComposanteId` retourne null → `composante_id` = null → fallback pipeline normal
 - #219b (per-rule override) et cross-type lookup dans `resolveByComposante` deviennent candidats au retrait futur
 - 374 tests passent
+
+---
+
+## DEC-062 — Types de composante dynamiques (#224 Phase A)
+
+**Date** : 2026-03-19
+
+**Contexte** : Les 5 types de composante (Caisson, Façades, Panneaux, Tiroirs, Poignées) étaient hardcodés dans le dropdown de la modale composante. Impossible d'ajouter un nouveau type sans modifier le code source.
+
+**Décision** : Nouvelle table `composante_types` avec CRUD admin (drawer dans le catalogue). FK `composantes.composante_type_id` avec backfill depuis `dm_type`. Les constantes métier (`DM_ENRICHED_GROUPS`, `DM_REQUIRED_GROUPS`, etc.) restent hardcodées — les types dynamiques sont pour l'admin/display, pas pour la logique cascade.
+
+**Alternatives rejetées** :
+- Tout dynamique (types + sous-champs dans la DB) — scope ×3, complexité disproportionnée
+- `app_config` key-value — pas de FK, pas de contraintes
+
+**Conséquences** :
+- Prérequis pour Phase B (lien FAB → type de composante) et Phase C (moteur cascade simplifié)
+- 380 tests passent (GROUP 40 ajouté)

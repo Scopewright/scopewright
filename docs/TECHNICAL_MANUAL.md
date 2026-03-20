@@ -1060,6 +1060,19 @@ Au chargement (`openSubmission`), avant `_rebuildDmClientText`, le guard détect
 
 Un groupe = ensemble nommé de composantes individuelles applicable d'un coup à une pièce. N'ajoute aucune ligne dans le calculateur — application des DM uniquement.
 
+#### Table `composante_types` (#224)
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | UUID PK | Auto-generated |
+| `code` | TEXT UNIQUE | Code normalisé (ex: "facades") |
+| `label` | TEXT | Label affiché (ex: "Façades") |
+| `sort_order` | INTEGER | Ordre d'affichage |
+| `is_active` | BOOLEAN | Soft delete |
+| `created_at` | TIMESTAMPTZ | Timestamp création |
+
+FK : `composantes.composante_type_id` → `composante_types(id)` ON DELETE SET NULL.
+
 #### Table `composante_groupe_items`
 
 | Colonne | Type | Description |

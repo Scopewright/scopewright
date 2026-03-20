@@ -2354,7 +2354,6 @@
         <div style="flex:1;"></div>
         <button class="cat-filter-btn" id="batchSelectBtn" onclick="toggleBatchMode()" style="display:none;">S&eacute;lectionner</button>
         <button class="cat-filter-btn" id="auditBtn" onclick="openAuditDrawer()" title="Auditer le catalogue">Auditer</button>
-        <button class="cat-filter-btn" id="compTypesBtn" onclick="openCompTypesDrawer()" title="Types de composante">Types</button>
         <button class="cat-filter-btn" id="coupesBtn" onclick="openCoupesDrawer()" title="Types de coupe de placage">Coupes</button>
         <button class="cat-filter-btn" id="composantesBtn" onclick="openComposantesDrawer()" title="G&eacute;rer les composantes">Composantes</button>
     </div>
@@ -5973,12 +5972,48 @@
             list.innerHTML = html;
         }
 
+        // #224: Promise-based prompt modal for type names
+        var _compTypePromptResolve = null;
+        function _compTypePrompt(title, label, defaultVal) {
+            return new Promise(function(resolve) {
+                _compTypePromptResolve = resolve;
+                document.getElementById('compTypePromptTitle').textContent = title;
+                document.getElementById('compTypePromptLabel').textContent = label;
+                var inp = document.getElementById('compTypePromptInput');
+                inp.value = defaultVal || '';
+                document.getElementById('compTypePromptModal').style.display = '';
+                setTimeout(function() { inp.focus(); inp.select(); }, 50);
+                inp.onkeydown = function(e) {
+                    if (e.key === 'Enter') _compTypePromptClose(inp.value);
+                    if (e.key === 'Escape') _compTypePromptClose(null);
+                };
+            });
+        }
+        function _compTypePromptClose(val) {
+            document.getElementById('compTypePromptModal').style.display = 'none';
+            if (_compTypePromptResolve) { _compTypePromptResolve(val); _compTypePromptResolve = null; }
+        }
+
+        // #224: Promise-based confirm modal for deactivation
+        var _compTypeConfirmResolve = null;
+        function _compTypeConfirm(msg) {
+            return new Promise(function(resolve) {
+                _compTypeConfirmResolve = resolve;
+                document.getElementById('compTypeConfirmText').textContent = msg;
+                document.getElementById('compTypeConfirmModal').style.display = '';
+            });
+        }
+        function _compTypeConfirmClose(result) {
+            document.getElementById('compTypeConfirmModal').style.display = 'none';
+            if (_compTypeConfirmResolve) { _compTypeConfirmResolve(result); _compTypeConfirmResolve = null; }
+        }
+
         async function _compTypeAdd() {
-            var label = prompt('Nom du nouveau type :');
+            var label = await _compTypePrompt('Nouveau type', 'Nom du type', '');
             if (!label || !label.trim()) return;
             label = label.trim();
             var code = label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-            if (!code) { alert('Code invalide.'); return; }
+            if (!code) return;
             var maxSort = COMPOSANTE_TYPES.reduce(function(m, t) { return Math.max(m, t.sort_order || 0); }, 0);
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types', {
@@ -5986,17 +6021,17 @@
                     headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                     body: JSON.stringify({ code: code, label: label, sort_order: maxSort + 1 })
                 });
-                if (!resp.ok) { var err = await resp.text(); alert('Erreur: ' + err); return; }
+                if (!resp.ok) { var err = await resp.text(); console.warn('[CompType] Add failed:', err); return; }
                 var newType = (await resp.json())[0];
                 COMPOSANTE_TYPES.push(newType);
                 _renderCompTypesList();
-            } catch(e) { alert('Erreur: ' + e.message); }
+            } catch(e) { console.warn('[CompType] Add error:', e); }
         }
 
         async function _compTypeEdit(idOrCode) {
             var t = COMPOSANTE_TYPES.find(function(ct) { return ct.id === idOrCode || ct.code === idOrCode; });
-            if (!t || !t.id) { alert('Type non \u00e9ditable (fallback).'); return; }
-            var newLabel = prompt('Renommer "' + t.label + '" :', t.label);
+            if (!t || !t.id) return;
+            var newLabel = await _compTypePrompt('Renommer le type', 'Nouveau nom', t.label);
             if (!newLabel || !newLabel.trim() || newLabel.trim() === t.label) return;
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?id=eq.' + t.id, {
@@ -6004,10 +6039,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ label: newLabel.trim() })
                 });
-                if (!resp.ok) { alert('Erreur: ' + (await resp.text())); return; }
+                if (!resp.ok) { console.warn('[CompType] Edit failed:', await resp.text()); return; }
                 t.label = newLabel.trim();
                 _renderCompTypesList();
-            } catch(e) { alert('Erreur: ' + e.message); }
+            } catch(e) { console.warn('[CompType] Edit error:', e); }
         }
 
         async function _compTypeDeactivate(id) {
@@ -6016,20 +6051,21 @@
             var count = (COMPOSANTES_DATA || []).filter(function(c) {
                 return (c.dm_type || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/s$/,'') === t.code;
             }).length;
-            var msg = 'D\u00e9sactiver le type "' + t.label + '"';
+            var msg = 'D\u00e9sactiver le type \u00ab ' + t.label + ' \u00bb';
             if (count > 0) msg += ' (' + count + ' composante' + (count > 1 ? 's' : '') + ' li\u00e9e' + (count > 1 ? 's' : '') + ')';
             msg += ' ?';
-            if (!confirm(msg)) return;
+            var ok = await _compTypeConfirm(msg);
+            if (!ok) return;
             try {
                 var resp = await authenticatedFetch(SUPABASE_URL + '/rest/v1/composante_types?id=eq.' + id, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ is_active: false })
                 });
-                if (!resp.ok) { alert('Erreur: ' + (await resp.text())); return; }
+                if (!resp.ok) { console.warn('[CompType] Deactivate failed:', await resp.text()); return; }
                 COMPOSANTE_TYPES = COMPOSANTE_TYPES.filter(function(ct) { return ct.id !== id; });
                 _renderCompTypesList();
-            } catch(e) { alert('Erreur: ' + e.message); }
+            } catch(e) { console.warn('[CompType] Deactivate error:', e); }
         }
 
         /** #217: Load all composante_groupe_items, indexed by groupe_id */
@@ -10113,6 +10149,43 @@
     </div>
 </div>
 
+<!-- #224: Composante Type prompt modal -->
+<div class="comp-modal-overlay" id="compTypePromptModal" style="display:none;">
+    <div class="comp-modal" style="max-width:400px;">
+        <div class="comp-modal-header">
+            <h3 id="compTypePromptTitle">Nouveau type</h3>
+            <button class="comp-modal-close" onclick="_compTypePromptClose(null)">&times;</button>
+        </div>
+        <div class="comp-modal-body">
+            <div class="comp-field">
+                <label id="compTypePromptLabel">Nom du type</label>
+                <input type="text" id="compTypePromptInput" class="form-input" placeholder="Ex: Tiroirs">
+            </div>
+        </div>
+        <div class="comp-modal-footer">
+            <button class="sw-btn-secondary" onclick="_compTypePromptClose(null)">Annuler</button>
+            <button class="sw-btn-primary" onclick="_compTypePromptClose(document.getElementById('compTypePromptInput').value)">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- #224: Composante Type confirm modal -->
+<div class="comp-modal-overlay" id="compTypeConfirmModal" style="display:none;">
+    <div class="comp-modal" style="max-width:400px;">
+        <div class="comp-modal-header">
+            <h3>Confirmation</h3>
+            <button class="comp-modal-close" onclick="_compTypeConfirmClose(false)">&times;</button>
+        </div>
+        <div class="comp-modal-body">
+            <p id="compTypeConfirmText" style="font-size:13px;color:#374151;margin:0;"></p>
+        </div>
+        <div class="comp-modal-footer">
+            <button class="sw-btn-secondary" onclick="_compTypeConfirmClose(false)">Annuler</button>
+            <button class="sw-btn-primary" onclick="_compTypeConfirmClose(true)" style="background:#DC2626;border-color:#DC2626;">D&eacute;sactiver</button>
+        </div>
+    </div>
+</div>
+
 <!-- Coupe modal -->
 <div class="comp-modal-overlay" id="coupeModal">
     <div class="comp-modal" style="width:560px;">
@@ -10154,6 +10227,7 @@
 <div class="comp-drawer" id="composantesDrawer">
     <div class="comp-drawer-header">
         <h3>Composantes</h3>
+        <button onclick="openCompTypesDrawer()" title="G&eacute;rer les types" style="background:none;border:1px solid #E2E8F0;border-radius:6px;padding:3px 10px;font-size:11px;color:#64748B;cursor:pointer;margin-right:8px;">Types</button>
         <button class="comp-drawer-close" onclick="closeComposantesDrawer()">&times;</button>
     </div>
     <div class="comp-toolbar">

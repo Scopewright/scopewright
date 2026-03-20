@@ -177,6 +177,15 @@ Principe : Code et Type sont compacts (monospace 10px) — ne jamais les élargi
 - border: 1px solid #E5E7EB
 - Overlay : rgba(0,0,0,0.35)
 
+### Règle absolue : pas de prompt/confirm natifs
+
+**Jamais** de `window.prompt()`, `window.confirm()` ni `window.alert()` dans le code.
+Utiliser des modales HTML Promise-based (`_compTypePrompt`, `_compTypeConfirm`, `_promptGroupeName`, `steleConfirm`, `steleAlert`).
+
+### Accès aux drawers secondaires
+
+Les drawers secondaires (Types de composante, Coupes) sont accessibles **depuis le drawer parent** (Composantes), pas depuis la barre d'outils principale du catalogue. Bouton compact dans le header du drawer parent.
+
 ---
 
 ## 11. Inputs et textareas

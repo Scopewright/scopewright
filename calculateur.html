@@ -6340,6 +6340,25 @@
                     }
                 }
             }
+            // DEC-061: sync chosenClientText from the DM entry of this FAB's own type
+            // Prevents stale chosenClientText inherited from parent (e.g. Caisson's "mélamine"
+            // being used for Facade's $match: resolution)
+            if (materialCtx.composante_id) {
+                var _syncDmType = null;
+                if (catItem.composante_type_id && window.COMPOSANTE_TYPES) {
+                    var _syncCt = COMPOSANTE_TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+                    if (_syncCt) _syncDmType = _syncCt.label;
+                }
+                if (!_syncDmType) _syncDmType = _getCategoryDmType(catItem.category) || catItem.category;
+                var _syncNorm = normalizeDmType(_syncDmType);
+                var _syncEntries = (roomDM[groupId] || []).filter(function(d) {
+                    return normalizeDmType(d.type || '') === _syncNorm;
+                });
+                if (_syncEntries.length > 0 && _syncEntries[0].client_text) {
+                    materialCtx.chosenClientText = _syncEntries[0].client_text;
+                    cascadeLog('info', 'DEC-061: synced chosenClientText to "' + _syncEntries[0].client_text + '" from DM type "' + _syncDmType + '"');
+                }
+            }
         }
         if (!materialCtx.chosenClientText && catItem && catItem.category) {
             var parentDmType = _getCategoryDmType(catItem.category) || catItem.category;

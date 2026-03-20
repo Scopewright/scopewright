@@ -5002,9 +5002,9 @@
             }
 
             // Step 4a: Direct ID resolution from enriched sub-fields (DEC-060 — ID > client_text)
-            // Scan order: style (FAB) → materiau → bande_chant → finition → bois_brut
-            var _step4aFields = ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'];
-            var _step4aAllowed = getAllowedCategoriesForGroup(groupName);
+            // Only scan primary fields: style (FAB) → materiau. Specialized sub-fields
+            // (bande_chant, finition, bois_brut) are handled by $match: via resolveMatchTarget Tier 0.
+            var _step4aFields = ['style', 'materiau'];
             for (var _s4i = 0; _s4i < _step4aFields.length; _s4i++) {
                 var _s4sub = chosenEntry[_step4aFields[_s4i]];
                 if (typeof _s4sub === 'string' && _s4sub.startsWith('{')) {
@@ -5012,8 +5012,9 @@
                 }
                 if (!_s4sub || !_s4sub.catalogue_item_id) continue;
                 var _s4item = CATALOGUE_DATA.find(function(c) { return c.id === _s4sub.catalogue_item_id; });
-                if (_s4item && (!_step4aAllowed || _step4aAllowed.indexOf(_s4item.category) !== -1)) {
-                    cascadeLog('info', '$default: Step 4a — direct ID from "' + _step4aFields[_s4i] + '" → ' + _s4item.id);
+                if (_s4item) {
+                    // Direct ID from enriched sub-field — no category filter (explicit estimator choice)
+                    cascadeLog('info', '$default: Step 4a — direct ID from "' + _step4aFields[_s4i] + '" → ' + _s4item.id + ' (cat: ' + _s4item.category + ')');
                     if (materialCtx) { materialCtx.chosenClientText = _s4item.client_text || ''; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _s4item.id; }
                     dmChoiceCache[cacheKey] = _s4item.id;
                     return _s4item.id;

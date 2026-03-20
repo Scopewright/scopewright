@@ -1188,3 +1188,5 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 **Conséquences** :
 - Prérequis pour Phase B (lien FAB → type de composante) et Phase C (moteur cascade simplifié)
 - 380 tests passent (GROUP 40 ajouté)
+
+**Phase C** (2026-03-19) : `getRelevantComposanteId` utilise `catItem.composante_type_id` → lookup `COMPOSANTE_TYPES` en priorité, fallback `_getCategoryDmType`. Résolution directe sans dérivation fragile depuis la catégorie catalogue. 393 tests passent (GROUP 42 ajouté)

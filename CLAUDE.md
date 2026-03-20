@@ -378,6 +378,10 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **CATALOGUE_DATA** : `composante_type_id` inclus dans le `select` du fetch initial (calculateur + catalogue)
 - **Migration** : `sql/composante_type_fk.sql` (idempotent — `DO $$ IF NOT EXISTS`)
 
+**Phase C — Moteur cascade simplifié** (#224) :
+- **`getRelevantComposanteId`** : utilise `catItem.composante_type_id` → lookup `COMPOSANTE_TYPES` → `label` en priorité. Fallback `_getCategoryDmType(catItem.category)` si `composante_type_id` null, invalide, ou `COMPOSANTE_TYPES` pas chargé
+- **Fonction pure testable** : `resolveDmTypeFromFab(catItem, composanteTypes, getCategoryDmTypeFn)` dans `tests/cascade-helpers.js`
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.
@@ -1022,7 +1026,7 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 385 assertions en 41 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 393 assertions en 42 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 23 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

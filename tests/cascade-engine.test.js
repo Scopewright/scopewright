@@ -3037,6 +3037,61 @@ describe('GROUP 41: composante_type_id FAB lookup', function() {
 });
 
 // ════════════════════════════════════════════════════════════════
+// GROUP 42: resolveDmTypeFromFab (#224 Phase C)
+describe('GROUP 42: resolveDmTypeFromFab', function() {
+    var TYPES = [
+        { id: 'uuid-1', code: 'caisson', label: 'Caisson' },
+        { id: 'uuid-2', code: 'facades', label: 'Façades' },
+        { id: 'uuid-3', code: 'panneaux', label: 'Panneaux' }
+    ];
+    var fallback = function(cat) {
+        if (cat === 'Caissons mélamine') return 'Caisson';
+        if (cat === 'Façades placage') return 'Façades';
+        return null;
+    };
+
+    it('composante_type_id valid → returns label', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: 'uuid-2', category: 'X' }, TYPES, fallback);
+        assert(r === 'Façades', 'should return Façades from direct lookup');
+    });
+
+    it('composante_type_id null → fallback _getCategoryDmType', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: null, category: 'Caissons mélamine' }, TYPES, fallback);
+        assert(r === 'Caisson', 'should fallback to Caisson');
+    });
+
+    it('composante_type_id invalid UUID → fallback', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: 'nonexistent', category: 'Façades placage' }, TYPES, fallback);
+        assert(r === 'Façades', 'should fallback when UUID not found');
+    });
+
+    it('COMPOSANTE_TYPES empty → fallback without throw', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: 'uuid-1', category: 'Caissons mélamine' }, [], fallback);
+        assert(r === 'Caisson', 'should fallback when types array empty');
+    });
+
+    it('COMPOSANTE_TYPES undefined → fallback without throw', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: 'uuid-1', category: 'Caissons mélamine' }, null, fallback);
+        assert(r === 'Caisson', 'should fallback when types is null');
+    });
+
+    it('catItem null → returns null', function() {
+        var r = helpers.resolveDmTypeFromFab(null, TYPES, fallback);
+        assert(r === null, 'should return null for null catItem');
+    });
+
+    it('no composante_type_id, no fallback match → returns null', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: null, category: 'Unknown Category' }, TYPES, fallback);
+        assert(r === null, 'should return null when both paths fail');
+    });
+
+    it('direct lookup takes priority over fallback', function() {
+        var r = helpers.resolveDmTypeFromFab({ composante_type_id: 'uuid-3', category: 'Caissons mélamine' }, TYPES, fallback);
+        assert(r === 'Panneaux', 'direct should win over fallback Caisson');
+    });
+});
+
+// ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════
 

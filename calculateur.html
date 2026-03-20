@@ -2655,7 +2655,13 @@
     // Returns { composanteId, candidates[] } — candidates has length > 1 when multiple composantes of same type.
     function getRelevantComposanteId(catItem, groupId) {
         if (!catItem || !groupId) return null;
-        var dmType = _getCategoryDmType(catItem.category);
+        // #224 Phase C: direct lookup via composante_type_id, fallback _getCategoryDmType
+        var dmType = null;
+        if (catItem.composante_type_id && window.COMPOSANTE_TYPES && COMPOSANTE_TYPES.length > 0) {
+            var _ct = COMPOSANTE_TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+            if (_ct) dmType = _ct.label;
+        }
+        if (!dmType) dmType = _getCategoryDmType(catItem.category);
         if (!dmType) return null;
         var dm = getDefaultMaterialsForGroup(groupId);
         var dmTypeNorm = normalizeDmType(dmType);

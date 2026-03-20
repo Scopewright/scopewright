@@ -812,6 +812,23 @@ if (typeof module !== 'undefined' && module.exports) {
         _resolveFromComposanteFields: _resolveFromComposanteFields,
         COMPOSANTE_FIELD_MAP: COMPOSANTE_FIELD_MAP,
         filterDmByComposante: filterDmByComposante,
-        shouldOverrideComposanteId: shouldOverrideComposanteId
+        shouldOverrideComposanteId: shouldOverrideComposanteId,
+        resolveDmTypeFromFab: resolveDmTypeFromFab
     };
+}
+
+/**
+ * #224 Phase C: Resolve dmType from FAB's composante_type_id (direct) or _getCategoryDmType (fallback).
+ * Pure, testable version — no globals.
+ * Source: calculateur.html getRelevantComposanteId (~line 2656)
+ */
+function resolveDmTypeFromFab(catItem, composanteTypes, getCategoryDmTypeFn) {
+    if (!catItem) return null;
+    var dmType = null;
+    if (catItem.composante_type_id && composanteTypes && composanteTypes.length > 0) {
+        var ct = composanteTypes.find(function(t) { return t.id === catItem.composante_type_id; });
+        if (ct) dmType = ct.label;
+    }
+    if (!dmType && getCategoryDmTypeFn) dmType = getCategoryDmTypeFn(catItem.category);
+    return dmType || null;
 }

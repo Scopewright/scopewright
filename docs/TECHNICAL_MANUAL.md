@@ -992,7 +992,7 @@ Les clés `$default:` sont normalisées via `normalizeDmType` (lowercase, strip 
 
 **`executeCascade` materialCtx population** :
 - Utilise `_getCategoryDmType` au lieu de `catItem.category` pour le matching DM (corrige le matching fragile catégorie catalogue ≠ type DM)
-- `getRelevantComposanteId` peuple `materialCtx.composante_id` à **chaque depth** (DEC-061 — chaque FAB trouve sa propre composante, pas d'héritage parent)
+- `getRelevantComposanteId` peuple `materialCtx.composante_id` à **chaque depth** (DEC-061 — chaque FAB trouve sa propre composante, pas d'héritage parent). #224 Phase C : lookup direct via `catItem.composante_type_id` → `COMPOSANTE_TYPES` → label, fallback `_getCategoryDmType` si null
 - Multi-composante → cache `dmChoiceCache` ou modale `showComposanteChoiceModal`
 - Le filtre DM utilise `normalizeDmType` pour la comparaison de type (accent/pluriel tolerant)
 

@@ -6099,7 +6099,9 @@
             if (!catItem || !catItem.calculation_rule_ai || !catItem.calculation_rule_ai.cascade) return;
             var hasRelevant = catItem.calculation_rule_ai.cascade.some(function(c) {
                 if (typeof c.target !== 'string') return false;
-                if (c.target.startsWith('$match:')) return true;
+                // Only re-cascade for $default: matching the changed DM type.
+                // $match: rules are re-resolved automatically when the parent is
+                // cascaded for its $default: — no separate trigger needed.
                 if (c.target.startsWith('$default:')) {
                     return normalizeDmType(c.target.substring(9)) === _changedNorm;
                 }

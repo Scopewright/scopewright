@@ -255,7 +255,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - **DEC-059** : `_rebuildDmClientText` lit `client_text` depuis `CATALOGUE_DATA` (par `catalogue_item_id`) — garantit match exact
 - **DEC-060** : Step 4a dans `resolveCascadeTarget` — scanne `style → materiau → bande_chant → finition → bois_brut`, premier `catalogue_item_id` valide + catégorie autorisée → résolution directe. Style first = FAB prioritaire. Fallback Step 4b (`client_text`) si aucun ID valide
 - **DEC-061** : chaque FAB trouve sa propre composante via `getRelevantComposanteId` à chaque depth — pas d'héritage `composante_id` du parent. Fix 1 ligne : retrait de `!materialCtx.composante_id` guard
-- **DEC-062** : table `composante_types` dynamique (#224 Phase A) — CRUD admin, dropdown composante peuplé depuis DB, fallback hardcodé. Constantes métier (`DM_ENRICHED_GROUPS` etc.) restent hardcodées
+- **DEC-062** : table `composante_types` dynamique (#224 Phase A) — CRUD admin, dropdown composante peuplé depuis DB, fallback hardcodé. Phase B : `catalogue_items.composante_type_id` FK vers `composante_types`, dropdown FAB dans modale catalogue. Constantes métier (`DM_ENRICHED_GROUPS` etc.) restent hardcodées
 - **Guard stale data** (DEC-052/055/056) : au chargement, (0) parse les sous-champs `style/materiau/bande_chant/finition/bois_brut` sérialisés en strings JSON. (1) détecte `materiau.client_text` corrompu (contient `|` ou > 60 chars) → lookup catalogue. (2) reset `entry.client_text` stale. Puis rebuild + save DB. `_dmFieldText` gère les 3 formats (string, JSON string, objet)
 - `COMPOSANTES_DATA` : array global mis à jour en mémoire après chaque INSERT
 - `room_items.composante_id` : UUID FK (nullable) — lien entre ligne article et composante

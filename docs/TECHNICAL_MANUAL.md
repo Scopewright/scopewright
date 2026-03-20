@@ -1072,6 +1072,7 @@ Un groupe = ensemble nommé de composantes individuelles applicable d'un coup à
 | `created_at` | TIMESTAMPTZ | Timestamp création |
 
 FK : `composantes.composante_type_id` → `composante_types(id)` ON DELETE SET NULL.
+FK : `catalogue_items.composante_type_id` → `composante_types(id)` ON DELETE SET NULL (#224 Phase B). Permet le lookup direct du type DM dans le moteur cascade au lieu de `_getCategoryDmType`.
 
 #### Table `composante_groupe_items`
 

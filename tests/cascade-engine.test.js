@@ -2997,6 +2997,45 @@ describe('GROUP 40: COMPOSANTE_TYPES lookup', function() {
     });
 });
 
+// GROUP 41: composante_type_id on catalogue_items (#224 Phase B)
+describe('GROUP 41: composante_type_id FAB lookup', function() {
+    var TYPES = [
+        { id: 'uuid-1', code: 'caisson', label: 'Caisson', sort_order: 1 },
+        { id: 'uuid-2', code: 'facades', label: 'Façades', sort_order: 2 },
+        { id: 'uuid-3', code: 'panneaux', label: 'Panneaux', sort_order: 3 }
+    ];
+
+    it('composante_type_id present → lookup returns correct code', function() {
+        var catItem = { id: 'ST-0045', composante_type_id: 'uuid-2', item_type: 'fabrication' };
+        var found = TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+        assert(found && found.code === 'facades', 'should find facades type');
+    });
+
+    it('composante_type_id null → returns undefined (triggers fallback)', function() {
+        var catItem = { id: 'ST-0006', composante_type_id: null, item_type: 'fabrication' };
+        var found = TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+        assert(found === undefined, 'should return undefined for null');
+    });
+
+    it('composante_type_id invalid UUID → returns undefined', function() {
+        var catItem = { id: 'ST-0006', composante_type_id: 'nonexistent-uuid', item_type: 'fabrication' };
+        var found = TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+        assert(found === undefined, 'should return undefined for invalid UUID');
+    });
+
+    it('MAT item has no composante_type_id', function() {
+        var catItem = { id: 'ST-0012', composante_type_id: null, item_type: 'materiau' };
+        assert(catItem.composante_type_id === null, 'MAT should have null composante_type_id');
+    });
+
+    it('FAB with composante_type_id → code can derive dmType', function() {
+        var catItem = { id: 'ST-0006', composante_type_id: 'uuid-1', item_type: 'fabrication' };
+        var type = TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+        var dmType = type ? type.label : null;
+        assert(dmType === 'Caisson', 'should derive Caisson dmType from composante_type_id');
+    });
+});
+
 // ════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════

@@ -372,6 +372,12 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **Constantes métier préservées** : `DM_ENRICHED_GROUPS`, `DM_REQUIRED_GROUPS`, `DM_HIDDEN_GROUPS` restent hardcodées — les types dynamiques sont pour l'admin/display, pas pour la logique métier
 - **Migration** : `sql/composante_types.sql` (idempotent — `CREATE TABLE IF NOT EXISTS`, backfill `composante_type_id` depuis `dm_type`)
 
+**Phase B — Lien FAB → type de composante** (#224) :
+- **Champ** : `catalogue_items.composante_type_id` UUID FK → `composante_types(id)` ON DELETE SET NULL. Nullable — FAB sans type continuent via fallback `_getCategoryDmType`
+- **Dropdown** : "Type de composante associée" dans la modale catalogue, visible FAB seulement. Peuplé depuis `COMPOSANTE_TYPES`. Valeur "— Aucun —" par défaut
+- **CATALOGUE_DATA** : `composante_type_id` inclus dans le `select` du fetch initial (calculateur + catalogue)
+- **Migration** : `sql/composante_type_fk.sql` (idempotent — `DO $$ IF NOT EXISTS`)
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.
@@ -1016,7 +1022,7 @@ Toute nouvelle feature substantielle doit d'abord évaluer si elle peut vivre da
 
 | Fichier | Rôle |
 |---------|------|
-| `tests/cascade-engine.test.js` | 380 assertions en 40 groupes, mini runner inline (0 dépendances) |
+| `tests/cascade-engine.test.js` | 385 assertions en 41 groupes, mini runner inline (0 dépendances) |
 | `tests/cascade-helpers.js` | 23 fonctions pures extraites de `calculateur.html` (copies paramétrisées) |
 | `tests/fixtures/catalogue.js` | 21 articles catalogue réalistes (8 FAB + 13 MAT) |
 | `tests/fixtures/room-dm.js` | 5 configs DM pièce + `categoryGroupMapping` |

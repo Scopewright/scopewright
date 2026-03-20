@@ -2392,10 +2392,16 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Classification</label>
-                        <select class="form-input" id="editItemType" onchange="document.getElementById('dimsConfigGroup').style.display=(this.value==='fabrication'||document.getElementById('editDimL').checked||document.getElementById('editDimH').checked||document.getElementById('editDimP').checked)?'':'none'">
+                        <select class="form-input" id="editItemType" onchange="document.getElementById('dimsConfigGroup').style.display=(this.value==='fabrication'||document.getElementById('editDimL').checked||document.getElementById('editDimH').checked||document.getElementById('editDimP').checked)?'':'none';document.getElementById('compTypeGroup').style.display=this.value==='fabrication'?'':'none'">
                             <option value="">&mdash; Non class&eacute; &mdash;</option>
                             <option value="fabrication">Fabrication</option>
                             <option value="materiau">Mat&eacute;riau</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="compTypeGroup" style="display:none;">
+                        <label class="form-label">Type de composante associ&eacute;e</label>
+                        <select class="form-input" id="editCompTypeId">
+                            <option value="">&mdash; Aucun &mdash;</option>
                         </select>
                     </div>
                     <div class="form-group" id="dimsConfigGroup" style="display:none;">
@@ -3337,7 +3343,7 @@
                 var statusFilter = canEditCatalogue
                     ? '&or=(status.eq.approved,status.is.null,status.eq.pending)'
                     : '&or=(status.eq.approved,status.is.null)';
-                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config,loss_override_pct,labor_modifiers,labor_modifiers_human' + statusFilter + '&order=sort_order', {})
+                authenticatedFetch(SUPABASE_URL + '/rest/v1/catalogue_items?select=id,category,description,type,price,instruction,image_url,in_calculator,has_sales_sheet,labor_minutes,material_costs,calculation_rule_human,calculation_rule_ai,supplier_name,supplier_sku,is_default,client_text,presentation_rule_human,presentation_rule,status,proposed_by,item_type,dims_config,loss_override_pct,labor_modifiers,labor_modifiers_human,composante_type_id' + statusFilter + '&order=sort_order', {})
                 .then(r => {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -4181,6 +4187,16 @@
             document.getElementById('editCategory').value = item.category;
             catSelect.disabled = !isNewItem && !isAdmin;
             document.getElementById('editItemType').value = item.item_type || '';
+            // #224 Phase B: composante type dropdown
+            var _ctSel = document.getElementById('editCompTypeId');
+            if (_ctSel) {
+                var _ctTypes = COMPOSANTE_TYPES.length > 0 ? COMPOSANTE_TYPES : COMPOSANTE_TYPES_FALLBACK;
+                _ctSel.innerHTML = '<option value="">\u2014 Aucun \u2014</option>' + _ctTypes.map(function(t) {
+                    return '<option value="' + escapeAttr(t.id || '') + '">' + escapeHtml(t.label) + '</option>';
+                }).join('');
+                _ctSel.value = item.composante_type_id || '';
+            }
+            document.getElementById('compTypeGroup').style.display = (item.item_type === 'fabrication') ? '' : 'none';
             var dc = item.dims_config || {};
             document.getElementById('editDimL').checked = dc.l !== false;
             document.getElementById('editDimH').checked = dc.h !== false;
@@ -4363,7 +4379,7 @@
         function captureModalSnapshot() {
             var fields = [
                 'editDescription', 'editInstruction', 'editClientText',
-                'editCategory', 'editItemType', 'editType', 'editPrice',
+                'editCategory', 'editItemType', 'editCompTypeId', 'editType', 'editPrice',
                 'editPresRuleHuman', 'editPresRuleAi', 'editCalcRuleHuman', 'editCalcRuleAi',
                 'editInCalculator', 'editIsDefault', 'editHasSalesSheet',
                 'editDimL', 'editDimH', 'editDimP',
@@ -7360,6 +7376,7 @@
                 const payload = {
                     category: document.getElementById('editCategory').value,
                     item_type: document.getElementById('editItemType').value || null,
+                    composante_type_id: document.getElementById('editCompTypeId').value || null,
                     dims_config: (function() {
                         var dl = document.getElementById('editDimL').checked;
                         var dh = document.getElementById('editDimH').checked;

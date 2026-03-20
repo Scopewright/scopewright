@@ -6088,7 +6088,7 @@
             _keysToDelete.forEach(function(k) { delete dmChoiceCache[k]; });
         }
 
-        var token = '$default:' + changedGroup;
+        var _changedNorm = normalizeDmType(changedGroup);
         var selector = '#' + scopeGroupId + ' .calc-row:not(.cascade-child)';
         var rowIds = [];
         document.querySelectorAll(selector).forEach(function(row) {
@@ -6097,7 +6097,12 @@
             var catItem = CATALOGUE_DATA.find(function(i) { return i.id === select.value; });
             if (!catItem || !catItem.calculation_rule_ai || !catItem.calculation_rule_ai.cascade) return;
             var hasRelevant = catItem.calculation_rule_ai.cascade.some(function(c) {
-                return c.target === token || (typeof c.target === 'string' && c.target.startsWith('$match:'));
+                if (typeof c.target !== 'string') return false;
+                if (c.target.startsWith('$match:')) return true;
+                if (c.target.startsWith('$default:')) {
+                    return normalizeDmType(c.target.substring(9)) === _changedNorm;
+                }
+                return false;
             });
             if (hasRelevant) rowIds.push(row.id);
         });

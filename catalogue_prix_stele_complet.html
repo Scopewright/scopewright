@@ -6785,9 +6785,15 @@
             // Determine which fields are visible for this DM type
             var allowed = _COMP_FIELDS_BY_TYPE[dmType] || _COMP_FIELDS_BY_TYPE['Groupe'];
 
+            // Resolve composante_type_id from dmType label
+            var _ctMatch = (COMPOSANTE_TYPES || []).find(function(t) {
+                return t.label === dmType || t.code === dmType.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/s$/, '');
+            });
+
             var body = {
                 nom: nom,
                 dm_type: dmType,
+                composante_type_id: _ctMatch ? _ctMatch.id : null,
                 materiau_client_text: allowed.indexOf('materiau') !== -1 ? (document.getElementById('compModalMateriau').value.trim() || null) : null,
                 materiau_catalogue_id: allowed.indexOf('materiau') !== -1 ? (document.getElementById('compModalMateriauId').value || null) : null,
                 style: allowed.indexOf('style') !== -1 ? (document.getElementById('compModalStyle').value.trim() || null) : null,

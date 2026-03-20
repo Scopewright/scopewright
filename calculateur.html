@@ -2952,11 +2952,14 @@
         var _entryTypeNorm = normalizeDmType(entry.type || '');
         var _compOptions = (COMPOSANTES_DATA || []).filter(function(c) {
             if (c.is_active !== true) return false;
+            if (c.dm_type === 'Groupe') return false; // exclude groupes from individual dropdown
             // UUID comparison (preferred)
             if (_entryTypeId && c.composante_type_id) return c.composante_type_id === _entryTypeId;
-            // Fallback: string comparison
+            // Fallback: string comparison — both must be non-empty
             if (!_entryTypeNorm) return false;
-            return normalizeDmType(c.dm_type || '') === _entryTypeNorm;
+            var _cNorm = normalizeDmType(c.dm_type || '');
+            if (!_cNorm) return false;
+            return _cNorm === _entryTypeNorm;
         });
         if (_compOptions.length > 0) {
             var _appliedComp = entry.composante_id
@@ -3613,6 +3616,7 @@
         var body = {
             nom: nom,
             dm_type: dmEntry.type || 'Autre',
+            composante_type_id: dmEntry.type_id || _resolveTypeId(dmEntry.type) || null,
             materiau_client_text: dmEntry.client_text || null,
             materiau_catalogue_id: dmEntry.catalogue_item_id || null,
             style: dmEntry.style || null,

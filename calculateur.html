@@ -4895,40 +4895,10 @@
         if (target.startsWith('$default:')) {
             var groupName = target.substring(9);
 
-            // #215: composante-first resolution — skip all fuzzy/tiers/modales
-            if (materialCtx && materialCtx.composante_id) {
-                var _compResult = resolveByComposante(materialCtx.composante_id, groupName, true, groupId);
-                if (_compResult) {
-                    var _compCatId = _compResult.catalogue_item_id;
-                    // If no catalogue_item_id but client_text exists → lookup in CATALOGUE_DATA
-                    if (!_compCatId && _compResult.client_text) {
-                        var _compAllowedCats = getAllowedCategoriesForGroup(groupName);
-                        var _compCandidates = CATALOGUE_DATA.filter(function(c) {
-                            if (c.client_text !== _compResult.client_text) return false;
-                            return !_compAllowedCats || _compAllowedCats.indexOf(c.category) !== -1;
-                        });
-                        if (_compCandidates.length === 0) {
-                            _compCandidates = CATALOGUE_DATA.filter(function(c) { return c.client_text === _compResult.client_text; });
-                        }
-                        if (_compCandidates.length === 1) {
-                            _compCatId = _compCandidates[0].id;
-                            cascadeLog('info', '#215: composante client_text lookup → single match ' + _compCatId);
-                        } else if (_compCandidates.length > 1) {
-                            var _compM2 = await showTechnicalItemModal(groupName, _compCandidates);
-                            _compCatId = _compM2 ? _compM2.itemId : _compCandidates[0].id;
-                            cascadeLog('info', '#215: composante client_text lookup → ' + _compCandidates.length + ' matches, chose ' + _compCatId);
-                        }
-                    }
-                    if (_compCatId) {
-                        // Propagate materialCtx like normal $default: resolution
-                        if (_compResult.client_text) { materialCtx.chosenClientText = _compResult.client_text; materialCtx._updatedBySiblingDefault = true; materialCtx._defaultResolvedId = _compCatId; }
-                        // Cache the result
-                        dmChoiceCache[groupId + ':' + groupName] = _compCatId;
-                        return _compCatId;
-                    }
-                }
-                // fallback: composante doesn't have this field → continue normal flow
-            }
+            // $default: resolution via FAB-priority (DEC-058) + Step 4a (DEC-060)
+            // resolveByComposante removed for $default: — FAB-priority scans enriched sub-fields
+            // in the correct order (style first for Façades, materiau first for others).
+            // resolveByComposante remains active for $match: via resolveMatchTarget.
 
             var dm = getDefaultMaterialsForGroup(groupId);
             // Step 1: Collect DM entries for this type (normalized: accent-insensitive, plural-tolerant)

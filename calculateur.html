@@ -5116,14 +5116,23 @@
         // ── Tier 0: Enriched DM field (#208) ──
         // If the DM entry that matched this expense category has an enriched sub-field
         // (e.g., bande_chant, finition, bois_brut), resolve directly without scoring/modals.
+        // DEC-061 fix: only scan DM entries of the FAB's own type (not all DM entries).
+        // Prevents Caisson's bande_chant from being resolved for a Facade Slab's $match:BANDE DE CHANT.
         if (dm && dm.length > 0) {
-            // Find the DM entry that was matched by word-similarity (same logic as dmCatItem lookup above)
+            // Determine the FAB parent's DM type to filter entries
+            var _t0FabDmType = null;
+            if (parentItem.composante_type_id && window.COMPOSANTE_TYPES) {
+                var _t0ct = COMPOSANTE_TYPES.find(function(t) { return t.id === parentItem.composante_type_id; });
+                if (_t0ct) _t0FabDmType = normalizeDmType(_t0ct.label);
+            }
+            if (!_t0FabDmType) _t0FabDmType = normalizeDmType(_getCategoryDmType(parentItem.category) || '');
+
             var _expWordsT0 = expenseCategory.toLowerCase().split(/\s+/).map(function(w) { return normalizeDmType(w); }).filter(function(w) { return w.length > 2; });
             for (var _t0i = 0; _t0i < dm.length; _t0i++) {
                 if (!dm[_t0i].type) continue;
                 var _t0Norm = normalizeDmType(dm[_t0i].type);
-                var _t0Match = _expWordsT0.some(function(ew) { return _t0Norm.indexOf(ew) !== -1 || ew.indexOf(_t0Norm) !== -1; });
-                // Also check the enriched field on ALL DM entries (not just type-matched)
+                // Only scan DM entries matching the FAB's own type
+                if (_t0FabDmType && _t0Norm !== _t0FabDmType) continue;
                 var enrichedSub = getEnrichedDmField(dm[_t0i], expenseCategory);
                 if (enrichedSub) {
                     // Resolve catalogue_item_id directly if available

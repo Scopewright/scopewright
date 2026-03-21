@@ -205,17 +205,22 @@ function resolveMaterialsFromDmEntry(dmEntry, expCats) {
  * @returns {object} resolved_materials { "uuid-cat": "ST-XXXX", ... }
  */
 function fillResolvedMaterials(rowId, groupId) {
+    function _exitEmpty(reason, ctx) {
+        console.warn('[resolve-materials] fillResolvedMaterials(' + rowId + ', ' + groupId + ') → {} — ' + reason, ctx || '');
+        return {};
+    }
+
     // Get the FAB's catalogue item
     var row = document.getElementById(rowId);
-    if (!row) return {};
+    if (!row) return _exitEmpty('row DOM not found');
     var select = row.querySelector('.item-select');
-    if (!select || !select.value) return {};
+    if (!select || !select.value) return _exitEmpty('no .item-select or value empty');
     var catItem = (window.CATALOGUE_DATA || []).find(function(c) { return c.id === select.value; });
-    if (!catItem) return {};
+    if (!catItem) return _exitEmpty('catItem not in CATALOGUE_DATA', select.value);
 
     // Get expense categories (with UUIDs)
     var expCats = window.expenseCategories || [];
-    if (!expCats.length) return {};
+    if (!expCats.length) return _exitEmpty('expenseCategories empty or not loaded');
 
     // Determine the FAB's DM type
     var fabDmType = null;
@@ -226,7 +231,7 @@ function fillResolvedMaterials(rowId, groupId) {
     if (!fabDmType && typeof _getCategoryDmType === 'function') {
         fabDmType = _getCategoryDmType(catItem.category);
     }
-    if (!fabDmType) return {};
+    if (!fabDmType) return _exitEmpty('fabDmType null — composante_type_id=' + catItem.composante_type_id + ' category=' + catItem.category);
 
     // Find matching DM entries for this type
     var dm = (window.roomDM && window.roomDM[groupId]) || [];
@@ -240,7 +245,7 @@ function fillResolvedMaterials(rowId, groupId) {
         return dNorm === fabDmTypeNorm;
     });
 
-    if (dmEntries.length === 0) return {};
+    if (dmEntries.length === 0) return _exitEmpty('no DM entries for type "' + fabDmType + '" in roomDM[' + groupId + '] (' + dm.length + ' total entries)');
 
     // Pick the DM entry — if 2+, use the first (composante choice modal is handled elsewhere)
     var chosenEntry = dmEntries[0];

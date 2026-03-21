@@ -2017,7 +2017,8 @@ Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping
 
 1. **Remplissage** : avant la boucle, `fillResolvedMaterials` pré-calcule le mapping. Deux types de clés : `"$default:TypeDM"` pour les articles FAB (résolution via composante ou DM entry), UUID de catégorie de dépense pour les articles MAT (résolution via `ENRICHED_DM_FIELD_MAP` et sous-champs DM enrichis). `catalogue_item_id` est la seule source de vérité — les fallbacks `client_text` ont été retirés
 2. **Lookup par règle** : pour chaque règle `$default:` ou `$match:`, le mapping est consulté en premier. Si une entrée existe, le `catalogue_item_id` résolu est utilisé directement — sans appeler `resolveCascadeTarget` / `resolveMatchTarget`
-3. **Fallback legacy** : si le mapping est vide ou ne contient pas l'entrée, l'ancienne résolution dynamique (tiers, modales, caches) est exécutée normalement
+3. **Fallback legacy (`$default:` uniquement)** : si le mapping est vide ou ne contient pas l'entrée pour une règle `$default:`, l'ancienne résolution dynamique (`resolveCascadeTarget` — FAB-priority, Step 4a, tiers, modales) est exécutée normalement
+4. **Pas de fallback legacy pour `$match:`** (Phase 3b) : si `resolved_materials` ne contient pas d'entrée pour la catégorie de dépense d'une règle `$match:`, la règle est **skippée** avec un toast actionnable "Matériau manquant — re-sélectionnez [category] dans le DM [type]". `resolveMatchTarget` n'est plus appelé. Élimine le bug racine où `findParentFabRow(groupId)` retournait toujours le Caisson pour les FAB enfants (ex: Façade Slab recevait les matériaux Caisson via `resolveMatchTarget`)
 
 **Helpers** :
 - `_getExpenseCatId(name)` : parcourt `EXPENSE_CATEGORIES` et retourne l'UUID correspondant au nom de catégorie
@@ -2029,7 +2030,9 @@ Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping
 
 **reprocessDefaultCascades fix** : `findCascadeChildren` retourne des objets `{rowId, catalogueId}` (pas des éléments DOM), corrigeant un crash lors du recalcul DM.
 
-**Phase suivante** : Phase 4 (suppression de la résolution legacy après validation complète).
+**Phase 3b** : Legacy `$match:` fallback désactivé. `resolveMatchTarget` n'est plus appelé pour les règles `$match:`. Si `resolved_materials` ne contient pas d'entrée pour la catégorie de dépense → skip + toast actionnable. `$default:` legacy préservé (FAB-priority fonctionne correctement).
+
+**Phase suivante** : Phase 4 (suppression de la résolution legacy `resolveCascadeTarget` pour `$default:` après validation complète).
 
 Dépendances globales requises : `COMPOSANTES_DATA`, `CATALOGUE_DATA`, `EXPENSE_CATEGORIES`, `roomDM`.
 Chargé via `<script src="shared/resolve-materials.js"></script>`.

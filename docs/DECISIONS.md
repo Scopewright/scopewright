@@ -1304,11 +1304,13 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - Phase 1 : `shared/resolve-materials.js` + migration SQL ✅
 - Phase 2 : integration `executeCascade` — lookup `_resolvedMaterials` avant `resolveCascadeTarget`, legacy preserve en fallback ✅
 - Phase 3 : `materialCtx` n'est plus herite du parent — chaque FAB construit le sien frais. L'appel recursif passe `null` pour `materialCtx`. `fillResolvedMaterials` appele avant la boucle cascade. `findCascadeChildren` retourne `{rowId, catalogueId}` objects (fix crash reprocessDefaultCascades). `expense_categories` ont des UUID stables ✅
-- Phase 4 : suppression resolution legacy — apres validation complete
+- Phase 3b : Legacy `$match:` fallback desactive. `resolveMatchTarget` n'est plus appele pour les regles `$match:`. Si `resolved_materials` vide pour la categorie de depense → skip + toast actionnable "Materiau manquant — re-selectionnez [category] dans le DM [type]". Elimine le bug racine `findParentFabRow(groupId)` qui retournait toujours le Caisson pour les FAB enfants (Facade Slab recevait les materiaux Caisson). `$default:` legacy preserve — FAB-priority fonctionne correctement via `resolveCascadeTarget` ✅
+- Phase 4 : suppression resolution legacy `resolveCascadeTarget` pour `$default:` — apres validation complete
 
 **Consequences** :
 - ~1200 lignes de resolution dynamique a supprimer de calculateur.html (Phase 4)
 - Zero modale au chargement — les cases sont deja remplies en DB
 - Le Recalculer vide les cases → re-remplit → re-cascade
-- Backward compatible — resolved_materials vide → l'ancienne resolution fonctionne
+- Backward compatible — resolved_materials vide → `$default:` fallback legacy, `$match:` skip + toast
 - `materialCtx` isolation elimine les bugs de contamination cross-FAB (ex: bande de chant du Caisson sur les Facades)
+- Phase 3b elimine definitivement le bug `findParentFabRow` — `resolveMatchTarget` n'est plus appele, donc le Caisson ne peut plus contaminer les FAB enfants

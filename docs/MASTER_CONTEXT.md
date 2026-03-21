@@ -407,7 +407,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | DEC-027 | Extraction `shared/presentation-client.js` | Réutilisation calculateur↔quote |
 | DEC-031 | PDFShift server-side (remplace html2pdf.js) | Rendu fidèle Chromium |
 | DEC-068 | Retrait `resolveByComposante` pour `$default:` | FAB-priority + Step 4a scannent dans l'ordre correct |
-| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus — clés `$default:TypeDM` (FAB) et UUID (MAT). `shared/resolve-materials.js` (~333 lignes). Phases 1-3 implémentées : `fillResolvedMaterials` avant cascade, `materialCtx` plus hérité (chaque FAB construit le sien), `findCascadeChildren` crash fix. `client_text` fallbacks retirés. Legacy préservé en fallback |
+| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus — clés `$default:TypeDM` (FAB) et UUID (MAT). `shared/resolve-materials.js` (~333 lignes). Phases 1-3b implémentées : `fillResolvedMaterials` avant cascade, `materialCtx` plus hérité (chaque FAB construit le sien), `findCascadeChildren` crash fix. `client_text` fallbacks retirés. Legacy `$match:` fallback désactivé — `resolved_materials` only (skip + toast si vide). `$default:` legacy préservé (FAB-priority) |
 
 ---
 

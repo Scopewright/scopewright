@@ -11066,12 +11066,14 @@
             var prevCatId = row.dataset.lastCatalogueId || '';
             if (prevCatId && prevCatId !== selectedId && !_cascadeRunning) {
                 findCascadeChildren(rowId).forEach(function(c) { removeRow(c.rowId); });
-                // New article = new rules → clear suppressions + overrides
+                // New article = new rules → clear suppressions + overrides + resolved_materials
                 if (cascadeSuppressed[rowId]) {
                     delete cascadeSuppressed[rowId];
                     if (itemMap[rowId]) updateItem(itemMap[rowId], { cascade_suppressed: null });
                     updateSuppressedIndicator(rowId);
                 }
+                // DEC-069: clear resolved_materials so fillResolvedMaterials re-resolves for new article
+                delete _resolvedMaterials[rowId];
                 if (_rowOverrides[rowId]) {
                     delete _rowOverrides[rowId];
                     row.classList.remove('has-override');

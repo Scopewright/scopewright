@@ -6097,10 +6097,11 @@
             delete _resolvedMaterials[rowIds[_fri]];
             var _frChildren = findCascadeChildren(rowIds[_fri]);
             for (var _frj = 0; _frj < _frChildren.length; _frj++) {
-                var _frChild = _frChildren[_frj];
-                if (!_frChild.classList.contains('cascade-locked')) {
-                    delete _frChild.dataset.cascadeRuleTarget;
-                    cascadeLog('info', 'reprocess: cleared cascadeRuleTarget on non-locked child ' + _frChild.id);
+                var _frChildEl = document.getElementById(_frChildren[_frj].rowId);
+                if (!_frChildEl) continue;
+                if (!_frChildEl.classList.contains('cascade-locked')) {
+                    delete _frChildEl.dataset.cascadeRuleTarget;
+                    cascadeLog('info', 'reprocess: cleared cascadeRuleTarget on non-locked child ' + _frChildEl.id);
                 }
             }
         }

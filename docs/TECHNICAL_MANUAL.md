@@ -43,7 +43,7 @@
 
 | Fichier | Rôle | Taille approx. |
 |---------|------|----------------|
-| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~20 758 lignes |
+| `calculateur.html` | Application principale — projets, soumissions, rooms, items, cascade, AI chatbox, annotations, pipeline, preview | ~19 531 lignes |
 | `catalogue_prix_stele_complet.html` | Catalogue de prix — CRUD items, images, prix composé, sandbox, AI import | ~8 530 lignes |
 | `admin.html` | Administration — 6 volets sidebar (Présentation, Catalogue, Workflow, Équipe, Prompts AI, Agent Maître), 22 sections | ~4 044 lignes |
 | `approbation.html` | Approbation — soumissions pendantes + articles proposés, AI review chat | ~2 233 lignes |
@@ -334,8 +334,8 @@ scheduleCascade(rowId)
                  │       ├── L/H/P/QTY doivent être > 0
                  │       └── n_tablettes/n_partitions/n_portes/n_tiroirs doivent être != null (0 est valide)
                  │
-                 ├── Pré-peupler materialCtx depuis le DM de la catégorie du parent FAB
-                 │   ├── categoryGroupMapping → DM type → unique DM → chosenClientText
+                 ├── Construire materialCtx frais depuis le DM du FAB courant (jamais hérité du parent)
+                 │   ├── getRelevantComposanteId → composante_type_id ou _getCategoryDmType → DM type → chosenClientText
                  │   └── Si multiple DMs → filterDmByExpenseRelevance avant modale (fix #207), auto-select si réduit à 1
                  │
                  ├── Récupérer dims via getRootDimsForCascade(parentRowId)
@@ -366,7 +366,7 @@ scheduleCascade(rowId)
                  ├── syncSortOrderForGroup(groupId)
                  │
                  └── Récursion: pour chaque enfant matché
-                      └── executeCascade(childRowId, depth+1, mergedOverrides, materialCtx)
+                      └── executeCascade(childRowId, depth+1, mergedOverrides, null)  // FAB enfant construit son propre materialCtx
 ```
 
 ### 3.3 Résolution des cibles
@@ -425,17 +425,19 @@ Mécanisme pour empêcher la duplication de matériaux cascade à différentes p
 
 **Structure** : `{ chosenClientText: "Placage chêne blanc" }` — le texte client du matériau DM choisi.
 
-**Pré-peuplement** (depth 0) :
+**Construction fraîche par chaque FAB** : `materialCtx` n'est plus hérité du parent. Chaque FAB (racine ou enfant) construit son propre `materialCtx` frais depuis son propre DM via DEC-061 sync :
 1. Si `_pendingMaterialCtx[parentRowId]` existe (changement manuel d'enfant) → l'utilise
-2. Sinon, dérive depuis la catégorie du parent FAB via `categoryGroupMapping` :
-   - Cherche le type DM correspondant à la catégorie du parent (ex: article catégorie "Carcasses" → DM type "Caisson")
-   - Si un seul DM de ce type → `chosenClientText` = son `client_text`
-   - Si plusieurs DMs du même type → lookup dans `dmChoiceCache`, puis `showDmChoiceModal()`
+2. Sinon, `getRelevantComposanteId(catItem, groupId)` trouve la composante pertinente
+3. Dérive le type DM depuis la catégorie du FAB (via `composante_type_id` ou `_getCategoryDmType`)
+4. Si un seul DM de ce type → `chosenClientText` = son `client_text`
+5. Si plusieurs DMs du même type → lookup dans `dmChoiceCache`, puis `showDmChoiceModal()`
 
-**Propagation** : à chaque appel récursif, le `materialCtx` est **copié** (pas référence) et passé au child :
+**Appel récursif** : le parent passe `null` pour `materialCtx` — le FAB enfant construit le sien :
 ```javascript
-await executeCascade(childRowId, depth + 1, mergedOverrides, materialCtx);
+await executeCascade(childRowId, depth + 1, mergedOverrides, null);
 ```
+
+**Note** : le parent passe toujours les dimensions, qty, `override_children`, tag, et installation au FAB enfant. Seul `materialCtx` est construit frais.
 
 **Mise à jour par `$default:`** : après résolution d'une règle `$default:`, `resolveCascadeTarget` propage le `client_text` de l'article catalogue résolu dans `materialCtx.chosenClientText`. Cela permet aux règles `$match:` frères (même FAB) de scorer les candidats dans le contexte du matériau effectivement résolu. Trois points de sortie patchés : cache hit (`dmChoiceCache`), candidat unique, et modale technique. Exemple : `$default:Caisson` → mélamine grise 805 → `materialCtx.chosenClientText = "Mélamine grise pale 805"` → `$match:BANDE DE CHANT` score dans le contexte mélamine (pas chêne blanc).
 
@@ -1980,13 +1982,13 @@ Chargé via `<link rel="stylesheet" href="shared/calculateur.css">`.
 Dépendances globales requises : `COUPE_TYPES`, `roomDM`, `getDefaultMaterialsForGroup`.
 Chargé via `<script src="shared/coupe.js"></script>`.
 
-### 15.5 `shared/resolve-materials.js` (~272 lignes)
+### 15.5 `shared/resolve-materials.js` (~333 lignes)
 
 Module de résolution pré-calculée des matériaux pour les articles FAB. Remplace la résolution dynamique (fuzzy, tiers, modales) par un mapping statique persisté en DB.
 
 #### Concept
 
-Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping `{ expense_category_uuid: catalogue_item_id }`. La cascade lit ce mapping au lieu de résoudre dynamiquement à chaque exécution.
+Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping avec deux types de clés : `"$default:TypeDM"` pour les articles FAB, UUID de catégorie de dépense pour les articles MAT. `catalogue_item_id` est la seule source de vérité — les fallbacks `client_text` ont été retirés. La cascade lit ce mapping au lieu de résoudre dynamiquement à chaque exécution.
 
 #### Fonctions exportées
 
@@ -2009,21 +2011,25 @@ Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping
 - `sql/resolved_materials.sql` — `ALTER TABLE room_items ADD COLUMN resolved_materials JSONB`
 - `sql/expense_categories_uuid.sql` — prérequis : ajoute des UUID stables aux catégories de dépense dans `app_config`
 
-#### Intégration cascade (Phase 2 — implémentée)
+#### Intégration cascade (Phases 2-3 — implémentées)
 
-`executeCascade` lit `_resolvedMaterials[parentRowId]` avant la boucle des règles cascade. Le flow :
+`executeCascade` appelle `fillResolvedMaterials(parentRowId, groupId)` avant la boucle des règles cascade. Le flow :
 
-1. **Remplissage** : avant la boucle, si `_resolvedMaterials[parentRowId]` est vide, appelle `fillResolvedMaterials(parentRowId, groupId)` pour pré-calculer le mapping
-2. **Lookup par règle** : pour chaque règle `$default:` ou `$match:`, la catégorie de dépense cible est convertie en UUID via `_getExpenseCatId(name)`. Si le mapping contient une entrée pour cet UUID, le `catalogue_item_id` est utilisé directement — sans appeler `resolveCascadeTarget` / `resolveMatchTarget`
+1. **Remplissage** : avant la boucle, `fillResolvedMaterials` pré-calcule le mapping. Deux types de clés : `"$default:TypeDM"` pour les articles FAB (résolution via composante ou DM entry), UUID de catégorie de dépense pour les articles MAT (résolution via `ENRICHED_DM_FIELD_MAP` et sous-champs DM enrichis). `catalogue_item_id` est la seule source de vérité — les fallbacks `client_text` ont été retirés
+2. **Lookup par règle** : pour chaque règle `$default:` ou `$match:`, le mapping est consulté en premier. Si une entrée existe, le `catalogue_item_id` résolu est utilisé directement — sans appeler `resolveCascadeTarget` / `resolveMatchTarget`
 3. **Fallback legacy** : si le mapping est vide ou ne contient pas l'entrée, l'ancienne résolution dynamique (tiers, modales, caches) est exécutée normalement
 
 **Helpers** :
 - `_getExpenseCatId(name)` : parcourt `EXPENSE_CATEGORIES` et retourne l'UUID correspondant au nom de catégorie
 - `_getDefaultField(groupName)` : retourne le sous-champ DM primaire — `'style'` pour Façades, `'materiau'` pour les autres
 
-**Cache mémoire** : `_resolvedMaterials[rowId]` — objet `{ expense_category_uuid: catalogue_item_id }`. Restauré depuis `room_items.resolved_materials` dans `openSubmission`. Vidé dans `reprocessDefaultCascades` avant re-résolution. Persisté en DB via `updateItem`.
+**Cache mémoire** : `_resolvedMaterials[rowId]` — objet avec clés `"$default:TypeDM"` ou UUID, valeurs `catalogue_item_id`. Restauré depuis `room_items.resolved_materials` dans `openSubmission`. Vidé dans `reprocessDefaultCascades` avant re-résolution. Persisté en DB via `updateItem`.
 
-**Phases suivantes** : Phase 3 (triggers création/recalcul automatiques), Phase 4 (suppression de la résolution legacy après validation).
+**materialCtx isolation** (Phase 3) : `materialCtx` n'est plus hérité du parent. L'appel récursif passe `null` — chaque FAB enfant construit son propre `materialCtx` frais depuis son propre DM. Le parent continue de passer dimensions, qty, `override_children`, tag, et installation.
+
+**reprocessDefaultCascades fix** : `findCascadeChildren` retourne des objets `{rowId, catalogueId}` (pas des éléments DOM), corrigeant un crash lors du recalcul DM.
+
+**Phase suivante** : Phase 4 (suppression de la résolution legacy après validation complète).
 
 Dépendances globales requises : `COMPOSANTES_DATA`, `CATALOGUE_DATA`, `EXPENSE_CATEGORIES`, `roomDM`.
 Chargé via `<script src="shared/resolve-materials.js"></script>`.

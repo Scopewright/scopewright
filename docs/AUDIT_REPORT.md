@@ -532,17 +532,27 @@ Le script de migration `backfill_item_type.sql` marquait des articles comme `fab
 
 Le debounce global de `debouncedSaveItem` (500ms) annule les saves précédents quand plusieurs items sont modifiés rapidement. `executeCascade` utilise `updateItem()` immédiat pour les enfants cascade, mais les dims du parent peuvent ne pas être sauvegardées si l'utilisateur modifie la profondeur puis navigue ailleurs avant l'expiration du debounce. Résultat : `depth_in = NULL` en DB, dimensions perdues au rechargement.
 
-**[BUG-44] Triple bande de chant** — Sévérité : haute (corruption de données)
+**[BUG-44] Triple bande de chant** — Sévérité : haute (corruption de données) — PARTIELLEMENT ATTÉNUÉ
 
-`reprocessDefaultCascades` est appelé 3 fois (une fois par type DM dirty via `recalculateDmCascades`). Le parent caisson matche les 3 appels car la cible `$match:BANDE DE CHANT` se déclenche pour tout type modifié. `findExistingChildForDynamicRule` échoue au 2e et 3e run après que `cascadeRuleTarget` a été vidé. Résultat : création d'enfants en doublon.
+`reprocessDefaultCascades` est appelé 3 fois (une fois par type DM dirty via `recalculateDmCascades`). Le parent caisson matche les 3 appels car la cible `$match:BANDE DE CHANT` se déclenche pour tout type modifié. `findExistingChildForDynamicRule` échoue au 2e et 3e run après que `cascadeRuleTarget` a été vidé. Résultat : création d'enfants en doublon. **Partiellement atténué** par l'isolation `materialCtx` (DEC-069 Phase 3) : chaque FAB construit son propre contexte, éliminant la contamination cross-FAB. Le bug de triple appel reste actif mais ses effets sont réduits.
 
 **[BUG-45] `openSubmission` truthy restore** — Sévérité : haute (perte de données au rechargement)
 
 `item.n_portes = 0` est traité comme falsy, le bloc de restauration des dims est sauté. Corrigé dans le commit `0e86bee` avec des checks `!= null`. À valider en production.
 
+**[BUG-47] CORRIGÉ — `reprocessDefaultCascades` crash (`findCascadeChildren`)**
+
+`findCascadeChildren` retournait des éléments DOM au lieu d'objets `{rowId, catalogueId}`. Le bouton "Recalculer" dans le panneau DM crashait car le code en aval attendait des propriétés `.rowId` et `.catalogueId` sur les résultats.
+
+**Fix** : `findCascadeChildren` retourne désormais des objets `{rowId, catalogueId}` avec les propriétés attendues.
+
 **[BUG-46] Composantes sans `composante_type_id`** — Sévérité : moyenne
 
 Les composantes créées avant le ticket #224 ont `composante_type_id = null`. Le filtre dropdown tombe en comparaison string qui peut échouer si `dm_type` est null ou vide. Fix possible : SQL backfill ou re-save de chaque composante. Impact : mauvaise composante affichée dans le dropdown accordion DM.
+
+**[NOTE] `resolved_materials` pas encore actif comme chemin primaire** — Sévérité : informationnel
+
+Le système `resolved_materials` (DEC-069, Phases 1-3) est implémenté et intégré dans `executeCascade`, mais la résolution legacy (`resolveCascadeTarget`/`resolveMatchTarget`) gère encore la majorité des résolutions en tant que fallback. Le mapping `resolved_materials` n'est rempli que quand `fillResolvedMaterials` trouve des données exploitables (composante ou DM enrichi). La Phase 4 (suppression du legacy) est planifiée après validation complète en production.
 
 ---
 

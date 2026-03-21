@@ -1292,10 +1292,10 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 
 **Contexte** : Le moteur cascade resout dynamiquement chaque $match: et $default: a chaque execution — 800+ lignes de logique fuzzy, word-similarity, tiers 0/1/2/3, modales, caches. Source constante de bugs (mauvais type DM, bande de chant du Caisson sur les Facades, modales parasites).
 
-**Decision** : Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping { expense_category_uuid: catalogue_item_id }. La cascade lit ce mapping au lieu de resoudre dynamiquement. La resolution est un evenement ponctuel (creation FAB, recalcul DM), pas un processus continu.
+**Decision** : Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping avec deux types de cles : `"$default:TypeDM"` pour les articles FAB, UUID de categorie de depense pour les articles MAT. `catalogue_item_id` est la seule source de verite — les fallbacks `client_text` ont ete retires. La cascade lit ce mapping au lieu de resoudre dynamiquement. La resolution est un evenement ponctuel (creation FAB, recalcul DM), pas un processus continu.
 
 **Architecture** :
-- `shared/resolve-materials.js` — module isole (272 lignes), fonctions pures + orchestration
+- `shared/resolve-materials.js` — module isole (333 lignes), fonctions pures + orchestration
 - `room_items.resolved_materials` JSONB en DB — survit au rechargement
 - `ENRICHED_DM_FIELD_MAP` deplace ici (source de verite unique)
 - `_resolvedMaterials[rowId]` — cache memoire, restaure depuis DB dans `openSubmission`, vide dans `reprocessDefaultCascades`
@@ -1303,7 +1303,7 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - `_getDefaultField(groupName)` — retourne le sous-champ DM primaire (`'style'` pour Facades, `'materiau'` pour les autres)
 - Phase 1 : `shared/resolve-materials.js` + migration SQL ✅
 - Phase 2 : integration `executeCascade` — lookup `_resolvedMaterials` avant `resolveCascadeTarget`, legacy preserve en fallback ✅
-- Phase 3 : triggers (creation FAB, recalcul DM) — next
+- Phase 3 : `materialCtx` n'est plus herite du parent — chaque FAB construit le sien frais. L'appel recursif passe `null` pour `materialCtx`. `fillResolvedMaterials` appele avant la boucle cascade. `findCascadeChildren` retourne `{rowId, catalogueId}` objects (fix crash reprocessDefaultCascades). `expense_categories` ont des UUID stables ✅
 - Phase 4 : suppression resolution legacy — apres validation complete
 
 **Consequences** :
@@ -1311,3 +1311,4 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - Zero modale au chargement — les cases sont deja remplies en DB
 - Le Recalculer vide les cases → re-remplit → re-cascade
 - Backward compatible — resolved_materials vide → l'ancienne resolution fonctionne
+- `materialCtx` isolation elimine les bugs de contamination cross-FAB (ex: bande de chant du Caisson sur les Facades)

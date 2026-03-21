@@ -8,7 +8,7 @@
 
 | Fichier | Lignes | Rôle | Actif |
 |---------|--------|------|-------|
-| `calculateur.html` | 20 758 | App principale — projets, pipeline, soumissions, meubles, cascade, DM, AI chatbox | ✅ |
+| `calculateur.html` | 19 531 | App principale — projets, pipeline, soumissions, meubles, cascade, DM, AI chatbox | ✅ |
 | `catalogue_prix_stele_complet.html` | 10 371 | Catalogue de prix — CRUD items, images, composantes, coupes, types | ✅ |
 | `admin.html` | 4 171 | Administration — permissions, prompts AI, Agent Maître | ✅ |
 | `clients.html` | 2 324 | CRM — contacts, entreprises, AI import | ✅ |
@@ -90,6 +90,8 @@
 - `cascade_suppressed` — mémorisation suppressions manuelles
 - `cascade-locked` — protection enfants modifiés manuellement
 - Bouton Recalculer (#218) — re-résolution enfants non-locked
+- DEC-069 Phases 1-3 — `resolved_materials` JSONB, `fillResolvedMaterials` avant cascade, `materialCtx` construit frais par chaque FAB (plus hérité du parent)
+- `expense_categories` avec UUID stables (migration `sql/expense_categories_uuid.sql`)
 
 ### Ce qui est partiel ⚠️
 
@@ -103,7 +105,8 @@
 2. **Composante dropdown mauvais type** : les composantes créées avant #224 n'ont pas de `composante_type_id`. Le fallback string `normalizeDmType(c.dm_type)` fonctionne si `dm_type` est non-vide, mais échoue si `dm_type` est null → toutes les composantes matchent
 3. **depth_in = NULL en DB** : certains articles ont `depth_in = NULL` malgré une profondeur saisie. Cause : `debouncedSaveItem` annulé avant fire (debounce global 500ms)
 4. **`n_portes = 0` traité comme absent** : fix poussé (commit `0e86bee`) — utilise `!= null` au lieu de truthy check. À valider en prod
-5. **Triple bande de chant** : `reprocessDefaultCascades` appelé 3 fois (1 par type dirty) → le caisson est re-cascadé 3 fois → `findExistingChildForDynamicRule` ne retrouve pas les enfants aux 2e/3e runs si `cascadeRuleTarget` a été cleared
+5. **Triple bande de chant** : `reprocessDefaultCascades` appelé 3 fois (1 par type dirty) → le caisson est re-cascadé 3 fois → `findExistingChildForDynamicRule` ne retrouve pas les enfants aux 2e/3e runs si `cascadeRuleTarget` a été cleared. Partiellement atténué par l'isolation `materialCtx` (chaque FAB construit le sien — pas de contamination cross-FAB)
+6. **reprocessDefaultCascades crash** (CORRIGÉ) : `findCascadeChildren` retournait des éléments DOM au lieu d'objets `{rowId, catalogueId}`, causant un crash lors du recalcul DM
 
 ---
 
@@ -167,6 +170,8 @@
 | DEC-061 | Chaque FAB trouve sa propre composante | Livré |
 | DEC-067 | reprocessDefaultCascades normalizeDmType | Livré |
 | DEC-068 | Retrait resolveByComposante pour $default: | Livré |
+| DEC-069 | resolved_materials Phases 1-3 + materialCtx isolation | Livré |
+| BUG | reprocessDefaultCascades crash (findCascadeChildren) | Corrigé |
 | BUG | Tag non propagé aux enfants cascade | Actif |
 | BUG | depth_in NULL en DB (debounce) | Actif |
 | BUG | Triple bande de chant (triple reprocess) | Actif |
@@ -187,7 +192,7 @@ Les migrations suivantes ont été créées mais leur application en prod n'est 
 
 ---
 
-## Décisions architecturales récentes (DEC-058 à DEC-068)
+## Décisions architecturales récentes (DEC-058 à DEC-069)
 
 Voir `docs/DECISIONS.md` pour le détail. Résumé :
 
@@ -201,3 +206,4 @@ Voir `docs/DECISIONS.md` pour le détail. Résumé :
 - **DEC-066** : Retrait #219b différé post-backfill complet
 - **DEC-067** : reprocessDefaultCascades normalizeDmType matching
 - **DEC-068** : Retrait resolveByComposante pour $default:
+- **DEC-069** : `resolved_materials` JSONB Phases 1-3 — module `shared/resolve-materials.js` (333 lignes), clés `$default:TypeDM` + UUID, `client_text` fallbacks retirés, `materialCtx` plus hérité (chaque FAB construit le sien), `findCascadeChildren` crash fix

@@ -23,7 +23,7 @@
 
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
-| `calculateur.html` | ~20 758 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
+| `calculateur.html` | ~19 531 | App principale — projets, pipeline, soumissions, cascade, DM, AI chat |
 | `catalogue_prix_stele_complet.html` | ~8 720 | Catalogue prix — CRUD articles, images, AI import, composantes, coupes |
 | `admin.html` | ~4 040 | Administration — 6 volets sidebar, prompts AI, Agent Maître |
 | `approbation.html` | ~2 200 | Approbation soumissions, AI review |
@@ -46,7 +46,7 @@
 | `shared/sanity-checks.js` | `runSanityChecks()` — checks déterministes (no AI) |
 | `shared/calculateur.css` | Styles extraits du calculateur (cascade, DM, grille, overrides) |
 | `shared/coupe.js` | Logique coupes de placage — `getCoupeFacteur()`, `_detectEssence()`, `COUPE_TYPES` |
-| `shared/resolve-materials.js` | Résolution pré-calculée matériaux FAB — `resolveMaterialsFromComposante()`, `resolveMaterialsFromDmEntry()`, `fillResolvedMaterials()`, `clearResolvedMaterials()`, `ENRICHED_DM_FIELD_MAP` |
+| `shared/resolve-materials.js` | ~333 lignes. Résolution pré-calculée matériaux FAB — `resolveMaterialsFromComposante()`, `resolveMaterialsFromDmEntry()`, `fillResolvedMaterials()`, `clearResolvedMaterials()`, `ENRICHED_DM_FIELD_MAP` |
 
 ---
 
@@ -97,7 +97,7 @@ catalogue_change_log (audit AI)
 - `room_items.cascade_suppressed` = JSONB array d'IDs supprimés manuellement
 - `room_items.labor_override/material_override/price_override` = overrides par ligne
 - `room_items.composante_id` = UUID FK vers `composantes` (nullable, ON DELETE SET NULL)
-- `room_items.resolved_materials` = JSONB mapping `{ expense_category_uuid: catalogue_item_id }` — matériaux pré-résolus par FAB
+- `room_items.resolved_materials` = JSONB mapping `{ "$default:TypeDM": catalogue_item_id, expense_category_uuid: catalogue_item_id }` — matériaux pré-résolus par FAB. `catalogue_item_id` seule source de vérité (client_text fallbacks retirés)
 
 ---
 
@@ -232,7 +232,7 @@ npx supabase functions deploy <nom> --no-verify-jwt
 - Crée automatiquement lignes enfants depuis règles `cascade` d'un FAB parent
 - Récursion max 3 niveaux. 3 types cibles : code direct, `$default:Type`, `$match:CATÉGORIE`
 - Guards : `_cascadeRunning`, `_isLoadingSubmission`, debounce 400ms, `skipCascade`, `ask` completeness
-- `materialCtx` propagé parent→enfant→petit-enfant, mis à jour par `$default:` après résolution
+- `materialCtx` construit frais par chaque FAB (jamais hérité du parent — appel récursif passe `null`), mis à jour par `$default:` après résolution
 - `child_dims` : formules dimensionnelles. Multi-instance quand `child_dims` + qty > 1
 - Persistance immédiate (pas de debounce). Enfants locked protégés. `cascade_suppressed` pour suppressions manuelles
 - **NE PAS MODIFIER** sans rouler `node tests/cascade-engine.test.js` (393 assertions, 42 groupes)
@@ -368,7 +368,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | SEC-05 | Tokens publics sans expiration | Lien compromis reste valide indéfiniment |
 | SEC-08 | Pas de validation schéma Edge Functions | Payload arbitraire possible |
 | RC-02 | Permissions client-side uniquement | Bypass via DevTools |
-| ARCH-01 | `calculateur.html` ~20 758 lignes | Maintenabilité critique |
+| ARCH-01 | `calculateur.html` ~19 531 lignes | Maintenabilité critique |
 | ARCH-10 | Supabase single backend | Pas d'abstraction, vendor lock-in |
 | BUG-04 | Prix composé vs manuel ambigu | Confusion source de vérité |
 
@@ -407,7 +407,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | DEC-027 | Extraction `shared/presentation-client.js` | Réutilisation calculateur↔quote |
 | DEC-031 | PDFShift server-side (remplace html2pdf.js) | Rendu fidèle Chromium |
 | DEC-068 | Retrait `resolveByComposante` pour `$default:` | FAB-priority + Step 4a scannent dans l'ordre correct |
-| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus par catégorie de dépense UUID. `shared/resolve-materials.js` module isolé. Phase 2 intégrée dans `executeCascade` — lookup `_resolvedMaterials` avant résolution dynamique, legacy préservé en fallback |
+| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus — clés `$default:TypeDM` (FAB) et UUID (MAT). `shared/resolve-materials.js` (~333 lignes). Phases 1-3 implémentées : `fillResolvedMaterials` avant cascade, `materialCtx` plus hérité (chaque FAB construit le sien), `findCascadeChildren` crash fix. `client_text` fallbacks retirés. Legacy préservé en fallback |
 
 ---
 

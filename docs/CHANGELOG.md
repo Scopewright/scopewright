@@ -2,7 +2,20 @@
 
 > Historique chronologique des modifications significatives.
 >
-> **Dernière mise à jour** : 2026-03-19
+> **Dernière mise à jour** : 2026-03-20
+
+---
+
+## 2026-03-20
+
+### Features
+- **DEC-069 Phase 3 — materialCtx isolation** : `materialCtx` n'est plus hérité du parent dans l'appel récursif `executeCascade`. Chaque FAB construit son propre `materialCtx` frais depuis son propre DM via DEC-061 sync. L'appel récursif passe `null` pour `materialCtx`. Le parent continue de passer dimensions, qty, `override_children`, tag, et installation. Elimine les bugs de contamination cross-FAB (ex: bande de chant du Caisson sur les Facades)
+- **DEC-069 — resolved_materials `$default:` keys** : le mapping `resolved_materials` utilise deux types de clés : `"$default:TypeDM"` pour les articles FAB, UUID de catégorie de dépense pour les articles MAT. `catalogue_item_id` est la seule source de vérité — les fallbacks `client_text` ont été retirés
+- **expense_categories UUIDs** : migration `sql/expense_categories_uuid.sql` ajoute des UUID stables aux catégories de dépense dans `app_config`. Prérequis pour le mapping `resolved_materials`
+- **shared/resolve-materials.js** élargi à ~333 lignes (était ~272)
+
+### Corrections
+- **reprocessDefaultCascades crash** : `findCascadeChildren` retournait des éléments DOM au lieu d'objets `{rowId, catalogueId}`, causant un crash lors du recalcul DM via le bouton Recalculer
 
 ---
 

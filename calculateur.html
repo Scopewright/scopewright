@@ -6241,6 +6241,7 @@
         if (typeof fillResolvedMaterials === 'function') {
             if (!_resolvedMaterials[parentRowId] || Object.keys(_resolvedMaterials[parentRowId]).length === 0) {
                 var _filled = fillResolvedMaterials(parentRowId, groupId);
+                cascadeLog('info', 'DEC-069: fillResolvedMaterials(' + parentRowId + ') returned ' + Object.keys(_filled || {}).length + ' keys, non-null: ' + Object.values(_filled || {}).filter(function(v) { return v != null; }).length);
                 if (_filled && Object.keys(_filled).length > 0) {
                     _resolvedMaterials[parentRowId] = _filled;
                     cascadeLog('info', 'DEC-069: filled resolved_materials for ' + parentRowId + ': ' + JSON.stringify(_filled));

@@ -406,6 +406,21 @@ Table de référence pour les types de composante (Caisson, Façades, Panneaux, 
 - **`resolveByComposante` cross-type** : compare `comp.composante_type_id` vs `_resolveTypeId(lookupKey)` pour le type match, DM entries matchées par `type_id`
 - **`composantes.dm_type`** string préservé pour display/logs/dedup — pas retiré
 
+### Matériaux pré-résolus (`resolved_materials`)
+
+Système de résolution pré-calculée des matériaux pour les articles FAB. Remplace la résolution dynamique (fuzzy, tiers, modales) par un mapping statique persisté en DB.
+
+- **Concept** : chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — mapping `{ expense_category_uuid: catalogue_item_id }`. La cascade lit ce mapping au lieu de résoudre dynamiquement à chaque exécution
+- **Module** : `shared/resolve-materials.js` (~272 lignes) — fonctions pures + orchestration. Exporte `resolveMaterialsFromComposante`, `resolveMaterialsFromDmEntry`, `fillResolvedMaterials`, `clearResolvedMaterials`, `ENRICHED_DM_FIELD_MAP`, `COMPOSANTE_SUBFIELD_MAP`
+- **`_resolvedMaterials[rowId]`** : cache mémoire `{ expense_category_uuid: catalogue_item_id }`. Restauré depuis `room_items.resolved_materials` dans `openSubmission`. Vidé dans `reprocessDefaultCascades` (avant re-résolution). Persisté en DB via `updateItem`
+- **`_getExpenseCatId(name)`** : lookup UUID de catégorie de dépense depuis le nom string. Parcourt `EXPENSE_CATEGORIES` et retourne l'UUID correspondant
+- **`_getDefaultField(groupName)`** : retourne le sous-champ DM primaire pour un groupe — `'style'` pour Façades, `'materiau'` pour tous les autres
+- **Phase 1** (implémentée) : `shared/resolve-materials.js` + migration SQL `sql/resolved_materials.sql` + `sql/expense_categories_uuid.sql`
+- **Phase 2** (implémentée) : intégration dans `executeCascade`. Avant la boucle des règles, `_resolvedMaterials[parentRowId]` est rempli via `fillResolvedMaterials` si vide. Pour chaque règle `$default:`/`$match:`, le mapping est consulté en premier — si une entrée existe pour la catégorie de dépense de la règle, le `catalogue_item_id` résolu est utilisé directement sans appeler `resolveCascadeTarget`/`resolveMatchTarget`. Legacy `resolveCascadeTarget` préservé comme fallback si le mapping est vide ou ne contient pas l'entrée
+- **Phase 3** (planifiée) : triggers automatiques — remplissage à la création FAB, re-remplissage au recalcul DM
+- **Phase 4** (planifiée) : suppression de la résolution legacy (`resolveCascadeTarget`/`resolveMatchTarget`) après validation complète
+- **Migrations** : `sql/resolved_materials.sql`, `sql/expense_categories_uuid.sql`
+
 ### Coupes de placage (`coupe_types`)
 
 Référentiel centralisé des types de coupe de placage, géré depuis le catalogue.

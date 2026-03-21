@@ -1298,10 +1298,16 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - `shared/resolve-materials.js` — module isole (272 lignes), fonctions pures + orchestration
 - `room_items.resolved_materials` JSONB en DB — survit au rechargement
 - `ENRICHED_DM_FIELD_MAP` deplace ici (source de verite unique)
-- Phase 1 creee, Phase 2 (integration cascade) a venir
+- `_resolvedMaterials[rowId]` — cache memoire, restaure depuis DB dans `openSubmission`, vide dans `reprocessDefaultCascades`
+- `_getExpenseCatId(name)` — lookup UUID categorie de depense depuis nom string
+- `_getDefaultField(groupName)` — retourne le sous-champ DM primaire (`'style'` pour Facades, `'materiau'` pour les autres)
+- Phase 1 : `shared/resolve-materials.js` + migration SQL ✅
+- Phase 2 : integration `executeCascade` — lookup `_resolvedMaterials` avant `resolveCascadeTarget`, legacy preserve en fallback ✅
+- Phase 3 : triggers (creation FAB, recalcul DM) — next
+- Phase 4 : suppression resolution legacy — apres validation complete
 
 **Consequences** :
-- ~1200 lignes de resolution dynamique a supprimer de calculateur.html (Phase 2)
+- ~1200 lignes de resolution dynamique a supprimer de calculateur.html (Phase 4)
 - Zero modale au chargement — les cases sont deja remplies en DB
 - Le Recalculer vide les cases → re-remplit → re-cascade
 - Backward compatible — resolved_materials vide → l'ancienne resolution fonctionne

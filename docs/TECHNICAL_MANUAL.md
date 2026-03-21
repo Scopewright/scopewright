@@ -2009,9 +2009,21 @@ Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping
 - `sql/resolved_materials.sql` — `ALTER TABLE room_items ADD COLUMN resolved_materials JSONB`
 - `sql/expense_categories_uuid.sql` — prérequis : ajoute des UUID stables aux catégories de dépense dans `app_config`
 
-#### Intégration cascade (Phase 2 — planifiée)
+#### Intégration cascade (Phase 2 — implémentée)
 
-La Phase 2 modifiera `executeCascade` pour lire `resolved_materials` au lieu d'appeler `resolveCascadeTarget` / `resolveMatchTarget`. Supprimera ~1200 lignes de résolution dynamique. Backward compatible : si `resolved_materials` est vide, l'ancienne résolution fonctionne.
+`executeCascade` lit `_resolvedMaterials[parentRowId]` avant la boucle des règles cascade. Le flow :
+
+1. **Remplissage** : avant la boucle, si `_resolvedMaterials[parentRowId]` est vide, appelle `fillResolvedMaterials(parentRowId, groupId)` pour pré-calculer le mapping
+2. **Lookup par règle** : pour chaque règle `$default:` ou `$match:`, la catégorie de dépense cible est convertie en UUID via `_getExpenseCatId(name)`. Si le mapping contient une entrée pour cet UUID, le `catalogue_item_id` est utilisé directement — sans appeler `resolveCascadeTarget` / `resolveMatchTarget`
+3. **Fallback legacy** : si le mapping est vide ou ne contient pas l'entrée, l'ancienne résolution dynamique (tiers, modales, caches) est exécutée normalement
+
+**Helpers** :
+- `_getExpenseCatId(name)` : parcourt `EXPENSE_CATEGORIES` et retourne l'UUID correspondant au nom de catégorie
+- `_getDefaultField(groupName)` : retourne le sous-champ DM primaire — `'style'` pour Façades, `'materiau'` pour les autres
+
+**Cache mémoire** : `_resolvedMaterials[rowId]` — objet `{ expense_category_uuid: catalogue_item_id }`. Restauré depuis `room_items.resolved_materials` dans `openSubmission`. Vidé dans `reprocessDefaultCascades` avant re-résolution. Persisté en DB via `updateItem`.
+
+**Phases suivantes** : Phase 3 (triggers création/recalcul automatiques), Phase 4 (suppression de la résolution legacy après validation).
 
 Dépendances globales requises : `COMPOSANTES_DATA`, `CATALOGUE_DATA`, `EXPENSE_CATEGORIES`, `roomDM`.
 Chargé via `<script src="shared/resolve-materials.js"></script>`.

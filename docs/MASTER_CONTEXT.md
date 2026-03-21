@@ -407,7 +407,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | DEC-027 | Extraction `shared/presentation-client.js` | Réutilisation calculateur↔quote |
 | DEC-031 | PDFShift server-side (remplace html2pdf.js) | Rendu fidèle Chromium |
 | DEC-068 | Retrait `resolveByComposante` pour `$default:` | FAB-priority + Step 4a scannent dans l'ordre correct |
-| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus par catégorie de dépense UUID. `shared/resolve-materials.js` module isolé |
+| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus par catégorie de dépense UUID. `shared/resolve-materials.js` module isolé. Phase 2 intégrée dans `executeCascade` — lookup `_resolvedMaterials` avant résolution dynamique, legacy préservé en fallback |
 
 ---
 

@@ -4218,6 +4218,29 @@
     var matchDefaults = {};      // cache $match: resolutions (loaded from submission.match_defaults)
     var dmChoiceCache = {};      // { "groupId:TypeName": catalogue_item_id } — per-room $default: choice cache
     var _pendingMaterialCtx = {}; // { parentRowId: { chosenClientText: "..." } } — set by manual child change, consumed by executeCascade
+    var _resolvedMaterials = {};  // DEC-069: { rowId: { expCatUUID: "ST-XXXX", ... } } — resolved materials cache
+
+    /** Lookup expense category UUID from name string */
+    function _getExpenseCatId(name) {
+        if (!name || !expenseCategories) return null;
+        var upper = name.toUpperCase().trim();
+        var cat = expenseCategories.find(function(c) { return c.name && c.name.toUpperCase().trim() === upper; });
+        return cat ? cat.id : null;
+    }
+
+    /** Get the primary DM field for a $default: group type (style for Facades, materiau for others) */
+    function _getDefaultField(groupName) {
+        var config = _getEnrichedConfig ? _getEnrichedConfig(groupName) : null;
+        if (config && config.fields) {
+            // First catalogue field (skip coupe which is not a catalogue field)
+            for (var i = 0; i < config.fields.length; i++) {
+                if (DM_ENRICHED_CATALOGUE_FIELDS && DM_ENRICHED_CATALOGUE_FIELDS.indexOf(config.fields[i]) !== -1) {
+                    return config.fields[i];
+                }
+            }
+        }
+        return 'materiau'; // default fallback
+    }
 
     var MATCH_STOP_WORDS = ['de', 'du', 'des', 'le', 'la', 'les', 'en', 'avec', 'pour', 'et',
         'un', 'une', 'sur', 'par', 'au', 'aux',
@@ -6070,6 +6093,8 @@
         // won't recognize the child → executeCascade re-resolves from current DM.
         // Locked children (manually modified by estimator) are preserved.
         for (var _fri = 0; _fri < rowIds.length; _fri++) {
+            // DEC-069: clear resolved_materials so fillResolvedMaterials re-resolves from current DM
+            delete _resolvedMaterials[rowIds[_fri]];
             var _frChildren = findCascadeChildren(rowIds[_fri]);
             for (var _frj = 0; _frj < _frChildren.length; _frj++) {
                 var _frChild = _frChildren[_frj];
@@ -6210,6 +6235,22 @@
         }
 
         var groupId = row.dataset.group;
+
+        // DEC-069: Fill resolved_materials if empty (first cascade or after recalcul)
+        if (typeof fillResolvedMaterials === 'function') {
+            if (!_resolvedMaterials[parentRowId] || Object.keys(_resolvedMaterials[parentRowId]).length === 0) {
+                var _filled = fillResolvedMaterials(parentRowId, groupId);
+                if (_filled && Object.keys(_filled).length > 0) {
+                    _resolvedMaterials[parentRowId] = _filled;
+                    cascadeLog('info', 'DEC-069: filled resolved_materials for ' + parentRowId + ': ' + JSON.stringify(_filled));
+                    // Persist to DB
+                    if (itemMap[parentRowId]) {
+                        updateItem(itemMap[parentRowId], { resolved_materials: _filled });
+                    }
+                }
+            }
+        }
+
         var parentItemId = itemMap[parentRowId];
         var existingChildren = findCascadeChildren(parentRowId);
 
@@ -6476,7 +6517,61 @@
                 }
             }
             if (!resolvedTarget) {
-                resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
+                // DEC-069: Try resolved_materials first (direct lookup, no fuzzy/modals)
+                var _rmResolved = false;
+                if (_resolvedMaterials[parentRowId] && Object.keys(_resolvedMaterials[parentRowId]).length > 0) {
+                    var _rmTarget = null;
+                    if (rule.target.startsWith('$default:')) {
+                        // $default:X → look up the primary field for this type
+                        var _rmGroupName = rule.target.substring(9);
+                        var _rmField = _getDefaultField(_rmGroupName);
+                        // Try primary field UUID first, then group name UUID
+                        var _rmFieldCatId = _getExpenseCatId(_rmField === 'style' ? 'FACADE' : _rmField.toUpperCase());
+                        if (_rmFieldCatId && _resolvedMaterials[parentRowId][_rmFieldCatId]) {
+                            _rmTarget = _resolvedMaterials[parentRowId][_rmFieldCatId];
+                        }
+                        // Fallback: scan all resolved materials for a matching category name
+                        if (!_rmTarget) {
+                            var _rmKeys = Object.keys(_resolvedMaterials[parentRowId]);
+                            for (var _rmk = 0; _rmk < _rmKeys.length; _rmk++) {
+                                var _rmCat = expenseCategories.find(function(c) { return c.id === _rmKeys[_rmk]; });
+                                if (_rmCat && _rmCat.name) {
+                                    var _rmFieldForCat = ENRICHED_DM_FIELD_MAP[_rmCat.name.toUpperCase().trim()];
+                                    if (_rmFieldForCat === _rmField && _resolvedMaterials[parentRowId][_rmKeys[_rmk]]) {
+                                        _rmTarget = _resolvedMaterials[parentRowId][_rmKeys[_rmk]];
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (rule.target.startsWith('$match:')) {
+                        // $match:EXPENSE_CAT → direct UUID lookup
+                        var _rmExpCat = rule.target.substring(7);
+                        var _rmExpId = _getExpenseCatId(_rmExpCat);
+                        if (_rmExpId && _resolvedMaterials[parentRowId][_rmExpId]) {
+                            _rmTarget = _resolvedMaterials[parentRowId][_rmExpId];
+                        }
+                    }
+                    if (_rmTarget) {
+                        // Validate in catalogue
+                        var _rmItem = CATALOGUE_DATA.find(function(c) { return c.id === _rmTarget; });
+                        if (_rmItem) {
+                            resolvedTarget = _rmTarget;
+                            _rmResolved = true;
+                            cascadeLog('info', 'DEC-069: resolved_materials hit → ' + _rmTarget + ' for rule ' + rule.target);
+                            // Propagate materialCtx for downstream rules
+                            if (rule.target.startsWith('$default:') && materialCtx) {
+                                materialCtx.chosenClientText = _rmItem.client_text || '';
+                                materialCtx._updatedBySiblingDefault = true;
+                                materialCtx._defaultResolvedId = _rmItem.id;
+                            }
+                        }
+                    }
+                }
+                // Fallback: dynamic resolution (legacy — will be removed in Phase 4)
+                if (!_rmResolved) {
+                    resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
+                }
                 // Mark that $default: resolved fresh (existing child didn't match new DM)
                 if (rule.target.startsWith('$default:')) {
                     _defaultResolvedFresh = true;
@@ -16031,6 +16126,11 @@
                             if (item.cascade_suppressed && Array.isArray(item.cascade_suppressed) && item.cascade_suppressed.length > 0) {
                                 cascadeSuppressed[rowId] = item.cascade_suppressed;
                                 updateSuppressedIndicator(rowId);
+                            }
+
+                            // DEC-069: Restore resolved_materials from DB
+                            if (item.resolved_materials && typeof item.resolved_materials === 'object' && Object.keys(item.resolved_materials).length > 0) {
+                                _resolvedMaterials[rowId] = item.resolved_materials;
                             }
 
                             qtyInput.value = item.quantity || 1;

@@ -6279,9 +6279,8 @@
             if (document.getElementById(c.rowId)) lastInsertedRowId = c.rowId;
         });
 
-        // Cascade material context: inherited from ancestor cascade, or pre-populated from
-        // the parent FAB's DM. Overridden by _pendingMaterialCtx (manual child change).
-        var materialCtx = parentMaterialCtx ? { chosenClientText: parentMaterialCtx.chosenClientText, composante_id: parentMaterialCtx.composante_id || null } : {};
+        // DEC-069: materialCtx is built fresh from this FAB's own DM — never inherited from parent
+        var materialCtx = {};
         // Manual child change: consume pending materialCtx (overrides DM-based ctx)
         if (_pendingMaterialCtx[parentRowId]) {
             materialCtx.chosenClientText = _pendingMaterialCtx[parentRowId].chosenClientText;
@@ -6924,7 +6923,9 @@
             var _childOverrides = (_childCatItem && _childCatItem.item_type === 'fabrication')
                 ? [] // FAB enfant autonome — fresh start, own override_children will apply
                 : mergedOverrides;
-            await executeCascade(matchedChildRowIds[ci], depth + 1, _childOverrides, materialCtx);
+            // DEC-069: don't pass materialCtx to children — each FAB builds its own from its DM
+            // Parent passes dimensions/qty/overrides/tags, NOT materials
+            await executeCascade(matchedChildRowIds[ci], depth + 1, _childOverrides, null);
         }
     }
 

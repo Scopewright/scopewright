@@ -6578,9 +6578,26 @@
                         }
                     }
                 }
-                // Fallback: dynamic resolution (legacy — will be removed in Phase 4)
+                // Fallback behavior depends on rule type
                 if (!_rmResolved) {
-                    resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
+                    if (rule.target.startsWith('$match:')) {
+                        // $match: — NO legacy fallback. If resolved_materials doesn't have it, skip.
+                        // This forces the estimator to configure DM sub-fields with catalogue IDs.
+                        var _matchCat = rule.target.substring(7);
+                        cascadeLog('info', 'DEC-069: $match:' + _matchCat + ' — no resolved_materials, skipping (no legacy fallback)');
+                        // Determine which DM type to mention in the toast
+                        var _matchDmType = null;
+                        if (catItem && catItem.composante_type_id && window.COMPOSANTE_TYPES) {
+                            var _mct = COMPOSANTE_TYPES.find(function(t) { return t.id === catItem.composante_type_id; });
+                            if (_mct) _matchDmType = _mct.label;
+                        }
+                        if (!_matchDmType) _matchDmType = _getCategoryDmType(catItem ? catItem.category : '') || 'inconnu';
+                        showConstraintToast('Mat\u00e9riau manquant \u2014 re-s\u00e9lectionnez ' + _matchCat + ' dans le DM ' + _matchDmType, 6000);
+                        continue; // skip this rule entirely
+                    } else {
+                        // $default: — legacy FAB-priority + Step 4a works correctly
+                        resolvedTarget = await resolveCascadeTarget(rule.target, groupId, materialCtx);
+                    }
                 }
                 // Mark that $default: resolved fresh (existing child didn't match new DM)
                 if (rule.target.startsWith('$default:')) {

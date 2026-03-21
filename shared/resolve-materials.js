@@ -111,12 +111,7 @@ function resolveMaterialsFromComposante(composante, expCats, dmType) {
         }
         // Skip if this ID was already used as FAB in pass 1
         if (catId && result['$default:' + (dmType || '')] === catId) { result[cat.id] = null; continue; }
-        // Fallback: client_text lookup
-        if (!catId && composante[compField.text] && window.CATALOGUE_DATA) {
-            var _ctLookup = composante[compField.text];
-            var _ctMatches = CATALOGUE_DATA.filter(function(c) { return c.client_text === _ctLookup; });
-            if (_ctMatches.length === 1) catId = _ctMatches[0].id;
-        }
+        // No client_text fallback — ID is the only source of truth
         result[cat.id] = catId;
     }
     return result;
@@ -174,26 +169,17 @@ function resolveMaterialsFromDmEntry(dmEntry, expCats) {
             try { sub = JSON.parse(sub); } catch(e) { result[cat.id] = null; continue; }
         }
         if (typeof sub === 'string') {
-            // Plain string (legacy) — try lookup by client_text
-            if (window.CATALOGUE_DATA) {
-                var _legacyMatches = CATALOGUE_DATA.filter(function(c) { return c.client_text === sub; });
-                result[cat.id] = _legacyMatches.length === 1 ? _legacyMatches[0].id : null;
-            } else {
-                result[cat.id] = null;
-            }
+            // Plain string (legacy) — no ID available, skip
+            result[cat.id] = null;
             continue;
         }
         var catId = sub.catalogue_item_id || null;
         // Validate in CATALOGUE_DATA
         if (catId && window.CATALOGUE_DATA) {
             var exists = CATALOGUE_DATA.some(function(c) { return c.id === catId; });
-            if (!exists) catId = null;
+            if (!exists) catId = null; // stale ID
         }
-        // Fallback: if no catalogue_item_id but client_text → lookup
-        if (!catId && sub.client_text && window.CATALOGUE_DATA) {
-            var _dmCtMatches = CATALOGUE_DATA.filter(function(c) { return c.client_text === sub.client_text; });
-            if (_dmCtMatches.length === 1) catId = _dmCtMatches[0].id;
-        }
+        // No client_text fallback — ID is the only source of truth
         result[cat.id] = catId;
     }
     return result;

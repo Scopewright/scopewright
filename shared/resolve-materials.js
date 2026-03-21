@@ -74,30 +74,48 @@ var COMPOSANTE_SUBFIELD_MAP = {
  * @param {array} expCats — expense_categories with { id, name, ... }
  * @returns {object} { "uuid-cat-1": "ST-0012", "uuid-cat-2": "ST-0048", ... }
  */
-function resolveMaterialsFromComposante(composante, expCats) {
+function resolveMaterialsFromComposante(composante, expCats, dmType) {
     if (!composante || !expCats || !expCats.length) return {};
     var result = {};
+
+    // Pass 1: FAB detection — scan sub-fields for fabrication articles
+    // Store under "$default:TypeDM" key (e.g. "$default:Facades")
+    var _subFields = ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'];
+    for (var _fi = 0; _fi < _subFields.length; _fi++) {
+        var _sf = _subFields[_fi];
+        var _cfMap = COMPOSANTE_SUBFIELD_MAP[_sf];
+        if (!_cfMap) continue;
+        var _cfId = composante[_cfMap.id] || null;
+        if (!_cfId || !window.CATALOGUE_DATA) continue;
+        var _cfItem = CATALOGUE_DATA.find(function(c) { return c.id === _cfId; });
+        if (_cfItem && (_cfItem.item_type === 'fabrication' || (_cfItem.item_type !== 'materiau' && _cfItem.calculation_rule_ai))) {
+            var _defKey = '$default:' + (dmType || 'Unknown');
+            result[_defKey] = _cfId;
+            break; // first FAB wins
+        }
+    }
+
+    // Pass 2: MAT resolution — map expense categories to catalogue items
     for (var i = 0; i < expCats.length; i++) {
         var cat = expCats[i];
         if (!cat.id || !cat.name) continue;
-        // Find which DM sub-field this expense category maps to
         var dmField = ENRICHED_DM_FIELD_MAP[cat.name.toUpperCase().trim()];
         if (!dmField) { result[cat.id] = null; continue; }
-        // Read from composante via COMPOSANTE_SUBFIELD_MAP
         var compField = COMPOSANTE_SUBFIELD_MAP[dmField];
         if (!compField) { result[cat.id] = null; continue; }
         var catId = composante[compField.id] || null;
         // Validate in CATALOGUE_DATA
         if (catId && window.CATALOGUE_DATA) {
             var exists = CATALOGUE_DATA.some(function(c) { return c.id === catId; });
-            if (!exists) catId = null; // stale ID
+            if (!exists) catId = null;
         }
-        // Fallback: if no catalogue_item_id but client_text exists → lookup by client_text
+        // Skip if this ID was already used as FAB in pass 1
+        if (catId && result['$default:' + (dmType || '')] === catId) { result[cat.id] = null; continue; }
+        // Fallback: client_text lookup
         if (!catId && composante[compField.text] && window.CATALOGUE_DATA) {
             var _ctLookup = composante[compField.text];
             var _ctMatches = CATALOGUE_DATA.filter(function(c) { return c.client_text === _ctLookup; });
             if (_ctMatches.length === 1) catId = _ctMatches[0].id;
-            // 2+ matches → leave null (ambiguous — legacy resolution will handle)
         }
         result[cat.id] = catId;
     }
@@ -121,6 +139,28 @@ function resolveMaterialsFromComposante(composante, expCats) {
 function resolveMaterialsFromDmEntry(dmEntry, expCats) {
     if (!dmEntry || !expCats || !expCats.length) return {};
     var result = {};
+    var dmType = dmEntry.type || '';
+
+    // Pass 1: FAB detection — scan enriched sub-fields for fabrication articles
+    var _dmSubFields = ['style', 'materiau', 'bande_chant', 'finition', 'bois_brut'];
+    for (var _dfi = 0; _dfi < _dmSubFields.length; _dfi++) {
+        var _dsf = _dmSubFields[_dfi];
+        var _dSub = dmEntry[_dsf];
+        if (!_dSub) continue;
+        if (typeof _dSub === 'string' && _dSub.charAt(0) === '{') {
+            try { _dSub = JSON.parse(_dSub); } catch(e) { continue; }
+        }
+        if (typeof _dSub === 'string') continue;
+        var _dCatId = _dSub.catalogue_item_id;
+        if (!_dCatId || !window.CATALOGUE_DATA) continue;
+        var _dItem = CATALOGUE_DATA.find(function(c) { return c.id === _dCatId; });
+        if (_dItem && (_dItem.item_type === 'fabrication' || (_dItem.item_type !== 'materiau' && _dItem.calculation_rule_ai))) {
+            result['$default:' + dmType] = _dCatId;
+            break;
+        }
+    }
+
+    // Pass 2: MAT resolution
     for (var i = 0; i < expCats.length; i++) {
         var cat = expCats[i];
         if (!cat.id || !cat.name) continue;
@@ -223,7 +263,7 @@ function fillResolvedMaterials(rowId, groupId) {
     if (chosenEntry.composante_id) {
         var comp = (window.COMPOSANTES_DATA || []).find(function(c) { return c.id === chosenEntry.composante_id; });
         if (comp) {
-            return resolveMaterialsFromComposante(comp, expCats);
+            return resolveMaterialsFromComposante(comp, expCats, chosenEntry.type || fabDmType);
         }
     }
 

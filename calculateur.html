@@ -6522,23 +6522,32 @@
                 if (_resolvedMaterials[parentRowId] && Object.keys(_resolvedMaterials[parentRowId]).length > 0) {
                     var _rmTarget = null;
                     if (rule.target.startsWith('$default:')) {
-                        // $default:X → look up the primary field for this type
+                        // $default:X → direct key lookup (e.g. "$default:Facades" → "ST-0045")
                         var _rmGroupName = rule.target.substring(9);
-                        var _rmField = _getDefaultField(_rmGroupName);
-                        // Try primary field UUID first, then group name UUID
-                        var _rmFieldCatId = _getExpenseCatId(_rmField === 'style' ? 'FACADE' : _rmField.toUpperCase());
-                        if (_rmFieldCatId && _resolvedMaterials[parentRowId][_rmFieldCatId]) {
-                            _rmTarget = _resolvedMaterials[parentRowId][_rmFieldCatId];
-                        }
-                        // Fallback: scan all resolved materials for a matching category name
+                        // Try exact key "$default:GroupName"
+                        _rmTarget = _resolvedMaterials[parentRowId]['$default:' + _rmGroupName] || null;
+                        // Fallback: try normalized variations
                         if (!_rmTarget) {
-                            var _rmKeys = Object.keys(_resolvedMaterials[parentRowId]);
-                            for (var _rmk = 0; _rmk < _rmKeys.length; _rmk++) {
-                                var _rmCat = expenseCategories.find(function(c) { return c.id === _rmKeys[_rmk]; });
+                            var _rmNorm = normalizeDmType(_rmGroupName);
+                            var _rmAllKeys = Object.keys(_resolvedMaterials[parentRowId]);
+                            for (var _rmk = 0; _rmk < _rmAllKeys.length; _rmk++) {
+                                if (_rmAllKeys[_rmk].startsWith('$default:') && normalizeDmType(_rmAllKeys[_rmk].substring(9)) === _rmNorm) {
+                                    _rmTarget = _resolvedMaterials[parentRowId][_rmAllKeys[_rmk]];
+                                    break;
+                                }
+                            }
+                        }
+                        // Also try expense category UUID for MAT-only $default: (e.g. $default:Caisson → panneau)
+                        if (!_rmTarget) {
+                            var _rmField = _getDefaultField(_rmGroupName);
+                            var _rmExpKeys = Object.keys(_resolvedMaterials[parentRowId]);
+                            for (var _rmk2 = 0; _rmk2 < _rmExpKeys.length; _rmk2++) {
+                                if (_rmExpKeys[_rmk2].startsWith('$')) continue; // skip $default: keys
+                                var _rmCat = expenseCategories.find(function(c) { return c.id === _rmExpKeys[_rmk2]; });
                                 if (_rmCat && _rmCat.name) {
                                     var _rmFieldForCat = ENRICHED_DM_FIELD_MAP[_rmCat.name.toUpperCase().trim()];
-                                    if (_rmFieldForCat === _rmField && _resolvedMaterials[parentRowId][_rmKeys[_rmk]]) {
-                                        _rmTarget = _resolvedMaterials[parentRowId][_rmKeys[_rmk]];
+                                    if (_rmFieldForCat === _rmField && _resolvedMaterials[parentRowId][_rmExpKeys[_rmk2]]) {
+                                        _rmTarget = _resolvedMaterials[parentRowId][_rmExpKeys[_rmk2]];
                                         break;
                                     }
                                 }

@@ -17,6 +17,7 @@
     <script src="shared/utils.js"></script>
     <script src="shared/pricing.js"></script>
     <script src="shared/coupe.js"></script>
+    <script src="shared/resolve-materials.js"></script>
     <script src="shared/pipeline.js"></script>
     <script src="shared/presentation-client.js"></script>
     <script src="shared/pdf-export.js"></script>
@@ -4624,19 +4625,8 @@
     }
 
     // ── Enriched DM field mapping (#208) ──
-    // Maps expense categories to enriched sub-fields on DM entries.
-    // Used by resolveMatchTarget tier 0 to resolve $match: without modals.
-    var ENRICHED_DM_FIELD_MAP = {
-        'BANDE DE CHANT': 'bande_chant',
-        'BANDE_DE_CHANT': 'bande_chant',
-        'FINITION': 'finition',
-        'FINITION BOIS': 'finition',
-        'BOIS BRUT': 'bois_brut',
-        'BOIS_BRUT': 'bois_brut',
-        'PLACAGE': 'materiau',
-        'PANNEAU': 'materiau',
-        'MATERIAU': 'materiau'
-    };
+    // ENRICHED_DM_FIELD_MAP moved to shared/resolve-materials.js (source de vérité unique)
+    // Available globally via window.ENRICHED_DM_FIELD_MAP
 
     /**
      * getEnrichedDmField(dmEntry, expenseCat)

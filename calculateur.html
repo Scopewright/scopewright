@@ -2922,8 +2922,14 @@
             if (isCatField) {
                 // Catalogue combobox search
                 var subVal = entry[field];
-                // Backward compat: style may be a plain string (legacy)
-                if (typeof subVal === 'string') subVal = { client_text: subVal };
+                // Backward compat: style may be a plain string (legacy) or serialized JSON
+                if (typeof subVal === 'string') {
+                    if (subVal.startsWith('{')) {
+                        try { subVal = JSON.parse(subVal); } catch(e) { subVal = { client_text: subVal }; }
+                    } else {
+                        subVal = { client_text: subVal };
+                    }
+                }
                 var subDisplay = '';
                 if (subVal && subVal.catalogue_item_id) {
                     subDisplay = _dmEnrichedDisplay(subVal.catalogue_item_id, subVal.client_text || '');

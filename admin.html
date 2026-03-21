@@ -2242,17 +2242,17 @@
         var html = '';
         for (var i = 0; i < expenseCategories.length; i++) {
             var c = expenseCategories[i];
-            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '', c.presentation_rule || '', c.calc_rule || '');
+            html += buildExpenseRowHtml(c.name, c.markup, c.waste, c.calc_template || c.rules_template || '', c.pres_template || '', c.presentation_rule || '', c.calc_rule || '', c.id || '');
         }
         body.innerHTML = html;
     }
 
-    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate, presRule, calcRule) {
+    function buildExpenseRowHtml(name, markup, waste, calcTemplate, presTemplate, presRule, calcRule, catId) {
         var hasContent = (calcTemplate || presTemplate || presRule || calcRule) ? ' open' : '';
         var showRow = hasContent ? 'table-row' : 'none';
         var presRuleStr = presRule ? (typeof presRule === 'string' ? presRule : JSON.stringify(presRule, null, 2)) : '';
         var calcRuleStr = calcRule ? (typeof calcRule === 'string' ? calcRule : JSON.stringify(calcRule, null, 2)) : '';
-        return '<tr class="expense-main-row">' +
+        return '<tr class="expense-main-row" data-cat-id="' + (catId || '') + '">' +
             '<td><button class="btn-expand-template' + hasContent + '" onclick="toggleExpenseTemplate(this)" title="Template AI">&#9654;</button></td>' +
             '<td><input type="text" class="input-email" value="' + escapeHtml(name) + '" placeholder="Nom de la cat\u00e9gorie"></td>' +
             '<td><input type="number" class="input-number" value="' + (markup || 0) + '" placeholder="0" step="1" min="0"></td>' +
@@ -2336,7 +2336,8 @@
                 presRuleStr = taPresRule ? taPresRule.value.trim() : '';
                 calcRuleStr = taCalcRule ? taCalcRule.value.trim() : '';
             }
-            var cat = { name: nameVal, markup: markupVal, waste: wasteVal };
+            var existingId = mainRows[i].getAttribute('data-cat-id');
+            var cat = { id: existingId || crypto.randomUUID(), name: nameVal, markup: markupVal, waste: wasteVal };
             if (calcTpl) cat.calc_template = calcTpl;
             if (presTpl) cat.pres_template = presTpl;
             if (presRuleStr) {

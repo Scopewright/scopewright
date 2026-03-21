@@ -1283,3 +1283,25 @@ L'ancien "enriched fallback" (après Step 4b + legacy) est retiré — Step 4a l
 - `$match:BANDE DE CHANT` résout via ENRICHED_DM_FIELD_MAP (correct)
 - Pas de régression sur les `$match:` — COMPOSANTE_FIELD_MAP est correct pour les catégories de dépense
 - 393 tests passent
+
+---
+
+## DEC-069 — Systeme resolved_materials
+
+**Date** : 2026-03-20
+
+**Contexte** : Le moteur cascade resout dynamiquement chaque $match: et $default: a chaque execution — 800+ lignes de logique fuzzy, word-similarity, tiers 0/1/2/3, modales, caches. Source constante de bugs (mauvais type DM, bande de chant du Caisson sur les Facades, modales parasites).
+
+**Decision** : Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping { expense_category_uuid: catalogue_item_id }. La cascade lit ce mapping au lieu de resoudre dynamiquement. La resolution est un evenement ponctuel (creation FAB, recalcul DM), pas un processus continu.
+
+**Architecture** :
+- `shared/resolve-materials.js` — module isole (272 lignes), fonctions pures + orchestration
+- `room_items.resolved_materials` JSONB en DB — survit au rechargement
+- `ENRICHED_DM_FIELD_MAP` deplace ici (source de verite unique)
+- Phase 1 creee, Phase 2 (integration cascade) a venir
+
+**Consequences** :
+- ~1200 lignes de resolution dynamique a supprimer de calculateur.html (Phase 2)
+- Zero modale au chargement — les cases sont deja remplies en DB
+- Le Recalculer vide les cases → re-remplit → re-cascade
+- Backward compatible — resolved_materials vide → l'ancienne resolution fonctionne

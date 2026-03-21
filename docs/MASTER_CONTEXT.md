@@ -46,6 +46,7 @@
 | `shared/sanity-checks.js` | `runSanityChecks()` — checks déterministes (no AI) |
 | `shared/calculateur.css` | Styles extraits du calculateur (cascade, DM, grille, overrides) |
 | `shared/coupe.js` | Logique coupes de placage — `getCoupeFacteur()`, `_detectEssence()`, `COUPE_TYPES` |
+| `shared/resolve-materials.js` | Résolution pré-calculée matériaux FAB — `resolveMaterialsFromComposante()`, `resolveMaterialsFromDmEntry()`, `fillResolvedMaterials()`, `clearResolvedMaterials()`, `ENRICHED_DM_FIELD_MAP` |
 
 ---
 
@@ -96,6 +97,7 @@ catalogue_change_log (audit AI)
 - `room_items.cascade_suppressed` = JSONB array d'IDs supprimés manuellement
 - `room_items.labor_override/material_override/price_override` = overrides par ligne
 - `room_items.composante_id` = UUID FK vers `composantes` (nullable, ON DELETE SET NULL)
+- `room_items.resolved_materials` = JSONB mapping `{ expense_category_uuid: catalogue_item_id }` — matériaux pré-résolus par FAB
 
 ---
 
@@ -405,6 +407,7 @@ Prix = Σ(labor_minutes[dept]/60 × taux_horaire[dept])
 | DEC-027 | Extraction `shared/presentation-client.js` | Réutilisation calculateur↔quote |
 | DEC-031 | PDFShift server-side (remplace html2pdf.js) | Rendu fidèle Chromium |
 | DEC-068 | Retrait `resolveByComposante` pour `$default:` | FAB-priority + Step 4a scannent dans l'ordre correct |
+| DEC-069 | `resolved_materials` JSONB sur `room_items` | Chaque FAB stocke ses matériaux résolus par catégorie de dépense UUID. `shared/resolve-materials.js` module isolé |
 
 ---
 

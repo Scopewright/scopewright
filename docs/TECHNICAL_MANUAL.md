@@ -1980,6 +1980,42 @@ Chargé via `<link rel="stylesheet" href="shared/calculateur.css">`.
 Dépendances globales requises : `COUPE_TYPES`, `roomDM`, `getDefaultMaterialsForGroup`.
 Chargé via `<script src="shared/coupe.js"></script>`.
 
+### 15.5 `shared/resolve-materials.js` (~272 lignes)
+
+Module de résolution pré-calculée des matériaux pour les articles FAB. Remplace la résolution dynamique (fuzzy, tiers, modales) par un mapping statique persisté en DB.
+
+#### Concept
+
+Chaque FAB stocke un `resolved_materials` JSONB dans `room_items` — un mapping `{ expense_category_uuid: catalogue_item_id }`. La cascade lit ce mapping au lieu de résoudre dynamiquement à chaque exécution.
+
+#### Fonctions exportées
+
+| Fonction | Rôle |
+|----------|------|
+| `resolveMaterialsFromComposante(composanteId, composantesData, catalogueData)` | Résout les matériaux depuis les champs d'une composante |
+| `resolveMaterialsFromDmEntry(dmEntry, catalogueData, expenseCategories)` | Résout les matériaux depuis une entrée DM enrichie |
+| `fillResolvedMaterials(fabRowId, groupId)` | Orchestre la résolution complète pour un FAB (composante-first, fallback DM) |
+| `clearResolvedMaterials(fabRowId)` | Vide le mapping (utilisé par Recalculer avant re-résolution) |
+
+#### Mappings exportés
+
+| Constante | Rôle |
+|-----------|------|
+| `ENRICHED_DM_FIELD_MAP` | Mappe les catégories de dépense vers les sous-champs DM enrichis (`PLACAGE` → `materiau`, `BANDE DE CHANT` → `bande_chant`, etc.). Source de vérité unique (déplacé de calculateur.html) |
+| `COMPOSANTE_SUBFIELD_MAP` | Mappe les sous-champs composante vers les champs DB (`materiau` → `materiau_catalogue_id`, etc.) |
+
+#### Migrations SQL
+
+- `sql/resolved_materials.sql` — `ALTER TABLE room_items ADD COLUMN resolved_materials JSONB`
+- `sql/expense_categories_uuid.sql` — prérequis : ajoute des UUID stables aux catégories de dépense dans `app_config`
+
+#### Intégration cascade (Phase 2 — planifiée)
+
+La Phase 2 modifiera `executeCascade` pour lire `resolved_materials` au lieu d'appeler `resolveCascadeTarget` / `resolveMatchTarget`. Supprimera ~1200 lignes de résolution dynamique. Backward compatible : si `resolved_materials` est vide, l'ancienne résolution fonctionne.
+
+Dépendances globales requises : `COMPOSANTES_DATA`, `CATALOGUE_DATA`, `EXPENSE_CATEGORIES`, `roomDM`.
+Chargé via `<script src="shared/resolve-materials.js"></script>`.
+
 ---
 
 *Fin du manuel technique. Ce document couvre l'intégralité de l'architecture, des systèmes et des flux de données de la plateforme Scopewright/Stele.*
